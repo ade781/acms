@@ -7,6 +7,7 @@ export const getDashboardSummary = async (req, res) => {
 
     const shiftDate = date || new Date().toISOString().split('T')[0];
     const shiftNumber = shift ? Number(shift) : 1;
+    const cleanTeamGroup = (team_group || 'Alpha').replace(/^regu\s+/i, '').trim();
 
     // 1. Data shift aktif
     let shiftQuery = `
@@ -16,9 +17,9 @@ export const getDashboardSummary = async (req, res) => {
       WHERE ps.shift_date = ? AND ps.shift_number = ?
     `;
     const shiftParams = [shiftDate, shiftNumber];
-    if (team_group) {
+    if (cleanTeamGroup) {
       shiftQuery += ' AND ps.team_group = ?';
-      shiftParams.push(team_group);
+      shiftParams.push(cleanTeamGroup);
     }
 
     const [shifts] = await pool.query(shiftQuery, shiftParams);
@@ -79,11 +80,19 @@ export const getDashboardSummary = async (req, res) => {
       inspector_name: null
     };
 
-    // 4. Kekuatan Personel Dinas
+    // 4. Kekuatan Personel Dinas (Berdasarkan Regu yang Sedang Bertugas)
+    const [teamRosterRows] = await pool.query(
+      `SELECT COUNT(*) as total_members FROM personnel WHERE team_group = ? AND is_active = 1`,
+      [cleanTeamGroup]
+    );
+    const totalTeamMembers = Number(teamRosterRows[0]?.total_members) || 17;
+
     let personnelSummary = {
-      total_roster: 0,
+      total_roster: totalTeamMembers,
       present_count: 0,
+      duty_count: 0,
       absent_count: 0,
+      is_plotted: false,
       absent_details: []
     };
 
@@ -100,14 +109,16 @@ export const getDashboardSummary = async (req, res) => {
       const absent = deployments.filter(d => d.deployment_type === 'absent');
 
       personnelSummary = {
-        total_roster: deployments.length,
+        total_roster: totalTeamMembers,
         present_count: present.length,
+        duty_count: present.length,
         absent_count: absent.length,
+        is_plotted: deployments.length > 0,
         absent_details: absent.map(a => ({
           personnel_id: a.personnel_id,
           full_name: a.full_name,
-          reason: a.absent_reason,
-          notes: a.notes
+          reason: a.absent_reason || 'cuti',
+          notes: a.notes || ''
         }))
       };
     }
@@ -139,11 +150,14 @@ export const getDashboardSummary = async (req, res) => {
     return successResponse(res, 'Ringkasan KPI dashboard berhasil diambil', {
       shift_date: shiftDate,
       shift_number: shiftNumber,
-      team_group: activeShift ? activeShift.team_group : (team_group || 'Alpha'),
+      team_group: activeShift ? activeShift.team_group : cleanTeamGroup,
       shift: activeShift,
       fleet: fleetSummary,
       watchroom: watchroomSummary,
       personnel: personnelSummary,
+      duty_count: personnelSummary.duty_count,
+      absent_count: personnelSummary.absent_count,
+      total_team_members: totalTeamMembers,
       incidents: {
         total_open: openIncidents.length,
         recent: incidents

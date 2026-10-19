@@ -1,8 +1,9 @@
 import bcrypt from 'bcryptjs';
 import pool from './db.js';
+import { seedPersonnel } from './seedPersonnel.js';
 
 async function seed() {
-  console.log('Menjalankan seeder akun admin tunggal (tanpa dummy data)...');
+  console.log('Menjalankan seeder akun admin...');
 
   const username = 'aaa';
   const plainPassword = 'aaaaaa';
@@ -29,10 +30,8 @@ async function seed() {
     console.log(`Akun admin '${username}' (${name}) berhasil dibuat.`);
   }
 
-  // Verifikasi tidak ada data dummy
-  const [vehicles] = await pool.query('SELECT COUNT(*) as count FROM vehicles');
-  const [personnel] = await pool.query('SELECT COUNT(*) as count FROM personnel');
-  console.log(`Pemeriksaan integritas: ${vehicles[0].count} armada, ${personnel[0].count} personel (Sesuai aturan: KOSONG).`);
+  // Seed 68 data personel resmi 4 regu (Alpha, Bravo, Charlie, Delta)
+  await seedPersonnel();
 
   await pool.end();
 }

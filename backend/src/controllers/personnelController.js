@@ -30,9 +30,9 @@ export const getPersonnelList = async (req, res) => {
     }
 
     if (search) {
-      query += ` AND (p.full_name LIKE ? OR p.rank_position LIKE ?)`;
+      query += ` AND (p.full_name LIKE ? OR p.rank_position LIKE ? OR p.nip LIKE ?)`;
       const searchParam = `%${search}%`;
-      params.push(searchParam, searchParam);
+      params.push(searchParam, searchParam, searchParam);
     }
 
     query += ` ORDER BY p.team_group ASC, p.id ASC`;
