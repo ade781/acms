@@ -25,19 +25,32 @@ export const getDashboardSummary = async (req, res) => {
     const [shifts] = await pool.query(shiftQuery, shiftParams);
     const activeShift = shifts.length > 0 ? shifts[0] : null;
 
-    // 2. Ringkasan kesiapan armada
+    // 2. Ringkasan kesiapan armada (terikat ketat pada shift_date, shift_number, dan cleanTeamGroup)
     const [vehicles] = await pool.query(
       `SELECT v.id, v.code_name, v.vehicle_name, v.category,
               COALESCE(vrl.status, 'belum_dilaporkan') as status,
               vrl.justification, vrl.photo_webp_url, vrl.follow_up_status,
-              p.full_name as pic_name
+              COALESCE(deploy_pic.full_name, p_log.full_name) as pic_name
        FROM vehicles v
        LEFT JOIN vehicle_readiness_logs vrl
-         ON vrl.vehicle_id = v.id AND vrl.shift_date = ? AND vrl.shift_number = ?
-       LEFT JOIN personnel p
-         ON p.id = vrl.pic_personnel_id
+         ON vrl.vehicle_id = v.id
+        AND vrl.shift_date = ?
+        AND vrl.shift_number = ?
+        AND vrl.team_group = ?
+       LEFT JOIN (
+         SELECT pd.vehicle_id, p.full_name
+         FROM personnel_deployments pd
+         JOIN personnel_shifts ps ON ps.id = pd.shift_id
+         JOIN personnel p ON p.id = pd.personnel_id
+         WHERE ps.shift_date = ?
+           AND ps.shift_number = ?
+           AND ps.team_group = ?
+           AND pd.is_pic = 1
+       ) deploy_pic ON deploy_pic.vehicle_id = v.id
+       LEFT JOIN personnel p_log
+         ON p_log.id = vrl.pic_personnel_id
        WHERE v.is_active = 1`,
-      [shiftDate, shiftNumber]
+      [shiftDate, shiftNumber, cleanTeamGroup, shiftDate, shiftNumber, cleanTeamGroup]
     );
 
     let serviceableCount = 0;

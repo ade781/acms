@@ -140,6 +140,29 @@ export function mapRankPositionToRole(rank) {
   return 'junior_firefighter';
 }
 
+async function generateUniqueUsername(nip, fullName) {
+  let baseUsername = '';
+  if (nip && nip.trim() && nip.trim() !== '-') {
+    baseUsername = nip.trim().replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+  }
+  if (!baseUsername) {
+    const cleanName = fullName.trim().toLowerCase().replace(/[^a-z0-9\s]/g, '');
+    const parts = cleanName.split(/\s+/).filter(Boolean);
+    baseUsername = parts[0] || 'personel';
+  }
+
+  let finalUsername = baseUsername;
+  let counter = 1;
+  while (true) {
+    const [existing] = await pool.query('SELECT id FROM users WHERE username = ?', [finalUsername]);
+    if (existing.length === 0) {
+      return finalUsername;
+    }
+    counter++;
+    finalUsername = `${baseUsername}${counter}`;
+  }
+}
+
 export const createPersonnel = async (req, res) => {
   try {
     const {
@@ -153,7 +176,6 @@ export const createPersonnel = async (req, res) => {
       cert_level = 'Basic',
       cert_number,
       cert_expiry_date,
-      create_user_account,
       username,
       password,
       role
@@ -168,28 +190,28 @@ export const createPersonnel = async (req, res) => {
       return errorResponse(res, 'Regu dinas harus salah satu dari: Alpha, Bravo, Charlie, Delta', 400);
     }
 
-    let linkedUserId = null;
-
-    // Jika ingin sekaligus membuat akun login pengguna
-    if (create_user_account && username && password) {
-      const [existingUser] = await pool.query('SELECT id FROM users WHERE username = ?', [username]);
+    // 1. Otomatis buatkan akun pengguna langsung untuk setiap personel baru
+    let accountUsername = username;
+    if (!accountUsername) {
+      accountUsername = await generateUniqueUsername(nip, full_name);
+    } else {
+      const [existingUser] = await pool.query('SELECT id FROM users WHERE username = ?', [accountUsername]);
       if (existingUser.length > 0) {
-        return errorResponse(res, 'Username akun pengguna sudah digunakan', 400);
+        accountUsername = await generateUniqueUsername(nip, full_name);
       }
-
-      const salt = await bcrypt.genSalt(10);
-      const passwordHash = await bcrypt.hash(password, salt);
-
-      // Hitung role otomatis berdasarkan jabatan operasional yang dipilih
-      const effectiveRole = role && role !== 'operator' ? role : mapRankPositionToRole(rank_position);
-
-      const [userResult] = await pool.query(
-        'INSERT INTO users (username, name, password_hash, role) VALUES (?, ?, ?, ?)',
-        [username, full_name, passwordHash, effectiveRole]
-      );
-      linkedUserId = userResult.insertId;
     }
 
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(password || '123456', salt);
+    const effectiveRole = role && role !== 'operator' ? role : mapRankPositionToRole(rank_position);
+
+    const [userResult] = await pool.query(
+      'INSERT INTO users (username, name, password_hash, role, must_change_password) VALUES (?, ?, ?, ?, 1)',
+      [accountUsername, full_name, passwordHash, effectiveRole]
+    );
+    const linkedUserId = userResult.insertId;
+
+    // 2. Simpan data personel tertaut dengan akun pengguna
     const [result] = await pool.query(
       `INSERT INTO personnel (
         user_id, nip, full_name, rank_position, birth_date,
@@ -198,7 +220,7 @@ export const createPersonnel = async (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
       [
         linkedUserId,
-        nip,
+        nip || null,
         full_name,
         rank_position,
         birth_date || null,
@@ -214,10 +236,18 @@ export const createPersonnel = async (req, res) => {
     const newPersonnelId = result.insertId;
     const [createdRows] = await pool.query('SELECT * FROM personnel WHERE id = ?', [newPersonnelId]);
 
-    return createdResponse(res, 'Data personel berhasil ditambahkan', createdRows[0]);
+    return createdResponse(
+      res,
+      `Personel berhasil ditambahkan. Akun login otomatis dibuat: Username "${accountUsername}", Kata Sandi Default "123456".`,
+      {
+        ...createdRows[0],
+        created_username: accountUsername,
+        default_password: '123456'
+      }
+    );
   } catch (error) {
     console.error('Error createPersonnel:', error);
-    return errorResponse(res, 'Gagal menambahkan personel', 500);
+    return errorResponse(res, 'Gagal menambahkan personel: ' + error.message, 500);
   }
 };
 

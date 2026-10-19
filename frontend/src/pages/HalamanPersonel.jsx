@@ -28,7 +28,9 @@ export default function HalamanPersonel() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [fullName, setFullName] = useState('');
   const [nip, setNip] = useState('');
-  const [rankPosition, setRankPosition] = useState(OPERATIONAL_ROLES[4].rank_position);
+  const [rankPosition, setRankPosition] = useState(
+    OPERATIONAL_ROLES.find((r) => r.role === 'junior_firefighter')?.rank_position || OPERATIONAL_ROLES[0].rank_position
+  );
   const [teamGroup, setTeamGroup] = useState('Alpha');
   const [certLevel, setCertLevel] = useState('Junior');
   const [certNumber, setCertNumber] = useState('');
@@ -36,6 +38,7 @@ export default function HalamanPersonel() {
   const [employmentStatus, setEmploymentStatus] = useState('organik');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
+  const [successNotification, setSuccessNotification] = useState(null);
 
   const fetchPersonnel = useCallback(async () => {
     setLoading(true);
@@ -77,7 +80,7 @@ export default function HalamanPersonel() {
 
     setSaving(true);
     try {
-      await api.post('/personnel', {
+      const res = await api.post('/personnel', {
         nip: nip.trim() || null,
         full_name: fullName,
         rank_position: rankPosition,
@@ -89,11 +92,16 @@ export default function HalamanPersonel() {
         is_active: 1,
       });
 
+      setSuccessNotification(
+        res.data?.message || `Personel ${fullName} berhasil ditambahkan beserta akun login otomatis (Sandi: 123456).`
+      );
       setAddModalOpen(false);
       // Reset form
       setFullName('');
       setNip('');
-      setRankPosition(OPERATIONAL_ROLES[4].rank_position);
+      setRankPosition(
+        OPERATIONAL_ROLES.find((r) => r.role === 'junior_firefighter')?.rank_position || OPERATIONAL_ROLES[0].rank_position
+      );
       setCertNumber('');
       fetchPersonnel();
     } catch (err) {
@@ -169,8 +177,120 @@ export default function HalamanPersonel() {
         </div>
       </div>
 
+      {/* Success Notification Alert */}
+      {successNotification && (
+        <div className="mb-5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center justify-between gap-3 shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <UserCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            <span className="font-medium">{successNotification}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSuccessNotification(null)}
+            className="text-emerald-700 hover:text-emerald-900 font-bold px-2 py-1"
+          >
+            Tutup
+          </button>
+        </div>
+      )}
+
+      {/* Container Ringkasan Kekuatan Personel & Regu */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
+        {/* Total Personel */}
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm col-span-2 sm:col-span-1 flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              Total Personel
+            </span>
+            <Users className="w-4 h-4 text-slate-400" />
+          </div>
+          <div className="my-2 flex items-baseline gap-1.5">
+            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              {personnelList.length}
+            </span>
+            <span className="text-xs text-slate-500 font-medium">Anggota</span>
+          </div>
+          <div className="text-[11px] text-slate-400 font-medium">
+            4 Regu Siaga Operasional
+          </div>
+        </div>
+
+        {/* 4 Regu Breakdown (Alpha, Bravo, Charlie, Delta) */}
+        {['Alpha', 'Bravo', 'Charlie', 'Delta'].map((teamName) => {
+          const teamCount = personnelList.filter(
+            (p) => cleanTeam(p.team_group).toLowerCase() === teamName.toLowerCase()
+          ).length;
+          const isOnDuty = cleanTeam(teamName).toLowerCase() === cleanTeam(activeTeam).toLowerCase();
+
+          const teamStyles = {
+            alpha: {
+              activeCard: 'bg-red-50/90 border-red-300 ring-2 ring-red-400/25 text-red-950 shadow-sm',
+              activeBadge: 'bg-red-100 text-red-800 border-red-300',
+              activeCount: 'text-red-900',
+              inactiveCard: 'bg-white border-slate-200 text-slate-700',
+            },
+            bravo: {
+              activeCard: 'bg-blue-50/90 border-blue-300 ring-2 ring-blue-400/25 text-blue-950 shadow-sm',
+              activeBadge: 'bg-blue-100 text-blue-800 border-blue-300',
+              activeCount: 'text-blue-900',
+              inactiveCard: 'bg-white border-slate-200 text-slate-700',
+            },
+            charlie: {
+              activeCard: 'bg-emerald-50/90 border-emerald-300 ring-2 ring-emerald-400/25 text-emerald-950 shadow-sm',
+              activeBadge: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+              activeCount: 'text-emerald-900',
+              inactiveCard: 'bg-white border-slate-200 text-slate-700',
+            },
+            delta: {
+              activeCard: 'bg-purple-50/90 border-purple-300 ring-2 ring-purple-400/25 text-purple-950 shadow-sm',
+              activeBadge: 'bg-purple-100 text-purple-800 border-purple-300',
+              activeCount: 'text-purple-900',
+              inactiveCard: 'bg-white border-slate-200 text-slate-700',
+            },
+          };
+          const s = teamStyles[teamName.toLowerCase()];
+
+          return (
+            <div
+              key={teamName}
+              className={`rounded-xl border p-4 shadow-sm flex flex-col justify-between transition-colors duration-100 ${
+                isOnDuty ? s.activeCard : s.inactiveCard
+              }`}
+            >
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-xs font-bold uppercase tracking-wider">
+                  Regu {teamName}
+                </span>
+                {isOnDuty ? (
+                  <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-full border ${s.activeBadge}`}>
+                    Bertugas
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-medium text-slate-400">
+                    Off
+                  </span>
+                )}
+              </div>
+              <div className="my-2 flex items-baseline gap-1.5">
+                <span className={`text-2xl sm:text-3xl font-extrabold tracking-tight ${isOnDuty ? s.activeCount : 'text-slate-900'}`}>
+                  {teamCount}
+                </span>
+                <span className="text-xs text-slate-500 font-medium">Personel</span>
+              </div>
+              <div className="text-[11px] font-medium">
+                {isOnDuty ? (
+                  <span className="font-bold text-emerald-700">Dinas Aktif Saat Ini</span>
+                ) : (
+                  <span className="text-slate-400">Siaga Cadangan</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
       {/* Filter Bar */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-8 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-6 flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="w-full sm:max-w-md">
           <InputField
             id="searchPersonnel"
@@ -183,7 +303,7 @@ export default function HalamanPersonel() {
         <div className="text-xs text-slate-500 font-medium">
           Dinas Aktif: <span className="font-bold text-slate-800">{formatTeam(activeTeam)}</span>
           <span className="text-slate-300 mx-2">•</span>
-          Total: <span className="font-bold text-slate-800">{personnelList.length}</span> personel (4 Regu)
+          Menampilkan <span className="font-bold text-slate-800">{personnelList.length}</span> personel
         </div>
       </div>
 

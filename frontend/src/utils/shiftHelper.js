@@ -202,12 +202,6 @@ export const formatTanggalIndonesia = formatIndoDate;
  */
 export const OPERATIONAL_ROLES = [
   {
-    role: 'dept_head',
-    rank_position: 'Airport Rescue & Fire Fighting Dept. Head',
-    label: 'Airport Rescue & Fire Fighting Dept. Head',
-    badgeClass: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-800',
-  },
-  {
     role: 'chief',
     rank_position: 'ARFF Operation Chief',
     label: 'ARFF Operation Chief',

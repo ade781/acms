@@ -6,6 +6,9 @@ import {
   Edit3,
   CheckCircle2,
   AlertCircle,
+  RotateCcw,
+  Copy,
+  Info,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam, TEAMS } from '../utils/shiftHelper';
@@ -34,18 +37,22 @@ export default function HalamanJadwal() {
   const [error, setError] = useState(null);
   const [rowMode, setRowMode] = useState('shift'); // 'shift' atau 'team'
 
-  // Override Modal State
-  const [overrideModalOpen, setOverrideModalOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState('');
-  const [shift1Team, setShift1Team] = useState('Delta');
-  const [shift2Team, setShift2Team] = useState('Charlie');
-  const [shift3Team, setShift3Team] = useState('Alpha');
-  const [offTeam, setOffTeam] = useState('Bravo');
-  const [notes, setNotes] = useState('');
-  const [isCurrentlyOverridden, setIsCurrentlyOverridden] = useState(false);
+  // Cycle Modal State (Pergantian Jadwal Keseluruhan)
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [cycleStartDate, setCycleStartDate] = useState('');
+  const [cycleDays, setCycleDays] = useState([]);
+  const [cycleNotes, setCycleNotes] = useState('');
+  const [loadingCycle, setLoadingCycle] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
+
+  const getLocalDateStr = (d = new Date()) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
 
   const fetchMonthlySchedule = useCallback(async () => {
     setLoading(true);
@@ -89,108 +96,144 @@ export default function HalamanJadwal() {
     setSelectedMonth(today.getMonth() + 1);
   };
 
+  /**
+   * Mengambil preview 8 hari siklus mulai dari tanggal tertentu
+   */
+  const loadCyclePreview = async (startDate) => {
+    setLoadingCycle(true);
+    setFormError(null);
+    try {
+      const res = await api.get(`/schedules/cycle?start_date=${startDate}`);
+      const preview = res.data?.data?.days || [];
+      setCycleDays(preview);
+    } catch (err) {
+      console.error('Error loading cycle preview:', err);
+      setFormError('Gagal memuat pola 8 hari untuk tanggal ini.');
+    } finally {
+      setLoadingCycle(false);
+    }
+  };
+
   const handleOpenEditModal = (dayItemOrDate) => {
     if (!isAdmin && !isSupervisor) return;
-    let dayItem = null;
     let targetDate = '';
 
     if (typeof dayItemOrDate === 'string') {
       targetDate = dayItemOrDate;
-      dayItem = (scheduleData?.schedule || []).find((d) => d.date === targetDate);
     } else if (dayItemOrDate && dayItemOrDate.date) {
-      dayItem = dayItemOrDate;
-      targetDate = dayItem.date;
-    }
-
-    setSelectedDate(targetDate);
-    if (dayItem) {
-      setShift1Team(dayItem.shift_1);
-      setShift2Team(dayItem.shift_2);
-      setShift3Team(dayItem.shift_3);
-      setOffTeam(dayItem.off_team);
-      setNotes(dayItem.notes || '');
-      setIsCurrentlyOverridden(Boolean(dayItem.is_override));
+      targetDate = dayItemOrDate.date;
     } else {
-      setIsCurrentlyOverridden(false);
-      setNotes('');
+      targetDate = getLocalDateStr();
     }
+
+    setCycleStartDate(targetDate);
+    setCycleNotes('');
     setFormError(null);
-    setOverrideModalOpen(true);
+    setEditModalOpen(true);
+    loadCyclePreview(targetDate);
   };
 
-  const handleModalDateChange = (newDateStr) => {
-    setSelectedDate(newDateStr);
-    const matched = (scheduleData?.schedule || []).find((d) => d.date === newDateStr);
-    if (matched) {
-      setShift1Team(matched.shift_1);
-      setShift2Team(matched.shift_2);
-      setShift3Team(matched.shift_3);
-      setOffTeam(matched.off_team);
-      setNotes(matched.notes || '');
-      setIsCurrentlyOverridden(Boolean(matched.is_override));
-    } else {
-      setIsCurrentlyOverridden(false);
-    }
+  const handleStartDateChange = (newDateStr) => {
+    setCycleStartDate(newDateStr);
+    loadCyclePreview(newDateStr);
   };
 
-  const handleShiftChange = (shiftNum, val) => {
-    const s1 = shiftNum === 1 ? val : shift1Team;
-    const s2 = shiftNum === 2 ? val : shift2Team;
-    const s3 = shiftNum === 3 ? val : shift3Team;
+  /**
+   * Mengubah regu untuk shift tertentu pada hari ke-i
+   */
+  const handleShiftChange = (dayIdx, shiftNum, newTeam) => {
+    setCycleDays((prev) => {
+      const updated = [...prev];
+      const cur = { ...updated[dayIdx] };
 
-    if (shiftNum === 1) setShift1Team(val);
-    if (shiftNum === 2) setShift2Team(val);
-    if (shiftNum === 3) setShift3Team(val);
+      if (shiftNum === 1) cur.shift_1 = newTeam;
+      if (shiftNum === 2) cur.shift_2 = newTeam;
+      if (shiftNum === 3) cur.shift_3 = newTeam;
 
-    const all = ['Alpha', 'Bravo', 'Charlie', 'Delta'];
-    const remaining = all.find((t) => t !== s1 && t !== s2 && t !== s3);
-    if (remaining) {
-      setOffTeam(remaining);
-    }
+      // Hitung regu libur otomatis dari sisa
+      const remaining = TEAMS.find(
+        (t) => t !== cur.shift_1 && t !== cur.shift_2 && t !== cur.shift_3
+      );
+      if (remaining) {
+        cur.off_team = remaining;
+      }
+
+      updated[dayIdx] = cur;
+      return updated;
+    });
   };
 
-  const handleSaveOverride = async (e) => {
-    e.preventDefault();
+  /**
+   * Menyalin pola hari ganjil ke hari genap berikutnya (Siklus 2 Hari ARFF: 1->2, 3->4, 5->6, 7->8)
+   */
+  const handleCopyOddToEven = () => {
+    setCycleDays((prev) => {
+      const updated = [...prev];
+      for (let i = 0; i < 8; i += 2) {
+        if (updated[i] && updated[i + 1]) {
+          updated[i + 1] = {
+            ...updated[i + 1],
+            shift_1: updated[i].shift_1,
+            shift_2: updated[i].shift_2,
+            shift_3: updated[i].shift_3,
+            off_team: updated[i].off_team,
+          };
+        }
+      }
+      return updated;
+    });
+  };
+
+  /**
+   * Menyimpan pergantian jadwal 8 hari keseluruhan
+   */
+  const handleSaveCycle = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
     setFormError(null);
 
-    const selectedList = [shift1Team, shift2Team, shift3Team];
-    const unique = new Set(selectedList);
-    if (unique.size !== 3) {
-      setFormError('Shift 1, 2, dan 3 tidak boleh diisi nama yang sama.');
-      return;
+    // Validasi setiap hari tidak boleh ada regu sama di shift 1, 2, 3
+    for (let i = 0; i < cycleDays.length; i++) {
+      const d = cycleDays[i];
+      const list = [d.shift_1, d.shift_2, d.shift_3];
+      const unique = new Set(list);
+      if (unique.size !== 3) {
+        setFormError(`Hari ke-${i + 1} (${d.date}): Shift 1, 2, dan 3 harus diisi regu yang berbeda.`);
+        return;
+      }
     }
 
     setSaving(true);
     try {
-      await api.post('/schedules/override', {
-        roster_date: selectedDate,
-        shift_1_team: shift1Team,
-        shift_2_team: shift2Team,
-        shift_3_team: shift3Team,
-        off_team: offTeam,
-        notes: notes.trim() || null,
+      await api.post('/schedules/cycle', {
+        start_date: cycleStartDate,
+        pattern: cycleDays,
+        notes: cycleNotes.trim() || null,
       });
 
-      setSuccessMessage(`Jadwal ${selectedDate} berhasil disimpan.`);
-      setOverrideModalOpen(false);
+      setSuccessMessage(`Pergantian jadwal berhasil diterapkan secara keseluruhan mulai ${cycleStartDate}.`);
+      setEditModalOpen(false);
       fetchMonthlySchedule();
     } catch (err) {
-      console.error('Error saving override:', err);
-      setFormError(err.response?.data?.message || err.message || 'Gagal menyimpan jadwal.');
+      console.error('Error saving cycle:', err);
+      setFormError(err.response?.data?.message || err.message || 'Gagal menyimpan pergantian jadwal.');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleResetOverride = async () => {
-    if (!window.confirm(`Reset jadwal ${selectedDate} ke otomatis?`)) {
+  /**
+   * Reset seluruh jadwal ke pola rotasi standar otomatis
+   */
+  const handleResetToDefault = async () => {
+    if (!window.confirm('Kembalikan seluruh jadwal dinas ke pola rotasi standar otomatis ARFF?')) {
       return;
     }
+
     setSaving(true);
     try {
-      await api.delete(`/schedules/override/${selectedDate}`);
-      setSuccessMessage(`Jadwal ${selectedDate} dikembalikan ke otomatis.`);
-      setOverrideModalOpen(false);
+      await api.delete('/schedules/cycle');
+      setSuccessMessage('Seluruh jadwal telah dikembalikan ke pola rotasi standar otomatis.');
+      setEditModalOpen(false);
       fetchMonthlySchedule();
     } catch (err) {
       alert(`Gagal mereset: ${err.response?.data?.message || err.message}`);
@@ -227,13 +270,6 @@ export default function HalamanJadwal() {
     }
   };
 
-  const getLocalDateStr = (d = new Date()) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
-
   const isToday = (dateStr) => {
     return getLocalDateStr() === dateStr;
   };
@@ -249,6 +285,9 @@ export default function HalamanJadwal() {
             <CalendarIcon className="w-5 h-5 text-arff-primary" />
             Jadwal Dinas
           </h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Rotasi dinas 4 regu berulang dalam siklus 8 hari
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -262,7 +301,7 @@ export default function HalamanJadwal() {
                 handleOpenEditModal(todayStr);
               }}
             >
-              Ubah Jadwal
+              Ubah Siklus Jadwal
             </Button>
           )}
         </div>
@@ -370,12 +409,12 @@ export default function HalamanJadwal() {
                               ? 'text-red-600'
                               : 'text-slate-700'
                           } hover:bg-slate-200`}
-                          title={`Tanggal ${item.day} (${item.day_name})${isAdmin || isSupervisor ? ' - Klik untuk ubah' : ''}`}
+                          title={`Tanggal ${item.day} (${item.day_name})${isAdmin || isSupervisor ? ' - Klik untuk ubah siklus mulai tanggal ini' : ''}`}
                         >
                           <div className="text-[10px] uppercase font-normal opacity-75">{dayShort}</div>
                           <div className="text-sm font-bold leading-tight">{item.day}</div>
                           {item.is_override && (
-                            <span className="block mx-auto w-1.5 h-1.5 rounded-full bg-amber-500 mt-0.5" title="Disesuaikan manual" />
+                            <span className="block mx-auto w-1.5 h-1.5 rounded-full bg-amber-500 mt-0.5" title="Siklus disesuaikan" />
                           )}
                         </th>
                       );
@@ -452,7 +491,7 @@ export default function HalamanJadwal() {
                             onClick={() => handleOpenEditModal(item)}
                             className="py-2 px-1.5 border-r border-slate-100 cursor-pointer hover:bg-slate-100/70"
                           >
-                            <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-medium opacity-75 ${getTeamPillClass(item.off_team)}`}>
+                            <span className="inline-block px-2 py-0.5 rounded text-[11px] font-medium text-slate-500 bg-slate-100">
                               {item.off_team}
                             </span>
                           </td>
@@ -460,23 +499,23 @@ export default function HalamanJadwal() {
                       </tr>
                     </>
                   ) : (
-                    // MODE 2: BARIS NAMA (Alpha, Bravo, Charlie, Delta)
-                    ['Alpha', 'Bravo', 'Charlie', 'Delta'].map((teamName) => (
+                    // MODE 2: BARIS REGU (Alpha, Bravo, Charlie, Delta)
+                    TEAMS.map((teamName) => (
                       <tr key={teamName} className="hover:bg-slate-50/50">
-                        <td className="py-2.5 px-3 sticky left-0 z-10 bg-white border-r border-slate-200 text-left font-bold shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)]">
-                          <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${getTeamPillClass(teamName)}`}>
-                            {teamName}
+                        <td className="py-2.5 px-3 sticky left-0 z-10 bg-white border-r border-slate-200 text-left shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)]">
+                          <span className={`inline-block px-2.5 py-1 rounded text-xs font-bold ${getTeamPillClass(teamName)}`}>
+                            Regu {teamName}
                           </span>
                         </td>
                         {daysList.map((item) => {
-                          const duty = item.team_duties[teamName] || 'Libur';
+                          const duty = item.team_duties?.[teamName] || 'Libur';
                           return (
                             <td
-                              key={`${teamName}-${item.date}`}
+                              key={`team-${teamName}-${item.date}`}
                               onClick={() => handleOpenEditModal(item)}
                               className="py-2 px-1.5 border-r border-slate-100 cursor-pointer hover:bg-slate-100/70"
                             >
-                              <span className={`inline-block px-2 py-1 rounded text-[11px] font-bold ${getDutyBadgeClass(duty)}`}>
+                              <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${getDutyBadgeClass(duty)}`}>
                                 {duty}
                               </span>
                             </td>
@@ -492,41 +531,41 @@ export default function HalamanJadwal() {
             {/* Petunjuk Interaksi */}
             {(isAdmin || isSupervisor) && (
               <div className="p-2.5 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 text-center">
-                Klik pada kolom tanggal untuk mengubah jadwal
+                Klik pada kolom tanggal atau tombol &quot;Ubah Siklus Jadwal&quot; untuk mengganti pola rotasi 8 hari secara keseluruhan.
               </div>
             )}
           </div>
         )}
       </StateView>
 
-      {/* Modal Sesuaikan Jadwal */}
-      {overrideModalOpen && (
+      {/* Modal Pergantian Jadwal Siklus 8 Hari (Secara Keseluruhan) */}
+      {editModalOpen && (
         <Modal
-          isOpen={overrideModalOpen}
-          onClose={() => setOverrideModalOpen(false)}
-          title="Ubah Jadwal"
-          subtitle={`Tanggal ${selectedDate}`}
+          isOpen={editModalOpen}
+          onClose={() => setEditModalOpen(false)}
+          title="Ubah Siklus Jadwal Operasional"
+          subtitle="Input 8 hari pertama mulai tanggal pergantian untuk diterapkan berulang ke depan secara keseluruhan"
+          maxWidth="max-w-4xl"
           footer={
-            <div className="flex items-center justify-between w-full">
+            <div className="flex flex-col sm:flex-row items-center justify-between w-full gap-3">
               <div>
-                {isCurrentlyOverridden && (
-                  <Button variant="danger" size="sm" onClick={handleResetOverride} disabled={saving}>
-                    Reset ke Otomatis
-                  </Button>
-                )}
+                <Button variant="danger" size="sm" onClick={handleResetToDefault} disabled={saving}>
+                  <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                  Reset ke Pola Standar
+                </Button>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={() => setOverrideModalOpen(false)} disabled={saving}>
+                <Button variant="outline" onClick={() => setEditModalOpen(false)} disabled={saving}>
                   Batal
                 </Button>
-                <Button variant="primary" onClick={handleSaveOverride} loading={saving}>
-                  Simpan
+                <Button variant="primary" onClick={handleSaveCycle} loading={saving}>
+                  Terapkan Jadwal Keseluruhan
                 </Button>
               </div>
             </div>
           }
         >
-          <form onSubmit={handleSaveOverride} className="space-y-4 text-xs">
+          <div className="space-y-4 text-xs">
             {formError && (
               <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
@@ -534,57 +573,142 @@ export default function HalamanJadwal() {
               </div>
             )}
 
-            <InputField
-              label="Tanggal"
-              type="date"
-              value={selectedDate}
-              onChange={(e) => handleModalDateChange(e.target.value)}
-              required
-            />
+            {/* Kontrol Tanggal Mulai & Aksi Bantuan */}
+            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+              <div className="w-full sm:max-w-xs">
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  Mulai Berlaku dari Tanggal:
+                </label>
+                <input
+                  type="date"
+                  value={cycleStartDate}
+                  onChange={(e) => handleStartDateChange(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-arff-primary"
+                />
+              </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <SelectField
-                label="Shift 1"
-                value={shift1Team}
-                onChange={(e) => handleShiftChange(1, e.target.value)}
-                options={TEAMS.map((t) => ({ value: t, label: t }))}
-                required
-              />
-
-              <SelectField
-                label="Shift 2"
-                value={shift2Team}
-                onChange={(e) => handleShiftChange(2, e.target.value)}
-                options={TEAMS.map((t) => ({ value: t, label: t }))}
-                required
-              />
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyOddToEven}
+                  title="Duplikasi hari ganjil ke genap (Hari 1->2, 3->4, 5->6, 7->8)"
+                >
+                  <Copy className="w-3.5 h-3.5 mr-1 text-slate-500" />
+                  Salin Pola 2 Hari Berulang
+                </Button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <SelectField
-                label="Shift 3"
-                value={shift3Team}
-                onChange={(e) => handleShiftChange(3, e.target.value)}
-                options={TEAMS.map((t) => ({ value: t, label: t }))}
-                required
-              />
-
-              <SelectField
-                label="Libur (Sisa Otomatis)"
-                value={offTeam}
-                onChange={(e) => setOffTeam(e.target.value)}
-                options={TEAMS.map((t) => ({ value: t, label: t }))}
-                disabled
-              />
+            {/* Keterangan */}
+            <div className="flex items-center gap-2 p-2.5 bg-sky-50 border border-sky-200 rounded-lg text-sky-800 text-[11px]">
+              <Info className="w-4 h-4 text-sky-600 flex-shrink-0" />
+              <span>
+                Atur susunan regu untuk <strong>8 hari pertama</strong>. Pola ini akan menjadi siklus dinas yang berputar terus-menerus ke hari-hari berikutnya secara keseluruhan.
+              </span>
             </div>
 
+            {/* Form Tabel 8 Hari Pertama Siklus */}
+            {loadingCycle ? (
+              <div className="py-12 text-center text-slate-500">Memuat susunan 8 hari...</div>
+            ) : (
+              <div className="overflow-x-auto border border-slate-200 rounded-xl max-h-[380px] overflow-y-auto">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead className="bg-slate-100 sticky top-0 z-10 border-b border-slate-200 text-slate-700 font-bold">
+                    <tr>
+                      <th className="py-2.5 px-3">Hari ke- / Tanggal</th>
+                      <th className="py-2.5 px-3">Shift 1 (Pagi)</th>
+                      <th className="py-2.5 px-3">Shift 2 (Siang)</th>
+                      <th className="py-2.5 px-3">Shift 3 (Malam)</th>
+                      <th className="py-2.5 px-3">Libur (Off)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {cycleDays.map((dayItem, idx) => {
+                      const isPairFirst = idx % 2 === 0;
+                      return (
+                        <tr
+                          key={dayItem.day_index || idx}
+                          className={isPairFirst ? 'bg-white' : 'bg-slate-50/40'}
+                        >
+                          <td className="py-2 px-3 font-semibold text-slate-900 whitespace-nowrap">
+                            <span className="font-bold text-arff-primary mr-1.5">
+                              Hari {idx + 1}
+                            </span>
+                            <span className="text-slate-500 text-[11px]">
+                              ({dayItem.day_name ? `${dayItem.day_name.slice(0, 3)}, ` : ''}
+                              {dayItem.date})
+                            </span>
+                          </td>
+
+                          {/* Shift 1 Select */}
+                          <td className="py-2 px-2">
+                            <select
+                              value={dayItem.shift_1}
+                              onChange={(e) => handleShiftChange(idx, 1, e.target.value)}
+                              className="w-full py-1.5 px-2 rounded-lg border border-slate-300 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-arff-primary bg-white cursor-pointer"
+                            >
+                              {TEAMS.map((t) => (
+                                <option key={t} value={t}>
+                                  Regu {t}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+
+                          {/* Shift 2 Select */}
+                          <td className="py-2 px-2">
+                            <select
+                              value={dayItem.shift_2}
+                              onChange={(e) => handleShiftChange(idx, 2, e.target.value)}
+                              className="w-full py-1.5 px-2 rounded-lg border border-slate-300 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-arff-primary bg-white cursor-pointer"
+                            >
+                              {TEAMS.map((t) => (
+                                <option key={t} value={t}>
+                                  Regu {t}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+
+                          {/* Shift 3 Select */}
+                          <td className="py-2 px-2">
+                            <select
+                              value={dayItem.shift_3}
+                              onChange={(e) => handleShiftChange(idx, 3, e.target.value)}
+                              className="w-full py-1.5 px-2 rounded-lg border border-slate-300 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-arff-primary bg-white cursor-pointer"
+                            >
+                              {TEAMS.map((t) => (
+                                <option key={t} value={t}>
+                                  Regu {t}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+
+                          {/* Off Team (Otomatis dari sisa regu) */}
+                          <td className="py-2 px-3 whitespace-nowrap">
+                            <span className="inline-block px-2.5 py-1 rounded-md text-xs font-bold text-slate-600 bg-slate-100 border border-slate-200">
+                              Regu {dayItem.off_team || '-'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Catatan Perubahan */}
             <InputField
-              label="Catatan (Opsional)"
-              placeholder="Contoh: Tukar shift"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              label="Catatan Pergantian Siklus (Opsional)"
+              placeholder="Contoh: Rotasi baru mulai tanggal 1 November"
+              value={cycleNotes}
+              onChange={(e) => setCycleNotes(e.target.value)}
             />
-          </form>
+          </div>
         </Modal>
       )}
     </div>
