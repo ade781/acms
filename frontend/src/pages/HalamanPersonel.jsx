@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Search, Plus, Filter, UserCheck, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { TEAMS } from '../utils/shiftHelper';
+import { TEAMS, cleanTeam, formatTeam } from '../utils/shiftHelper';
 import api from '../services/api';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
@@ -11,7 +11,7 @@ import InputField from '../components/common/InputField';
 import Modal from '../components/common/Modal';
 import SelectField from '../components/common/SelectField';
 
-export default function PersonnelPage() {
+export default function HalamanPersonel() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
 
@@ -27,6 +27,7 @@ export default function PersonnelPage() {
   // Add Personnel Modal State
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [fullName, setFullName] = useState('');
+  const [nip, setNip] = useState('');
   const [rankPosition, setRankPosition] = useState('');
   const [teamGroup, setTeamGroup] = useState('Alpha');
   const [certLevel, setCertLevel] = useState('Junior');
@@ -73,6 +74,7 @@ export default function PersonnelPage() {
     setSaving(true);
     try {
       await api.post('/personnel', {
+        nip: nip.trim() || null,
         full_name: fullName,
         rank_position: rankPosition,
         team_group: teamGroup,
@@ -86,6 +88,7 @@ export default function PersonnelPage() {
       setAddModalOpen(false);
       // Reset form
       setFullName('');
+      setNip('');
       setRankPosition('');
       setCertNumber('');
       fetchPersonnel();
@@ -126,7 +129,7 @@ export default function PersonnelPage() {
         <div className="w-full md:flex-1">
           <InputField
             id="searchPersonnel"
-            placeholder="Cari nama atau jabatan personel..."
+            placeholder="Cari nama, NIP, atau jabatan personel..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             icon={Search}
@@ -141,7 +144,7 @@ export default function PersonnelPage() {
             onChange={(e) => setSelectedTeam(e.target.value)}
             options={[
               { value: 'ALL', label: 'Semua Regu' },
-              ...TEAMS.map((t) => ({ value: t, label: `Regu ${t}` })),
+              ...TEAMS.map((t) => ({ value: cleanTeam(t), label: formatTeam(t) })),
             ]}
           />
         </div>
@@ -183,7 +186,7 @@ export default function PersonnelPage() {
             <table className="w-full text-left text-xs text-slate-700">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
                 <tr>
-                  <th className="px-5 py-3.5">Nama Personel</th>
+                  <th className="px-5 py-3.5">Nama & NIP Personel</th>
                   <th className="px-5 py-3.5">Regu Dinas</th>
                   <th className="px-5 py-3.5">Jabatan Operasional</th>
                   <th className="px-5 py-3.5">Tingkat Lisensi</th>
@@ -200,10 +203,13 @@ export default function PersonnelPage() {
                   >
                     <td className="px-5 py-3.5">
                       <div className="font-bold text-slate-900 text-sm">{p.full_name}</div>
+                      <div className="text-[11px] font-mono text-slate-500 mt-0.5">
+                        NIP: {p.nip || '-'}
+                      </div>
                     </td>
                     <td className="px-5 py-3.5">
-                      <Badge variant={`team${p.team_group || 'Alpha'}`} size="sm">
-                        Regu {p.team_group || '-'}
+                      <Badge variant={`team${cleanTeam(p.team_group) || 'Alpha'}`} size="sm">
+                        {formatTeam(p.team_group || '-')}
                       </Badge>
                     </td>
                     <td className="px-5 py-3.5 font-medium text-slate-800">
@@ -255,20 +261,29 @@ export default function PersonnelPage() {
               </div>
             )}
 
-            <InputField
-              label="Nama Lengkap & Gelar"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="Contoh: M. OSCAR AVIANTO"
-              required
-            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <InputField
+                label="Nama Lengkap & Gelar"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Contoh: M. OSCAR AVIANTO"
+                required
+              />
+
+              <InputField
+                label="NIP (Nomor Induk Pegawai)"
+                value={nip}
+                onChange={(e) => setNip(e.target.value)}
+                placeholder="Contoh: 20241338"
+              />
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <SelectField
                 label="Regu Dinas"
                 value={teamGroup}
                 onChange={(e) => setTeamGroup(e.target.value)}
-                options={TEAMS.map((t) => ({ value: t, label: `Regu ${t}` }))}
+                options={TEAMS.map((t) => ({ value: cleanTeam(t), label: formatTeam(t) }))}
                 required
               />
 

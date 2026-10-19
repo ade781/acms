@@ -10,7 +10,7 @@ import InputField from '../components/common/InputField';
 import SelectField from '../components/common/SelectField';
 import TextareaField from '../components/common/TextareaField';
 
-export default function SettingsPage() {
+export default function HalamanPengaturan() {
   const { isAdmin } = useAuth();
 
   const [activeTab, setActiveTab] = useState('vehicles'); // 'vehicles' | 'watchroom'

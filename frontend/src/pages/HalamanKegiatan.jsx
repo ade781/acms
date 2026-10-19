@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ClipboardList, Plus, Clock, FileCheck, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { cleanTeam, formatTeam } from '../utils/shiftHelper';
 import api from '../services/api';
 import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import StateView from '../components/common/StateView';
@@ -10,7 +11,7 @@ import InputField from '../components/common/InputField';
 import SelectField from '../components/common/SelectField';
 import TextareaField from '../components/common/TextareaField';
 
-export default function ActivitiesPage() {
+export default function HalamanKegiatan() {
   const { activeDate, activeShiftNumber, activeTeam } = useAuth();
 
   const [loading, setLoading] = useState(true);
@@ -60,7 +61,7 @@ export default function ActivitiesPage() {
       await api.post('/activities', {
         shift_date: activeDate,
         shift_number: activeShiftNumber,
-        team_group: activeTeam,
+        team_group: cleanTeam(activeTeam),
         activity_type: activityType,
         activity_time: activityTime,
         title,
@@ -136,7 +137,7 @@ export default function ActivitiesPage() {
                   </span>
                 </div>
                 <span className="text-xs text-slate-400 font-mono">
-                  Regu {act.team_group || activeTeam}
+                  {formatTeam(act.team_group || activeTeam)}
                 </span>
               </div>
 
@@ -164,7 +165,7 @@ export default function ActivitiesPage() {
           isOpen={modalOpen}
           onClose={() => setModalOpen(false)}
           title="Catat Kegiatan Shift Operasional"
-          subtitle={`Shift ${activeShiftNumber} | Regu ${activeTeam} | ${activeDate}`}
+          subtitle={`Shift ${activeShiftNumber} | ${formatTeam(activeTeam)} | ${activeDate}`}
           footer={
             <>
               <Button variant="outline" onClick={() => setModalOpen(false)} disabled={submitting}>

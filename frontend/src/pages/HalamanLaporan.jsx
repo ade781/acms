@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { FileText, Download, Printer, CheckCircle, Shield, Info, Clock, Calendar, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { SHIFT_DEFINITIONS, formatIndoDate } from '../utils/shiftHelper';
+import { SHIFT_DEFINITIONS, formatIndoDate, cleanTeam, formatTeam } from '../utils/shiftHelper';
 import api from '../services/api';
 import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 
-export default function ReportsPage() {
+export default function HalamanLaporan() {
   const {
+    user,
     activeDate,
     activeShiftNumber,
     activeTeam,
@@ -146,7 +147,7 @@ export default function ReportsPage() {
             <span>|</span>
             <span>Shift: <strong>{currentDef.name} ({currentDef.startTime} s.d. {currentDef.endTime})</strong></span>
             <span>|</span>
-            <span>Regu Dinas: <strong>Regu {activeTeam}</strong></span>
+            <span>Regu Dinas: <strong>{formatTeam(activeTeam)}</strong></span>
           </div>
         </div>
 
@@ -176,14 +177,18 @@ export default function ReportsPage() {
             </h4>
             <div className="pt-8 flex justify-between items-end">
               <div className="text-center">
-                <p className="text-slate-500 mb-12">Mengetahui, Chief ARFF</p>
-                <p className="font-bold text-slate-900 underline">Ade7 Asli</p>
-                <p className="text-[10px] text-slate-500">Operation Chief</p>
+                <p className="text-slate-500 mb-12">Mengetahui, Dept. Head / Chief ARFF</p>
+                <p className="font-bold text-slate-900 underline">TAMSUL SADIKIN</p>
+                <p className="text-[10px] text-slate-500 font-mono">NIP. 20240657</p>
+                <p className="text-[10px] text-slate-500">Airport Rescue & Fire Fighting Dept. Head</p>
               </div>
 
               <div className="text-center">
-                <p className="text-slate-500 mb-12">Ketua Regu Dinas ({activeTeam})</p>
-                <p className="font-bold text-slate-900 underline">Supervisor Regu {activeTeam}</p>
+                <p className="text-slate-500 mb-12">Ketua Regu Dinas ({cleanTeam(activeTeam)})</p>
+                <p className="font-bold text-slate-900 underline">{user?.name || `Chief ${formatTeam(activeTeam)}`}</p>
+                <p className="text-[10px] text-slate-500 font-mono">
+                  {user?.nip ? `NIP. ${user.nip}` : 'ARFF Operation Chief'}
+                </p>
                 <p className="text-[10px] text-slate-500">
                   {approvedStatus ? 'Telah Disahkan Secara Digital' : '(Menunggu Pengesahan)'}
                 </p>

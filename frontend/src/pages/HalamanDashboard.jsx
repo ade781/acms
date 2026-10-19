@@ -12,6 +12,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { cleanTeam, formatTeam } from '../utils/shiftHelper';
 import api from '../services/api';
 import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import VehicleMetricCard from '../components/dashboard/VehicleMetricCard';
@@ -21,7 +22,7 @@ import IncidentModal from '../components/forms/IncidentModal';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
 
-export default function DashboardPage() {
+export default function HalamanDashboard() {
   const {
     user,
     activeDate,
@@ -41,8 +42,11 @@ export default function DashboardPage() {
     totalVehicles: 0,
     serviceableVehicles: 0,
     unserviceableVehicles: 0,
-    activePersonnelCount: 0,
+    totalPersonnelCount: 17,
+    dutyPersonnelCount: 0,
     absentPersonnelCount: 0,
+    isPersonnelPlotted: false,
+    absentDetails: [],
     openIncidentsCount: 0,
     isShiftApproved: false,
     supervisorName: '',
@@ -59,45 +63,67 @@ export default function DashboardPage() {
     setError(null);
 
     try {
-      // 1. Fetch dashboard summary if available
+      const currentTeam = cleanTeam(activeTeam);
+
+      // 1. Fetch dashboard summary with team_group parameter
       let summaryData = null;
       try {
-        const sumRes = await api.get(`/dashboard/summary?date=${activeDate}&shift=${activeShiftNumber}`);
-        summaryData = sumRes.data;
+        const sumRes = await api.get(`/dashboard/summary?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`);
+        summaryData = sumRes.data?.data || sumRes.data;
       } catch (e) {
         // Fallback gracefully if backend endpoint structure is slightly different
       }
 
       // 2. Fetch vehicle readiness
-      const vRes = await api.get(`/readiness/vehicles?date=${activeDate}&shift=${activeShiftNumber}&team_group=${activeTeam}`);
+      const vRes = await api.get(`/readiness/vehicles?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`);
       const fetchedVehicles = Array.isArray(vRes.data?.vehicles) ? vRes.data.vehicles : (Array.isArray(vRes.data) ? vRes.data : []);
       setVehicles(fetchedVehicles);
 
       // 3. Fetch watchroom readiness
       try {
-        const wRes = await api.get(`/readiness/watchroom?date=${activeDate}&shift=${activeShiftNumber}&team_group=${activeTeam}`);
+        const wRes = await api.get(`/readiness/watchroom?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`);
         setWatchroomLog(wRes.data?.log || wRes.data || null);
       } catch {
         setWatchroomLog(null);
       }
 
-      // Calculate summary metrics
+      // 4. Determine total roster and personnel duty/absent breakdown
+      let totalRoster = summaryData?.personnel?.total_roster ?? summaryData?.total_team_members;
+      if (!totalRoster) {
+        try {
+          const pRes = await api.get(`/personnel?team_group=${currentTeam}&is_active=1`);
+          const pList = Array.isArray(pRes.data?.personnel) ? pRes.data.personnel : (Array.isArray(pRes.data) ? pRes.data : []);
+          totalRoster = pList.length || 17;
+        } catch {
+          totalRoster = 17;
+        }
+      }
+
+      const dutyCount = summaryData?.personnel?.duty_count ?? summaryData?.duty_count ?? 0;
+      const absentCount = summaryData?.personnel?.absent_count ?? summaryData?.absent_count ?? 0;
+      const isPlotted = Boolean(summaryData?.personnel?.is_plotted || dutyCount > 0 || absentCount > 0);
+      const absentDetails = summaryData?.personnel?.absent_details || [];
+
+      // Calculate summary metrics (support both flat v.status and v.current_log.status)
       const serviceableCount = fetchedVehicles.filter(
-        (v) => v.current_log?.status === 'serviceable'
+        (v) => (v.status === 'serviceable' || v.current_log?.status === 'serviceable')
       ).length;
       const unserviceableCount = fetchedVehicles.filter(
-        (v) => v.current_log?.status === 'unserviceable'
+        (v) => (v.status === 'unserviceable' || v.current_log?.status === 'unserviceable')
       ).length;
 
       setMetrics({
         totalVehicles: fetchedVehicles.length,
         serviceableVehicles: serviceableCount,
         unserviceableVehicles: unserviceableCount,
-        activePersonnelCount: summaryData?.personnel_count || summaryData?.present_count || 0,
-        absentPersonnelCount: summaryData?.absent_count || 0,
-        openIncidentsCount: summaryData?.open_incidents || 0,
-        isShiftApproved: Boolean(summaryData?.shift_status === 'approved'),
-        supervisorName: summaryData?.supervisor_name || '',
+        totalPersonnelCount: totalRoster,
+        dutyPersonnelCount: dutyCount,
+        absentPersonnelCount: absentCount,
+        isPersonnelPlotted: isPlotted,
+        absentDetails: absentDetails,
+        openIncidentsCount: summaryData?.incidents?.total_open ?? summaryData?.open_incidents ?? 0,
+        isShiftApproved: Boolean(summaryData?.shift?.status === 'approved' || summaryData?.shift_status === 'approved'),
+        supervisorName: summaryData?.shift?.supervisor_name || summaryData?.supervisor_name || '',
       });
     } catch (err) {
       console.error('Error loading dashboard:', err);
@@ -142,29 +168,37 @@ export default function DashboardPage() {
         canApprove={isSupervisor || isAdmin}
         onApproveShift={handleApproveShift}
         approving={approvingShift}
+        personnelStats={{
+          total: metrics.totalPersonnelCount,
+          duty: metrics.dutyPersonnelCount,
+          absent: metrics.absentPersonnelCount,
+          isPlotted: metrics.isPersonnelPlotted,
+        }}
       />
 
       {/* KPI Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {/* Fleet Readiness */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Kesiapan Armada
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-red-50 text-arff-primary flex items-center justify-center">
-              <Truck className="w-4 h-4" />
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Kesiapan Armada
+              </span>
+              <div className="w-8 h-8 rounded-lg bg-red-50 text-arff-primary flex items-center justify-center">
+                <Truck className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-slate-900">
+                {metrics.serviceableVehicles}
+              </span>
+              <span className="text-xs text-slate-500 font-medium">
+                / {metrics.totalVehicles} Siap Operasi
+              </span>
             </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">
-              {metrics.serviceableVehicles}
-            </span>
-            <span className="text-xs text-slate-500">
-              / {metrics.totalVehicles} Siap Operasi
-            </span>
-          </div>
-          <div className="mt-2 text-[11px] font-medium text-slate-600">
+          <div className="mt-3 text-[11px] font-medium text-slate-600">
             {metrics.unserviceableVehicles > 0 ? (
               <span className="text-red-700 font-bold">
                 {metrics.unserviceableVehicles} unit unserviceable
@@ -175,29 +209,73 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Personnel Strength */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Kekuatan Personel
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center">
-              <Users2 className="w-4 h-4" />
+        {/* Personnel Strength (Kekuatan & Keterangan Personel Dinas) */}
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Kekuatan Personel
+              </span>
+              <div className="w-8 h-8 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center">
+                <Users2 className="w-4 h-4" />
+              </div>
             </div>
+
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-slate-900">
+                {metrics.isPersonnelPlotted ? metrics.dutyPersonnelCount : metrics.totalPersonnelCount}
+              </span>
+              <span className="text-xs text-slate-500 font-medium">
+                {metrics.isPersonnelPlotted
+                  ? `/ ${metrics.totalPersonnelCount} Sedang Bertugas`
+                  : `Anggota ${formatTeam(activeTeam)}`}
+              </span>
+            </div>
+
+            {/* Keterangan Berapa yang Bertugas & Berapa yang Izin */}
+            <div className="mt-2.5 grid grid-cols-2 gap-1.5 text-xs">
+              <div className="px-2 py-1.5 rounded-lg bg-emerald-50/80 border border-emerald-200/70">
+                <span className="text-[10px] text-emerald-700 font-semibold uppercase block leading-none mb-1">
+                  Bertugas
+                </span>
+                <span className="text-sm font-bold text-emerald-800">
+                  {metrics.dutyPersonnelCount} <span className="text-[10px] font-normal text-emerald-600">Orang</span>
+                </span>
+              </div>
+
+              <div className={`px-2 py-1.5 rounded-lg border ${
+                metrics.absentPersonnelCount > 0
+                  ? 'bg-amber-50 border-amber-200 text-amber-900'
+                  : 'bg-slate-50 border-slate-200 text-slate-600'
+              }`}>
+                <span className="text-[10px] font-semibold uppercase block leading-none mb-1 text-slate-500">
+                  Izin / Cuti
+                </span>
+                <span className="text-sm font-bold">
+                  {metrics.absentPersonnelCount} <span className="text-[10px] font-normal text-slate-500">Orang</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Ringkasan nama personel berhalangan jika ada */}
+            {metrics.absentDetails && metrics.absentDetails.length > 0 && (
+              <div className="mt-2 p-1.5 rounded bg-amber-50/60 border border-amber-200 text-[10px] text-amber-900">
+                <span className="font-semibold block text-amber-800">Izin/Cuti:</span>
+                <p className="truncate">
+                  {metrics.absentDetails.map(a => `${a.full_name} (${a.reason || 'Izin'})`).join(', ')}
+                </p>
+              </div>
+            )}
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">
-              Regu {activeTeam}
-            </span>
-          </div>
-          <div className="mt-2 text-[11px] font-medium text-slate-600 flex items-center justify-between">
-            <span>Shift {activeShiftNumber}</span>
+
+          <div className="mt-3 pt-2 border-t border-slate-100 text-[11px] font-medium text-slate-600 flex items-center justify-between">
+            <span className="text-slate-500">Shift {activeShiftNumber}</span>
             <button
               type="button"
               onClick={() => navigate('/deployment')}
               className="text-arff-primary hover:underline font-semibold"
             >
-              Lihat Ploting
+              {metrics.isPersonnelPlotted ? 'Lihat Ploting' : '+ Atur Ploting Kru'}
             </button>
           </div>
         </div>
@@ -294,7 +372,7 @@ export default function DashboardPage() {
               icon={PlusCircle}
               onClick={() => navigate('/deployment')}
             >
-              Kelola Ploting Regu
+              Kelola Ploting Kru
             </Button>
           </div>
         </div>

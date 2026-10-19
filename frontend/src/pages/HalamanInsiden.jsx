@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Plus, Search, Calendar, ChevronRight, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { cleanTeam, formatTeam } from '../utils/shiftHelper';
 import api from '../services/api';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
@@ -9,7 +10,7 @@ import Badge from '../components/common/Badge';
 import InputField from '../components/common/InputField';
 import IncidentModal from '../components/forms/IncidentModal';
 
-export default function IncidentsPage() {
+export default function HalamanInsiden() {
   const { activeDate, activeShiftNumber, activeTeam } = useAuth();
   const navigate = useNavigate();
 
@@ -138,8 +139,8 @@ export default function IncidentsPage() {
                       <div className="text-slate-500 text-[11px] font-mono">{inc.incident_time || '-'} WIB</div>
                     </td>
                     <td className="px-5 py-3.5">
-                      <Badge variant={`team${inc.team_group || 'Alpha'}`} size="sm">
-                        Regu {inc.team_group || '-'}
+                      <Badge variant={`team${cleanTeam(inc.team_group) || 'Alpha'}`} size="sm">
+                        {formatTeam(inc.team_group || '-')}
                       </Badge>
                     </td>
                     <td className="px-5 py-3.5">

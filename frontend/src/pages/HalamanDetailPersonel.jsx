@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, User, Shield, Award, Calendar, FileUp, Info } from 'lucide-react';
 import api from '../services/api';
+import { cleanTeam, formatTeam } from '../utils/shiftHelper';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 
-export default function PersonnelDetailPage() {
+export default function HalamanDetailPersonel() {
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -56,12 +57,15 @@ export default function PersonnelDetailPage() {
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <h2 className="text-xl font-bold text-slate-900">{personnel.full_name}</h2>
-                    <Badge variant={`team${personnel.team_group || 'Alpha'}`} size="md">
-                      Regu {personnel.team_group || 'Alpha'}
+                    <Badge variant={`team${cleanTeam(personnel.team_group) || 'Alpha'}`} size="md">
+                      {formatTeam(personnel.team_group || 'Alpha')}
                     </Badge>
                   </div>
                   <p className="text-xs font-semibold text-slate-700 mt-1">
                     {personnel.rank_position || 'Anggota Unit PKP-PK'}
+                  </p>
+                  <p className="text-xs font-mono text-slate-500 mt-0.5">
+                    NIP: <span className="font-bold text-slate-800">{personnel.nip || '-'}</span>
                   </p>
                 </div>
               </div>
@@ -124,8 +128,12 @@ export default function PersonnelDetailPage() {
                     <span className="font-semibold text-emerald-700">Aktif Berdinas</span>
                   </div>
                   <div className="flex justify-between py-1.5 border-b border-slate-100">
+                    <span className="text-slate-500">Nomor Induk Pegawai (NIP):</span>
+                    <span className="font-mono font-bold text-slate-900">{personnel.nip || '-'}</span>
+                  </div>
+                  <div className="flex justify-between py-1.5 border-b border-slate-100">
                     <span className="text-slate-500">Kesesuaian Regu:</span>
-                    <span className="font-bold text-slate-800">Regu {personnel.team_group}</span>
+                    <span className="font-bold text-slate-800">{formatTeam(personnel.team_group)}</span>
                   </div>
                   <div className="flex justify-between py-1.5">
                     <span className="text-slate-500">Terdaftar Sejak:</span>

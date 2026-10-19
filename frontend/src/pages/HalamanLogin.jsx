@@ -6,7 +6,7 @@ import Logo from '../components/common/Logo';
 import InputField from '../components/common/InputField';
 import Button from '../components/common/Button';
 
-export default function LoginPage() {
+export default function HalamanLogin() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);

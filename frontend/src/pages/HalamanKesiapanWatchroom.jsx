@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Radio, CheckCircle2, AlertTriangle, Edit3, ShieldAlert, Clock, UserCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { cleanTeam, formatTeam } from '../utils/shiftHelper';
 import api from '../services/api';
 import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import WatchroomReadinessModal from '../components/forms/WatchroomReadinessModal';
@@ -8,7 +9,7 @@ import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 
-export default function WatchroomReadinessPage() {
+export default function HalamanKesiapanWatchroom() {
   const {
     user,
     activeDate,
@@ -25,7 +26,8 @@ export default function WatchroomReadinessPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get(`/readiness/watchroom?date=${activeDate}&shift=${activeShiftNumber}&team_group=${activeTeam}`);
+      const currentTeam = cleanTeam(activeTeam);
+      const res = await api.get(`/readiness/watchroom?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`);
       setLog(res.data?.log || res.data || null);
     } catch (err) {
       console.error('Error fetching watchroom status:', err);
@@ -91,7 +93,7 @@ export default function WatchroomReadinessPage() {
                     Kondisi Ruang Pantau (Watchroom)
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Shift {activeShiftNumber} | Regu {activeTeam} | {activeDate}
+                    Shift {activeShiftNumber} | {formatTeam(activeTeam)} | {activeDate}
                   </p>
                 </div>
               </div>

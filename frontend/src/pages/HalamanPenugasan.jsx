@@ -11,6 +11,7 @@ import {
   Info,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { cleanTeam, formatTeam } from '../utils/shiftHelper';
 import api from '../services/api';
 import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import DeploymentSlotCard from '../components/forms/DeploymentSlotCard';
@@ -18,7 +19,7 @@ import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 
-export default function DeploymentPage() {
+export default function HalamanPenugasan() {
   const {
     user,
     activeDate,
@@ -57,18 +58,20 @@ export default function DeploymentPage() {
     setSuccessMsg(null);
 
     try {
+      const currentTeam = cleanTeam(activeTeam);
+
       // 1. Get active team personnel
-      const pRes = await api.get(`/personnel?team_group=${activeTeam}&is_active=1`);
+      const pRes = await api.get(`/personnel?team_group=${currentTeam}&is_active=1`);
       const personnel = Array.isArray(pRes.data?.personnel) ? pRes.data.personnel : (Array.isArray(pRes.data) ? pRes.data : []);
       setTeamPersonnel(personnel);
 
       // 2. Get active vehicles
-      const vRes = await api.get(`/readiness/vehicles?date=${activeDate}&shift=${activeShiftNumber}&team_group=${activeTeam}`);
+      const vRes = await api.get(`/readiness/vehicles?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`);
       const fetchedVehicles = Array.isArray(vRes.data?.vehicles) ? vRes.data.vehicles : (Array.isArray(vRes.data) ? vRes.data : []);
       setVehicles(fetchedVehicles);
 
       // 3. Get existing deployments if already saved
-      const depRes = await api.get(`/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${activeTeam}`);
+      const depRes = await api.get(`/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`);
       const depData = depRes.data;
 
       setIsApproved(Boolean(depData?.status === 'approved'));
@@ -255,14 +258,14 @@ export default function DeploymentPage() {
       await api.post('/deployments/batch', {
         shift_date: activeDate,
         shift_number: activeShiftNumber,
-        team_group: activeTeam,
+        team_group: cleanTeam(activeTeam),
         deployments: payloadDeployments,
       });
 
-      setSuccessMsg('Ploting penugasan kru regu berhasil disimpan!');
+      setSuccessMsg('Ploting penugasan kru berhasil disimpan!');
       fetchDeploymentData();
     } catch (err) {
-      const msg = err.response?.data?.message || err.message || 'Gagal menyimpan ploting regu.';
+      const msg = err.response?.data?.message || err.message || 'Gagal menyimpan ploting kru.';
       setError(msg);
     } finally {
       setSaving(false);
@@ -278,7 +281,7 @@ export default function DeploymentPage() {
       await api.post('/deployments/approve', {
         shift_date: activeDate,
         shift_number: activeShiftNumber,
-        team_group: activeTeam,
+        team_group: cleanTeam(activeTeam),
       });
       setIsApproved(true);
       setSuccessMsg('Laporan dan ploting shift resmi disahkan oleh Ketua Regu.');
@@ -396,7 +399,7 @@ export default function DeploymentPage() {
                     <option value="">(Pilih Personel Watchroom)</option>
                     {teamPersonnel.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.full_name} ({p.rank_position || 'Kru'})
+                        {p.full_name} {p.nip ? `[NIP: ${p.nip}]` : ''} ({p.rank_position || 'Kru'})
                       </option>
                     ))}
                   </select>
@@ -452,7 +455,7 @@ export default function DeploymentPage() {
                         <option value="">(Pilih Personel)</option>
                         {teamPersonnel.map((p) => (
                           <option key={p.id} value={p.id}>
-                            {p.full_name}
+                            {p.full_name} {p.nip ? `[NIP: ${p.nip}]` : ''}
                           </option>
                         ))}
                       </select>

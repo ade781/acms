@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Truck, CheckCircle2, AlertTriangle, ShieldCheck, HelpCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { cleanTeam } from '../utils/shiftHelper';
 import api from '../services/api';
 import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import VehicleMetricCard from '../components/dashboard/VehicleMetricCard';
@@ -8,7 +9,7 @@ import VehicleReadinessModal from '../components/forms/VehicleReadinessModal';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
 
-export default function VehicleReadinessPage() {
+export default function HalamanKesiapanKendaraan() {
   const {
     user,
     activeDate,
@@ -27,7 +28,8 @@ export default function VehicleReadinessPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get(`/readiness/vehicles?date=${activeDate}&shift=${activeShiftNumber}&team_group=${activeTeam}`);
+      const currentTeam = cleanTeam(activeTeam);
+      const res = await api.get(`/readiness/vehicles?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`);
       const list = Array.isArray(res.data?.vehicles) ? res.data.vehicles : (Array.isArray(res.data) ? res.data : []);
       setVehicles(list);
     } catch (err) {
@@ -43,10 +45,10 @@ export default function VehicleReadinessPage() {
   }, [fetchVehicles]);
 
   const serviceableCount = vehicles.filter(
-    (v) => v.current_log?.status === 'serviceable'
+    (v) => (v.status === 'serviceable' || v.current_log?.status === 'serviceable')
   ).length;
   const unserviceableCount = vehicles.filter(
-    (v) => v.current_log?.status === 'unserviceable'
+    (v) => (v.status === 'unserviceable' || v.current_log?.status === 'unserviceable')
   ).length;
 
   return (

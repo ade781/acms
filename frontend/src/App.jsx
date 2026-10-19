@@ -3,19 +3,19 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AppLayout from './components/layout/AppLayout';
 
-// Pages
-import LoginPage from './pages/LoginPage';
-import DashboardPage from './pages/DashboardPage';
-import PersonnelPage from './pages/PersonnelPage';
-import PersonnelDetailPage from './pages/PersonnelDetailPage';
-import VehicleReadinessPage from './pages/VehicleReadinessPage';
-import WatchroomReadinessPage from './pages/WatchroomReadinessPage';
-import DeploymentPage from './pages/DeploymentPage';
-import IncidentsPage from './pages/IncidentsPage';
-import IncidentDetailPage from './pages/IncidentDetailPage';
-import ActivitiesPage from './pages/ActivitiesPage';
-import ReportsPage from './pages/ReportsPage';
-import SettingsPage from './pages/SettingsPage';
+// Halaman / Pages
+import HalamanLogin from './pages/HalamanLogin';
+import HalamanDashboard from './pages/HalamanDashboard';
+import HalamanPersonel from './pages/HalamanPersonel';
+import HalamanDetailPersonel from './pages/HalamanDetailPersonel';
+import HalamanKesiapanKendaraan from './pages/HalamanKesiapanKendaraan';
+import HalamanKesiapanWatchroom from './pages/HalamanKesiapanWatchroom';
+import HalamanPenugasan from './pages/HalamanPenugasan';
+import HalamanInsiden from './pages/HalamanInsiden';
+import HalamanDetailInsiden from './pages/HalamanDetailInsiden';
+import HalamanKegiatan from './pages/HalamanKegiatan';
+import HalamanLaporan from './pages/HalamanLaporan';
+import HalamanPengaturan from './pages/HalamanPengaturan';
 
 // Protected Route Component
 function ProtectedRoute({ children, adminOnly = false }) {
@@ -54,7 +54,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           {/* Public Route */}
-          <Route path="/login" element={<LoginPage />} />
+          <Route path="/login" element={<HalamanLogin />} />
 
           {/* Root redirect */}
           <Route path="/" element={<RootRedirect />} />
@@ -67,21 +67,21 @@ export default function App() {
               </ProtectedRoute>
             }
           >
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/deployment" element={<DeploymentPage />} />
-            <Route path="/readiness/vehicles" element={<VehicleReadinessPage />} />
-            <Route path="/readiness/watchroom" element={<WatchroomReadinessPage />} />
-            <Route path="/personnel" element={<PersonnelPage />} />
-            <Route path="/personnel/:id" element={<PersonnelDetailPage />} />
-            <Route path="/incidents" element={<IncidentsPage />} />
-            <Route path="/incidents/:id" element={<IncidentDetailPage />} />
-            <Route path="/activities" element={<ActivitiesPage />} />
-            <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/dashboard" element={<HalamanDashboard />} />
+            <Route path="/deployment" element={<HalamanPenugasan />} />
+            <Route path="/readiness/vehicles" element={<HalamanKesiapanKendaraan />} />
+            <Route path="/readiness/watchroom" element={<HalamanKesiapanWatchroom />} />
+            <Route path="/personnel" element={<HalamanPersonel />} />
+            <Route path="/personnel/:id" element={<HalamanDetailPersonel />} />
+            <Route path="/incidents" element={<HalamanInsiden />} />
+            <Route path="/incidents/:id" element={<HalamanDetailInsiden />} />
+            <Route path="/activities" element={<HalamanKegiatan />} />
+            <Route path="/reports" element={<HalamanLaporan />} />
             <Route
               path="/settings"
               element={
                 <ProtectedRoute adminOnly>
-                  <SettingsPage />
+                  <HalamanPengaturan />
                 </ProtectedRoute>
               }
             />

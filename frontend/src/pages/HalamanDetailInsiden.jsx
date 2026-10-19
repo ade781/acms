@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, AlertTriangle, Calendar, Clock, MapPin, Plane, CheckCircle2, Shield } from 'lucide-react';
 import api from '../services/api';
+import { cleanTeam, formatTeam } from '../utils/shiftHelper';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 
-export default function IncidentDetailPage() {
+export default function HalamanDetailInsiden() {
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -80,8 +81,8 @@ export default function IncidentDetailPage() {
                     <span className="font-mono text-xs font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded">
                       {incident.report_number || `INC-${String(incident.id).padStart(4, '0')}`}
                     </span>
-                    <Badge variant={`team${incident.team_group || 'Alpha'}`} size="md">
-                      Regu {incident.team_group || 'Alpha'}
+                    <Badge variant={`team${cleanTeam(incident.team_group) || 'Alpha'}`} size="md">
+                      {formatTeam(incident.team_group || 'Alpha')}
                     </Badge>
                     <Badge variant="unserviceable" size="md">
                       Prioritas {incident.priority_level || 'Sedang'}
