@@ -12,7 +12,8 @@ import SelectField from '../components/common/SelectField';
 import TextareaField from '../components/common/TextareaField';
 
 export default function HalamanKegiatan() {
-  const { activeDate, activeShiftNumber, activeTeam } = useAuth();
+  const { user, isAdmin, isSupervisor, activeDate, activeShiftNumber, activeTeam } = useAuth();
+  const canManageActivity = isAdmin || isSupervisor || ['admin', 'chief', 'chief_assistant', 'supervisor', 'dept_head'].includes(user?.role);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -96,13 +97,15 @@ export default function HalamanKegiatan() {
           </h2>
         </div>
 
-        <Button
-          variant="primary"
-          icon={Plus}
-          onClick={() => setModalOpen(true)}
-        >
-          Tambah Kegiatan
-        </Button>
+        {canManageActivity && (
+          <Button
+            variant="primary"
+            icon={Plus}
+            onClick={() => setModalOpen(true)}
+          >
+            Tambah Kegiatan
+          </Button>
+        )}
       </div>
 
       <StateView
@@ -110,11 +113,17 @@ export default function HalamanKegiatan() {
         error={error}
         isEmpty={activities.length === 0}
         emptyTitle="Belum Ada Logbook Kegiatan"
-        emptyDescription="Catat aktivitas harian, apel regu, atau uji fungsi armada pada shift ini."
+        emptyDescription={
+          canManageActivity
+            ? "Catat aktivitas harian, apel regu, atau uji fungsi armada pada shift ini."
+            : "Belum ada catatan aktivitas yang dilaporkan oleh Chief / Asisten Chief pada shift ini."
+        }
         emptyAction={
-          <Button variant="primary" size="sm" onClick={() => setModalOpen(true)}>
-            Catat Kegiatan Pertama
-          </Button>
+          canManageActivity ? (
+            <Button variant="primary" size="sm" onClick={() => setModalOpen(true)}>
+              Catat Kegiatan Pertama
+            </Button>
+          ) : null
         }
         onRetry={fetchActivities}
       >

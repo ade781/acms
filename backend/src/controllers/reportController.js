@@ -139,3 +139,72 @@ export const getShiftReportPdf = async (req, res) => {
     return errorResponse(res, 'Gagal menerbitkan laporan PDF: ' + error.message, 500);
   }
 };
+
+export const getVehicleIssuesAudit = async (req, res) => {
+  try {
+    const { date, shift, team_group } = req.query;
+    const shiftDate = date || new Date().toISOString().split('T')[0];
+    const shiftNumber = shift ? Number(shift) : 1;
+    const currentTeam = team_group || 'Alpha';
+
+    // 1. Kendala unserviceable pada shift saat ini
+    const [currentIssues] = await pool.query(
+      `SELECT vrl.id, vrl.vehicle_id, v.code_name, v.vehicle_name, v.category,
+              vrl.shift_date, vrl.shift_number, vrl.team_group, vrl.status,
+              vrl.justification, vrl.follow_up_status, vrl.resolved_at, vrl.notes,
+              p.full_name as reported_by_name, p.nip as reported_by_nip
+       FROM vehicle_readiness_logs vrl
+       JOIN vehicles v ON v.id = vrl.vehicle_id
+       LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
+       WHERE vrl.shift_date = ? AND vrl.shift_number = ? AND vrl.team_group = ?
+         AND vrl.status = 'unserviceable'`,
+      [shiftDate, shiftNumber, currentTeam]
+    );
+
+    // 2. Backlog kendala yang masih unserviceable dari shift-shift sebelumnya
+    const [backlogIssues] = await pool.query(
+      `SELECT vrl.id, vrl.vehicle_id, v.code_name, v.vehicle_name, v.category,
+              vrl.shift_date, vrl.shift_number, vrl.team_group, vrl.status,
+              vrl.justification, vrl.follow_up_status, vrl.resolved_at, vrl.notes,
+              p.full_name as reported_by_name, p.nip as reported_by_nip
+       FROM vehicle_readiness_logs vrl
+       JOIN vehicles v ON v.id = vrl.vehicle_id
+       LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
+       WHERE vrl.status = 'unserviceable'
+         AND vrl.follow_up_status != 'resolved'
+         AND (vrl.shift_date < ? OR (vrl.shift_date = ? AND vrl.shift_number < ?))
+       ORDER BY vrl.shift_date DESC, vrl.shift_number DESC`,
+      [shiftDate, shiftDate, shiftNumber]
+    );
+
+    // 3. Kendaraan yang berhasil dipulihkan (resolved) pada shift ini
+    const [resolvedThisShift] = await pool.query(
+      `SELECT vrl.id, vrl.vehicle_id, v.code_name, v.vehicle_name, v.category,
+              vrl.shift_date, vrl.shift_number, vrl.team_group, vrl.status,
+              vrl.justification, vrl.follow_up_status, vrl.resolved_at, vrl.notes,
+              p.full_name as resolved_by_name, p.nip as resolved_by_nip
+       FROM vehicle_readiness_logs vrl
+       JOIN vehicles v ON v.id = vrl.vehicle_id
+       LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
+       WHERE vrl.shift_date = ? AND vrl.shift_number = ? AND vrl.team_group = ?
+         AND vrl.status = 'serviceable' AND vrl.resolved_at IS NOT NULL`,
+      [shiftDate, shiftNumber, currentTeam]
+    );
+
+    return res.json({
+      success: true,
+      message: 'Data pelacakan kendala armada berhasil diambil',
+      data: {
+        shift_date: shiftDate,
+        shift_number: shiftNumber,
+        team_group: currentTeam,
+        current_issues: currentIssues,
+        backlog_issues: backlogIssues,
+        resolved_this_shift: resolvedThisShift
+      }
+    });
+  } catch (error) {
+    console.error('Error getVehicleIssuesAudit:', error);
+    return errorResponse(res, 'Gagal mengambil data pelacakan kendala armada: ' + error.message, 500);
+  }
+};

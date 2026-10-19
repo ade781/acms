@@ -14,14 +14,37 @@ import {
   Sliders,
   X,
   Activity,
+  Bell,
 } from 'lucide-react';
 
 import { useAuth } from '../../context/AuthContext';
+import api from '../../services/api';
 import Logo from '../common/Logo';
 import Badge from '../common/Badge';
 
 export default function Sidebar({ isOpen, onClose }) {
   const { isAdmin } = useAuth();
+  const [unreadAnnouncements, setUnreadAnnouncements] = React.useState(0);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    const checkUnread = async () => {
+      try {
+        const res = await api.get('/announcements');
+        if (isMounted) {
+          setUnreadAnnouncements(Number(res.data?.data?.unread_count || res.data?.unread_count || 0));
+        }
+      } catch {
+        // Abaikan kegagalan jaringan berkala
+      }
+    };
+    checkUnread();
+    const interval = setInterval(checkUnread, 45000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const navItems = [
     {
@@ -68,6 +91,13 @@ export default function Sidebar({ isOpen, onClose }) {
       to: '/schedules',
       label: 'Jadwal Dinas',
       icon: Calendar,
+    },
+    {
+      to: '/announcements',
+      label: 'Pengumuman',
+      icon: Bell,
+      badge: unreadAnnouncements > 0 ? unreadAnnouncements : null,
+      isAlertBadge: true,
     },
   ];
 
@@ -132,9 +162,15 @@ export default function Sidebar({ isOpen, onClose }) {
                   <span>{item.label}</span>
                 </div>
                 {item.badge && (
-                  <Badge variant="pending" size="sm">
-                    {item.badge}
-                  </Badge>
+                  item.isAlertBadge ? (
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-red-600 text-white shadow-xs">
+                      {item.badge}
+                    </span>
+                  ) : (
+                    <Badge variant="pending" size="sm">
+                      {item.badge}
+                    </Badge>
+                  )
                 )}
               </NavLink>
             );

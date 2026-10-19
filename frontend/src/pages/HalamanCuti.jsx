@@ -7,6 +7,8 @@ import {
   AlertCircle,
   Trash2,
   Calendar,
+  Upload,
+  FileText,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam, formatTeam } from '../utils/shiftHelper';
@@ -15,6 +17,9 @@ import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
+import Modal from '../components/common/Modal';
+import InputField from '../components/common/InputField';
+import SelectField from '../components/common/SelectField';
 
 export default function HalamanCuti() {
   const {
@@ -36,6 +41,17 @@ export default function HalamanCuti() {
   const [isApproved, setIsApproved] = useState(false);
   const [supervisorName, setSupervisorName] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // State Pengajuan Cuti Rentang Tanggal
+  const [leaveModalOpen, setLeaveModalOpen] = useState(false);
+  const [leavePersonnelId, setLeavePersonnelId] = useState('');
+  const [leaveStartDate, setLeaveStartDate] = useState(activeDate || '');
+  const [leaveEndDate, setLeaveEndDate] = useState(activeDate || '');
+  const [leaveReason, setLeaveReason] = useState('cuti');
+  const [leaveNotes, setLeaveNotes] = useState('');
+  const [leaveFile, setLeaveFile] = useState(null);
+  const [submittingLeave, setSubmittingLeave] = useState(false);
+  const [leaveModalError, setLeaveModalError] = useState(null);
 
   const fetchLeaveData = useCallback(async () => {
     setLoading(true);
@@ -88,6 +104,64 @@ export default function HalamanCuti() {
   useEffect(() => {
     fetchLeaveData();
   }, [fetchLeaveData]);
+
+  const handleOpenLeaveModal = () => {
+    setLeaveModalError(null);
+    setLeaveStartDate(activeDate || new Date().toISOString().split('T')[0]);
+    setLeaveEndDate(activeDate || new Date().toISOString().split('T')[0]);
+    setLeaveReason('cuti');
+    setLeaveNotes('');
+    setLeaveFile(null);
+    if (!isAdmin && !isSupervisor && user?.personnel_id) {
+      setLeavePersonnelId(String(user.personnel_id));
+    } else {
+      setLeavePersonnelId(teamPersonnel[0]?.id ? String(teamPersonnel[0].id) : '');
+    }
+    setLeaveModalOpen(true);
+  };
+
+  const handleSubmitLeaveRange = async (e) => {
+    e.preventDefault();
+    setLeaveModalError(null);
+
+    const targetPId = (!isAdmin && !isSupervisor) ? user?.personnel_id : leavePersonnelId;
+    if (!targetPId) {
+      setLeaveModalError('Harap tentukan nama personel.');
+      return;
+    }
+    if (!leaveStartDate || !leaveEndDate) {
+      setLeaveModalError('Tanggal mulai dan tanggal selesai wajib diisi.');
+      return;
+    }
+    if (new Date(leaveStartDate) > new Date(leaveEndDate)) {
+      setLeaveModalError('Tanggal selesai tidak boleh lebih awal dari tanggal mulai.');
+      return;
+    }
+
+    setSubmittingLeave(true);
+    try {
+      const formData = new FormData();
+      formData.append('personnel_id', targetPId);
+      formData.append('start_date', leaveStartDate);
+      formData.append('end_date', leaveEndDate);
+      formData.append('absent_reason', leaveReason);
+      if (leaveNotes.trim()) formData.append('notes', leaveNotes.trim());
+      if (leaveFile) formData.append('document', leaveFile);
+
+      const res = await api.post('/deployments/leave-range', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      setSuccessMsg(res.data?.message || 'Pengajuan cuti berhasil dicatat.');
+      setLeaveModalOpen(false);
+      fetchLeaveData();
+    } catch (err) {
+      console.error('Error submitting leave range:', err);
+      setLeaveModalError(err.response?.data?.message || err.message || 'Gagal mengajukan cuti.');
+    } finally {
+      setSubmittingLeave(false);
+    }
+  };
 
   const handleAddAbsent = () => {
     setAbsentList((prev) => [
@@ -203,16 +277,27 @@ export default function HalamanCuti() {
               </div>
             </div>
 
-            {(!isApproved || isAdmin) && (
+            <div className="flex items-center gap-2 flex-wrap">
               <Button
-                variant="outline"
+                variant="primary"
                 size="sm"
-                icon={PlusCircle}
-                onClick={handleAddAbsent}
+                icon={Calendar}
+                onClick={handleOpenLeaveModal}
               >
-                Tambah Cuti / Izin
+                {!isAdmin && !isSupervisor ? 'Ajukan Izin / Cuti Saya' : 'Ajukan Cuti (Rentang Tanggal)'}
               </Button>
-            )}
+
+              {(isAdmin || isSupervisor) && (!isApproved || isAdmin) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={PlusCircle}
+                  onClick={handleAddAbsent}
+                >
+                  Tambah Cuti Shift Ini
+                </Button>
+              )}
+            </div>
           </div>
 
           {absentList.length === 0 ? (
@@ -225,96 +310,102 @@ export default function HalamanCuti() {
             </div>
           ) : (
             <div className="space-y-3">
-              {absentList.map((abs, idx) => (
-                <div
-                  key={idx}
-                  className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 flex flex-col sm:flex-row items-stretch sm:items-center gap-3"
-                >
-                  {/* Pilihan Personel: HANYA NAMA SAJA */}
-                  <div className="flex-1">
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Nama Personel:
-                    </label>
-                    <select
-                      value={abs.personnel_id || ''}
-                      disabled={isApproved && !isAdmin}
-                      onChange={(e) => {
-                        const updated = [...absentList];
-                        updated[idx].personnel_id = e.target.value ? Number(e.target.value) : '';
-                        setAbsentList(updated);
-                      }}
-                      className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 min-h-[38px] transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-red-500"
-                    >
-                      <option value="">(Pilih Personel)</option>
-                      {teamPersonnel.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.full_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+              {absentList.map((abs, idx) => {
+                const isMyOwnLeave = user?.personnel_id && Number(user.personnel_id) === Number(abs.personnel_id);
+                const canModifyThis = isAdmin || isSupervisor;
+                const canDeleteThis = (isAdmin || isSupervisor || isMyOwnLeave) && (!isApproved || isAdmin);
 
-                  {/* Kategori Izin/Cuti */}
-                  <div className="w-full sm:w-44">
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Kategori Keterangan:
-                    </label>
-                    <select
-                      value={abs.reason}
-                      disabled={isApproved && !isAdmin}
-                      onChange={(e) => {
-                        const updated = [...absentList];
-                        updated[idx].reason = e.target.value;
-                        setAbsentList(updated);
-                      }}
-                      className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 min-h-[38px] transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-red-500"
-                    >
-                      <option value="cuti">Cuti Tahunan</option>
-                      <option value="sakit">Sakit</option>
-                      <option value="dinas">Dinas Luar</option>
-                      <option value="tukar_dinas">Tukar Dinas</option>
-                    </select>
-                  </div>
-
-                  {/* Catatan / Alasan */}
-                  <div className="flex-1">
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Keterangan / Alasan Tambahan:
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Contoh: Izin keperluan keluarga, surat dokter..."
-                      value={abs.notes || ''}
-                      disabled={isApproved && !isAdmin}
-                      onChange={(e) => {
-                        const updated = [...absentList];
-                        updated[idx].notes = e.target.value;
-                        setAbsentList(updated);
-                      }}
-                      className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 min-h-[38px] transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-red-500"
-                    />
-                  </div>
-
-                  {/* Tombol Hapus */}
-                  {(!isApproved || isAdmin) && (
-                    <div className="sm:pt-5">
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveAbsent(idx)}
-                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg min-h-[38px] min-w-[38px] flex items-center justify-center transition-colors duration-100"
-                        title="Hapus baris cuti ini"
+                return (
+                  <div
+                    key={idx}
+                    className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 flex flex-col sm:flex-row items-stretch sm:items-center gap-3"
+                  >
+                    {/* Pilihan Personel */}
+                    <div className="flex-1">
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Nama Personel:
+                      </label>
+                      <select
+                        value={abs.personnel_id || ''}
+                        disabled={!canModifyThis || (isApproved && !isAdmin)}
+                        onChange={(e) => {
+                          const updated = [...absentList];
+                          updated[idx].personnel_id = e.target.value ? Number(e.target.value) : '';
+                          setAbsentList(updated);
+                        }}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 min-h-[38px] transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-slate-100 disabled:text-slate-600"
                       >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                        <option value="">(Pilih Personel)</option>
+                        {teamPersonnel.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.full_name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                  )}
-                </div>
-              ))}
+
+                    {/* Kategori Izin/Cuti */}
+                    <div className="w-full sm:w-44">
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Kategori Keterangan:
+                      </label>
+                      <select
+                        value={abs.reason}
+                        disabled={!canModifyThis || (isApproved && !isAdmin)}
+                        onChange={(e) => {
+                          const updated = [...absentList];
+                          updated[idx].reason = e.target.value;
+                          setAbsentList(updated);
+                        }}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 min-h-[38px] transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-slate-100 disabled:text-slate-600"
+                      >
+                        <option value="cuti">Cuti Tahunan</option>
+                        <option value="sakit">Sakit</option>
+                        <option value="dinas">Dinas Luar</option>
+                        <option value="tukar_dinas">Tukar Dinas</option>
+                      </select>
+                    </div>
+
+                    {/* Catatan / Alasan */}
+                    <div className="flex-1">
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Keterangan / Alasan Tambahan:
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Contoh: Izin keperluan keluarga, surat dokter..."
+                        value={abs.notes || ''}
+                        disabled={!canModifyThis || (isApproved && !isAdmin)}
+                        onChange={(e) => {
+                          const updated = [...absentList];
+                          updated[idx].notes = e.target.value;
+                          setAbsentList(updated);
+                        }}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 min-h-[38px] transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-slate-100 disabled:text-slate-600"
+                      />
+                    </div>
+
+                    {/* Tombol Hapus */}
+                    {canDeleteThis && (
+                      <div className="sm:pt-5">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAbsent(idx)}
+                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg min-h-[38px] min-w-[38px] flex items-center justify-center transition-colors duration-100"
+                          title="Hapus baris cuti ini"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
 
-          {/* Action Footer */}
-          {(!isApproved || isAdmin) && absentList.length > 0 && (
+          {/* Action Footer (Khusus Supervisor / Admin) */}
+          {(isAdmin || isSupervisor) && (!isApproved || isAdmin) && absentList.length > 0 && (
             <div className="mt-5 pt-3 border-t border-slate-100 flex justify-end">
               <Button
                 variant="primary"
@@ -328,6 +419,136 @@ export default function HalamanCuti() {
           )}
         </div>
       </StateView>
+
+      {/* Modal Pengajuan Cuti / Izin Rentang Tanggal */}
+      {leaveModalOpen && (
+        <Modal
+          isOpen={leaveModalOpen}
+          onClose={() => {
+            if (!submittingLeave) setLeaveModalOpen(false);
+          }}
+          title={!isAdmin && !isSupervisor ? 'Ajukan Izin / Cuti Mandiri' : 'Catat Izin / Cuti (Rentang Tanggal)'}
+          subtitle="Pilih rentang tanggal kalender dan lampirkan bukti pendukung jika ada"
+          footer={
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setLeaveModalOpen(false)}
+                disabled={submittingLeave}
+              >
+                Batal
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleSubmitLeaveRange}
+                loading={submittingLeave}
+              >
+                Simpan Pengajuan Cuti
+              </Button>
+            </>
+          }
+        >
+          <form onSubmit={handleSubmitLeaveRange} className="space-y-4">
+            {leaveModalError && (
+              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
+                {leaveModalError}
+              </div>
+            )}
+
+            {/* Nama Personel */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Nama Personel
+              </label>
+              {isAdmin || isSupervisor ? (
+                <select
+                  value={leavePersonnelId}
+                  onChange={(e) => setLeavePersonnelId(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  required
+                >
+                  <option value="">(Pilih Personel)</option>
+                  {teamPersonnel.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.full_name} ({p.nip || '-'})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-xs text-slate-700 font-semibold">
+                  {user?.name || 'Saya (Akun yang sedang login)'}
+                </div>
+              )}
+            </div>
+
+            {/* Rentang Tanggal */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <InputField
+                label="Tanggal Mulai Cuti"
+                type="date"
+                value={leaveStartDate}
+                onChange={(e) => setLeaveStartDate(e.target.value)}
+                required
+              />
+              <InputField
+                label="Tanggal Selesai Cuti"
+                type="date"
+                value={leaveEndDate}
+                onChange={(e) => setLeaveEndDate(e.target.value)}
+                required
+              />
+            </div>
+
+            {/* Kategori Keterangan */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Kategori Keterangan
+              </label>
+              <select
+                value={leaveReason}
+                onChange={(e) => setLeaveReason(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-500"
+                required
+              >
+                <option value="cuti">Cuti Tahunan</option>
+                <option value="sakit">Sakit</option>
+                <option value="dinas">Dinas Luar</option>
+                <option value="tukar_dinas">Tukar Dinas</option>
+              </select>
+            </div>
+
+            {/* Catatan / Keterangan Tambahan */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Keterangan Tambahan / Alasan
+              </label>
+              <textarea
+                rows={2}
+                placeholder="Contoh: Keperluan keluarga mendesak / Istirahat rawat jalan"
+                value={leaveNotes}
+                onChange={(e) => setLeaveNotes(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+
+            {/* Unggah Berkas Dokumen Pendukung (Opsional) */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Unggah Surat / Dokumen Bukti (Opsional)
+              </label>
+              <input
+                type="file"
+                accept=".pdf,image/png,image/jpeg,image/webp"
+                onChange={(e) => setLeaveFile(e.target.files?.[0] || null)}
+                className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
+              />
+              <span className="text-[11px] text-slate-400 mt-1 block">
+                Format didukung: PDF, WebP, JPEG, atau PNG (Maks. 5 MB)
+              </span>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 }

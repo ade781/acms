@@ -22,21 +22,28 @@ export default function HalamanLaporan() {
   const [approvedStatus, setApprovedStatus] = useState(false);
   const [shiftData, setShiftData] = useState(null);
   const [deptHeadData, setDeptHeadData] = useState(null);
+  const [vehicleIssues, setVehicleIssues] = useState({ current_issues: [], backlog_issues: [], resolved_this_shift: [] });
 
   const currentDef = SHIFT_DEFINITIONS.find((s) => s.number === Number(activeShiftNumber)) || SHIFT_DEFINITIONS[0];
 
   const fetchShiftData = useCallback(async () => {
     try {
-      const res = await api.get(
-        `/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${cleanTeam(activeTeam)}`
-      );
-      if (res.data?.data) {
-        const s = res.data.data.shift;
+      const [deployRes, issueRes] = await Promise.all([
+        api.get(`/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${cleanTeam(activeTeam)}`),
+        api.get(`/reports/vehicle-issues?date=${activeDate}&shift=${activeShiftNumber}&team_group=${cleanTeam(activeTeam)}`)
+      ]);
+
+      if (deployRes.data?.data) {
+        const s = deployRes.data.data.shift;
         setShiftData(s);
         setApprovedStatus(Boolean(s && s.status === 'approved'));
-        if (res.data.data.dept_head) {
-          setDeptHeadData(res.data.data.dept_head);
+        if (deployRes.data.data.dept_head) {
+          setDeptHeadData(deployRes.data.data.dept_head);
         }
+      }
+
+      if (issueRes.data?.data) {
+        setVehicleIssues(issueRes.data.data);
       }
     } catch (err) {
       console.error('Fetch shift report preview error:', err);
@@ -176,9 +183,102 @@ export default function HalamanLaporan() {
             </p>
           </div>
 
+          {/* Tabel Pelacakan Kendala Kendaraan Lintas Shift */}
+          <div>
+            <h4 className="font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-1 mb-2 flex items-center justify-between">
+              <span>2. Pelacakan Kendala & Pemulihan Armada Lintas Shift</span>
+              <span className="text-[10px] font-normal text-slate-500 normal-case">
+                Audit Trail Handover Status Unit
+              </span>
+            </h4>
+
+            {(!vehicleIssues.current_issues?.length && !vehicleIssues.backlog_issues?.length && !vehicleIssues.resolved_this_shift?.length) ? (
+              <div className="p-3 rounded-lg bg-emerald-50/70 border border-emerald-200 text-emerald-800 text-xs">
+                ✓ Seluruh armada operasional dalam kondisi prima (Serviceable). Tidak ada kendala unit aktif maupun backlog kerusakan.
+              </div>
+            ) : (
+              <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                <table className="w-full text-left text-[11px] divide-y divide-slate-200">
+                  <thead className="bg-slate-100 font-bold text-slate-800">
+                    <tr>
+                      <th className="p-2">Armada</th>
+                      <th className="p-2">Awal Kerusakan (Shift / Regu / PIC)</th>
+                      <th className="p-2">Justifikasi Kerusakan</th>
+                      <th className="p-2">Pemulihan (Resolved)</th>
+                      <th className="p-2">Status Terkini</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {/* Kendala Shift Ini */}
+                    {vehicleIssues.current_issues?.map((iss) => (
+                      <tr key={`cur-${iss.id}`} className="bg-red-50/40">
+                        <td className="p-2 font-bold text-slate-900">
+                          {iss.code_name} - {iss.vehicle_name}
+                        </td>
+                        <td className="p-2 text-slate-700">
+                          {formatIndoDate(iss.shift_date)} (Shift {iss.shift_number} {iss.team_group})<br />
+                          <span className="text-slate-500">PIC: {iss.reported_by_name || '-'}</span>
+                        </td>
+                        <td className="p-2 text-red-700 font-medium">{iss.justification || '-'}</td>
+                        <td className="p-2 text-slate-400 italic">Belum dipulihkan</td>
+                        <td className="p-2">
+                          <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-200 font-bold text-[10px]">
+                            Unserviceable (Shift Ini)
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+
+                    {/* Backlog Shift Sebelumnya */}
+                    {vehicleIssues.backlog_issues?.map((iss) => (
+                      <tr key={`back-${iss.id}`} className="bg-amber-50/40">
+                        <td className="p-2 font-bold text-slate-900">
+                          {iss.code_name} - {iss.vehicle_name}
+                        </td>
+                        <td className="p-2 text-slate-700">
+                          {formatIndoDate(iss.shift_date)} (Shift {iss.shift_number} {iss.team_group})<br />
+                          <span className="text-slate-500">PIC: {iss.reported_by_name || '-'}</span>
+                        </td>
+                        <td className="p-2 text-amber-800 font-medium">{iss.justification || '-'}</td>
+                        <td className="p-2 text-slate-400 italic">Dalam penanganan teknisi</td>
+                        <td className="p-2">
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 font-bold text-[10px]">
+                            Unserviceable (Bawaan Shift Lalu)
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+
+                    {/* Selesai / Resolved Shift Ini */}
+                    {vehicleIssues.resolved_this_shift?.map((iss) => (
+                      <tr key={`res-${iss.id}`} className="bg-emerald-50/40">
+                        <td className="p-2 font-bold text-slate-900">
+                          {iss.code_name} - {iss.vehicle_name}
+                        </td>
+                        <td className="p-2 text-slate-500">
+                          Sebelumnya dilaporkan unserviceable
+                        </td>
+                        <td className="p-2 text-slate-600">{iss.justification || 'Perbaikan selesai'}</td>
+                        <td className="p-2 text-emerald-800 font-medium">
+                          {iss.resolved_at ? new Date(iss.resolved_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-'}<br />
+                          <span className="text-slate-500">Oleh: {iss.resolved_by_name || '-'}</span>
+                        </td>
+                        <td className="p-2">
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-[10px]">
+                            ✓ Serviceable (Telah Pulih)
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
           <div>
             <h4 className="font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-1 mb-2">
-              2. Matriks Penempatan Personel (Ploting Kru)
+              3. Matriks Penempatan Personel (Ploting Kru)
             </h4>
             <p className="text-slate-600">
               Formulir penugasan kru armada dimulai dari kondisi kosong dan diisi oleh Ketua Regu dengan batas alokasi 3 s.d. 4 personel per kendaraan, termasuk penetapan 1 PIC resmi.
@@ -187,7 +287,7 @@ export default function HalamanLaporan() {
 
           <div>
             <h4 className="font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-1 mb-2">
-              3. Pengesahan & Validasi Serah Terima Dinas
+              4. Pengesahan & Validasi Serah Terima Dinas
             </h4>
             <div className="pt-8 flex justify-between items-end">
               {/* Dept Head / Section Head */}

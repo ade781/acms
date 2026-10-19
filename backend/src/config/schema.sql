@@ -175,4 +175,29 @@ CREATE TABLE IF NOT EXISTS `personnel_documents` (
   CONSTRAINT `fk_pdoc_personnel` FOREIGN KEY (`personnel_id`) REFERENCES `personnel` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_pdoc_uploader` FOREIGN KEY (`uploaded_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS `announcements` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `title` VARCHAR(255) NOT NULL,
+  `circular_number` VARCHAR(100) NULL,
+  `description` TEXT NULL,
+  `file_path` VARCHAR(255) NOT NULL,
+  `file_name` VARCHAR(255) NULL,
+  `published_date` DATE NOT NULL,
+  `created_by` INT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX `idx_pub_date` (`published_date`),
+  CONSTRAINT `fk_announcement_creator` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `announcement_reads` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `announcement_id` INT NOT NULL,
+  `user_id` INT NOT NULL,
+  `read_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `uniq_announcement_user` (`announcement_id`, `user_id`),
+  INDEX `idx_user` (`user_id`),
+  INDEX `idx_announcement` (`announcement_id`),
+  CONSTRAINT `fk_aread_announcement` FOREIGN KEY (`announcement_id`) REFERENCES `announcements` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_aread_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

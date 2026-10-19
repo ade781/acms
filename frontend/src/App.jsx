@@ -16,6 +16,7 @@ import HalamanCuti from './pages/HalamanCuti';
 import HalamanKegiatan from './pages/HalamanKegiatan';
 import HalamanLaporan from './pages/HalamanLaporan';
 import HalamanJadwal from './pages/HalamanJadwal';
+import HalamanPengumuman from './pages/HalamanPengumuman';
 
 
 
@@ -71,6 +72,7 @@ export default function App() {
           >
             <Route path="/dashboard" element={<HalamanDashboard />} />
             <Route path="/schedules" element={<HalamanJadwal />} />
+            <Route path="/announcements" element={<HalamanPengumuman />} />
             <Route path="/deployment" element={<HalamanPenugasan />} />
             <Route path="/readiness/vehicles" element={<HalamanKesiapanKendaraan />} />
             <Route path="/readiness/watchroom" element={<Navigate to="/readiness/vehicles" replace />} />

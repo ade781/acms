@@ -20,7 +20,12 @@ router.post('/categories', requireRole(['admin']), createIncidentCategory);
 
 router.get('/', getIncidents);
 router.get('/:id', getIncidentById);
-router.post('/', uploadMultipleImages('photos', 5), createIncident);
-router.put('/:id/status', requireRole(['admin', 'supervisor']), updateIncidentStatus);
+router.post(
+  '/',
+  requireRole(['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor']),
+  uploadMultipleImages('photos', 5),
+  createIncident
+);
+router.put('/:id/status', requireRole(['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor']), updateIncidentStatus);
 
 export default router;

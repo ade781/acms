@@ -7,6 +7,7 @@ import SelectField from '../common/SelectField';
 import TextareaField from '../common/TextareaField';
 import { compressImageToWebP } from '../../utils/imageCompressor';
 import { cleanTeam, formatTeam } from '../../utils/shiftHelper';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 
 export default function IncidentModal({
@@ -17,6 +18,8 @@ export default function IncidentModal({
   activeTeam,
   onSuccess,
 }) {
+  const { user, isAdmin, isSupervisor } = useAuth();
+  const canReportIncident = isAdmin || isSupervisor || ['admin', 'chief', 'chief_assistant', 'supervisor', 'dept_head'].includes(user?.role);
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
   const [priorityLevel, setPriorityLevel] = useState('sedang');
@@ -106,25 +109,38 @@ export default function IncidentModal({
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={submitting}>
-            Batal
+            {canReportIncident ? 'Batal' : 'Tutup'}
           </Button>
-          <Button
-            variant="danger"
-            onClick={handleSubmit}
-            loading={submitting || compressing}
-          >
-            Kirim Laporan Insiden
-          </Button>
+          {canReportIncident && (
+            <Button
+              variant="danger"
+              onClick={handleSubmit}
+              loading={submitting || compressing}
+            >
+              Kirim Laporan Insiden
+            </Button>
+          )}
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {error && (
-          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-            <span>{error}</span>
+      {!canReportIncident ? (
+        <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-bold">Akses Terbatas: Hanya Chief / Asisten Chief</p>
+            <p className="text-amber-800">
+              Pelaporan insiden dan kejadian darurat operasional hanya dapat dibuat oleh Chief, Asisten Chief, atau Administrator yang bertugas.
+            </p>
           </div>
-        )}
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
 
         <InputField
           label="Judul Laporan / Peristiwa"
@@ -227,6 +243,7 @@ export default function IncidentModal({
           )}
         </div>
       </form>
+      )}
     </Modal>
   );
 }

@@ -18,6 +18,7 @@ import {
   FileCheck,
   ExternalLink,
   Download,
+  Settings,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -86,13 +87,14 @@ export default function HalamanDetailPersonel() {
   const [formError, setFormError] = useState(null);
   const [deletingPersonnel, setDeletingPersonnel] = useState(false);
 
-  const isOwner =
+  const isOwner = Boolean(
     (user?.personnel_id && Number(user.personnel_id) === Number(id)) ||
     (user?.id && personnel?.user_id && Number(user.id) === Number(personnel.user_id)) ||
-    (user?.name && personnel?.full_name && user.name.trim().toLowerCase() === personnel.full_name.trim().toLowerCase());
+    (user?.name && personnel?.full_name && String(user.name).trim().toLowerCase() === String(personnel.full_name).trim().toLowerCase())
+  );
 
-  const canEdit = isAdmin || isSupervisor || isOwner;
-  const canUploadDoc = isAdmin || isSupervisor || isOwner;
+  const canEdit = isOwner || isAdmin;
+  const canUploadDoc = isOwner || isAdmin;
 
 
   const fetchPersonnelDetail = async () => {
@@ -333,17 +335,6 @@ export default function HalamanDetailPersonel() {
                     {personnel.employment_status || 'Organik'}
                   </span>
                 </div>
-
-                {canEdit && (
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    icon={Edit3}
-                    onClick={() => setEditModalOpen(true)}
-                  >
-                    Edit Profil
-                  </Button>
-                )}
 
                 {(isAdmin || isSupervisor) && (
                   <Button
@@ -598,6 +589,32 @@ export default function HalamanDetailPersonel() {
               </div>
             )}
 
+            {/* Pengaturan Data Profil (Khusus Pemilik Profil atau Admin) */}
+            {canEdit && (
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-lg bg-white border border-slate-200 text-slate-700 shadow-xs shrink-0">
+                    <Settings className="w-5 h-5 text-arff-primary" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900">Pengaturan Data Profil</h4>
+                    <p className="text-[11px] text-slate-500">
+                      Perbarui NIP, nomor registrasi lisensi STKP, masa berlaku lisensi, tanggal lahir, dan pendidikan
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={Settings}
+                  onClick={() => setEditModalOpen(true)}
+                  className="bg-white border-slate-300 hover:bg-slate-100 shrink-0"
+                >
+                  Edit Data Profil
+                </Button>
+              </div>
+            )}
+
             {/* Kartu Berkas & Dokumen Personel */}
             <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
               <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4 flex-wrap gap-3">
@@ -632,11 +649,7 @@ export default function HalamanDetailPersonel() {
               {personnel.documents && personnel.documents.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                   {personnel.documents.map((doc) => {
-                    const canDeleteThisDoc =
-                      isAdmin ||
-                      isSupervisor ||
-                      isOwner ||
-                      (doc.uploaded_by && Number(doc.uploaded_by) === Number(user?.id));
+                    const canDeleteThisDoc = isAdmin || isOwner;
 
                     return (
                       <div
@@ -788,6 +801,7 @@ export default function HalamanDetailPersonel() {
                 label="Nama Lengkap & Gelar"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
+                disabled={!isAdmin}
                 required
               />
 

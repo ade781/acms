@@ -1,5 +1,6 @@
 import pool from '../config/db.js';
 import { successResponse, errorResponse, createdResponse } from '../utils/responseHelper.js';
+import { calculateDefaultRoster } from './scheduleController.js';
 
 export const getCurrentDeployment = async (req, res) => {
   try {
@@ -321,9 +322,16 @@ export const approveShift = async (req, res) => {
         [shift_date, shift_number, team_group]
       );
       if (find.length === 0) {
-        return errorResponse(res, 'Sesi shift tidak ditemukan', 404);
+        // Otomatis buatkan entri sesi shift jika belum dibuat di awal
+        const [insertShift] = await pool.query(
+          `INSERT INTO personnel_shifts (shift_date, shift_number, team_group, supervisor_id, status, approved_at)
+           VALUES (?, ?, ?, ?, 'approved', CURRENT_TIMESTAMP)`,
+          [shift_date, shift_number, team_group, req.user.id]
+        );
+        targetShiftId = insertShift.insertId;
+      } else {
+        targetShiftId = find[0].id;
       }
-      targetShiftId = find[0].id;
     }
 
     const [rows] = await pool.query('SELECT * FROM personnel_shifts WHERE id = ?', [targetShiftId]);
@@ -346,5 +354,137 @@ export const approveShift = async (req, res) => {
   } catch (error) {
     console.error('Error approveShift:', error);
     return errorResponse(res, 'Gagal mengesahkan laporan shift', 500);
+  }
+};
+
+export const requestLeaveRange = async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    const { personnel_id, start_date, end_date, absent_reason = 'cuti', notes } = req.body;
+
+    if (!start_date || !end_date) {
+      return errorResponse(res, 'Tanggal mulai dan tanggal selesai cuti wajib diisi', 400);
+    }
+
+    const isPrivileged = ['admin', 'supervisor', 'chief', 'chief_assistant', 'dept_head'].includes(req.user.role);
+    let targetPersonnelId = Number(personnel_id);
+
+    if (!isPrivileged) {
+      if (!req.user.personnel_id) {
+        return errorResponse(res, 'Akun Anda tidak terhubung dengan data personel operasional', 403);
+      }
+      targetPersonnelId = Number(req.user.personnel_id);
+    } else {
+      if (!targetPersonnelId) {
+        targetPersonnelId = Number(req.user.personnel_id);
+      }
+    }
+
+    if (!targetPersonnelId) {
+      return errorResponse(res, 'ID Personel tidak valid', 400);
+    }
+
+    const [pRows] = await connection.query('SELECT * FROM personnel WHERE id = ?', [targetPersonnelId]);
+    if (pRows.length === 0) {
+      return errorResponse(res, 'Data personel tidak ditemukan', 404);
+    }
+    const person = pRows[0];
+    const teamGroup = person.team_group || 'Alpha';
+
+    const startDateObj = new Date(start_date);
+    const endDateObj = new Date(end_date);
+    if (startDateObj > endDateObj) {
+      return errorResponse(res, 'Tanggal selesai tidak boleh lebih awal dari tanggal mulai', 400);
+    }
+
+    // Jika ada lampiran berkas dokumen bukti cuti (opsional)
+    let uploadedDocUrl = null;
+    if (req.file) {
+      uploadedDocUrl = `/uploads/${req.file.filename}`;
+      await connection.query(
+        `INSERT INTO personnel_documents (
+          personnel_id, title, doc_type, file_path, file_size, uploaded_by
+        ) VALUES (?, ?, 'dokumen_lain', ?, ?, ?)`,
+        [
+          targetPersonnelId,
+          `Bukti Cuti (${absent_reason.toUpperCase()} ${start_date} s/d ${end_date})`,
+          uploadedDocUrl,
+          req.file.size,
+          req.user.id
+        ]
+      );
+    }
+
+    await connection.beginTransaction();
+
+    let cur = new Date(startDateObj);
+    let daysCount = 0;
+
+    while (cur <= endDateObj) {
+      const curDateStr = cur.toISOString().split('T')[0];
+      const roster = calculateDefaultRoster(curDateStr);
+
+      let shiftNum = 1;
+      if (roster.shift_1 === teamGroup) shiftNum = 1;
+      else if (roster.shift_2 === teamGroup) shiftNum = 2;
+      else if (roster.shift_3 === teamGroup) shiftNum = 3;
+      else shiftNum = 1; // regu libur, tetap dicatat di shift 1 agar terekam
+
+      // Pastikan personnel_shifts ada
+      const [exShifts] = await connection.query(
+        'SELECT id FROM personnel_shifts WHERE shift_date = ? AND shift_number = ? AND team_group = ?',
+        [curDateStr, shiftNum, teamGroup]
+      );
+
+      let shiftId;
+      if (exShifts.length > 0) {
+        shiftId = exShifts[0].id;
+      } else {
+        const [ins] = await connection.query(
+          `INSERT INTO personnel_shifts (shift_date, shift_number, team_group, status)
+           VALUES (?, ?, ?, 'open')`,
+          [curDateStr, shiftNum, teamGroup]
+        );
+        shiftId = ins.insertId;
+      }
+
+      // Hapus ploting lama personel pada shift ini (jika sebelumnya sudah terploting di unit)
+      await connection.query(
+        'DELETE FROM personnel_deployments WHERE shift_id = ? AND personnel_id = ?',
+        [shiftId, targetPersonnelId]
+      );
+
+      // Masukkan entri absent
+      const noteText = notes
+        ? `${notes} (Rentang: ${start_date} s/d ${end_date})`
+        : `Pengajuan Cuti (${start_date} s/d ${end_date})`;
+
+      await connection.query(
+        `INSERT INTO personnel_deployments (
+          shift_id, personnel_id, deployment_type, is_pic, absent_reason, assigned_by, notes
+        ) VALUES (?, ?, 'absent', 0, ?, ?, ?)`,
+        [shiftId, targetPersonnelId, absent_reason, req.user.id, noteText]
+      );
+
+      daysCount++;
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    await connection.commit();
+
+    return successResponse(res, `Pengajuan cuti untuk ${person.full_name} berhasil dicatat sebanyak ${daysCount} hari.`, {
+      personnel_id: targetPersonnelId,
+      full_name: person.full_name,
+      start_date,
+      end_date,
+      days_count: daysCount,
+      document_url: uploadedDocUrl
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error requestLeaveRange:', error);
+    return errorResponse(res, 'Gagal mencatat pengajuan cuti: ' + error.message, 500);
+  } finally {
+    connection.release();
   }
 };

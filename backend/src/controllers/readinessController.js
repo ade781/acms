@@ -48,6 +48,41 @@ export const getVehicleReadiness = async (req, res) => {
     const currentUserRole = req.user.role;
     const currentUserPersonnelId = req.user.personnel_id;
 
+    // Carry-over status: Jika unit belum dilaporkan di shift ini, cek apakah unit sebelumnya unserviceable
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i].status === 'belum_dilaporkan') {
+        const [prevLogs] = await pool.query(
+          `SELECT vrl.status, vrl.justification, vrl.photo_webp_url, vrl.follow_up_status, vrl.notes,
+                  vrl.shift_date, vrl.shift_number, vrl.team_group, p.full_name as prev_pic_name
+           FROM vehicle_readiness_logs vrl
+           LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
+           WHERE vrl.vehicle_id = ?
+             AND (vrl.shift_date < ? OR (vrl.shift_date = ? AND vrl.shift_number < ?))
+             AND vrl.status = 'unserviceable'
+             AND vrl.follow_up_status != 'resolved'
+           ORDER BY vrl.shift_date DESC, vrl.shift_number DESC
+           LIMIT 1`,
+          [rows[i].id, shiftDate, shiftDate, shiftNumber]
+        );
+
+        if (prevLogs.length > 0) {
+          const prev = prevLogs[0];
+          rows[i].status = 'unserviceable';
+          rows[i].justification = prev.justification;
+          rows[i].photo_webp_url = prev.photo_webp_url;
+          rows[i].follow_up_status = prev.follow_up_status;
+          rows[i].notes = prev.notes;
+          rows[i].is_carried_over = true;
+          rows[i].carried_from = {
+            shift_date: prev.shift_date,
+            shift_number: prev.shift_number,
+            team_group: prev.team_group,
+            reported_by: prev.prev_pic_name
+          };
+        }
+      }
+    }
+
     // Berikan flag can_edit untuk setiap unit kendaraan
     const vehiclesWithPermissions = rows.map(item => {
       const isSuper = ['admin', 'supervisor', 'chief', 'chief_assistant', 'operation_chief', 'dept_head'].includes(currentUserRole);
@@ -203,6 +238,17 @@ export const submitVehicleReadiness = async (req, res) => {
           resolvedAt,
           notes || null
         ]
+      );
+    }
+
+    // Jika armada dinyatakan serviceable, tandai backlog unserviceable sebelumnya sebagai resolved
+    if (status === 'serviceable') {
+      await pool.query(
+        `UPDATE vehicle_readiness_logs SET
+           follow_up_status = 'resolved',
+           resolved_at = CURRENT_TIMESTAMP
+         WHERE vehicle_id = ? AND status = 'unserviceable' AND follow_up_status != 'resolved'`,
+        [vehicle_id]
       );
     }
 
