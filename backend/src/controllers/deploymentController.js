@@ -113,6 +113,21 @@ export const saveDeploymentBatch = async (req, res) => {
       return errorResponse(res, 'Regu dinas harus salah satu dari: Alpha, Bravo, Charlie, Delta', 400);
     }
 
+    // Validasi: Cegah duplikasi penugasan (satu personel tidak boleh bertugas di >1 unit atau bertugas sekaligus cuti)
+    const assignedPersonnelIds = new Set();
+    for (const d of deployments) {
+      if (!d.personnel_id) continue;
+      const pId = Number(d.personnel_id);
+      if (assignedPersonnelIds.has(pId)) {
+        return errorResponse(
+          res,
+          `Personel (ID: ${pId}) ditugaskan lebih dari satu kali pada shift ini. Satu anggota hanya boleh ditugaskan pada 1 kendaraan atau berstatus izin/cuti.`,
+          400
+        );
+      }
+      assignedPersonnelIds.add(pId);
+    }
+
     // Validasi aturan: Setiap unit operasional yang ditugaskan wajib memiliki tepat 1 PIC dan maksimal 4 personel
     const unitCrewCount = {};
     const unitPicCount = {};

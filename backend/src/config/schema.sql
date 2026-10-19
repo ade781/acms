@@ -181,3 +181,20 @@ CREATE TABLE IF NOT EXISTS `daily_shift_activities` (
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT `fk_dsa_shift` FOREIGN KEY (`shift_id`) REFERENCES `personnel_shifts` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `personnel_documents` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `personnel_id` INT NOT NULL,
+  `title` VARCHAR(255) NOT NULL,
+  `document_type` ENUM('lisensi_stkp', 'sertifikat_diklat', 'medical_checkup', 'sk_tugas', 'dokumen_lain') NOT NULL DEFAULT 'dokumen_lain',
+  `file_name` VARCHAR(255) NOT NULL,
+  `file_url` VARCHAR(500) NOT NULL,
+  `file_size` INT DEFAULT 0,
+  `mime_type` VARCHAR(100) NULL,
+  `uploaded_by` INT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT `fk_pdoc_personnel` FOREIGN KEY (`personnel_id`) REFERENCES `personnel` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_pdoc_uploader` FOREIGN KEY (`uploaded_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

@@ -27,16 +27,23 @@ export const getShiftReportPdf = async (req, res) => {
       status: 'open'
     };
 
-    // Ambil data kesiapan kendaraan
+    // Ambil data kesiapan kendaraan & PIC ploting resmi shift
     const [vehicles] = await pool.query(
       `SELECT v.code_name, v.vehicle_name, v.category, vrl.status, vrl.justification,
-              p.full_name as pic_name
+              COALESCE(deploy_pic.full_name, p.full_name) as pic_name
        FROM vehicles v
        LEFT JOIN vehicle_readiness_logs vrl
-         ON vrl.vehicle_id = v.id AND vrl.shift_date = ? AND vrl.shift_number = ?
+         ON vrl.vehicle_id = v.id AND vrl.shift_date = ? AND vrl.shift_number = ? AND vrl.team_group = ?
+       LEFT JOIN (
+         SELECT pd.vehicle_id, p.full_name
+         FROM personnel_deployments pd
+         JOIN personnel_shifts ps ON ps.id = pd.shift_id
+         JOIN personnel p ON p.id = pd.personnel_id
+         WHERE ps.shift_date = ? AND ps.shift_number = ? AND ps.team_group = ? AND pd.is_pic = 1
+       ) deploy_pic ON deploy_pic.vehicle_id = v.id
        LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
        WHERE v.is_active = 1`,
-      [shiftDate, shiftNumber]
+      [shiftDate, shiftNumber, teamGroup, shiftDate, shiftNumber, teamGroup]
     );
 
     // Ambil kesiapan watchroom
@@ -44,9 +51,10 @@ export const getShiftReportPdf = async (req, res) => {
       `SELECT wcl.status, wcl.notes, u.name as inspector_name
        FROM watchroom_checklist_logs wcl
        LEFT JOIN users u ON u.id = wcl.inspector_id
-       WHERE wcl.shift_date = ? AND wcl.shift_number = ?`,
-      [shiftDate, shiftNumber]
+       WHERE wcl.shift_date = ? AND wcl.shift_number = ? AND wcl.team_group = ?`,
+      [shiftDate, shiftNumber, teamGroup]
     );
+
 
     // Ambil ploting personel
     let deployments = [];

@@ -202,6 +202,12 @@ export const formatTanggalIndonesia = formatIndoDate;
  */
 export const OPERATIONAL_ROLES = [
   {
+    role: 'dept_head',
+    rank_position: 'Airport Technology & ARFF Dept. Head',
+    label: 'Airport Technology & ARFF Dept. Head',
+    badgeClass: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-800',
+  },
+  {
     role: 'chief',
     rank_position: 'ARFF Operation Chief',
     label: 'ARFF Operation Chief',
@@ -250,4 +256,30 @@ export function formatRoleName(roleOrRank) {
   if (roleOrRank === 'operator') return 'ARFF Operation Junior Fire Fighter';
 
   return roleOrRank;
+}
+
+/**
+ * Memetakan teks jabatan operasional ke kode role
+ * @param {string} rank
+ * @returns {string}
+ */
+export function mapRankPositionToRole(rank) {
+  if (!rank) return 'junior_firefighter';
+  const r = String(rank).trim().toLowerCase();
+  if (r.includes('dept. head') || r.includes('dept head') || r.includes('department head') || r.includes('section head')) {
+    return 'dept_head';
+  }
+  if (r.includes('chief assistant') || r.includes('asisten chief') || r.includes('wakil')) {
+    return 'chief_assistant';
+  }
+  if (r.includes('chief') || r.includes('ketua regu')) {
+    return 'chief';
+  }
+  if (r.includes('senior')) {
+    return 'senior_firefighter';
+  }
+  if (r.includes('admin')) {
+    return 'admin';
+  }
+  return 'junior_firefighter';
 }

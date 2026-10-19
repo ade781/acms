@@ -1,15 +1,18 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   CheckCircle,
   AlertCircle,
   Info,
+  Save,
+  ShieldAlert,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { cleanTeam, formatTeam } from '../utils/shiftHelper';
+import { cleanTeam, formatTeam, getScheduledTeam } from '../utils/shiftHelper';
 import api from '../services/api';
 import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import DeploymentSlotCard from '../components/forms/DeploymentSlotCard';
 import StateView from '../components/common/StateView';
+
 
 export default function HalamanPenugasan() {
   const {
@@ -39,6 +42,37 @@ export default function HalamanPenugasan() {
 
   const [saving, setSaving] = useState(false);
   const [approving, setApproving] = useState(false);
+
+  // Jadwal dinas operasional shift aktif
+  const scheduledTeam = useMemo(
+    () => getScheduledTeam(activeDate, activeShiftNumber),
+    [activeDate, activeShiftNumber]
+  );
+  const isScheduledTeam = cleanTeam(activeTeam) === cleanTeam(scheduledTeam);
+
+  // Hak edit: Hanya supervisor/admin, dan regu harus terjadwal dinas aktif (kecuali admin)
+  const canEditPlot = (isAdmin || isSupervisor) && (!isApproved || isAdmin) && (isScheduledTeam || isAdmin);
+
+  // ID Personel yang telah ditugaskan di slot armada manapun
+  const assignedPersonnelIds = useMemo(() => {
+    const set = new Set();
+    Object.values(vehicleSlots).forEach((slots) => {
+      slots.forEach((s) => {
+        if (s.personnel_id) set.add(Number(s.personnel_id));
+      });
+    });
+    return set;
+  }, [vehicleSlots]);
+
+  // ID Personel yang sedang cuti / izin
+  const absentPersonnelIds = useMemo(() => {
+    const set = new Set();
+    absentList.forEach((a) => {
+      if (a.personnel_id) set.add(Number(a.personnel_id));
+    });
+    return set;
+  }, [absentList]);
+
 
   // Fetch current deployment & master data concurrently
   const fetchDeploymentData = useCallback(async () => {
@@ -243,78 +277,6 @@ export default function HalamanPenugasan() {
     }
   };
 
-  // Approve shift: Menyimpan ploting sekaligus mengesahkan laporan shift
-  const handleApproveShift = async () => {
-    if (!window.confirm('Sahkan seluruh laporan dan ploting penugasan shift ini?')) return;
-
-    setApproving(true);
-    setError(null);
-    setSuccessMsg(null);
-    try {
-      const payloadDeployments = [];
-
-      // Kumpulkan seluruh slot operasional (armada & posko watchroom)
-      Object.entries(vehicleSlots).forEach(([vId, slots]) => {
-        const unitObj = vehicles.find((v) => Number(v.id) === Number(vId));
-        const isPosko = unitObj?.category === 'posko' || unitObj?.code_name === 'WATCHROOM';
-        const depType = isPosko
-          ? 'watchroom'
-          : (unitObj?.category === 'pendukung' ? 'vehicle_pendukung' : 'vehicle_utama');
-
-        slots.forEach((s, idx) => {
-          if (s.personnel_id) {
-            payloadDeployments.push({
-              personnel_id: Number(s.personnel_id),
-              deployment_type: depType,
-              vehicle_id: Number(vId),
-              is_pic: idx === 0, // Slot 0 paling atas FIX sebagai PIC
-              notes: isPosko ? 'Operator Komunikasi Watchroom' : (idx === 0 ? 'PIC Armada' : 'Kru Armada'),
-            });
-          }
-        });
-      });
-
-      // Kumpulkan personel yang cuti/izin
-      absentList.forEach((abs) => {
-        if (abs.personnel_id) {
-          payloadDeployments.push({
-            personnel_id: Number(abs.personnel_id),
-            deployment_type: 'absent',
-            vehicle_id: null,
-            is_pic: false,
-            absent_reason: abs.reason,
-            notes: abs.notes,
-          });
-        }
-      });
-
-      // Simpan batch ploting jika ada slot yang terisi
-      if (payloadDeployments.length > 0) {
-        await api.post('/deployments/batch', {
-          shift_date: activeDate,
-          shift_number: activeShiftNumber,
-          team_group: cleanTeam(activeTeam),
-          deployments: payloadDeployments,
-        });
-      }
-
-      // Sahkan shift
-      await api.post('/deployments/approve', {
-        shift_date: activeDate,
-        shift_number: activeShiftNumber,
-        team_group: cleanTeam(activeTeam),
-      });
-
-      setIsApproved(true);
-      setSuccessMsg('Laporan dan ploting shift resmi disahkan oleh Ketua Regu.');
-      fetchDeploymentData();
-    } catch (err) {
-      setError(`Gagal mengesahkan shift: ${err.response?.data?.message || err.message}`);
-    } finally {
-      setApproving(false);
-    }
-  };
-
   return (
     <div>
       <ShiftHeaderCard
@@ -323,16 +285,25 @@ export default function HalamanPenugasan() {
         teamGroup={activeTeam}
         supervisorName={supervisorName}
         isApproved={isApproved}
-        canApprove={isSupervisor || isAdmin}
-        onApproveShift={handleApproveShift}
-        approving={approving}
       />
 
-      {/* Petunjuk Ringkas */}
-      <div className="bg-slate-100 border border-slate-200 rounded-xl p-3 mb-6 text-xs text-slate-700 flex items-center gap-2.5">
-        <Info className="w-4 h-4 text-slate-500 flex-shrink-0" />
-        <span>Slot pertama adalah Penanggung Jawab (PIC) unit.</span>
-      </div>
+      {/* Peringatan jika regu yang aktif di header sedang OFF / Libur */}
+      {!isScheduledTeam && (
+        <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2.5 shadow-sm">
+          <ShieldAlert className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <span className="font-bold text-sm text-amber-950 block">
+              Regu {cleanTeam(activeTeam)} Sedang OFF / Libur
+            </span>
+            <span className="text-xs text-amber-800 leading-relaxed block">
+              Sesuai rotasi siklus dinas operasional, regu yang bertugas aktif pada shift ini adalah <strong>Regu {cleanTeam(scheduledTeam)}</strong>.
+              {canEditPlot
+                ? ' Anda memiliki wewenang administratif untuk meninjau data.'
+                : ' Ploting kru armada dikunci untuk regu yang sedang siaga cadangan / libur.'}
+            </span>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
@@ -357,10 +328,26 @@ export default function HalamanPenugasan() {
       >
         {/* Vehicles Deployment Grid */}
         <div className="mb-8">
-          <div className="mb-4">
-            <h3 className="text-base font-bold text-slate-900">
-              Ploting Personel Armada
-            </h3>
+          <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">
+                Ploting Personel Armada
+              </h3>
+              <p className="text-xs text-slate-500">
+                Slot pertama adalah PIC kendaraan. Satu personel hanya boleh ditugaskan pada 1 unit atau berstatus izin/cuti.
+              </p>
+            </div>
+            {canEditPlot && (
+              <button
+                type="button"
+                onClick={handleSaveDeployments}
+                disabled={saving}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-arff-primary text-white hover:bg-red-700 text-xs font-semibold shadow-sm transition-colors duration-100 disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                <span>{saving ? 'Menyimpan...' : 'Simpan Draf Ploting'}</span>
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -377,7 +364,9 @@ export default function HalamanPenugasan() {
                   }
                   onAddSlot={() => handleAddSlot(vId)}
                   onRemoveSlot={(slotIdx) => handleRemoveSlot(vId, slotIdx)}
-                  readOnly={isApproved && !isAdmin}
+                  readOnly={!canEditPlot}
+                  assignedPersonnelIds={assignedPersonnelIds}
+                  absentPersonnelIds={absentPersonnelIds}
                 />
               );
             })}
@@ -387,3 +376,4 @@ export default function HalamanPenugasan() {
     </div>
   );
 }
+

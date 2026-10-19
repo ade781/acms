@@ -6,6 +6,8 @@ export default function DeploymentSlotCard({
   vehicle,
   slots = [],
   availablePersonnel = [],
+  assignedPersonnelIds = new Set(),
+  absentPersonnelIds = new Set(),
   onSlotPersonnelChange,
   onAddSlot,
   onRemoveSlot,
@@ -83,11 +85,26 @@ export default function DeploymentSlotCard({
                       <option value="">
                         {isPic ? '(Pilih Personel PIC / Penanggung Jawab)' : '(Pilih Personel Kru)'}
                       </option>
-                      {availablePersonnel.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.full_name}
-                        </option>
-                      ))}
+                      {availablePersonnel.map((p) => {
+                        const isCurrentSelected = Number(slot.personnel_id) === Number(p.id);
+                        const isAlreadyAssigned = assignedPersonnelIds.has(Number(p.id)) && !isCurrentSelected;
+                        const isAbsent = absentPersonnelIds.has(Number(p.id)) && !isCurrentSelected;
+
+                        return (
+                          <option
+                            key={p.id}
+                            value={p.id}
+                            disabled={isAlreadyAssigned || isAbsent}
+                          >
+                            {p.full_name}
+                            {isAbsent
+                              ? ' (Sedang Cuti/Izin)'
+                              : isAlreadyAssigned
+                              ? ' (Sudah Ditugaskan)'
+                              : ''}
+                          </option>
+                        );
+                      })}
                     </select>
                   ) : (
                     <div className="text-xs font-semibold text-slate-800">

@@ -47,3 +47,27 @@ export const uploadMultipleImages = (fieldName = 'photos', maxCount = 5) => {
     limits: { fileSize: 5 * 1024 * 1024 }
   }).any();
 };
+
+const documentFileFilter = (req, file, cb) => {
+  const allowedMimes = [
+    'application/pdf',
+    'image/webp',
+    'image/jpeg',
+    'image/png',
+    'image/jpg'
+  ];
+  if (allowedMimes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Format berkas tidak didukung. Harap unggah dokumen PDF atau gambar (JPEG/PNG/WebP).'), false);
+  }
+};
+
+export const uploadSingleDocument = (fieldName = 'document') => {
+  return multer({
+    storage,
+    fileFilter: documentFileFilter,
+    limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+  }).single(fieldName);
+};
+

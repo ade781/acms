@@ -1,9 +1,10 @@
 import { errorResponse } from '../utils/responseHelper.js';
 
-// Pemetaan alias peran agar backward compatible dengan role operasional riil
+// Pemetaan alias peran agar hak akses chief dan chief_assistant sama
 const ROLE_EQUIVALENTS = {
-  supervisor: ['supervisor', 'chief', 'operation_chief', 'dept_head', 'admin'],
-  chief: ['chief', 'operation_chief', 'supervisor', 'dept_head', 'admin'],
+  supervisor: ['supervisor', 'chief', 'chief_assistant', 'operation_chief', 'dept_head', 'admin'],
+  chief: ['chief', 'chief_assistant', 'operation_chief', 'supervisor', 'dept_head', 'admin'],
+  chief_assistant: ['chief_assistant', 'chief', 'operation_chief', 'supervisor', 'dept_head', 'admin'],
   dept_head: ['dept_head', 'admin'],
   admin: ['admin'],
   operator: [

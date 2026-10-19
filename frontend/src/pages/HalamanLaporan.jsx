@@ -74,9 +74,6 @@ export default function HalamanLaporan() {
         shiftDate={activeDate}
         teamGroup={activeTeam}
         isApproved={approvedStatus}
-        canApprove={isSupervisor || isAdmin}
-        onApproveShift={handleApproveShift}
-        approving={approving}
       />
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -87,6 +84,17 @@ export default function HalamanLaporan() {
         </div>
 
         <div className="flex items-center gap-2">
+          {!approvedStatus && (isSupervisor || isAdmin) && (
+            <Button
+              variant="outline"
+              icon={CheckCircle}
+              onClick={handleApproveShift}
+              loading={approving}
+              className="text-emerald-700 border-emerald-600 hover:bg-emerald-50"
+            >
+              Sahkan Laporan Shift
+            </Button>
+          )}
           <Button
             variant="primary"
             icon={Download}
@@ -97,6 +105,7 @@ export default function HalamanLaporan() {
           </Button>
         </div>
       </div>
+
 
       {downloadError && (
         <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-4 shadow-sm animate-in fade-in">

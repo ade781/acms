@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Sliders, Plus, Truck, Radio, Trash2, Edit2, AlertCircle, CheckCircle } from 'lucide-react';
+
+
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import StateView from '../components/common/StateView';
@@ -13,7 +15,22 @@ import TextareaField from '../components/common/TextareaField';
 export default function HalamanPengaturan() {
   const { isAdmin } = useAuth();
 
+  if (!isAdmin) {
+    return (
+      <div className="p-12 text-center bg-white rounded-xl border border-slate-200 shadow-sm max-w-lg mx-auto mt-8">
+        <div className="w-12 h-12 rounded-full bg-red-100 text-arff-primary flex items-center justify-center mx-auto mb-3">
+          <Sliders className="w-6 h-6" />
+        </div>
+        <h3 className="text-base font-bold text-slate-900">Akses Terbatas</h3>
+        <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+          Menu Pengaturan Master Armada dan Sistem hanya dapat diakses dan diubah oleh Administrator Sistem ARFF YIA.
+        </p>
+      </div>
+    );
+  }
+
   const [activeTab, setActiveTab] = useState('vehicles'); // 'vehicles' | 'watchroom'
+
   const [vehicles, setVehicles] = useState([]);
   const [watchroomItems, setWatchroomItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -235,6 +252,8 @@ export default function HalamanPengaturan() {
           </div>
         )}
       </StateView>
+
+
 
       {/* Vehicle Add/Edit Modal */}
       {vehicleModalOpen && (

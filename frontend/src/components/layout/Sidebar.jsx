@@ -13,7 +13,9 @@ import {
   FileText,
   Sliders,
   X,
+  Activity,
 } from 'lucide-react';
+
 import { useAuth } from '../../context/AuthContext';
 import Logo from '../common/Logo';
 import Badge from '../common/Badge';
@@ -78,6 +80,7 @@ export default function Sidebar({ isOpen, onClose }) {
   }
 
   const linkClasses = ({ isActive }) =>
+
     `flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium min-h-[44px] transition-colors duration-100 select-none ${
       isActive
         ? 'bg-red-50 text-arff-primary font-semibold border-l-4 border-arff-primary pl-2.5'

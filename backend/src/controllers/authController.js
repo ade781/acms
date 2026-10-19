@@ -30,8 +30,8 @@ export const login = async (req, res) => {
       return errorResponse(res, 'Kredensial tidak valid: Username atau password salah', 401);
     }
 
-    const secret = process.env.JWT_SECRET || 'super_secret_jwt_key_arff_operations_2026';
-    const expiresIn = process.env.JWT_EXPIRES_IN || '24h';
+    const secret = process.env.JWT_SECRET;
+    const expiresIn = process.env.JWT_EXPIRES_IN;
 
     const token = jwt.sign(
       {

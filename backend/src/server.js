@@ -4,13 +4,13 @@ import pool from './config/db.js';
 
 dotenv.config();
 
-const PORT = Number(process.env.PORT) || 5000;
+const PORT = Number(process.env.PORT);
 
 async function startServer() {
   try {
     // Verifikasi koneksi database MySQL
     const conn = await pool.getConnection();
-    console.log(`[Database] Terhubung ke MySQL '${process.env.DB_NAME || 'logbuk'}' dengan sukses.`);
+    console.log(`[Database] Terhubung ke MySQL '${process.env.DB_NAME}' dengan sukses.`);
     conn.release();
 
     app.listen(PORT, () => {

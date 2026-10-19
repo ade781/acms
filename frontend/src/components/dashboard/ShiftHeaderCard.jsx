@@ -9,9 +9,6 @@ export default function ShiftHeaderCard({
   teamGroup,
   supervisorName,
   isApproved = false,
-  onApproveShift,
-  canApprove = false,
-  approving = false,
   personnelStats,
   openIncidentsCount = 0,
   onOpenIncidentModal,
@@ -106,18 +103,6 @@ export default function ShiftHeaderCard({
             </span>
           </button>
 
-          {/* Approve Shift Action */}
-          {canApprove && !isApproved && onApproveShift && (
-            <button
-              type="button"
-              onClick={onApproveShift}
-              disabled={approving}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-emerald-600 text-emerald-700 hover:bg-emerald-50 text-xs font-semibold transition-colors duration-100 min-h-[40px] shadow-sm disabled:opacity-50"
-            >
-              <CheckCircle className="w-4 h-4" />
-              <span>{approving ? 'Mengesahkan...' : 'Sahkan Shift'}</span>
-            </button>
-          )}
         </div>
       </div>
     </div>

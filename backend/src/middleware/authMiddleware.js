@@ -10,7 +10,7 @@ export const requireAuth = async (req, res, next) => {
     }
 
     const token = authHeader.split(' ')[1];
-    const secret = process.env.JWT_SECRET || 'super_secret_jwt_key_arff_operations_2026';
+    const secret = process.env.JWT_SECRET;
 
     const decoded = jwt.verify(token, secret);
 

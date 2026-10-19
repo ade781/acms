@@ -119,12 +119,13 @@ export function AuthProvider({ children }) {
   };
 
   const isAdmin = isRole('admin');
-  const isChief = isRole('chief', 'operation_chief');
+  const isChief = isRole('chief', 'chief_assistant', 'operation_chief');
   const isDeptHead = isRole('dept_head');
   const isChiefAssistant = isRole('chief_assistant');
-  // Supervisor mencakup chief, dept head, dan admin
-  const isSupervisor = isRole('supervisor', 'admin', 'chief', 'operation_chief', 'dept_head');
+  // Supervisor & Ploting mencakup chief, chief_assistant, dept head, dan admin
+  const isSupervisor = isRole('supervisor', 'admin', 'chief', 'chief_assistant', 'operation_chief', 'dept_head');
   const canApprove = isSupervisor;
+  const canPlot = isSupervisor;
 
   const value = {
     user,

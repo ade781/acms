@@ -18,6 +18,8 @@ import HalamanLaporan from './pages/HalamanLaporan';
 import HalamanPengaturan from './pages/HalamanPengaturan';
 import HalamanJadwal from './pages/HalamanJadwal';
 
+
+
 // Protected Route Component
 function ProtectedRoute({ children, adminOnly = false }) {
   const { user, loading, isAdmin } = useAuth();
@@ -88,6 +90,8 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+
+
           </Route>
 
           {/* Catch-all fallback */}
