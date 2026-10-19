@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, User, Shield, Award, Calendar, FileUp, Info, Edit3, Key, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { cleanTeam, formatTeam, TEAMS } from '../utils/shiftHelper';
+import { cleanTeam, formatTeam, TEAMS, OPERATIONAL_ROLES, formatRoleName } from '../utils/shiftHelper';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
@@ -14,7 +14,7 @@ import SelectField from '../components/common/SelectField';
 export default function HalamanDetailPersonel() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { user, isAdmin, isSupervisor } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -29,9 +29,17 @@ export default function HalamanDetailPersonel() {
   const [certLevel, setCertLevel] = useState('Junior');
   const [certNumber, setCertNumber] = useState('');
   const [certExpiryDate, setCertExpiryDate] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [formalEducation, setFormalEducation] = useState('');
   const [employmentStatus, setEmploymentStatus] = useState('organik');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
+
+  const canEdit =
+    isAdmin ||
+    isSupervisor ||
+    (user?.personnel_id && user.personnel_id === Number(id)) ||
+    (user?.name && personnel?.full_name && user.name.trim().toLowerCase() === personnel.full_name.trim().toLowerCase());
 
   const fetchPersonnelDetail = async () => {
     setLoading(true);
@@ -47,7 +55,9 @@ export default function HalamanDetailPersonel() {
         setTeamGroup(cleanTeam(data.team_group) || 'Alpha');
         setCertLevel(data.cert_level || 'Junior');
         setCertNumber(data.cert_number || '');
-        setCertExpiryDate(data.cert_expiry_date || '');
+        setCertExpiryDate(data.cert_expiry_date ? data.cert_expiry_date.split('T')[0] : '');
+        setBirthDate(data.birth_date ? data.birth_date.split('T')[0] : '');
+        setFormalEducation(data.formal_education || '');
         setEmploymentStatus(data.employment_status || 'organik');
       }
     } catch (err) {
@@ -65,21 +75,23 @@ export default function HalamanDetailPersonel() {
   const handleUpdatePersonnel = async (e) => {
     e.preventDefault();
     setFormError(null);
-    if (!fullName.trim() || !rankPosition.trim()) {
-      setFormError('Nama lengkap dan jabatan wajib diisi.');
+    if (!fullName.trim()) {
+      setFormError('Nama lengkap wajib diisi.');
       return;
     }
 
     setSaving(true);
     try {
       await api.put(`/personnel/${id}`, {
-        nip: nip.trim() || null,
+        nip: nip.trim() || '-',
         full_name: fullName.trim(),
-        rank_position: rankPosition.trim(),
+        rank_position: rankPosition.trim() || '-',
         team_group: teamGroup,
         cert_level: certLevel,
-        cert_number: certNumber.trim() || null,
+        cert_number: certNumber.trim() || '-',
         cert_expiry_date: certExpiryDate || null,
+        birth_date: birthDate || null,
+        formal_education: formalEducation.trim() || '-',
         employment_status: employmentStatus,
       });
 
@@ -139,14 +151,14 @@ export default function HalamanDetailPersonel() {
                   </span>
                 </div>
 
-                {isAdmin && (
+                {canEdit && (
                   <Button
                     variant="primary"
                     size="sm"
                     icon={Edit3}
                     onClick={() => setEditModalOpen(true)}
                   >
-                    Edit Data Personel
+                    Edit Profil
                   </Button>
                 )}
               </div>
@@ -158,7 +170,7 @@ export default function HalamanDetailPersonel() {
               <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
                 <div className="flex items-center gap-2 pb-3 border-b border-slate-200 mb-4">
                   <Award className="w-5 h-5 text-arff-primary" />
-                  <h3 className="text-sm font-bold text-slate-900">Kualifikasi Lisensi PKP-PK</h3>
+                  <h3 className="text-sm font-bold text-slate-900">Lisensi & Pendidikan</h3>
                 </div>
 
                 <div className="space-y-3 text-xs">
@@ -171,19 +183,25 @@ export default function HalamanDetailPersonel() {
                   <div className="flex justify-between py-1.5 border-b border-slate-100">
                     <span className="text-slate-500">Nomor Registrasi Lisensi:</span>
                     <span className="font-mono font-semibold text-slate-800">
-                      {personnel.cert_number || 'Belum Tercatat'}
+                      {personnel.cert_number || '-'}
                     </span>
                   </div>
                   <div className="flex justify-between py-1.5 border-b border-slate-100">
                     <span className="text-slate-500">Masa Berlaku Lisensi:</span>
                     <span className="font-medium text-slate-800">
-                      {personnel.cert_expiry_date || 'Permanen / Tidak Ditentukan'}
+                      {personnel.cert_expiry_date ? new Date(personnel.cert_expiry_date).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' }) : '-'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1.5 border-b border-slate-100">
+                    <span className="text-slate-500">Tanggal Lahir:</span>
+                    <span className="font-medium text-slate-800">
+                      {personnel.birth_date ? new Date(personnel.birth_date).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' }) : '-'}
                     </span>
                   </div>
                   <div className="flex justify-between py-1.5">
                     <span className="text-slate-500">Pendidikan Terakhir:</span>
                     <span className="font-medium text-slate-800">
-                      {personnel.formal_education || 'SMA / Sederajat'}
+                      {personnel.formal_education || '-'}
                     </span>
                   </div>
                 </div>
@@ -193,7 +211,7 @@ export default function HalamanDetailPersonel() {
               <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
                 <div className="flex items-center gap-2 pb-3 border-b border-slate-200 mb-4">
                   <Shield className="w-5 h-5 text-sky-600" />
-                  <h3 className="text-sm font-bold text-slate-900">Status Kedinasan & Akun Login</h3>
+                  <h3 className="text-sm font-bold text-slate-900">Kedinasan & Akun</h3>
                 </div>
 
                 <div className="space-y-3 text-xs">
@@ -211,24 +229,11 @@ export default function HalamanDetailPersonel() {
                       {personnel.username || '-'}
                     </span>
                   </div>
-                  <div className="flex justify-between py-1.5 border-b border-slate-100">
+                  <div className="flex justify-between py-1.5 border-b border-slate-100 items-center">
                     <span className="text-slate-500">Peran Sistem (Role):</span>
-                    <Badge
-                      variant={
-                        personnel.user_role === 'admin'
-                          ? 'danger'
-                          : personnel.user_role === 'supervisor'
-                          ? 'warning'
-                          : 'primary'
-                      }
-                      size="sm"
-                    >
-                      {personnel.user_role === 'admin'
-                        ? 'Administrator'
-                        : personnel.user_role === 'supervisor'
-                        ? 'Supervisor (Ketua Regu)'
-                        : 'Operator (Kru Lapangan)'}
-                    </Badge>
+                    <span className="font-semibold text-xs px-2.5 py-0.5 rounded-full border bg-slate-100 text-slate-800 border-slate-200">
+                      {formatRoleName(personnel.user_role || personnel.rank_position)}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1.5">
                     <span className="text-slate-500">Status Kata Sandi:</span>
@@ -248,39 +253,33 @@ export default function HalamanDetailPersonel() {
               </div>
             </div>
 
-            {/* Coming Soon: Document Upload Banner (Section 3 Item 6) */}
-            <div className="bg-white rounded-xl border border-dashed border-slate-300 p-6 shadow-sm text-center">
-              <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
-                <FileUp className="w-6 h-6" />
+            {/* Info Pengisian Mandiri */}
+            <div className="bg-slate-50 rounded-xl border border-slate-200 p-5 text-xs text-slate-600 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Info className="w-5 h-5 text-sky-600 flex-shrink-0" />
+                <span>
+                  Personel dapat melengkapi data profil masing-masing (NIP, Jabatan, Nomor Lisensi, Tanggal Lahir, dan Pendidikan Terakhir) secara mandiri dengan menekan tombol <strong>"Lengkapi / Edit Profil"</strong> di atas.
+                </span>
               </div>
-              <div className="inline-block px-3 py-1 rounded-full bg-amber-100 text-amber-900 text-xs font-bold mb-2">
-                Fitur Pengunggahan Berkas (Coming Soon)
-              </div>
-              <h4 className="text-sm font-bold text-slate-800">
-                Penyimpanan Digital Sertifikat & Dokumen Personel
-              </h4>
-              <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-                Modul pengunggahan file scan ijazah, lisensi PKP-PK, dan sertifikat pelatihan akan diaktifkan pada rilis pembaruan berikutnya.
-              </p>
             </div>
           </div>
         )}
       </StateView>
 
-      {/* Modal Edit Data Personel (Admin Only) */}
+      {/* Modal Edit Data Personel */}
       {editModalOpen && (
         <Modal
           isOpen={editModalOpen}
           onClose={() => setEditModalOpen(false)}
-          title="Edit Data Personel Operasional"
-          subtitle="Perbarui data profil, regu kedinasan, atau kualifikasi lisensi"
+          title="Lengkapi & Perbarui Data Personel"
+          subtitle="Isi atau perbarui data kepegawaian, nomor lisensi, tanggal lahir, dan pendidikan"
           footer={
             <>
               <Button variant="outline" onClick={() => setEditModalOpen(false)} disabled={saving}>
                 Batal
               </Button>
               <Button variant="primary" onClick={handleUpdatePersonnel} loading={saving}>
-                Simpan Perubahan
+                Simpan Profil
               </Button>
             </>
           }
@@ -302,6 +301,7 @@ export default function HalamanDetailPersonel() {
 
               <InputField
                 label="NIP (Nomor Induk Pegawai)"
+                placeholder="Contoh: 20240123 atau -"
                 value={nip}
                 onChange={(e) => setNip(e.target.value)}
               />
@@ -309,18 +309,24 @@ export default function HalamanDetailPersonel() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <SelectField
+                label="Jabatan Operasional (Role)"
+                id="rankPosition"
+                value={rankPosition}
+                onChange={(e) => setRankPosition(e.target.value)}
+                options={OPERATIONAL_ROLES.map((r) => ({
+                  value: r.rank_position,
+                  label: r.label,
+                }))}
+                required
+                disabled={!isAdmin && !isSupervisor}
+              />
+
+              <SelectField
                 label="Regu Kedinasan"
                 value={teamGroup}
                 onChange={(e) => setTeamGroup(e.target.value)}
                 options={TEAMS.map((t) => ({ value: cleanTeam(t), label: formatTeam(t) }))}
-                required
-              />
-
-              <InputField
-                label="Jabatan Operasional"
-                value={rankPosition}
-                onChange={(e) => setRankPosition(e.target.value)}
-                required
+                disabled={!isAdmin && !isSupervisor}
               />
             </div>
 
@@ -334,11 +340,11 @@ export default function HalamanDetailPersonel() {
                   { value: 'Junior', label: 'Junior Fire Fighter' },
                   { value: 'Senior', label: 'Senior Fire Fighter' },
                 ]}
-                required
               />
 
               <InputField
                 label="Nomor Registrasi Lisensi"
+                placeholder="Contoh: LIS-ARFF-2024-001 atau -"
                 value={certNumber}
                 onChange={(e) => setCertNumber(e.target.value)}
               />
@@ -352,6 +358,22 @@ export default function HalamanDetailPersonel() {
                 onChange={(e) => setCertExpiryDate(e.target.value)}
               />
 
+              <InputField
+                label="Tanggal Lahir"
+                type="date"
+                value={birthDate}
+                onChange={(e) => setBirthDate(e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <InputField
+                label="Pendidikan Terakhir"
+                placeholder="Contoh: SMA/SMK, D3 Penerbangan, S1"
+                value={formalEducation}
+                onChange={(e) => setFormalEducation(e.target.value)}
+              />
+
               <SelectField
                 label="Status Kepegawaian"
                 value={employmentStatus}
@@ -360,6 +382,7 @@ export default function HalamanDetailPersonel() {
                   { value: 'organik', label: 'Organik (Karyawan Tetap)' },
                   { value: 'outsourcing', label: 'Outsourcing / Kontrak' },
                 ]}
+                disabled={!isAdmin && !isSupervisor}
               />
             </div>
           </form>

@@ -53,11 +53,8 @@ export function AuthProvider({ children }) {
         if (userData && userData.id) {
           setUser(userData);
           localStorage.setItem('arff_user', JSON.stringify(userData));
-          // If user belongs to a specific team, prioritize that team only if different
-          if (userData.team_group) {
-            const userTeam = cleanTeam(userData.team_group);
-            setActiveTeam((prev) => (prev !== userTeam ? userTeam : prev));
-          }
+          // Default activeTeam tetap mengikuti jadwal dinas operasional shift saat ini
+          // User tetap dapat mengganti regu secara fleksibel melalui selector di header
         }
       } catch (err) {
         console.warn('Sesi kedaluwarsa atau server belum siap:', err.message);
@@ -117,8 +114,17 @@ export function AuthProvider({ children }) {
 
   const isRole = (...roles) => {
     if (!user || !user.role) return false;
-    return roles.includes(user.role.toLowerCase());
+    const lowerRole = user.role.toLowerCase();
+    return roles.map((r) => r.toLowerCase()).includes(lowerRole);
   };
+
+  const isAdmin = isRole('admin');
+  const isChief = isRole('chief', 'operation_chief');
+  const isDeptHead = isRole('dept_head');
+  const isChiefAssistant = isRole('chief_assistant');
+  // Supervisor mencakup chief, dept head, dan admin
+  const isSupervisor = isRole('supervisor', 'admin', 'chief', 'operation_chief', 'dept_head');
+  const canApprove = isSupervisor;
 
   const value = {
     user,
@@ -128,8 +134,12 @@ export function AuthProvider({ children }) {
     logout,
     refreshUser,
     isRole,
-    isAdmin: isRole('admin'),
-    isSupervisor: isRole('supervisor', 'admin'),
+    isAdmin,
+    isChief,
+    isDeptHead,
+    isChiefAssistant,
+    isSupervisor,
+    canApprove,
     activeDate,
     setActiveDate,
     activeShiftNumber,

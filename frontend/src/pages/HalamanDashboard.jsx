@@ -258,7 +258,7 @@ export default function HalamanDashboard() {
             ) : (
               <div className="mt-3.5 text-xs text-slate-500 flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>Seluruh anggota terkonfirmasi hadir dinas</span>
+                <span>Semua anggota hadir dinas</span>
               </div>
             )}
           </div>
@@ -270,7 +270,7 @@ export default function HalamanDashboard() {
               onClick={() => navigate('/deployment')}
               className="text-slate-800 hover:text-slate-900 hover:underline font-semibold"
             >
-              {metrics.isPersonnelPlotted ? 'Lihat Ploting Kru →' : '+ Atur Ploting Kru →'}
+              {metrics.isPersonnelPlotted ? 'Lihat Ploting →' : '+ Atur Ploting →'}
             </button>
           </div>
         </div>
@@ -294,7 +294,7 @@ export default function HalamanDashboard() {
                   {metrics.serviceableVehicles}
                 </span>
                 <span className="text-xs text-slate-500 font-medium">
-                  / {metrics.totalVehicles} Unit Siap Operasi
+                  / {metrics.totalVehicles} Unit Siap
                 </span>
               </div>
 
@@ -319,19 +319,19 @@ export default function HalamanDashboard() {
                   {metrics.totalVehicles === 0 ? (
                     <span className="text-slate-500">Belum ada unit terdaftar</span>
                   ) : metrics.unserviceableVehicles > 0 ? (
-                    <span className="text-red-700 font-bold">{metrics.unserviceableVehicles} unit perlu penanganan teknis</span>
+                    <span className="text-red-700 font-bold">{metrics.unserviceableVehicles} unit rusak</span>
                   ) : metrics.serviceableVehicles === metrics.totalVehicles ? (
-                    <span className="text-emerald-700 font-semibold">100% Seluruh Unit Siap Dinas</span>
+                    <span className="text-emerald-700 font-semibold">Semua unit siap dinas</span>
                   ) : (
-                    <span className="text-amber-700 font-medium">{metrics.totalVehicles - metrics.serviceableVehicles} unit belum diperiksa shift ini</span>
+                    <span className="text-amber-700 font-medium">{metrics.totalVehicles - metrics.serviceableVehicles} unit belum diperiksa</span>
                   )}
                 </div>
               </div>
 
               {/* Ringkasan Komposisi Unit */}
               <div className="mt-2.5 pt-2 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
-                <span>7 Armada Pemadam & Pendukung</span>
-                <span>1 Posko Watch Room</span>
+                <span>7 Armada</span>
+                <span>1 Posko</span>
               </div>
             </div>
 
@@ -372,12 +372,12 @@ export default function HalamanDashboard() {
                 {metrics.activitiesCount > 0 ? (
                   <span className="text-emerald-700 font-medium flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    Buku jurnal shift berjalan terisi
+                    Jurnal kegiatan terisi
                   </span>
                 ) : (
                   <span className="text-slate-500 flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    Belum ada agenda shift tercatat
+                    Belum ada kegiatan
                   </span>
                 )}
               </div>

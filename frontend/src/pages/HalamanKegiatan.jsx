@@ -92,11 +92,8 @@ export default function HalamanKegiatan() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="text-xl font-bold tracking-tight text-slate-900">
-            Logbook Kegiatan Rutin & Serah Terima Dinas
+            Logbook Kegiatan
           </h2>
-          <p className="text-xs text-slate-500 mt-1">
-            Pencatatan apel harian, uji coba pompa armada (running test), latihan fisik (kesamaptaan), dan pergantian jaga
-          </p>
         </div>
 
         <Button
@@ -104,7 +101,7 @@ export default function HalamanKegiatan() {
           icon={Plus}
           onClick={() => setModalOpen(true)}
         >
-          Catat Kegiatan Baru
+          Tambah Kegiatan
         </Button>
       </div>
 

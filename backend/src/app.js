@@ -12,6 +12,7 @@ import deploymentRoutes from './routes/deploymentRoutes.js';
 import incidentRoutes from './routes/incidentRoutes.js';
 import activityRoutes from './routes/activityRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
+import scheduleRoutes from './routes/scheduleRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -51,6 +52,7 @@ app.use('/api/deployments', deploymentRoutes);
 app.use('/api/incidents', incidentRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/schedules', scheduleRoutes);
 
 // Handler 404 rute tidak ditemukan
 app.use((req, res) => {

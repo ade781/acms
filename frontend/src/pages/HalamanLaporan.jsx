@@ -17,7 +17,8 @@ export default function HalamanLaporan() {
     isAdmin,
   } = useAuth();
 
-  const [comingSoonAlert, setComingSoonAlert] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState(null);
   const [approving, setApproving] = useState(false);
   const [approvedStatus, setApprovedStatus] = useState(false);
 
@@ -25,13 +26,27 @@ export default function HalamanLaporan() {
 
   const handleExportPDF = async () => {
     try {
-      const res = await api.get(`/reports/pdf?date=${activeDate}&shift=${activeShiftNumber}&team_group=${activeTeam}`);
-      if (res.data?.status === 'coming_soon' || res.data?.message) {
-        setComingSoonAlert(true);
-      }
-    } catch {
-      // Show elegant coming soon notice
-      setComingSoonAlert(true);
+      setDownloading(true);
+      setDownloadError(null);
+      const res = await api.get(
+        `/reports/pdf?date=${activeDate}&shift=${activeShiftNumber}&team_group=${activeTeam}`,
+        { responseType: 'blob' }
+      );
+      
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Laporan-Shift-${activeShiftNumber}-${cleanTeam(activeTeam)}-${activeDate}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download PDF error:', err);
+      setDownloadError('Gagal mengunduh berkas PDF laporan dinas. Pastikan data shift valid.');
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -67,11 +82,8 @@ export default function HalamanLaporan() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="text-xl font-bold tracking-tight text-slate-900">
-            Pusat Penerbitan Laporan Dinas Harian A4
+            Laporan Dinas
           </h2>
-          <p className="text-xs text-slate-500 mt-1">
-            Kompilasi berita acara kesiapan armada, ploting personel, dan logbook kegiatan per shift dinas
-          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -79,46 +91,23 @@ export default function HalamanLaporan() {
             variant="primary"
             icon={Download}
             onClick={handleExportPDF}
+            disabled={downloading}
           >
-            Cetak / Unduh Laporan PDF (A4)
+            {downloading ? 'Membuat PDF...' : 'Unduh PDF'}
           </Button>
         </div>
       </div>
 
-      {/* Elegant Coming Soon Notice Banner (Section 3 Item 7) */}
-      <div className="bg-amber-50 border border-amber-300 rounded-xl p-5 mb-6 shadow-sm">
-        <div className="flex items-start gap-3.5">
-          <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-900 flex items-center justify-center flex-shrink-0">
-            <FileText className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Badge variant="pic" size="sm">
-                Status: Coming Soon
-              </Badge>
-              <h3 className="text-sm font-bold text-amber-950">
-                Laporan Resmi PDF Format A4 Standar Otoritas Bandara
-              </h3>
-            </div>
-            <p className="text-xs text-amber-900/80 leading-relaxed max-w-3xl">
-              Modul generator berkas PDF resmi per shift (lengkap dengan kop dinas bandara, matriks ploting kru, berita acara kesiapan fisik armada, dan tanda tangan digital Ketua Regu) sedang dalam tahap finalisasi layout resmi. Ketua Regu tetap dapat melakukan pengesahan laporan secara digital melalui tombol <strong>"Sahkan Laporan Shift"</strong>.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {comingSoonAlert && (
-        <div className="mb-6 p-4 rounded-xl bg-slate-900 text-white text-xs flex items-center justify-between gap-4 shadow-lg animate-in fade-in">
+      {downloadError && (
+        <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-4 shadow-sm animate-in fade-in">
           <div className="flex items-center gap-2.5">
-            <Info className="w-5 h-5 text-amber-400" />
-            <span>
-              Fitur Cetak Laporan PDF resmi berstatus <strong>Coming Soon</strong>. Layout dan kop resmi akan disesuaikan pada rilis berikutnya.
-            </span>
+            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+            <span>{downloadError}</span>
           </div>
           <button
             type="button"
-            onClick={() => setComingSoonAlert(false)}
-            className="text-slate-400 hover:text-white font-bold px-2 py-1"
+            onClick={() => setDownloadError(null)}
+            className="text-red-500 hover:text-red-700 font-bold px-2 py-1"
           >
             Tutup
           </button>

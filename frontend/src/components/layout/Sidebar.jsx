@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users2,
+  Calendar,
   Truck,
   Radio,
   UserCheck,
@@ -28,17 +29,17 @@ export default function Sidebar({ isOpen, onClose }) {
     },
     {
       to: '/deployment',
-      label: 'Ploting Regu Dinas',
+      label: 'Ploting Dinas',
       icon: Users2,
     },
     {
       to: '/readiness/vehicles',
-      label: 'Kesiapan Armada & Posko',
+      label: 'Kesiapan Armada',
       icon: Truck,
     },
     {
       to: '/personnel',
-      label: 'Katalog Personel',
+      label: 'Data Personel',
       icon: UserCheck,
     },
     {
@@ -53,14 +54,18 @@ export default function Sidebar({ isOpen, onClose }) {
     },
     {
       to: '/activities',
-      label: 'Logbook & Aktivitas',
+      label: 'Logbook Kegiatan',
       icon: ClipboardList,
     },
     {
       to: '/reports',
-      label: 'Pusat Laporan A4',
+      label: 'Laporan Dinas',
       icon: FileText,
-      badge: 'Coming Soon',
+    },
+    {
+      to: '/schedules',
+      label: 'Jadwal Dinas',
+      icon: Calendar,
     },
   ];
 

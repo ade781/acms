@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   UserX,
   PlusCircle,
@@ -8,7 +7,6 @@ import {
   AlertCircle,
   Trash2,
   Calendar,
-  AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam, formatTeam } from '../utils/shiftHelper';
@@ -27,8 +25,6 @@ export default function HalamanCuti() {
     isSupervisor,
     isAdmin,
   } = useAuth();
-
-  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -154,26 +150,6 @@ export default function HalamanCuti() {
 
   return (
     <div>
-      {/* Tab Navigasi di Samping Halaman Insiden */}
-      <div className="flex items-center gap-2 mb-6 border-b border-slate-200 pb-3">
-        <button
-          type="button"
-          onClick={() => navigate('/incidents')}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors duration-100 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-        >
-          <AlertTriangle className="w-4 h-4 text-slate-500" />
-          <span>Laporan Insiden</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate('/leave')}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors duration-100 bg-red-50 text-arff-primary border border-red-200"
-        >
-          <UserX className="w-4 h-4 text-arff-primary" />
-          <span>Pencatatan Cuti</span>
-        </button>
-      </div>
-
       {/* Header Info Shift */}
       <ShiftHeaderCard
         shiftNumber={activeShiftNumber}
@@ -212,10 +188,10 @@ export default function HalamanCuti() {
               </div>
               <div>
                 <h4 className="text-sm font-bold text-slate-900">
-                  Pencatatan Cuti / Sakit / Dinas Luar
+                  Pencatatan Cuti & Izin
                 </h4>
                 <p className="text-xs text-slate-500">
-                  Personel {formatTeam(activeTeam)} yang tidak berdinas pada shift aktif ({activeDate})
+                  Personel yang tidak berdinas pada shift aktif
                 </p>
               </div>
             </div>

@@ -43,11 +43,8 @@ export default function HalamanLogin() {
           <Logo className="h-12 w-12" />
         </div>
         <h2 className="text-center text-xl font-bold tracking-tight text-slate-900">
-          Masuk ke Sistem Operasional ARFF
+          Masuk ke Sistem
         </h2>
-        <p className="mt-1 text-center text-xs text-slate-600">
-          Silakan masukkan kredensial akun untuk melanjutkan dinas
-        </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
@@ -90,7 +87,7 @@ export default function HalamanLogin() {
                 loading={loading}
                 className="w-full"
               >
-                Masuk ke Sistem
+                Masuk
               </Button>
             </div>
           </form>

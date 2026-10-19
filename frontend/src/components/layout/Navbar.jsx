@@ -1,7 +1,7 @@
 import React from 'react';
 import { Menu, LogOut, User, Calendar, Clock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { SHIFT_DEFINITIONS, formatTeam } from '../../utils/shiftHelper';
+import { SHIFT_DEFINITIONS, formatTeam, formatRoleName } from '../../utils/shiftHelper';
 import Logo from '../common/Logo';
 import Badge from '../common/Badge';
 
@@ -83,8 +83,8 @@ export default function Navbar({ onToggleSidebar }) {
                 <span className="text-xs font-bold text-slate-900 leading-tight">
                   {user.name || user.username}
                 </span>
-                <span className="text-[10px] text-slate-500 capitalize">
-                  {user.role} {user.team_group ? `(${formatTeam(user.team_group)})` : ''}
+                <span className="text-[10px] text-slate-500 font-medium">
+                  {formatRoleName(user.role)} {user.team_group ? `• ${formatTeam(user.team_group)}` : ''}
                 </span>
               </div>
 

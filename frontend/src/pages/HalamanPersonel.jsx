@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Search, Plus, Filter, UserCheck, ChevronRight, Download } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { TEAMS, cleanTeam, formatTeam } from '../utils/shiftHelper';
+import { TEAMS, cleanTeam, formatTeam, OPERATIONAL_ROLES } from '../utils/shiftHelper';
 import api from '../services/api';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
@@ -12,7 +12,7 @@ import Modal from '../components/common/Modal';
 import SelectField from '../components/common/SelectField';
 
 export default function HalamanPersonel() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, activeTeam } = useAuth();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -28,7 +28,7 @@ export default function HalamanPersonel() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [fullName, setFullName] = useState('');
   const [nip, setNip] = useState('');
-  const [rankPosition, setRankPosition] = useState('');
+  const [rankPosition, setRankPosition] = useState(OPERATIONAL_ROLES[4].rank_position);
   const [teamGroup, setTeamGroup] = useState('Alpha');
   const [certLevel, setCertLevel] = useState('Junior');
   const [certNumber, setCertNumber] = useState('');
@@ -93,7 +93,7 @@ export default function HalamanPersonel() {
       // Reset form
       setFullName('');
       setNip('');
-      setRankPosition('');
+      setRankPosition(OPERATIONAL_ROLES[4].rank_position);
       setCertNumber('');
       fetchPersonnel();
     } catch (err) {
@@ -138,10 +138,10 @@ export default function HalamanPersonel() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="text-xl font-bold tracking-tight text-slate-900">
-            Katalog Data Induk Personel ARFF
+            Data Personel
           </h2>
-          <p className="text-xs text-slate-500 mt-1">
-            Daftar personel resmi, lisensi kompetensi PKP-PK, dan pembagian regu operasional
+          <p className="text-xs text-slate-500 mt-0.5">
+            Daftar anggota 4 regu
           </p>
         </div>
 
@@ -153,7 +153,7 @@ export default function HalamanPersonel() {
               loading={downloadingPdf}
               onClick={handleDownloadAccountList}
             >
-              Download PDF Akun
+              Unduh Akun (PDF)
             </Button>
           )}
 
@@ -163,7 +163,7 @@ export default function HalamanPersonel() {
               icon={Plus}
               onClick={() => setAddModalOpen(true)}
             >
-              Tambah Personel Baru
+              Tambah Personel
             </Button>
           )}
         </div>
@@ -181,7 +181,9 @@ export default function HalamanPersonel() {
           />
         </div>
         <div className="text-xs text-slate-500 font-medium">
-          Total: <span className="font-bold text-slate-800">{personnelList.length}</span> personel terdaftar (4 Regu Siaga)
+          Dinas Aktif: <span className="font-bold text-slate-800">{formatTeam(activeTeam)}</span>
+          <span className="text-slate-300 mx-2">•</span>
+          Total: <span className="font-bold text-slate-800">{personnelList.length}</span> personel (4 Regu)
         </div>
       </div>
 
@@ -249,10 +251,12 @@ export default function HalamanPersonel() {
             const sortedMembers = [...members].sort((a, b) => {
               const isChiefA =
                 a.user_role === 'supervisor' ||
+                a.user_role === 'chief' ||
                 a.rank_position?.toLowerCase().includes('chief') ||
                 a.rank_position?.toLowerCase().includes('ketua');
               const isChiefB =
                 b.user_role === 'supervisor' ||
+                b.user_role === 'chief' ||
                 b.rank_position?.toLowerCase().includes('chief') ||
                 b.rank_position?.toLowerCase().includes('ketua');
               if (isChiefA && !isChiefB) return -1;
@@ -260,19 +264,32 @@ export default function HalamanPersonel() {
               return a.id - b.id;
             });
 
+            const isOnDuty = cleanTeam(teamName).toLowerCase() === cleanTeam(activeTeam).toLowerCase();
+
             return (
               <div
                 key={teamName}
-                className={`bg-white rounded-xl border-2 ${theme.border} shadow-sm p-4 flex flex-col justify-between`}
+                className={`rounded-xl border-2 p-4 flex flex-col justify-between transition-opacity duration-150 ${
+                  isOnDuty
+                    ? `bg-white ${theme.border} shadow-md ring-2 ring-offset-1 ring-red-500/20 opacity-100`
+                    : `bg-slate-50/70 border-slate-200/90 shadow-xs opacity-50 hover:opacity-90`
+                }`}
               >
                 <div>
                   {/* Header Nama Regu (Tanpa teks UNIT PKP-PK) */}
                   <div className="text-center pb-3 mb-3 border-b border-slate-100">
-                    <h3 className={`text-base font-extrabold tracking-wider uppercase ${theme.title}`}>
-                      REGU {teamName.toUpperCase()}
-                    </h3>
+                    <div className="flex items-center justify-center gap-2">
+                      <h3 className={`text-base font-extrabold tracking-wider uppercase ${theme.title}`}>
+                        REGU {teamName.toUpperCase()}
+                      </h3>
+                      {isOnDuty && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                          Shift Aktif
+                        </span>
+                      )}
+                    </div>
                     <span className="text-xs font-medium text-slate-500 block mt-0.5">
-                      {members.length} Personel
+                      {members.length} Personel {!isOnDuty ? '(Off)' : ''}
                     </span>
                   </div>
 
@@ -384,11 +401,16 @@ export default function HalamanPersonel() {
                 required
               />
 
-              <InputField
-                label="Jabatan Operasional"
+              <SelectField
+                label="Jabatan Operasional (Role)"
+                id="rankPosition"
                 value={rankPosition}
                 onChange={(e) => setRankPosition(e.target.value)}
-                placeholder="Contoh: ARFF Operation Junior Fire Fighter"
+                options={OPERATIONAL_ROLES.map((r) => ({
+                  value: r.rank_position,
+                  label: r.label,
+                }))}
+                required
               />
             </div>
 

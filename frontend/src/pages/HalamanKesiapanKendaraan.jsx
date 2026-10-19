@@ -63,11 +63,8 @@ export default function HalamanKesiapanKendaraan() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="text-xl font-bold tracking-tight text-slate-900">
-            Monitoring Kesiapan Armada & Posko Operasional
+            Kesiapan Armada
           </h2>
-          <p className="text-xs text-slate-500 mt-1">
-            Status pemeriksaan kondisi armada dan fasilitas posko komunikasi watchroom. Pengisian checklist dilakukan oleh PIC atau Ketua Regu.
-          </p>
         </div>
 
         {/* Counter Summary */}

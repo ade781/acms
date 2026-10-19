@@ -119,6 +119,27 @@ export const getPersonnelById = async (req, res) => {
   }
 };
 
+export function mapRankPositionToRole(rank) {
+  if (!rank) return 'junior_firefighter';
+  const r = rank.trim().toLowerCase();
+  if (r.includes('dept. head') || r.includes('dept head') || r.includes('department head') || r.includes('section head')) {
+    return 'dept_head';
+  }
+  if (r.includes('chief assistant') || r.includes('asisten chief') || r.includes('wakil')) {
+    return 'chief_assistant';
+  }
+  if (r.includes('chief') || r.includes('ketua regu')) {
+    return 'chief';
+  }
+  if (r.includes('senior')) {
+    return 'senior_firefighter';
+  }
+  if (r.includes('admin')) {
+    return 'admin';
+  }
+  return 'junior_firefighter';
+}
+
 export const createPersonnel = async (req, res) => {
   try {
     const {
@@ -135,7 +156,7 @@ export const createPersonnel = async (req, res) => {
       create_user_account,
       username,
       password,
-      role = 'operator'
+      role
     } = req.body;
 
     if (!full_name || !rank_position || !team_group) {
@@ -159,9 +180,12 @@ export const createPersonnel = async (req, res) => {
       const salt = await bcrypt.genSalt(10);
       const passwordHash = await bcrypt.hash(password, salt);
 
+      // Hitung role otomatis berdasarkan jabatan operasional yang dipilih
+      const effectiveRole = role && role !== 'operator' ? role : mapRankPositionToRole(rank_position);
+
       const [userResult] = await pool.query(
         'INSERT INTO users (username, name, password_hash, role) VALUES (?, ?, ?, ?)',
-        [username, full_name, passwordHash, role]
+        [username, full_name, passwordHash, effectiveRole]
       );
       linkedUserId = userResult.insertId;
     }
@@ -219,11 +243,25 @@ export const updatePersonnel = async (req, res) => {
       return errorResponse(res, 'Personel tidak ditemukan', 404);
     }
 
+    // Otorisasi: Admin, Supervisor, Chief, & Dept Head dapat mengedit semua, user biasa hanya dapat mengedit data miliknya sendiri
+    const isStaffAdmin = ['admin', 'supervisor', 'chief', 'operation_chief', 'dept_head'].includes(req.user.role);
+    const isOwner =
+      (req.user.personnel_id && req.user.personnel_id === Number(id)) ||
+      (existing[0].user_id && existing[0].user_id === req.user.id) ||
+      (req.user.name && existing[0].full_name && req.user.name.trim().toLowerCase() === existing[0].full_name.trim().toLowerCase());
+
+    if (!isStaffAdmin && !isOwner) {
+      return errorResponse(res, 'Anda hanya memiliki izin untuk memperbarui data profil Anda sendiri', 403);
+    }
+
+    // Hanya staf berwenang (Chief, Dept Head, Admin) yang dapat mengubah Jabatan Operasional (Role)
+    const effectiveRankPosition = isStaffAdmin && rank_position ? rank_position : existing[0].rank_position;
+
     await pool.query(
       `UPDATE personnel SET
         nip = COALESCE(?, nip),
         full_name = COALESCE(?, full_name),
-        rank_position = COALESCE(?, rank_position),
+        rank_position = ?,
         birth_date = ?,
         employment_status = COALESCE(?, employment_status),
         team_group = COALESCE(?, team_group),
@@ -236,7 +274,7 @@ export const updatePersonnel = async (req, res) => {
       [
         nip || null,
         full_name || null,
-        rank_position || null,
+        effectiveRankPosition,
         birth_date !== undefined ? birth_date : existing[0].birth_date,
         employment_status || null,
         team_group || null,
@@ -248,6 +286,20 @@ export const updatePersonnel = async (req, res) => {
         id
       ]
     );
+
+    // Sinkronisasikan role di tabel users jika akun pengguna terhubung
+    if (existing[0].user_id) {
+      const synchedRole = (isStaffAdmin && rank_position) ? mapRankPositionToRole(rank_position) : null;
+      if (synchedRole) {
+        await pool.query('UPDATE users SET role = ?, name = COALESCE(?, name) WHERE id = ?', [
+          synchedRole,
+          full_name || null,
+          existing[0].user_id
+        ]);
+      } else if (full_name) {
+        await pool.query('UPDATE users SET name = ? WHERE id = ?', [full_name, existing[0].user_id]);
+      }
+    }
 
     const [updated] = await pool.query('SELECT * FROM personnel WHERE id = ?', [id]);
     return successResponse(res, 'Data personel berhasil diperbarui', updated[0]);

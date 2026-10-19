@@ -26,7 +26,7 @@ export default function ShiftHeaderCard({
         <div className="space-y-1.5">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xl font-bold text-slate-900 tracking-tight">
-              Regu {team}
+              {team}
             </span>
             <Badge variant={`team${team}`} size="md">
               Dinas Aktif
@@ -34,7 +34,7 @@ export default function ShiftHeaderCard({
             {isApproved ? (
               <Badge variant="serviceable" size="md">
                 <CheckCircle className="w-3.5 h-3.5" />
-                Dinas Telah Disahkan
+                Telah Disahkan
               </Badge>
             ) : (
               <Badge variant="default" size="md">
@@ -50,23 +50,23 @@ export default function ShiftHeaderCard({
             </span>
             <span className="flex items-center gap-1.5 font-semibold text-slate-800">
               <Clock className="w-4 h-4 text-slate-400" />
-              {currentDef.name} ({currentDef.startTime} s.d. {currentDef.endTime} WIB)
+              {currentDef.name} ({currentDef.startTime} - {currentDef.endTime})
             </span>
             {supervisorName && (
               <span className="flex items-center gap-1.5 font-medium text-slate-700">
                 <Shield className="w-4 h-4 text-arff-primary" />
-                Ketua Regu: <strong className="text-slate-900">{supervisorName}</strong>
+                Ketua: <strong className="text-slate-900">{supervisorName}</strong>
               </span>
             )}
             {personnelStats && (
               <span className="flex items-center gap-1.5 font-medium text-slate-700">
                 <Users className="w-4 h-4 text-sky-600" />
                 <span>
-                  Personel Regu: <strong className="text-slate-900">{personnelStats.total} Orang</strong>
+                  Personel: <strong className="text-slate-900">{personnelStats.total}</strong>
                   {personnelStats.isPlotted ? (
                     <>
                       {' ('}
-                      <span className="text-emerald-700 font-semibold">{personnelStats.duty} Bertugas</span>
+                      <span className="text-emerald-700 font-semibold">{personnelStats.duty} Dinas</span>
                       {personnelStats.absent > 0 ? (
                         <>, <span className="text-amber-700 font-bold">{personnelStats.absent} Izin</span></>
                       ) : (
@@ -85,11 +85,11 @@ export default function ShiftHeaderCard({
 
         {/* Right: Actions (Incident Status Badge/Button & Approve Shift) */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          {/* Status Insiden: Default putih jika 0, merah jika ada insiden */}
+          {/* Status Insiden */}
           <button
             type="button"
             onClick={onOpenIncidentModal}
-            title={openIncidentsCount > 0 ? `${openIncidentsCount} Insiden Aktif - Klik untuk kelola` : 'Status Insiden Nihil - Klik untuk catat insiden'}
+            title={openIncidentsCount > 0 ? `${openIncidentsCount} Insiden Aktif` : '0 Insiden'}
             className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-colors duration-100 min-h-[40px] shadow-sm border ${
               openIncidentsCount > 0
                 ? 'bg-red-600 border-red-700 text-white hover:bg-red-700 animate-pulse'
@@ -102,7 +102,7 @@ export default function ShiftHeaderCard({
               <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
             )}
             <span>
-              {openIncidentsCount > 0 ? `${openIncidentsCount} Insiden Aktif` : '0 Insiden (Nihil)'}
+              {openIncidentsCount > 0 ? `${openIncidentsCount} Insiden Aktif` : '0 Insiden'}
             </span>
           </button>
 
@@ -115,7 +115,7 @@ export default function ShiftHeaderCard({
               className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-emerald-600 text-emerald-700 hover:bg-emerald-50 text-xs font-semibold transition-colors duration-100 min-h-[40px] shadow-sm disabled:opacity-50"
             >
               <CheckCircle className="w-4 h-4" />
-              <span>{approving ? 'Mengesahkan...' : 'Sahkan Laporan Shift'}</span>
+              <span>{approving ? 'Mengesahkan...' : 'Sahkan Shift'}</span>
             </button>
           )}
         </div>

@@ -328,15 +328,10 @@ export default function HalamanPenugasan() {
         approving={approving}
       />
 
-      {/* Operational Instructions Banner */}
-      <div className="bg-slate-100 border border-slate-200 rounded-xl p-4 mb-6 text-xs text-slate-700 flex items-start gap-3">
-        <Info className="w-5 h-5 text-slate-500 flex-shrink-0 mt-0.5" />
-        <div>
-          <h4 className="font-bold text-slate-900 mb-0.5">Ketentuan Ploting Dinas Operasional</h4>
-          <p>
-            Ploting penugasan kru armada (3 s.d. 4 personel) dan posko Watch Room (2 personel). Personel pada slot pertama otomatis bertindak sebagai <strong>Penanggung Jawab (PIC)</strong> yang berhak menginput kesiapan operasional unit.
-          </p>
-        </div>
+      {/* Petunjuk Ringkas */}
+      <div className="bg-slate-100 border border-slate-200 rounded-xl p-3 mb-6 text-xs text-slate-700 flex items-center gap-2.5">
+        <Info className="w-4 h-4 text-slate-500 flex-shrink-0" />
+        <span>Slot pertama adalah Penanggung Jawab (PIC) unit.</span>
       </div>
 
       {error && (
@@ -364,11 +359,8 @@ export default function HalamanPenugasan() {
         <div className="mb-8">
           <div className="mb-4">
             <h3 className="text-base font-bold text-slate-900">
-              Ploting Personel Armada & Posko Operasional
+              Ploting Personel Armada
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Pilih PIC (Slot #1 paling atas) dan kru dinas untuk seluruh unit kendaraan dan posko watchroom
-            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

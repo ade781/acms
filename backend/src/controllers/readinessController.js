@@ -33,7 +33,7 @@ export const getVehicleReadiness = async (req, res) => {
 
     // Berikan flag can_edit untuk setiap unit kendaraan
     const vehiclesWithPermissions = rows.map(item => {
-      const isSuper = currentUserRole === 'admin' || currentUserRole === 'supervisor';
+      const isSuper = ['admin', 'supervisor', 'chief', 'operation_chief', 'dept_head'].includes(currentUserRole);
       const isPic = (currentUserPersonnelId && item.pic_personnel_id === currentUserPersonnelId) ||
                     (item.pic_user_id && item.pic_user_id === currentUserId);
 
@@ -80,8 +80,8 @@ export const submitVehicleReadiness = async (req, res) => {
       return errorResponse(res, 'Justifikasi kendala wajib diisi jika kondisi armada unserviceable', 400);
     }
 
-    // 1. Cek izin akses: Apakah user adalah Admin, Supervisor, atau PIC kendaraan di shift tersebut?
-    const isSuper = req.user.role === 'admin' || req.user.role === 'supervisor';
+    // 1. Cek izin akses: Apakah user adalah Admin, Supervisor, Chief, Dept Head, atau PIC kendaraan di shift tersebut?
+    const isSuper = ['admin', 'supervisor', 'chief', 'operation_chief', 'dept_head'].includes(req.user.role);
 
     let isAuthorizedPic = false;
     let picPersonnelId = null;

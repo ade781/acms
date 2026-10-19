@@ -16,6 +16,7 @@ import HalamanCuti from './pages/HalamanCuti';
 import HalamanKegiatan from './pages/HalamanKegiatan';
 import HalamanLaporan from './pages/HalamanLaporan';
 import HalamanPengaturan from './pages/HalamanPengaturan';
+import HalamanJadwal from './pages/HalamanJadwal';
 
 // Protected Route Component
 function ProtectedRoute({ children, adminOnly = false }) {
@@ -68,6 +69,7 @@ export default function App() {
             }
           >
             <Route path="/dashboard" element={<HalamanDashboard />} />
+            <Route path="/schedules" element={<HalamanJadwal />} />
             <Route path="/deployment" element={<HalamanPenugasan />} />
             <Route path="/readiness/vehicles" element={<HalamanKesiapanKendaraan />} />
             <Route path="/readiness/watchroom" element={<Navigate to="/readiness/vehicles" replace />} />

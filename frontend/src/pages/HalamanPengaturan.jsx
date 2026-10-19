@@ -140,11 +140,8 @@ export default function HalamanPengaturan() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="text-xl font-bold tracking-tight text-slate-900">
-            Pengaturan Master Data Sistem
+            Pengaturan Master
           </h2>
-          <p className="text-xs text-slate-500 mt-1">
-            Konfigurasi master kendaraan operasional dan checklist fasilitas bandara
-          </p>
         </div>
 
         {activeTab === 'vehicles' && (
@@ -153,7 +150,7 @@ export default function HalamanPengaturan() {
             icon={Plus}
             onClick={handleOpenAddVehicle}
           >
-            Tambah Unit Kendaraan
+            Tambah Kendaraan
           </Button>
         )}
       </div>
@@ -170,7 +167,7 @@ export default function HalamanPengaturan() {
           }`}
         >
           <Truck className="w-4 h-4" />
-          <span>Master Armada Kendaraan ({vehicles.length})</span>
+          <span>Armada ({vehicles.length})</span>
         </button>
       </div>
 

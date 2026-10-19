@@ -4,29 +4,13 @@ import { errorResponse } from '../utils/responseHelper.js';
 
 export const getShiftReportPdf = async (req, res) => {
   try {
-    const { date, shift, team_group, download } = req.query;
+    const { date, shift, team_group } = req.query;
 
     const shiftDate = date || new Date().toISOString().split('T')[0];
     const shiftNumber = shift ? Number(shift) : 1;
     const teamGroup = team_group || 'Alpha';
 
-    // Status resmi: Coming Soon
-    // Jika klien tidak meminta unduh file langsung (?download=true), kembalikan respons Coming Soon
-    if (!download || download === 'false') {
-      return res.status(200).json({
-        success: true,
-        message: 'Fitur Cetak Laporan PDF resmi berstatus Coming Soon',
-        status: 'coming_soon',
-        data: {
-          shift_date: shiftDate,
-          shift_number: shiftNumber,
-          team_group: teamGroup,
-          note: 'Layout dan kop resmi bandara akan disematkan pada pembaruan rilis berikutnya.'
-        }
-      });
-    }
-
-    // Eksekusi generator PDF jika parameter download=true
+    // Eksekusi generator PDF resmi laporan dinas A4
     const [shifts] = await pool.query(
       `SELECT ps.*, u.name as supervisor_name
        FROM personnel_shifts ps
