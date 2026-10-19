@@ -58,31 +58,9 @@ CREATE TABLE IF NOT EXISTS `vehicle_readiness_logs` (
   `notes` TEXT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY `unique_vehicle_shift` (`vehicle_id`, `shift_date`, `shift_number`),
+  UNIQUE KEY `unique_vehicle_shift_team` (`vehicle_id`, `shift_date`, `shift_number`, `team_group`),
   CONSTRAINT `fk_vrl_vehicle` FOREIGN KEY (`vehicle_id`) REFERENCES `vehicles` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_vrl_pic` FOREIGN KEY (`pic_personnel_id`) REFERENCES `personnel` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `watchroom_checklist_items` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `item_name` VARCHAR(100) NOT NULL,
-  `description` TEXT NULL,
-  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `watchroom_checklist_logs` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `shift_date` DATE NOT NULL,
-  `shift_number` TINYINT NOT NULL,
-  `team_group` ENUM('Alpha', 'Bravo', 'Charlie', 'Delta') NOT NULL,
-  `inspector_id` INT NULL,
-  `status` ENUM('serviceable', 'unserviceable', 'belum_dilaporkan') NOT NULL DEFAULT 'belum_dilaporkan',
-  `notes` TEXT NULL,
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY `unique_watchroom_shift` (`shift_date`, `shift_number`),
-  CONSTRAINT `fk_wcl_inspector` FOREIGN KEY (`inspector_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `personnel_shifts` (

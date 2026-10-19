@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam, formatTeam } from '../utils/shiftHelper';
+import { getVehicleIcon } from '../utils/vehicleHelper';
 import api from '../services/api';
 import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import VehicleReadinessModal from '../components/forms/VehicleReadinessModal';
@@ -541,8 +542,8 @@ export default function HalamanDashboard() {
                 </div>
               ) : (
                 vehicles.map((v) => {
+                  const ItemIcon = getVehicleIcon(v);
                   const isPosko = v.category === 'posko' || v.code_name === 'WATCHROOM';
-                  const ItemIcon = isPosko ? Radio : Truck;
                   const log = v.current_log || v;
                   const status = v.status || log?.status || 'belum_dilaporkan';
 

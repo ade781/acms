@@ -71,14 +71,6 @@ export default function Sidebar({ isOpen, onClose }) {
     },
   ];
 
-  if (isAdmin) {
-    navItems.push({
-      to: '/settings',
-      label: 'Pengaturan Master',
-      icon: Sliders,
-    });
-  }
-
   const linkClasses = ({ isActive }) =>
 
     `flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium min-h-[44px] transition-colors duration-100 select-none ${

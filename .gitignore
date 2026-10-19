@@ -48,3 +48,6 @@ Thumbs.db
 ~$*.xls
 ~$*.docx
 ~$*.pptx
+
+# Workspace scratch / database experiment folder
+masak/

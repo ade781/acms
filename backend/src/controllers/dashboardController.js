@@ -80,11 +80,14 @@ export const getDashboardSummary = async (req, res) => {
 
     // 3. Kesiapan watchroom
     const [watchrooms] = await pool.query(
-      `SELECT wcl.*, u.name as inspector_name
-       FROM watchroom_checklist_logs wcl
-       LEFT JOIN users u ON u.id = wcl.inspector_id
-       WHERE wcl.shift_date = ? AND wcl.shift_number = ?`,
-      [shiftDate, shiftNumber]
+      `SELECT vrl.*, p.full_name as inspector_name
+       FROM vehicle_readiness_logs vrl
+       JOIN vehicles v ON v.id = vrl.vehicle_id
+       LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
+       WHERE (v.category = 'posko' OR v.code_name = 'WATCHROOM')
+         AND vrl.shift_date = ? AND vrl.shift_number = ? AND vrl.team_group = ?
+       LIMIT 1`,
+      [shiftDate, shiftNumber, cleanTeamGroup]
     );
 
     const watchroomSummary = watchrooms.length > 0 ? watchrooms[0] : {

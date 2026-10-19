@@ -15,7 +15,6 @@ import HalamanDetailInsiden from './pages/HalamanDetailInsiden';
 import HalamanCuti from './pages/HalamanCuti';
 import HalamanKegiatan from './pages/HalamanKegiatan';
 import HalamanLaporan from './pages/HalamanLaporan';
-import HalamanPengaturan from './pages/HalamanPengaturan';
 import HalamanJadwal from './pages/HalamanJadwal';
 
 
@@ -82,14 +81,7 @@ export default function App() {
             <Route path="/leave" element={<HalamanCuti />} />
             <Route path="/activities" element={<HalamanKegiatan />} />
             <Route path="/reports" element={<HalamanLaporan />} />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute adminOnly>
-                  <HalamanPengaturan />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/settings" element={<Navigate to="/readiness/vehicles" replace />} />
 
 
           </Route>

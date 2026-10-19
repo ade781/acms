@@ -355,26 +355,65 @@ export const updatePersonnel = async (req, res) => {
 };
 
 export const deletePersonnel = async (req, res) => {
+  const connection = await pool.getConnection();
   try {
     const { id } = req.params;
-    const [existing] = await pool.query('SELECT id FROM personnel WHERE id = ?', [id]);
+    const [existing] = await connection.query('SELECT id, user_id, full_name, signature_url FROM personnel WHERE id = ?', [id]);
     if (existing.length === 0) {
+      connection.release();
       return errorResponse(res, 'Personel tidak ditemukan', 404);
     }
 
-    // Periksa apakah personel sudah memiliki riwayat penempatan dinas
-    const [deployments] = await pool.query('SELECT id FROM personnel_deployments WHERE personnel_id = ? LIMIT 1', [id]);
-    if (deployments.length > 0) {
-      // Soft delete jika sudah memiliki riwayat dinas
-      await pool.query('UPDATE personnel SET is_active = 0 WHERE id = ?', [id]);
-      return successResponse(res, 'Personel telah dinonaktifkan karena memiliki riwayat dinas');
+    const { user_id, full_name, signature_url } = existing[0];
+
+    await connection.beginTransaction();
+
+    // 1. Hapus berkas tanda tangan fisik jika ada
+    if (signature_url) {
+      const sigPath = path.resolve(process.cwd(), signature_url.replace(/^\//, ''));
+      if (fs.existsSync(sigPath)) {
+        try { fs.unlinkSync(sigPath); } catch (e) {}
+      }
     }
 
-    await pool.query('DELETE FROM personnel WHERE id = ?', [id]);
-    return successResponse(res, 'Data personel berhasil dihapus');
+    // 2. Hapus dokumen fisik di storage dan rekaman di tabel personnel_documents
+    const [docs] = await connection.query('SELECT file_url FROM personnel_documents WHERE personnel_id = ?', [id]);
+    for (const doc of docs) {
+      if (doc.file_url) {
+        const filePath = path.resolve(process.cwd(), doc.file_url.replace(/^\//, ''));
+        if (fs.existsSync(filePath)) {
+          try { fs.unlinkSync(filePath); } catch (e) {}
+        }
+      }
+    }
+    await connection.query('DELETE FROM personnel_documents WHERE personnel_id = ?', [id]);
+
+    // 3. Hapus seluruh data ploting shift
+    await connection.query('DELETE FROM personnel_deployments WHERE personnel_id = ?', [id]);
+
+    // 4. Lepaskan dari PIC armada jika ada
+    await connection.query('UPDATE vehicle_readiness_logs SET pic_personnel_id = NULL WHERE pic_personnel_id = ?', [id]);
+
+    // 5. Hapus entri personel
+    await connection.query('DELETE FROM personnel WHERE id = ?', [id]);
+
+    // 6. Hapus akun user terkait jika bukan akun administrator utama
+    if (user_id) {
+      const [u] = await connection.query('SELECT role FROM users WHERE id = ?', [user_id]);
+      if (u.length > 0 && u[0].role !== 'admin') {
+        await connection.query('DELETE FROM users WHERE id = ?', [user_id]);
+      }
+    }
+
+    await connection.commit();
+    connection.release();
+
+    return successResponse(res, `Anggota personel ${full_name} berhasil dihapus dari sistem.`);
   } catch (error) {
+    await connection.rollback();
+    connection.release();
     console.error('Error deletePersonnel:', error);
-    return errorResponse(res, 'Gagal menghapus data personel', 500);
+    return errorResponse(res, 'Gagal menghapus data personel: ' + error.message, 500);
   }
 };
 

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Truck, Radio, CheckCircle2, AlertTriangle, HelpCircle, Star, Edit3, ShieldAlert } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, HelpCircle, Star, Edit3, Edit2, ShieldAlert } from 'lucide-react';
+import { getVehicleIcon } from '../../utils/vehicleHelper';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
 
@@ -8,9 +9,11 @@ export default function VehicleMetricCard({
   isPicForVehicle = false,
   canInspect = false,
   onInspect,
+  isAdmin = false,
+  onEdit,
 }) {
+  const CardIcon = getVehicleIcon(vehicle);
   const isPosko = vehicle.category === 'posko' || vehicle.code_name === 'WATCHROOM';
-  const CardIcon = isPosko ? Radio : Truck;
 
   const log = vehicle.current_log || vehicle;
   const status = vehicle.status || log?.status || 'belum_dilaporkan';
@@ -64,10 +67,22 @@ export default function VehicleMetricCard({
               </p>
             </div>
           </div>
-          <Badge variant={cfg.badge} size="md">
-            <StatusIcon className="w-3.5 h-3.5" />
-            <span>{cfg.label}</span>
-          </Badge>
+          <div className="flex items-center gap-1.5">
+            {isAdmin && onEdit && (
+              <button
+                type="button"
+                onClick={() => onEdit(vehicle)}
+                title="Ubah Spesifikasi Armada"
+                className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors duration-100"
+              >
+                <Edit2 className="w-4 h-4" />
+              </button>
+            )}
+            <Badge variant={cfg.badge} size="md">
+              <StatusIcon className="w-3.5 h-3.5" />
+              <span>{cfg.label}</span>
+            </Badge>
+          </div>
         </div>
 
         {/* Assigned PIC indicator */}

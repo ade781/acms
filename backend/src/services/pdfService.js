@@ -1,4 +1,24 @@
 import PDFDocument from 'pdfkit';
+import fs from 'fs';
+import path from 'path';
+
+/**
+ * Helper untuk menemukan berkas gambar di server
+ */
+const resolveSignatureFile = (fileUrl) => {
+  if (!fileUrl) return null;
+  const cleanPath = fileUrl.replace(/^\//, '');
+  const candidates = [
+    path.resolve(process.cwd(), cleanPath),
+    path.resolve(process.cwd(), 'backend', cleanPath),
+    path.resolve(process.cwd(), '..', cleanPath),
+    path.resolve(process.cwd(), 'uploads', path.basename(cleanPath))
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  return null;
+};
 
 /**
  * Membuat stream PDF Dokumen Resmi Laporan Shift ARFF (Format A4)
@@ -22,6 +42,11 @@ export const generateShiftReportPdf = (reportData) => {
     shift_number = 1,
     team_group = 'Alpha',
     supervisor_name = 'Ketua Regu',
+    supervisor_nip = null,
+    supervisor_signature_url = null,
+    dept_head_name = 'Airport Rescue & Fire Fighting Section Head',
+    dept_head_nip = null,
+    dept_head_signature_url = null,
     status = 'open',
     vehicles = [],
     watchroom = {},
@@ -224,24 +249,57 @@ export const generateShiftReportPdf = (reportData) => {
   }
 
   // Tanda Tangan Pengesahan (Pindah halaman jika ruang di bawah tidak cukup)
-  if (doc.y > 670) {
+  if (doc.y > 660) {
     doc.addPage();
   } else {
     doc.moveDown(1.5);
   }
 
-  const signY = Math.max(doc.y, 675);
+  const signY = Math.max(doc.y, 665);
   doc.fontSize(8.5).font('Helvetica').fillColor('#0f172a');
   doc.text('Mengetahui / Menyetujui,', startX + 20, signY, { width: 200, align: 'center' });
   doc.text('Disahkan Oleh,', startX + 295, signY, { width: 200, align: 'center' });
 
-  doc.fontSize(8).font('Helvetica-Bold');
+  doc.fontSize(8).font('Helvetica-Bold').fillColor('#0f172a');
   doc.text('AIRPORT RESCUE & FIRE FIGHTING SECTION HEAD', startX + 20, signY + 12, { width: 200, align: 'center' });
   doc.text('KETUA REGU / SUPERVISOR DINAS', startX + 295, signY + 12, { width: 200, align: 'center' });
 
-  doc.fontSize(8.5).font('Helvetica-Bold');
-  doc.text('( ..................................................... )', startX + 20, signY + 68, { width: 200, align: 'center' });
+  // Sematkan tanda tangan digital Dept Head jika tersedia
+  const deptSigFile = resolveSignatureFile(dept_head_signature_url);
+  if (deptSigFile) {
+    try {
+      doc.image(deptSigFile, startX + 70, signY + 25, { fit: [100, 38], align: 'center' });
+    } catch (e) {
+      console.warn('Gagal memuat tanda tangan Dept Head:', e.message);
+    }
+  }
+
+  // Sematkan tanda tangan digital Supervisor jika shift telah disahkan / tersedia
+  const supSigFile = (status === 'approved' || supervisor_signature_url) ? resolveSignatureFile(supervisor_signature_url) : null;
+  if (supSigFile) {
+    try {
+      doc.image(supSigFile, startX + 345, signY + 25, { fit: [100, 38], align: 'center' });
+    } catch (e) {
+      console.warn('Gagal memuat tanda tangan Supervisor:', e.message);
+    }
+  }
+
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0f172a');
+  doc.text(`( ${dept_head_name} )`, startX + 20, signY + 68, { width: 200, align: 'center' });
   doc.text(`( ${supervisor_name || 'Ketua Regu'} )`, startX + 295, signY + 68, { width: 200, align: 'center' });
+
+  doc.fontSize(7.5).font('Helvetica').fillColor('#475569');
+  if (dept_head_nip && dept_head_nip !== '-') {
+    doc.text(`NIP. ${dept_head_nip}`, startX + 20, signY + 79, { width: 200, align: 'center' });
+  }
+  if (supervisor_nip && supervisor_nip !== '-') {
+    doc.text(`NIP. ${supervisor_nip}`, startX + 295, signY + 79, { width: 200, align: 'center' });
+  }
+
+  if (status === 'approved') {
+    doc.fontSize(7).font('Helvetica-Bold').fillColor('#15803d');
+    doc.text('Telah Disahkan Secara Digital', startX + 295, signY + (supervisor_nip && supervisor_nip !== '-' ? 89 : 80), { width: 200, align: 'center' });
+  }
 
   // Penomoran Halaman Otomatis
   const range = doc.bufferedPageRange();

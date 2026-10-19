@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Search, Plus, Filter, UserCheck, ChevronRight, Download } from 'lucide-react';
+import { Users, Search, Plus, Filter, UserCheck, ChevronRight, Download, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { TEAMS, cleanTeam, formatTeam, OPERATIONAL_ROLES } from '../utils/shiftHelper';
 import api from '../services/api';
@@ -12,7 +12,7 @@ import Modal from '../components/common/Modal';
 import SelectField from '../components/common/SelectField';
 
 export default function HalamanPersonel() {
-  const { isAdmin, activeTeam } = useAuth();
+  const { isAdmin, isSupervisor, activeTeam } = useAuth();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -137,6 +137,22 @@ export default function HalamanPersonel() {
       alert('Gagal mengunduh dokumen PDF akun personel.');
     } finally {
       setDownloadingPdf(false);
+    }
+  };
+
+  const handleDeletePersonnel = async (e, person) => {
+    e.stopPropagation();
+    const confirmMsg = `PERINGATAN: Apakah Anda yakin ingin menghapus data anggota "${person.full_name}"?\n\nTindakan ini akan menghapus profil personel, seluruh berkas dokumen terkait, serta akun login yang terhubung. Tindakan ini tidak dapat dibatalkan.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      await api.delete(`/personnel/${person.id}`);
+      setSuccessNotification(`Anggota ${person.full_name} berhasil dihapus.`);
+      fetchPersonnel();
+    } catch (err) {
+      console.error('Error deleting personnel:', err);
+      const errMsg = err.response?.data?.message || 'Gagal menghapus personel.';
+      alert(errMsg);
     }
   };
 
@@ -357,11 +373,23 @@ export default function HalamanPersonel() {
                               {person.full_name}
                             </span>
                           </div>
-                          {isChief && (
-                            <span className={`text-[10px] ${theme.chiefBadge} font-bold px-1.5 py-0.5 rounded border shrink-0 uppercase tracking-tight`}>
-                              Ketua
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1 shrink-0">
+                            {isChief && (
+                              <span className={`text-[10px] ${theme.chiefBadge} font-bold px-1.5 py-0.5 rounded border uppercase tracking-tight`}>
+                                Ketua
+                              </span>
+                            )}
+                            {(isAdmin || isSupervisor) && (
+                              <button
+                                type="button"
+                                onClick={(e) => handleDeletePersonnel(e, person)}
+                                className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-opacity duration-100"
+                                title={`Hapus ${person.full_name}`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       );
                     })}

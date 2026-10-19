@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
-import { FileText, Download, Printer, CheckCircle, Shield, Info, Clock, Calendar, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Download, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { SHIFT_DEFINITIONS, formatIndoDate, cleanTeam, formatTeam } from '../utils/shiftHelper';
 import api from '../services/api';
 import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import Button from '../components/common/Button';
-import Badge from '../components/common/Badge';
 
 export default function HalamanLaporan() {
   const {
@@ -21,18 +20,42 @@ export default function HalamanLaporan() {
   const [downloadError, setDownloadError] = useState(null);
   const [approving, setApproving] = useState(false);
   const [approvedStatus, setApprovedStatus] = useState(false);
+  const [shiftData, setShiftData] = useState(null);
+  const [deptHeadData, setDeptHeadData] = useState(null);
 
   const currentDef = SHIFT_DEFINITIONS.find((s) => s.number === Number(activeShiftNumber)) || SHIFT_DEFINITIONS[0];
+
+  const fetchShiftData = useCallback(async () => {
+    try {
+      const res = await api.get(
+        `/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${cleanTeam(activeTeam)}`
+      );
+      if (res.data?.data) {
+        const s = res.data.data.shift;
+        setShiftData(s);
+        setApprovedStatus(Boolean(s && s.status === 'approved'));
+        if (res.data.data.dept_head) {
+          setDeptHeadData(res.data.data.dept_head);
+        }
+      }
+    } catch (err) {
+      console.error('Fetch shift report preview error:', err);
+    }
+  }, [activeDate, activeShiftNumber, activeTeam]);
+
+  useEffect(() => {
+    fetchShiftData();
+  }, [fetchShiftData]);
 
   const handleExportPDF = async () => {
     try {
       setDownloading(true);
       setDownloadError(null);
       const res = await api.get(
-        `/reports/pdf?date=${activeDate}&shift=${activeShiftNumber}&team_group=${activeTeam}`,
+        `/reports/pdf?date=${activeDate}&shift=${activeShiftNumber}&team_group=${cleanTeam(activeTeam)}`,
         { responseType: 'blob' }
       );
-      
+
       const blob = new Blob([res.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -57,9 +80,10 @@ export default function HalamanLaporan() {
       await api.post('/deployments/approve', {
         shift_date: activeDate,
         shift_number: activeShiftNumber,
-        team_group: activeTeam,
+        team_group: cleanTeam(activeTeam),
       });
       setApprovedStatus(true);
+      fetchShiftData();
     } catch (err) {
       alert(`Gagal mengesahkan shift: ${err.response?.data?.message || err.message}`);
     } finally {
@@ -105,7 +129,6 @@ export default function HalamanLaporan() {
           </Button>
         </div>
       </div>
-
 
       {downloadError && (
         <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-4 shadow-sm animate-in fade-in">
@@ -167,21 +190,53 @@ export default function HalamanLaporan() {
               3. Pengesahan & Validasi Serah Terima Dinas
             </h4>
             <div className="pt-8 flex justify-between items-end">
-              <div className="text-center">
-                <p className="text-slate-500 mb-12">Mengetahui, Dept. Head / Chief ARFF</p>
-                <p className="font-bold text-slate-900 underline">TAMSUL SADIKIN</p>
-                <p className="text-[10px] text-slate-500 font-mono">NIP. 20240657</p>
-                <p className="text-[10px] text-slate-500">Airport Rescue & Fire Fighting Dept. Head</p>
+              {/* Dept Head / Section Head */}
+              <div className="text-center min-w-[200px]">
+                <p className="text-slate-500 mb-2">Mengetahui, Section Head ARFF</p>
+                {deptHeadData?.signature_url ? (
+                  <div className="h-14 flex items-center justify-center my-1">
+                    <img
+                      src={deptHeadData.signature_url}
+                      alt="Tanda Tangan Section Head"
+                      className="max-h-12 object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="h-14" />
+                )}
+                <p className="font-bold text-slate-900 underline">
+                  {deptHeadData?.name || 'Section Head ARFF'}
+                </p>
+                {deptHeadData?.nip && deptHeadData.nip !== '-' && (
+                  <p className="text-[10px] text-slate-500 font-mono">NIP. {deptHeadData.nip}</p>
+                )}
+                <p className="text-[10px] text-slate-500">Airport Rescue & Fire Fighting Section Head</p>
               </div>
 
-              <div className="text-center">
-                <p className="text-slate-500 mb-12">Ketua Regu Dinas ({cleanTeam(activeTeam)})</p>
-                <p className="font-bold text-slate-900 underline">{user?.name || `Chief ${formatTeam(activeTeam)}`}</p>
-                <p className="text-[10px] text-slate-500 font-mono">
-                  {user?.nip ? `NIP. ${user.nip}` : 'ARFF Operation Chief'}
+              {/* Ketua Regu Dinas */}
+              <div className="text-center min-w-[200px]">
+                <p className="text-slate-500 mb-2">Ketua Regu Dinas ({cleanTeam(activeTeam)})</p>
+                {approvedStatus && (shiftData?.supervisor_signature_url || user?.signature_url) ? (
+                  <div className="h-14 flex items-center justify-center my-1">
+                    <img
+                      src={shiftData?.supervisor_signature_url || user?.signature_url}
+                      alt="Tanda Tangan Ketua Regu"
+                      className="max-h-12 object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="h-14" />
+                )}
+                <p className="font-bold text-slate-900 underline">
+                  {shiftData?.supervisor_name || user?.name || `Chief ${formatTeam(activeTeam)}`}
                 </p>
-                <p className="text-[10px] text-slate-500">
-                  {approvedStatus ? 'Telah Disahkan Secara Digital' : '(Menunggu Pengesahan)'}
+                {(shiftData?.supervisor_nip || user?.nip) && (
+                  <p className="text-[10px] text-slate-500 font-mono">
+                    NIP. {shiftData?.supervisor_nip || user.nip}
+                  </p>
+                )}
+                <p className={`text-[10px] font-semibold mt-0.5 ${approvedStatus ? 'text-emerald-600' : 'text-slate-400'}`}>
+                  {approvedStatus ? '✓ Telah Disahkan Secara Digital' : '(Menunggu Pengesahan)'}
                 </p>
               </div>
             </div>

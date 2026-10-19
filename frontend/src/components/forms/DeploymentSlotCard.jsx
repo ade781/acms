@@ -1,5 +1,6 @@
 import React from 'react';
-import { Truck, Radio, UserPlus, Trash2, ShieldCheck, User } from 'lucide-react';
+import { UserPlus, Trash2, ShieldCheck, User } from 'lucide-react';
+import { getVehicleIcon } from '../../utils/vehicleHelper';
 import Badge from '../common/Badge';
 
 export default function DeploymentSlotCard({
@@ -17,7 +18,7 @@ export default function DeploymentSlotCard({
   const maxSlots = isPosko ? 2 : 4;
   const minSlots = 1;
 
-  const IconComponent = isPosko ? Radio : Truck;
+  const IconComponent = getVehicleIcon(vehicle);
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col justify-between">

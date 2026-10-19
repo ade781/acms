@@ -97,6 +97,8 @@ export const submitVehicleReadiness = async (req, res) => {
       return errorResponse(res, 'Justifikasi kendala wajib diisi jika kondisi armada unserviceable', 400);
     }
 
+    const targetTeam = team_group || req.user.team_group || 'Alpha';
+
     // 1. Cek izin akses: Apakah user adalah Admin, Supervisor, Chief, Chief Assistant, Dept Head, atau PIC kendaraan di shift tersebut?
     const isSuper = ['admin', 'supervisor', 'chief', 'chief_assistant', 'operation_chief', 'dept_head'].includes(req.user.role);
 
@@ -109,8 +111,8 @@ export const submitVehicleReadiness = async (req, res) => {
        FROM personnel_deployments pd
        JOIN personnel_shifts ps ON ps.id = pd.shift_id
        JOIN personnel p ON p.id = pd.personnel_id
-       WHERE pd.vehicle_id = ? AND ps.shift_date = ? AND ps.shift_number = ? AND pd.is_pic = 1`,
-      [vehicle_id, shift_date, shift_number]
+       WHERE pd.vehicle_id = ? AND ps.shift_date = ? AND ps.shift_number = ? AND ps.team_group = ? AND pd.is_pic = 1`,
+      [vehicle_id, shift_date, shift_number, targetTeam]
     );
 
     if (deployRows.length > 0) {
@@ -125,8 +127,8 @@ export const submitVehicleReadiness = async (req, res) => {
       // Periksa dari log kesiapan sebelumnya jika ploting belum terdaftar
       const [existingLog] = await pool.query(
         `SELECT pic_personnel_id FROM vehicle_readiness_logs
-         WHERE vehicle_id = ? AND shift_date = ? AND shift_number = ?`,
-        [vehicle_id, shift_date, shift_number]
+         WHERE vehicle_id = ? AND shift_date = ? AND shift_number = ? AND team_group = ?`,
+        [vehicle_id, shift_date, shift_number, targetTeam]
       );
       if (existingLog.length > 0 && existingLog[0].pic_personnel_id) {
         picPersonnelId = existingLog[0].pic_personnel_id;
@@ -152,8 +154,8 @@ export const submitVehicleReadiness = async (req, res) => {
     // Ambil log kesiapan saat ini
     const [existing] = await pool.query(
       `SELECT id, photo_webp_url FROM vehicle_readiness_logs
-       WHERE vehicle_id = ? AND shift_date = ? AND shift_number = ?`,
-      [vehicle_id, shift_date, shift_number]
+       WHERE vehicle_id = ? AND shift_date = ? AND shift_number = ? AND team_group = ?`,
+      [vehicle_id, shift_date, shift_number, targetTeam]
     );
 
     const resolvedAt = status === 'serviceable' && follow_up_status === 'resolved' ? new Date() : null;
@@ -162,7 +164,6 @@ export const submitVehicleReadiness = async (req, res) => {
       const finalPhoto = photoWebpUrl || existing[0].photo_webp_url;
       await pool.query(
         `UPDATE vehicle_readiness_logs SET
-          team_group = COALESCE(?, team_group),
           pic_personnel_id = COALESCE(?, pic_personnel_id),
           status = ?,
           justification = ?,
@@ -172,7 +173,6 @@ export const submitVehicleReadiness = async (req, res) => {
           notes = ?
          WHERE id = ?`,
         [
-          team_group || null,
           picPersonnelId || null,
           status,
           status === 'unserviceable' ? justification : null,
@@ -194,7 +194,7 @@ export const submitVehicleReadiness = async (req, res) => {
           vehicle_id,
           shift_date,
           shift_number,
-          team_group || req.user.team_group || 'Alpha',
+          targetTeam,
           picPersonnelId,
           status,
           status === 'unserviceable' ? justification : null,
@@ -211,8 +211,8 @@ export const submitVehicleReadiness = async (req, res) => {
        FROM vehicle_readiness_logs vrl
        JOIN vehicles v ON v.id = vrl.vehicle_id
        LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
-       WHERE vrl.vehicle_id = ? AND vrl.shift_date = ? AND vrl.shift_number = ?`,
-      [vehicle_id, shift_date, shift_number]
+       WHERE vrl.vehicle_id = ? AND vrl.shift_date = ? AND vrl.shift_number = ? AND vrl.team_group = ?`,
+      [vehicle_id, shift_date, shift_number, targetTeam]
     );
 
     return successResponse(res, 'Status kesiapan armada berhasil disimpan', updatedRow[0]);
@@ -228,20 +228,24 @@ export const getWatchroomReadiness = async (req, res) => {
 
     const shiftDate = date || new Date().toISOString().split('T')[0];
     const shiftNumber = shift ? Number(shift) : 1;
+    const targetTeam = team_group || req.user.team_group || 'Alpha';
 
     const [rows] = await pool.query(
-      `SELECT wcl.*, u.name as inspector_name, u.username as inspector_username
-       FROM watchroom_checklist_logs wcl
-       LEFT JOIN users u ON u.id = wcl.inspector_id
-       WHERE wcl.shift_date = ? AND wcl.shift_number = ?`,
-      [shiftDate, shiftNumber]
+      `SELECT vrl.*, v.code_name, v.vehicle_name, p.full_name as inspector_name
+       FROM vehicle_readiness_logs vrl
+       JOIN vehicles v ON v.id = vrl.vehicle_id
+       LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
+       WHERE (v.category = 'posko' OR v.code_name = 'WATCHROOM')
+         AND vrl.shift_date = ? AND vrl.shift_number = ? AND vrl.team_group = ?
+       LIMIT 1`,
+      [shiftDate, shiftNumber, targetTeam]
     );
 
     if (rows.length === 0) {
       return successResponse(res, 'Kesiapan watchroom belum dilaporkan pada shift ini', {
         shift_date: shiftDate,
         shift_number: shiftNumber,
-        team_group: team_group || 'Alpha',
+        team_group: targetTeam,
         status: 'belum_dilaporkan',
         notes: '',
         inspector_name: null
@@ -267,58 +271,54 @@ export const submitWatchroomReadiness = async (req, res) => {
       return errorResponse(res, 'Status watchroom harus serviceable atau unserviceable', 400);
     }
 
+    const targetTeam = team_group || req.user.team_group || 'Alpha';
+
+    // Cari ID unit watchroom di tabel vehicles
+    let [wrVehicles] = await pool.query(
+      `SELECT id FROM vehicles WHERE code_name = 'WATCHROOM' OR category = 'posko' LIMIT 1`
+    );
+
+    let wrId;
+    if (wrVehicles.length > 0) {
+      wrId = wrVehicles[0].id;
+    } else {
+      const [newWr] = await pool.query(
+        `INSERT INTO vehicles (code_name, vehicle_name, category, description, is_active)
+         VALUES ('WATCHROOM', 'Watch Room / Pusat Komunikasi ARFF', 'posko', 'Posko monitoring & fasilitas komunikasi darurat ARFF', 1)`
+      );
+      wrId = newWr.insertId;
+    }
+
     const [existing] = await pool.query(
-      `SELECT id FROM watchroom_checklist_logs WHERE shift_date = ? AND shift_number = ?`,
-      [shift_date, shift_number]
+      `SELECT id FROM vehicle_readiness_logs
+       WHERE vehicle_id = ? AND shift_date = ? AND shift_number = ? AND team_group = ?`,
+      [wrId, shift_date, shift_number, targetTeam]
     );
 
     if (existing.length > 0) {
       await pool.query(
-        `UPDATE watchroom_checklist_logs SET
-          team_group = COALESCE(?, team_group),
-          inspector_id = ?,
+        `UPDATE vehicle_readiness_logs SET
           status = ?,
           notes = ?
          WHERE id = ?`,
-        [team_group || null, req.user.id, status, notes || null, existing[0].id]
+        [status, notes || null, existing[0].id]
       );
     } else {
       await pool.query(
-        `INSERT INTO watchroom_checklist_logs (
-          shift_date, shift_number, team_group, inspector_id, status, notes
+        `INSERT INTO vehicle_readiness_logs (
+          vehicle_id, shift_date, shift_number, team_group, status, notes
         ) VALUES (?, ?, ?, ?, ?, ?)`,
-        [shift_date, shift_number, team_group || req.user.team_group || 'Alpha', req.user.id, status, notes || null]
+        [wrId, shift_date, shift_number, targetTeam, status, notes || null]
       );
-    }
-
-    // Sinkronisasikan juga ke entri master Watch Room di vehicle_readiness_logs
-    const [wrVehicle] = await pool.query(`SELECT id FROM vehicles WHERE code_name = 'WATCHROOM'`);
-    if (wrVehicle.length > 0) {
-      const wrId = wrVehicle[0].id;
-      const [existingVLog] = await pool.query(
-        `SELECT id FROM vehicle_readiness_logs WHERE vehicle_id = ? AND shift_date = ? AND shift_number = ?`,
-        [wrId, shift_date, shift_number]
-      );
-      if (existingVLog.length > 0) {
-        await pool.query(
-          `UPDATE vehicle_readiness_logs SET status = ?, notes = ?, team_group = COALESCE(?, team_group) WHERE id = ?`,
-          [status, notes || null, team_group || null, existingVLog[0].id]
-        );
-      } else {
-        await pool.query(
-          `INSERT INTO vehicle_readiness_logs (vehicle_id, shift_date, shift_number, team_group, status, notes)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [wrId, shift_date, shift_number, team_group || req.user.team_group || 'Alpha', status, notes || null]
-        );
-      }
     }
 
     const [updated] = await pool.query(
-      `SELECT wcl.*, u.name as inspector_name
-       FROM watchroom_checklist_logs wcl
-       LEFT JOIN users u ON u.id = wcl.inspector_id
-       WHERE wcl.shift_date = ? AND wcl.shift_number = ?`,
-      [shift_date, shift_number]
+      `SELECT vrl.*, v.code_name, v.vehicle_name, p.full_name as inspector_name
+       FROM vehicle_readiness_logs vrl
+       JOIN vehicles v ON v.id = vrl.vehicle_id
+       LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
+       WHERE vrl.vehicle_id = ? AND vrl.shift_date = ? AND vrl.shift_number = ? AND vrl.team_group = ?`,
+      [wrId, shift_date, shift_number, targetTeam]
     );
 
     return successResponse(res, 'Kesiapan watchroom berhasil dilaporkan', updated[0]);

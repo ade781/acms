@@ -25,7 +25,7 @@ router.get('/export/pdf', exportPersonnelPdf);
 router.get('/:id', getPersonnelById);
 router.post('/', requireRole(['admin', 'supervisor']), createPersonnel);
 router.put('/:id', updatePersonnel);
-router.delete('/:id', requireRole(['admin']), deletePersonnel);
+router.delete('/:id', requireRole(['admin', 'supervisor']), deletePersonnel);
 
 // Rute tanda tangan khusus dept_head, chief, dan chief_assistant
 router.post(

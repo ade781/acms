@@ -106,9 +106,16 @@ export default function HalamanCuti() {
     setSaving(true);
 
     try {
-      // Pertahankan ploting operasional yang sudah ada (selain absent)
+      // Kumpulkan ID personel yang dicatat cuti
+      const absentPersonnelIds = new Set(
+        absentList
+          .filter((abs) => abs.personnel_id)
+          .map((abs) => Number(abs.personnel_id))
+      );
+
+      // Pertahankan ploting operasional yang sudah ada (selain absent dan selain yang dicatat cuti)
       const nonAbsentDeployments = existingDeployments
-        .filter((d) => d.deployment_type !== 'absent')
+        .filter((d) => d.deployment_type !== 'absent' && !absentPersonnelIds.has(Number(d.personnel_id)))
         .map((d) => ({
           personnel_id: Number(d.personnel_id),
           deployment_type: d.deployment_type,

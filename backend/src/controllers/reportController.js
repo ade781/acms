@@ -12,9 +12,10 @@ export const getShiftReportPdf = async (req, res) => {
 
     // Eksekusi generator PDF resmi laporan dinas A4
     const [shifts] = await pool.query(
-      `SELECT ps.*, u.name as supervisor_name
+      `SELECT ps.*, u.name as supervisor_name, u.signature_url as user_sig, p.signature_url as pers_sig, p.nip as supervisor_nip
        FROM personnel_shifts ps
        LEFT JOIN users u ON u.id = ps.supervisor_id
+       LEFT JOIN personnel p ON p.user_id = u.id
        WHERE ps.shift_date = ? AND ps.shift_number = ? AND ps.team_group = ?`,
       [shiftDate, shiftNumber, teamGroup]
     );
@@ -24,8 +25,21 @@ export const getShiftReportPdf = async (req, res) => {
       shift_number: shiftNumber,
       team_group: teamGroup,
       supervisor_name: req.user.name,
+      supervisor_nip: null,
+      supervisor_signature_url: null,
       status: 'open'
     };
+
+    // Ambil data pejabat Dept Head / Section Head secara dinamis dari database
+    const [deptHeads] = await pool.query(
+      `SELECT u.name, p.nip, p.rank_position, COALESCE(u.signature_url, p.signature_url) as signature_url
+       FROM users u
+       LEFT JOIN personnel p ON p.user_id = u.id
+       WHERE u.role IN ('dept_head', 'admin')
+       ORDER BY FIELD(u.role, 'dept_head', 'admin')
+       LIMIT 1`
+    );
+    const deptHeadData = deptHeads.length > 0 ? deptHeads[0] : null;
 
     // Ambil data kesiapan kendaraan & PIC ploting resmi shift
     const [vehicles] = await pool.query(
@@ -46,12 +60,15 @@ export const getShiftReportPdf = async (req, res) => {
       [shiftDate, shiftNumber, teamGroup, shiftDate, shiftNumber, teamGroup]
     );
 
-    // Ambil kesiapan watchroom
+    // Ambil kesiapan watchroom dari vehicle_readiness_logs
     const [watchrooms] = await pool.query(
-      `SELECT wcl.status, wcl.notes, u.name as inspector_name
-       FROM watchroom_checklist_logs wcl
-       LEFT JOIN users u ON u.id = wcl.inspector_id
-       WHERE wcl.shift_date = ? AND wcl.shift_number = ? AND wcl.team_group = ?`,
+      `SELECT vrl.status, vrl.notes, p.full_name as inspector_name
+       FROM vehicle_readiness_logs vrl
+       JOIN vehicles v ON v.id = vrl.vehicle_id
+       LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
+       WHERE (v.category = 'posko' OR v.code_name = 'WATCHROOM')
+         AND vrl.shift_date = ? AND vrl.shift_number = ? AND vrl.team_group = ?
+       LIMIT 1`,
       [shiftDate, shiftNumber, teamGroup]
     );
 
@@ -69,12 +86,12 @@ export const getShiftReportPdf = async (req, res) => {
       deployments = deps;
     }
 
-    // Ambil insiden
+    // Ambil insiden (dikunci berdasarkan tanggal, shift_number, dan team_group)
     const [incidents] = await pool.query(
       `SELECT report_number, title, location, incident_time, action_taken
        FROM incidents
-       WHERE incident_date = ? AND shift_number = ?`,
-      [shiftDate, shiftNumber]
+       WHERE incident_date = ? AND shift_number = ? AND team_group = ?`,
+      [shiftDate, shiftNumber, teamGroup]
     );
 
     // Ambil aktivitas
@@ -94,6 +111,11 @@ export const getShiftReportPdf = async (req, res) => {
       shift_number: shiftData.shift_number,
       team_group: shiftData.team_group,
       supervisor_name: shiftData.supervisor_name || req.user.name,
+      supervisor_nip: shiftData.supervisor_nip || null,
+      supervisor_signature_url: shiftData.pers_sig || shiftData.user_sig || null,
+      dept_head_name: deptHeadData?.name || 'Section Head ARFF',
+      dept_head_nip: deptHeadData?.nip || null,
+      dept_head_signature_url: deptHeadData?.signature_url || null,
       status: shiftData.status,
       vehicles,
       watchroom: watchrooms.length > 0 ? watchrooms[0] : {},

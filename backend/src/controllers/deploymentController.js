@@ -9,9 +9,10 @@ export const getCurrentDeployment = async (req, res) => {
     const shiftNumber = shift ? Number(shift) : 1;
 
     let shiftQuery = `
-      SELECT ps.*, u.name as supervisor_name
+      SELECT ps.*, u.name as supervisor_name, p.nip as supervisor_nip, COALESCE(u.signature_url, p.signature_url) as supervisor_signature_url
       FROM personnel_shifts ps
       LEFT JOIN users u ON u.id = ps.supervisor_id
+      LEFT JOIN personnel p ON p.user_id = u.id
       WHERE ps.shift_date = ? AND ps.shift_number = ?
     `;
     const shiftParams = [shiftDate, shiftNumber];
@@ -23,12 +24,24 @@ export const getCurrentDeployment = async (req, res) => {
 
     const [shifts] = await pool.query(shiftQuery, shiftParams);
 
+    // Ambil data Section Head / Dept Head resmi
+    const [deptHeads] = await pool.query(
+      `SELECT u.name, p.nip, p.rank_position, COALESCE(u.signature_url, p.signature_url) as signature_url
+       FROM users u
+       LEFT JOIN personnel p ON p.user_id = u.id
+       WHERE u.role IN ('dept_head', 'admin')
+       ORDER BY FIELD(u.role, 'dept_head', 'admin')
+       LIMIT 1`
+    );
+    const deptHeadData = deptHeads.length > 0 ? deptHeads[0] : null;
+
     if (shifts.length === 0) {
       return successResponse(res, 'Sesi shift belum dibuat, form ploting dimulai dari kondisi kosong', {
         shift: null,
         shift_date: shiftDate,
         shift_number: shiftNumber,
         team_group: team_group || null,
+        dept_head: deptHeadData,
         deployments: [],
         vehicles: [],
         watchroom: [],
@@ -81,6 +94,7 @@ export const getCurrentDeployment = async (req, res) => {
 
     return successResponse(res, 'Data ploting shift berhasil diambil', {
       shift: currentShift,
+      dept_head: deptHeadData,
       vehicles: Object.values(vehicleDeploymentsMap),
       watchroom: watchroomDeployments,
       absents: absentDeployments,
@@ -113,9 +127,39 @@ export const saveDeploymentBatch = async (req, res) => {
       return errorResponse(res, 'Regu dinas harus salah satu dari: Alpha, Bravo, Charlie, Delta', 400);
     }
 
+    // Sanitasi: Jika personel ditandai 'absent', lepaskan dari penugasan kendaraan operasional
+    const absentIds = new Set(
+      deployments
+        .filter(d => d.deployment_type === 'absent' && d.personnel_id)
+        .map(d => Number(d.personnel_id))
+    );
+
+    const rawDeployments = deployments.filter(d => {
+      if (d.deployment_type !== 'absent' && absentIds.has(Number(d.personnel_id))) {
+        return false;
+      }
+      return true;
+    });
+
+    // Pastikan jika ada unit kendaraan yang kehilangan PIC (misal PIC cuti) namun masih ada kru lain,
+    // tunjuk kru pertama sebagai PIC pengganti
+    const unitMap = {};
+    for (const d of rawDeployments) {
+      if ((d.deployment_type === 'vehicle_utama' || d.deployment_type === 'vehicle_pendukung' || d.deployment_type === 'watchroom') && d.vehicle_id) {
+        if (!unitMap[d.vehicle_id]) unitMap[d.vehicle_id] = [];
+        unitMap[d.vehicle_id].push(d);
+      }
+    }
+    for (const [vId, crew] of Object.entries(unitMap)) {
+      const hasPic = crew.some(c => c.is_pic);
+      if (!hasPic && crew.length > 0) {
+        crew[0].is_pic = true;
+      }
+    }
+
     // Validasi: Cegah duplikasi penugasan (satu personel tidak boleh bertugas di >1 unit atau bertugas sekaligus cuti)
     const assignedPersonnelIds = new Set();
-    for (const d of deployments) {
+    for (const d of rawDeployments) {
       if (!d.personnel_id) continue;
       const pId = Number(d.personnel_id);
       if (assignedPersonnelIds.has(pId)) {
@@ -132,7 +176,7 @@ export const saveDeploymentBatch = async (req, res) => {
     const unitCrewCount = {};
     const unitPicCount = {};
 
-    for (const d of deployments) {
+    for (const d of rawDeployments) {
       if (d.deployment_type === 'vehicle_utama' || d.deployment_type === 'vehicle_pendukung' || d.deployment_type === 'watchroom') {
         if (d.vehicle_id) {
           unitCrewCount[d.vehicle_id] = (unitCrewCount[d.vehicle_id] || 0) + 1;
@@ -196,7 +240,7 @@ export const saveDeploymentBatch = async (req, res) => {
 
     const vehiclePics = {};
 
-    for (const d of deployments) {
+    for (const d of rawDeployments) {
       const isPicVal = d.is_pic ? 1 : 0;
       await connection.query(
         `INSERT INTO personnel_deployments (

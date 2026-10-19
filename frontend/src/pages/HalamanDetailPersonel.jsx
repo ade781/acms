@@ -84,6 +84,7 @@ export default function HalamanDetailPersonel() {
   const [employmentStatus, setEmploymentStatus] = useState('organik');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
+  const [deletingPersonnel, setDeletingPersonnel] = useState(false);
 
   const isOwner =
     (user?.personnel_id && Number(user.personnel_id) === Number(id)) ||
@@ -155,6 +156,24 @@ export default function HalamanDetailPersonel() {
       setFormError(err.response?.data?.message || err.message || 'Gagal memperbarui data personel.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeletePersonnel = async () => {
+    if (!personnel) return;
+    const confirmMsg = `PERINGATAN: Apakah Anda yakin ingin menghapus data anggota "${personnel.full_name}"?\n\nTindakan ini akan menghapus profil personel, seluruh dokumen fisik & catatan terkait, serta akun login yang terhubung. Tindakan ini tidak dapat dibatalkan.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setDeletingPersonnel(true);
+    try {
+      await api.delete(`/personnel/${id}`);
+      alert(`Personel ${personnel.full_name} berhasil dihapus.`);
+      navigate('/personnel');
+    } catch (err) {
+      console.error('Error deleting personnel:', err);
+      const errMsg = err.response?.data?.message || 'Gagal menghapus data personel.';
+      alert(errMsg);
+      setDeletingPersonnel(false);
     }
   };
 
@@ -323,6 +342,18 @@ export default function HalamanDetailPersonel() {
                     onClick={() => setEditModalOpen(true)}
                   >
                     Edit Profil
+                  </Button>
+                )}
+
+                {(isAdmin || isSupervisor) && (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    icon={Trash2}
+                    onClick={handleDeletePersonnel}
+                    loading={deletingPersonnel}
+                  >
+                    Hapus Anggota
                   </Button>
                 )}
               </div>
@@ -719,14 +750,30 @@ export default function HalamanDetailPersonel() {
           title="Lengkapi & Perbarui Data Personel"
           subtitle="Isi atau perbarui data kepegawaian, nomor lisensi, tanggal lahir, dan pendidikan"
           footer={
-            <>
-              <Button variant="outline" onClick={() => setEditModalOpen(false)} disabled={saving}>
-                Batal
-              </Button>
-              <Button variant="primary" onClick={handleUpdatePersonnel} loading={saving}>
-                Simpan Profil
-              </Button>
-            </>
+            <div className="flex items-center justify-between w-full">
+              <div>
+                {(isAdmin || isSupervisor) && (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    icon={Trash2}
+                    onClick={handleDeletePersonnel}
+                    loading={deletingPersonnel}
+                    disabled={saving}
+                  >
+                    Hapus Anggota
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setEditModalOpen(false)} disabled={saving || deletingPersonnel}>
+                  Batal
+                </Button>
+                <Button variant="primary" onClick={handleUpdatePersonnel} loading={saving} disabled={deletingPersonnel}>
+                  Simpan Profil
+                </Button>
+              </div>
+            </div>
           }
         >
           <form onSubmit={handleUpdatePersonnel} className="space-y-4">
