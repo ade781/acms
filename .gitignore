@@ -35,3 +35,16 @@ pnpm-debug.log*
 *.sw?
 .DS_Store
 Thumbs.db
+
+# Office & Spreadsheet files
+*.xlsx
+*.xls
+*.xlsm
+*.xlsb
+*.xltx
+*.xltm
+*.csv
+~$*.xlsx
+~$*.xls
+~$*.docx
+~$*.pptx
