@@ -80,3 +80,12 @@ Semua tabel dimulai dalam keadaan **KOSONG** (tanpa data dummy kendaraan/persone
 
 ## 6. Laporan Resmi PDF (Per Shift) — Status: Coming Soon
 Fitur ekspor / cetak PDF dokumen A4 dinas resmi diberi status **Coming Soon** (akan dikembangkan pada fase berikutnya setelah detail kop bandara dan layout resmi disepakati). Halaman dan tombol tetap ada di antarmuka dengan penanda Coming Soon yang elegan.
+
+---
+
+## 7. Kebijakan Konvensi Penamaan (Prioritas Bahasa Indonesia)
+1. **Prioritas Bahasa Indonesia untuk Logika & Domain**:
+   * Penamaan variabel domain bisnis, fungsi penanganan (*helper/handler*), dan komponen baru dianjurkan memprioritaskan Bahasa Indonesia yang jelas dan baku (contoh: `daftarPersonel`, `kesiapanArmada`, `hitungPersonelHadir`, `ambilDataShift`, `simpanPlotingKru`, `catatanInsiden`).
+2. **Pragmatis & Standar Industri**:
+   * Kebijakan ini **tidak bersifat kaku/memaksa**. Jika sebuah elemen sudah memiliki standar industri atau konvensi bawaan dalam Bahasa Inggris (misalnya React hooks `useState`/`useEffect`, parameter Express `req`/`res`/`next`, HTTP verb `get`/`post`, properti universal seperti `id`, `created_at`, `token`, `role`, `loading`, `error`), tetap gunakan Bahasa Inggris sesuai standar agar kode tetap bersih, konsisten, dan mudah dipelihara.
+
