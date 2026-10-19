@@ -13,6 +13,7 @@ import incidentRoutes from './routes/incidentRoutes.js';
 import activityRoutes from './routes/activityRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
 import scheduleRoutes from './routes/scheduleRoutes.js';
+import announcementRoutes from './routes/announcementRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,6 +54,7 @@ app.use('/api/incidents', incidentRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/schedules', scheduleRoutes);
+app.use('/api/announcements', announcementRoutes);
 
 // Handler 404 rute tidak ditemukan
 app.use((req, res) => {
