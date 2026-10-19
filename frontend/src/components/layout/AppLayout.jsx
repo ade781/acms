@@ -2,9 +2,14 @@ import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
+import { useAuth } from '../../context/AuthContext';
+import MandatoryPasswordChangeModal from '../forms/MandatoryPasswordChangeModal';
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { user } = useAuth();
+
+  const mustChangePassword = Boolean(user?.must_change_password);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row antialiased">
@@ -19,6 +24,9 @@ export default function AppLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Mandatory Password Change Modal for new accounts */}
+      <MandatoryPasswordChangeModal isOpen={mustChangePassword} />
     </div>
   );
 }

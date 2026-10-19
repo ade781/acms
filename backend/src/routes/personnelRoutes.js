@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   getPersonnelList,
   getPersonnelById,
+  exportPersonnelPdf,
   createPersonnel,
   updatePersonnel,
   deletePersonnel
@@ -14,6 +15,7 @@ const router = Router();
 router.use(requireAuth);
 
 router.get('/', getPersonnelList);
+router.get('/export/pdf', exportPersonnelPdf);
 router.get('/:id', getPersonnelById);
 router.post('/', requireRole(['admin', 'supervisor']), createPersonnel);
 router.put('/:id', requireRole(['admin', 'supervisor']), updatePersonnel);

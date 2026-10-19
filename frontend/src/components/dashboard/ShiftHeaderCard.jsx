@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, Calendar, Users, Shield, CheckCircle } from 'lucide-react';
+import { Clock, Calendar, Users, Shield, CheckCircle, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { SHIFT_DEFINITIONS, formatIndoDate, cleanTeam } from '../../utils/shiftHelper';
 import Badge from '../common/Badge';
 
@@ -13,6 +13,8 @@ export default function ShiftHeaderCard({
   canApprove = false,
   approving = false,
   personnelStats,
+  openIncidentsCount = 0,
+  onOpenIncidentModal,
 }) {
   const currentDef = SHIFT_DEFINITIONS.find((s) => s.number === Number(shiftNumber)) || SHIFT_DEFINITIONS[0];
   const team = cleanTeam(teamGroup);
@@ -81,9 +83,31 @@ export default function ShiftHeaderCard({
           </div>
         </div>
 
-        {/* Right: Approve Shift Action */}
-        {canApprove && !isApproved && onApproveShift && (
-          <div className="flex items-center gap-2">
+        {/* Right: Actions (Incident Status Badge/Button & Approve Shift) */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Status Insiden: Default putih jika 0, merah jika ada insiden */}
+          <button
+            type="button"
+            onClick={onOpenIncidentModal}
+            title={openIncidentsCount > 0 ? `${openIncidentsCount} Insiden Aktif - Klik untuk kelola` : 'Status Insiden Nihil - Klik untuk catat insiden'}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-colors duration-100 min-h-[40px] shadow-sm border ${
+              openIncidentsCount > 0
+                ? 'bg-red-600 border-red-700 text-white hover:bg-red-700 animate-pulse'
+                : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            {openIncidentsCount > 0 ? (
+              <AlertTriangle className="w-4 h-4 text-white shrink-0" />
+            ) : (
+              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+            )}
+            <span>
+              {openIncidentsCount > 0 ? `${openIncidentsCount} Insiden Aktif` : '0 Insiden (Nihil)'}
+            </span>
+          </button>
+
+          {/* Approve Shift Action */}
+          {canApprove && !isApproved && onApproveShift && (
             <button
               type="button"
               onClick={onApproveShift}
@@ -93,8 +117,8 @@ export default function ShiftHeaderCard({
               <CheckCircle className="w-4 h-4" />
               <span>{approving ? 'Mengesahkan...' : 'Sahkan Laporan Shift'}</span>
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

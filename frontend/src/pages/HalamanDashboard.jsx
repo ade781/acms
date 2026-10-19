@@ -4,23 +4,17 @@ import {
   Truck,
   Users2,
   Radio,
-  AlertTriangle,
-  PlusCircle,
   CheckCircle2,
-  AlertCircle,
-  FileText,
   Clock,
+  ClipboardList,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam, formatTeam } from '../utils/shiftHelper';
 import api from '../services/api';
 import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
-import VehicleMetricCard from '../components/dashboard/VehicleMetricCard';
 import VehicleReadinessModal from '../components/forms/VehicleReadinessModal';
 import WatchroomReadinessModal from '../components/forms/WatchroomReadinessModal';
 import IncidentModal from '../components/forms/IncidentModal';
-import StateView from '../components/common/StateView';
-import Button from '../components/common/Button';
 
 export default function HalamanDashboard() {
   const {
@@ -48,6 +42,7 @@ export default function HalamanDashboard() {
     isPersonnelPlotted: false,
     absentDetails: [],
     openIncidentsCount: 0,
+    activitiesCount: 0,
     isShiftApproved: false,
     supervisorName: '',
   });
@@ -74,12 +69,12 @@ export default function HalamanDashboard() {
         // Fallback gracefully if backend endpoint structure is slightly different
       }
 
-      // 2. Fetch vehicle readiness
+      // 2. Fetch vehicle readiness (includes 7 vehicles + 1 posko watchroom)
       const vRes = await api.get(`/readiness/vehicles?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`);
       const fetchedVehicles = Array.isArray(vRes.data?.vehicles) ? vRes.data.vehicles : (Array.isArray(vRes.data) ? vRes.data : []);
       setVehicles(fetchedVehicles);
 
-      // 3. Fetch watchroom readiness
+      // 3. Fetch watchroom log (for legacy modal if needed)
       try {
         const wRes = await api.get(`/readiness/watchroom?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`);
         setWatchroomLog(wRes.data?.log || wRes.data || null);
@@ -87,12 +82,26 @@ export default function HalamanDashboard() {
         setWatchroomLog(null);
       }
 
-      // 4. Determine total roster and personnel duty/absent breakdown
+      // 4. Fetch activities count for this shift
+      let activitiesTotal = 0;
+      try {
+        const actRes = await api.get(`/activities?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`);
+        const actList = actRes.data?.data || actRes.data;
+        activitiesTotal = Array.isArray(actList) ? actList.length : 0;
+      } catch {
+        activitiesTotal = 0;
+      }
+
+      // 5. Determine total roster and personnel duty/absent breakdown
       let totalRoster = summaryData?.personnel?.total_roster ?? summaryData?.total_team_members;
       if (!totalRoster) {
         try {
           const pRes = await api.get(`/personnel?team_group=${currentTeam}&is_active=1`);
-          const pList = Array.isArray(pRes.data?.personnel) ? pRes.data.personnel : (Array.isArray(pRes.data) ? pRes.data : []);
+          const pList = Array.isArray(pRes.data?.data)
+            ? pRes.data.data
+            : (Array.isArray(pRes.data?.personnel)
+            ? pRes.data.personnel
+            : (Array.isArray(pRes.data) ? pRes.data : []));
           totalRoster = pList.length || 17;
         } catch {
           totalRoster = 17;
@@ -122,6 +131,7 @@ export default function HalamanDashboard() {
         isPersonnelPlotted: isPlotted,
         absentDetails: absentDetails,
         openIncidentsCount: summaryData?.incidents?.total_open ?? summaryData?.open_incidents ?? 0,
+        activitiesCount: activitiesTotal,
         isShiftApproved: Boolean(summaryData?.shift?.status === 'approved' || summaryData?.shift_status === 'approved'),
         supervisorName: summaryData?.shift?.supervisor_name || summaryData?.supervisor_name || '',
       });
@@ -158,7 +168,7 @@ export default function HalamanDashboard() {
 
   return (
     <div>
-      {/* Shift Banner & Approval Header */}
+      {/* Shift Banner & Approval Header with Incident Status */}
       <ShiftHeaderCard
         shiftNumber={activeShiftNumber}
         shiftDate={activeDate}
@@ -168,6 +178,8 @@ export default function HalamanDashboard() {
         canApprove={isSupervisor || isAdmin}
         onApproveShift={handleApproveShift}
         approving={approvingShift}
+        openIncidentsCount={metrics.openIncidentsCount}
+        onOpenIncidentModal={() => setIncidentModalOpen(true)}
         personnelStats={{
           total: metrics.totalPersonnelCount,
           duty: metrics.dutyPersonnelCount,
@@ -176,51 +188,14 @@ export default function HalamanDashboard() {
         }}
       />
 
-      {/* KPI Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {/* Fleet Readiness */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col justify-between">
+      {/* Dashboard Utama: Layout 3 Kolom */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-8 items-stretch">
+        {/* Kolom 1 (Kiri): Personel */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between hover:border-slate-300 transition-colors duration-100">
           <div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Kesiapan Armada
-              </span>
-              <div className="w-8 h-8 rounded-lg bg-red-50 text-arff-primary flex items-center justify-center">
-                <Truck className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-slate-900">
-                {metrics.serviceableVehicles}
-              </span>
-              <span className="text-xs text-slate-500 font-medium">
-                / {metrics.totalVehicles} Siap Operasi
-              </span>
-            </div>
-          </div>
-          <div className="mt-3 text-[11px] font-medium">
-            {metrics.totalVehicles === 0 ? (
-              <span className="text-slate-500 font-medium">Belum ada armada terdaftar</span>
-            ) : metrics.unserviceableVehicles > 0 ? (
-              <span className="text-red-700 font-bold">
-                {metrics.unserviceableVehicles} unit tidak siap operasi
-              </span>
-            ) : metrics.serviceableVehicles === metrics.totalVehicles ? (
-              <span className="text-emerald-700 font-semibold">Semua armada siap operasi ({metrics.totalVehicles} unit)</span>
-            ) : (
-              <span className="text-amber-700 font-medium">
-                {metrics.serviceableVehicles} dari {metrics.totalVehicles} unit siap operasi
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Personnel Strength (Kekuatan & Keterangan Personel Dinas) */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Kekuatan Personel
+                Personel
               </span>
               <div className="w-8 h-8 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center">
                 <Users2 className="w-4 h-4" />
@@ -228,45 +203,43 @@ export default function HalamanDashboard() {
             </div>
 
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-slate-900">
+              <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
                 {metrics.isPersonnelPlotted ? metrics.dutyPersonnelCount : metrics.totalPersonnelCount}
               </span>
               <span className="text-xs text-slate-500 font-medium">
-                {metrics.isPersonnelPlotted
-                  ? `/ ${metrics.totalPersonnelCount} Sedang Bertugas`
-                  : `Anggota Regu ${formatTeam(activeTeam)}`}
+                / {metrics.totalPersonnelCount} Personel ({formatTeam(activeTeam)})
               </span>
             </div>
 
-            {/* Rincian Bertugas, Izin, dan Siaga */}
-            <div className="mt-2.5 grid grid-cols-3 gap-1 text-xs">
-              <div className="px-2 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200/70">
+            {/* Status Kehadiran (3 Kotak Lega) */}
+            <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+              <div className="px-2 py-2.5 rounded-lg bg-emerald-50 border border-emerald-200/70">
                 <span className="text-[10px] text-emerald-700 font-semibold uppercase block leading-none mb-1">
-                  Bertugas
+                  Dinas
                 </span>
-                <span className="text-sm font-bold text-emerald-800">
+                <span className="text-base font-bold text-emerald-800">
                   {metrics.dutyPersonnelCount}
                 </span>
               </div>
 
-              <div className={`px-2 py-1.5 rounded-lg border ${
+              <div className={`px-2 py-2.5 rounded-lg border ${
                 metrics.absentPersonnelCount > 0
                   ? 'bg-amber-50 border-amber-200 text-amber-900'
-                  : 'bg-slate-50 border-slate-200 text-slate-600'
+                  : 'bg-slate-50 border-slate-200/70 text-slate-600'
               }`}>
                 <span className="text-[10px] font-semibold uppercase block leading-none mb-1 text-slate-500">
-                  Izin
+                  Izin/Cuti
                 </span>
-                <span className="text-sm font-bold">
+                <span className="text-base font-bold">
                   {metrics.absentPersonnelCount}
                 </span>
               </div>
 
-              <div className="px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700">
+              <div className="px-2 py-2.5 rounded-lg bg-slate-50 border border-slate-200/70 text-slate-700">
                 <span className="text-[10px] font-semibold uppercase block leading-none mb-1 text-slate-500">
-                  Siaga
+                  Cadangan/Siaga
                 </span>
-                <span className="text-sm font-bold text-slate-800">
+                <span className="text-base font-bold text-slate-800">
                   {metrics.isPersonnelPlotted
                     ? Math.max(0, metrics.totalPersonnelCount - metrics.dutyPersonnelCount - metrics.absentPersonnelCount)
                     : metrics.totalPersonnelCount}
@@ -274,165 +247,245 @@ export default function HalamanDashboard() {
               </div>
             </div>
 
-            {/* Ringkasan nama personel berhalangan jika ada */}
-            {metrics.absentDetails && metrics.absentDetails.length > 0 && (
-              <div className="mt-2 p-1.5 rounded bg-amber-50/60 border border-amber-200 text-[10px] text-amber-900">
-                <span className="font-semibold block text-amber-800">Izin/Cuti:</span>
-                <p className="truncate">
-                  {metrics.absentDetails.map(a => `${a.full_name} (${a.reason || 'Izin'})`).join(', ')}
+            {/* Catatan Izin/Cuti jika ada */}
+            {metrics.absentDetails && metrics.absentDetails.length > 0 ? (
+              <div className="mt-3.5 p-2.5 rounded-lg bg-amber-50/70 border border-amber-200/80 text-[11px] text-amber-900">
+                <span className="font-semibold block text-amber-800 mb-0.5">Personel Berhalangan:</span>
+                <p className="line-clamp-2">
+                  {metrics.absentDetails.map((a) => `${a.full_name} (${a.reason || 'Izin'})`).join(', ')}
                 </p>
+              </div>
+            ) : (
+              <div className="mt-3.5 text-xs text-slate-500 flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>Seluruh anggota terkonfirmasi hadir dinas</span>
               </div>
             )}
           </div>
 
-          <div className="mt-3 pt-2 border-t border-slate-100 text-[11px] font-medium text-slate-600 flex items-center justify-between">
+          <div className="mt-5 pt-3 border-t border-slate-100 text-xs font-medium text-slate-600 flex items-center justify-between">
             <span className="text-slate-500">Shift {activeShiftNumber}</span>
             <button
               type="button"
               onClick={() => navigate('/deployment')}
               className="text-slate-800 hover:text-slate-900 hover:underline font-semibold"
             >
-              {metrics.isPersonnelPlotted ? 'Lihat Ploting' : '+ Atur Ploting Kru'}
+              {metrics.isPersonnelPlotted ? 'Lihat Ploting Kru →' : '+ Atur Ploting Kru →'}
             </button>
           </div>
         </div>
 
-        {/* Watchroom Status */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Fasilitas Watchroom
-              </span>
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
-                <Radio className="w-4 h-4" />
+        {/* Kolom 2 (Tengah): Kesiapan Operasi & Logbook Kegiatan (Pecah Setengah-Setengah) */}
+        <div className="flex flex-col gap-4 justify-between h-full">
+          {/* Card 2A: Kesiapan Operasi */}
+          <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-sm flex-1 flex flex-col justify-between hover:border-slate-300 transition-colors duration-100">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Kesiapan Operasi
+                </span>
+                <div className="w-7 h-7 rounded-lg bg-red-50 text-arff-primary flex items-center justify-center">
+                  <Truck className="w-3.5 h-3.5" />
+                </div>
               </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span
-                className={`text-lg font-bold ${
-                  watchroomLog?.status === 'unserviceable'
-                    ? 'text-red-700'
-                    : watchroomLog?.status === 'serviceable'
-                    ? 'text-emerald-700'
-                    : 'text-amber-700'
-                }`}
-              >
-                {watchroomLog?.status === 'serviceable'
-                  ? 'Siap Operasi'
-                  : watchroomLog?.status === 'unserviceable'
-                  ? 'Unserviceable'
-                  : 'Belum Diperiksa'}
-              </span>
-            </div>
-          </div>
-          <div className="mt-3 pt-2 border-t border-slate-100 text-[11px] font-medium">
-            <button
-              type="button"
-              onClick={() => setWatchroomModalOpen(true)}
-              className="text-slate-800 hover:text-slate-900 hover:underline font-semibold"
-            >
-              {watchroomLog?.status ? 'Perbarui Checklist' : '+ Input Checklist'}
-            </button>
-          </div>
-        </div>
 
-        {/* Operational Incidents */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Laporan Insiden
-              </span>
-              <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
-                <AlertTriangle className="w-4 h-4" />
+              <div className="mt-2.5 flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                  {metrics.serviceableVehicles}
+                </span>
+                <span className="text-xs text-slate-500 font-medium">
+                  / {metrics.totalVehicles} Unit Siap Operasi
+                </span>
               </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-slate-900">
-                {metrics.openIncidentsCount}
-              </span>
-              <span className="text-xs text-slate-500 font-medium">Insiden Terbuka</span>
-            </div>
-          </div>
-          <div className="mt-3 pt-2 border-t border-slate-100 text-[11px] font-medium">
-            <button
-              type="button"
-              onClick={() => setIncidentModalOpen(true)}
-              className="text-slate-800 hover:text-slate-900 hover:underline font-semibold"
-            >
-              + Catat Kejadian Baru
-            </button>
-          </div>
-        </div>
-      </div>
 
-      {/* Fleet & Posko Monitoring Section */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
-          <div>
-            <h3 className="text-base font-bold text-slate-900">
-              Kesiapan Fisik Armada & Posko Operasional
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Pemeriksaan wajib dilakukan oleh Penanggung Jawab (PIC) masing-masing unit armada dan posko watchroom
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate('/readiness/vehicles')}
-            >
-              Lihat Seluruh Armada & Posko
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              icon={PlusCircle}
-              onClick={() => navigate('/deployment')}
-            >
-              Kelola Ploting Kru
-            </Button>
-          </div>
-        </div>
-
-        {/* State View for Vehicles */}
-        <div className="mt-5">
-          <StateView
-            loading={loading}
-            error={error}
-            isEmpty={vehicles.length === 0}
-            emptyTitle="Belum Ada Data Armada"
-            emptyDescription="Data armada operasional ARFF belum tersedia. Silakan daftarkan unit kendaraan di menu Pengaturan."
-            emptyAction={
-              isAdmin && (
-                <Button variant="primary" size="sm" onClick={() => navigate('/settings')}>
-                  Kelola Data Armada
-                </Button>
-              )
-            }
-            onRetry={fetchDashboardData}
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {vehicles.map((v) => {
-                // Check if user is the assigned PIC for this vehicle
-                const isPic = user?.personnel_id && v.pic_personnel_id === user.personnel_id;
-                const canInspect = isPic || isSupervisor || isAdmin;
-
-                return (
-                  <VehicleMetricCard
-                    key={v.id}
-                    vehicle={v}
-                    isPicForVehicle={isPic}
-                    canInspect={canInspect}
-                    onInspect={(veh) => setSelectedVehicleForInspect(veh)}
+              {/* Progress Bar & Status */}
+              <div className="mt-3">
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className={`h-2 rounded-full transition-all duration-300 ${
+                      metrics.totalVehicles > 0 && metrics.serviceableVehicles === metrics.totalVehicles
+                        ? 'bg-emerald-500'
+                        : metrics.unserviceableVehicles > 0
+                        ? 'bg-red-500'
+                        : 'bg-amber-500'
+                    }`}
+                    style={{
+                      width: `${metrics.totalVehicles > 0 ? (metrics.serviceableVehicles / metrics.totalVehicles) * 100 : 0}%`,
+                    }}
                   />
-                );
-              })}
+                </div>
+
+                <div className="mt-2 text-xs font-medium">
+                  {metrics.totalVehicles === 0 ? (
+                    <span className="text-slate-500">Belum ada unit terdaftar</span>
+                  ) : metrics.unserviceableVehicles > 0 ? (
+                    <span className="text-red-700 font-bold">{metrics.unserviceableVehicles} unit perlu penanganan teknis</span>
+                  ) : metrics.serviceableVehicles === metrics.totalVehicles ? (
+                    <span className="text-emerald-700 font-semibold">100% Seluruh Unit Siap Dinas</span>
+                  ) : (
+                    <span className="text-amber-700 font-medium">{metrics.totalVehicles - metrics.serviceableVehicles} unit belum diperiksa shift ini</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Ringkasan Komposisi Unit */}
+              <div className="mt-2.5 pt-2 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
+                <span>7 Armada Pemadam & Pendukung</span>
+                <span>1 Posko Watch Room</span>
+              </div>
             </div>
-          </StateView>
+
+            <div className="mt-3 pt-2.5 border-t border-slate-100 text-xs font-medium text-slate-600 flex items-center justify-between">
+              <span className="text-slate-500">Total 8 Unit</span>
+              <button
+                type="button"
+                onClick={() => navigate('/readiness/vehicles')}
+                className="text-slate-800 hover:text-slate-900 hover:underline font-semibold"
+              >
+                Detail Kesiapan →
+              </button>
+            </div>
+          </div>
+
+          {/* Card 2B: Logbook Kegiatan */}
+          <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-sm flex-1 flex flex-col justify-between hover:border-slate-300 transition-colors duration-100">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Logbook Kegiatan
+                </span>
+                <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center">
+                  <ClipboardList className="w-3.5 h-3.5" />
+                </div>
+              </div>
+
+              <div className="mt-2.5 flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                  {metrics.activitiesCount}
+                </span>
+                <span className="text-xs text-slate-500 font-medium">
+                  Kegiatan Dicatat
+                </span>
+              </div>
+
+              <div className="mt-2.5 text-xs">
+                {metrics.activitiesCount > 0 ? (
+                  <span className="text-emerald-700 font-medium flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    Buku jurnal shift berjalan terisi
+                  </span>
+                ) : (
+                  <span className="text-slate-500 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    Belum ada agenda shift tercatat
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-3 pt-2.5 border-t border-slate-100 text-xs font-medium text-slate-600 flex items-center justify-between">
+              <span className="text-slate-500">Jurnal Harian</span>
+              <button
+                type="button"
+                onClick={() => navigate('/activities')}
+                className="text-slate-800 hover:text-slate-900 hover:underline font-semibold"
+              >
+                Buka Logbook →
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Kolom 3 (Kanan): Kesiapan Fisik (Minimalis: Icon, Nama, dan Penanggung Jawab Saja) */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between hover:border-slate-300 transition-colors duration-100">
+          <div>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                  <Truck className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Kesiapan Fisik
+                </span>
+              </div>
+              <span className="text-xs font-semibold text-slate-500">
+                {metrics.serviceableVehicles}/{metrics.totalVehicles} Siap
+              </span>
+            </div>
+
+            {/* List Armada & Posko Ringkas (Tanpa tombol kelola, tanpa lihat seluruh armada, tanpa input pemeriksaan, tanpa plat) */}
+            <div className="divide-y divide-slate-100 mt-1 max-h-[440px] overflow-y-auto pr-1">
+              {vehicles.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-400 italic">
+                  Belum ada data unit operasional.
+                </div>
+              ) : (
+                vehicles.map((v) => {
+                  const isPosko = v.category === 'posko' || v.code_name === 'WATCHROOM';
+                  const ItemIcon = isPosko ? Radio : Truck;
+                  const log = v.current_log || v;
+                  const status = v.status || log?.status || 'belum_dilaporkan';
+
+                  return (
+                    <div
+                      key={v.id}
+                      className="py-2.5 px-1.5 flex items-center justify-between gap-3 hover:bg-slate-50/80 rounded-lg transition-colors duration-100"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                            status === 'serviceable'
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : status === 'unserviceable'
+                              ? 'bg-red-50 text-red-700'
+                              : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          <ItemIcon className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-900 truncate">
+                            {v.vehicle_name || v.code_name}
+                          </p>
+                          <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                            Penanggung Jawab:{' '}
+                            <strong className="font-semibold text-slate-800">
+                              {v.pic_name || 'Belum Ditentukan'}
+                            </strong>
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Indikator Status Dot Sederhana */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            status === 'serviceable'
+                              ? 'bg-emerald-500'
+                              : status === 'unserviceable'
+                              ? 'bg-red-500'
+                              : 'bg-slate-300'
+                          }`}
+                        />
+                        <span className="text-[11px] font-semibold text-slate-600">
+                          {status === 'serviceable'
+                            ? 'Siap'
+                            : status === 'unserviceable'
+                            ? 'Rusak'
+                            : 'Belum Cek'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          <div className="mt-3 pt-2.5 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
+            <span>Status Armada & Posko</span>
+            <span className="font-medium text-slate-700">8 Unit Operasional</span>
+          </div>
         </div>
       </div>
 

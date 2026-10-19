@@ -1,13 +1,14 @@
 import bcrypt from 'bcryptjs';
 import pool from '../config/db.js';
 import { successResponse, errorResponse, createdResponse } from '../utils/responseHelper.js';
+import { generatePersonnelAccountsPdf } from '../services/pdfService.js';
 
 export const getPersonnelList = async (req, res) => {
   try {
     const { team_group, search, cert_level, is_active } = req.query;
 
     let query = `
-      SELECT p.*, u.username, u.email as user_email, u.role as user_role
+      SELECT p.*, u.username, u.email as user_email, u.role as user_role, u.must_change_password
       FROM personnel p
       LEFT JOIN users u ON u.id = p.user_id
       WHERE 1=1
@@ -38,10 +39,52 @@ export const getPersonnelList = async (req, res) => {
     query += ` ORDER BY p.team_group ASC, p.id ASC`;
 
     const [rows] = await pool.query(query, params);
-    return successResponse(res, 'Daftar personel berhasil diambil', rows);
+    return res.status(200).json({
+      success: true,
+      message: 'Daftar personel berhasil diambil',
+      data: rows,
+      personnel: rows
+    });
   } catch (error) {
     console.error('Error getPersonnelList:', error);
     return errorResponse(res, 'Gagal mengambil daftar personel', 500);
+  }
+};
+
+export const exportPersonnelPdf = async (req, res) => {
+  try {
+    const { team_group } = req.query;
+
+    let query = `
+      SELECT p.*, u.username, u.email as user_email, u.role as user_role, u.must_change_password
+      FROM personnel p
+      LEFT JOIN users u ON u.id = p.user_id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (team_group && team_group !== 'ALL') {
+      query += ` AND p.team_group = ?`;
+      params.push(team_group);
+    }
+
+    query += ` ORDER BY p.team_group ASC, p.id ASC`;
+
+    const [rows] = await pool.query(query, params);
+
+    const doc = generatePersonnelAccountsPdf(rows);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="Daftar_Akun_Personel_ARFF_YIA.pdf"'
+    );
+
+    doc.pipe(res);
+    doc.end();
+  } catch (error) {
+    console.error('Error exportPersonnelPdf:', error);
+    return errorResponse(res, 'Gagal mencetak PDF akun personel', 500);
   }
 };
 
@@ -49,7 +92,7 @@ export const getPersonnelById = async (req, res) => {
   try {
     const { id } = req.params;
     const [rows] = await pool.query(
-      `SELECT p.*, u.username, u.email as user_email, u.role as user_role
+      `SELECT p.*, u.username, u.email as user_email, u.role as user_role, u.must_change_password
        FROM personnel p
        LEFT JOIN users u ON u.id = p.user_id
        WHERE p.id = ?`,
@@ -64,7 +107,12 @@ export const getPersonnelById = async (req, res) => {
     personnel.documents_status = 'coming_soon';
     personnel.documents_message = 'Fitur Pengunggahan Berkas (Coming Soon)';
 
-    return successResponse(res, 'Data personel berhasil diambil', personnel);
+    return res.status(200).json({
+      success: true,
+      message: 'Data personel berhasil diambil',
+      data: personnel,
+      personnel: personnel
+    });
   } catch (error) {
     console.error('Error getPersonnelById:', error);
     return errorResponse(res, 'Gagal mengambil detail personel', 500);

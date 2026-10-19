@@ -12,7 +12,7 @@ export const login = async (req, res) => {
     }
 
     const [users] = await pool.query(
-      `SELECT u.id, u.username, u.name, u.email, u.password_hash, u.role,
+      `SELECT u.id, u.username, u.name, u.email, u.password_hash, u.role, u.must_change_password,
               p.id as personnel_id, p.team_group, p.rank_position
        FROM users u
        LEFT JOIN personnel p ON p.user_id = u.id
@@ -49,6 +49,7 @@ export const login = async (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      must_change_password: Boolean(user.must_change_password),
       personnel_id: user.personnel_id,
       team_group: user.team_group,
       rank_position: user.rank_position
@@ -67,7 +68,7 @@ export const login = async (req, res) => {
 export const getMe = async (req, res) => {
   try {
     const [users] = await pool.query(
-      `SELECT u.id, u.username, u.name, u.email, u.role, u.created_at,
+      `SELECT u.id, u.username, u.name, u.email, u.role, u.must_change_password, u.created_at,
               p.id as personnel_id, p.nip, p.full_name, p.rank_position,
               p.team_group, p.cert_level, p.employment_status
        FROM users u
@@ -80,7 +81,10 @@ export const getMe = async (req, res) => {
       return errorResponse(res, 'Pengguna tidak ditemukan', 404);
     }
 
-    return successResponse(res, 'Profil pengguna berhasil diambil', users[0]);
+    return successResponse(res, 'Profil pengguna berhasil diambil', {
+      ...users[0],
+      must_change_password: Boolean(users[0].must_change_password)
+    });
   } catch (error) {
     console.error('Error getMe:', error);
     return errorResponse(res, 'Terjadi kesalahan saat mengambil data profil', 500);
@@ -98,6 +102,10 @@ export const changePassword = async (req, res) => {
       return errorResponse(res, 'Password baru minimal 6 karakter', 400);
     }
 
+    if (new_password === '123456') {
+      return errorResponse(res, 'Password baru tidak boleh menggunakan password default (123456)', 400);
+    }
+
     const [rows] = await pool.query('SELECT password_hash FROM users WHERE id = ?', [req.user.id]);
     if (rows.length === 0) {
       return errorResponse(res, 'Pengguna tidak ditemukan', 404);
@@ -111,7 +119,7 @@ export const changePassword = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const newHash = await bcrypt.hash(new_password, salt);
 
-    await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, req.user.id]);
+    await pool.query('UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?', [newHash, req.user.id]);
 
     return successResponse(res, 'Password berhasil diperbarui');
   } catch (error) {

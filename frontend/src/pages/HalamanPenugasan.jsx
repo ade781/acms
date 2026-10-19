@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Save,
   CheckCircle,
   AlertCircle,
-  UserX,
-  PlusCircle,
+  Info,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam, formatTeam } from '../utils/shiftHelper';
@@ -12,8 +10,6 @@ import api from '../services/api';
 import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import DeploymentSlotCard from '../components/forms/DeploymentSlotCard';
 import StateView from '../components/common/StateView';
-import Button from '../components/common/Button';
-import Badge from '../components/common/Badge';
 
 export default function HalamanPenugasan() {
   const {
@@ -60,9 +56,11 @@ export default function HalamanPenugasan() {
         api.get(`/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`),
       ]);
 
-      const personnel = Array.isArray(pRes.data?.personnel)
+      const personnel = Array.isArray(pRes.data?.data)
+        ? pRes.data.data
+        : (Array.isArray(pRes.data?.personnel)
         ? pRes.data.personnel
-        : (Array.isArray(pRes.data) ? pRes.data : []);
+        : (Array.isArray(pRes.data) ? pRes.data : []));
       setTeamPersonnel(personnel);
 
       const rawVehicles = Array.isArray(vRes.data?.vehicles)
@@ -184,18 +182,6 @@ export default function HalamanPenugasan() {
     });
   };
 
-  // Add absent entry
-  const handleAddAbsent = () => {
-    setAbsentList((prev) => [
-      ...prev,
-      { personnel_id: '', reason: 'cuti', notes: '' },
-    ]);
-  };
-
-  const handleRemoveAbsent = (index) => {
-    setAbsentList((prev) => prev.filter((_, idx) => idx !== index));
-  };
-
   // Save all deployments
   const handleSaveDeployments = async () => {
     setError(null);
@@ -257,19 +243,71 @@ export default function HalamanPenugasan() {
     }
   };
 
-  // Approve shift
+  // Approve shift: Menyimpan ploting sekaligus mengesahkan laporan shift
   const handleApproveShift = async () => {
     if (!window.confirm('Sahkan seluruh laporan dan ploting penugasan shift ini?')) return;
 
     setApproving(true);
+    setError(null);
+    setSuccessMsg(null);
     try {
+      const payloadDeployments = [];
+
+      // Kumpulkan seluruh slot operasional (armada & posko watchroom)
+      Object.entries(vehicleSlots).forEach(([vId, slots]) => {
+        const unitObj = vehicles.find((v) => Number(v.id) === Number(vId));
+        const isPosko = unitObj?.category === 'posko' || unitObj?.code_name === 'WATCHROOM';
+        const depType = isPosko
+          ? 'watchroom'
+          : (unitObj?.category === 'pendukung' ? 'vehicle_pendukung' : 'vehicle_utama');
+
+        slots.forEach((s, idx) => {
+          if (s.personnel_id) {
+            payloadDeployments.push({
+              personnel_id: Number(s.personnel_id),
+              deployment_type: depType,
+              vehicle_id: Number(vId),
+              is_pic: idx === 0, // Slot 0 paling atas FIX sebagai PIC
+              notes: isPosko ? 'Operator Komunikasi Watchroom' : (idx === 0 ? 'PIC Armada' : 'Kru Armada'),
+            });
+          }
+        });
+      });
+
+      // Kumpulkan personel yang cuti/izin
+      absentList.forEach((abs) => {
+        if (abs.personnel_id) {
+          payloadDeployments.push({
+            personnel_id: Number(abs.personnel_id),
+            deployment_type: 'absent',
+            vehicle_id: null,
+            is_pic: false,
+            absent_reason: abs.reason,
+            notes: abs.notes,
+          });
+        }
+      });
+
+      // Simpan batch ploting jika ada slot yang terisi
+      if (payloadDeployments.length > 0) {
+        await api.post('/deployments/batch', {
+          shift_date: activeDate,
+          shift_number: activeShiftNumber,
+          team_group: cleanTeam(activeTeam),
+          deployments: payloadDeployments,
+        });
+      }
+
+      // Sahkan shift
       await api.post('/deployments/approve', {
         shift_date: activeDate,
         shift_number: activeShiftNumber,
         team_group: cleanTeam(activeTeam),
       });
+
       setIsApproved(true);
       setSuccessMsg('Laporan dan ploting shift resmi disahkan oleh Ketua Regu.');
+      fetchDeploymentData();
     } catch (err) {
       setError(`Gagal mengesahkan shift: ${err.response?.data?.message || err.message}`);
     } finally {
@@ -296,7 +334,7 @@ export default function HalamanPenugasan() {
         <div>
           <h4 className="font-bold text-slate-900 mb-0.5">Ketentuan Ploting Dinas Operasional</h4>
           <p>
-            Setiap sesi shift baru dimulai dari keadaan <strong>KOSONG</strong>. Ketua Regu menugaskan personel ke armada (3 s.d. 4 personel per kendaraan) dan menentukan tepat <strong>1 orang Penanggung Jawab (PIC)</strong> yang berhak menginput kesiapan kendaraan tersebut.
+            Ploting penugasan kru armada (3 s.d. 4 personel) dan posko Watch Room (2 personel). Personel pada slot pertama otomatis bertindak sebagai <strong>Penanggung Jawab (PIC)</strong> yang berhak menginput kesiapan operasional unit.
           </p>
         </div>
       </div>
@@ -324,15 +362,13 @@ export default function HalamanPenugasan() {
       >
         {/* Vehicles Deployment Grid */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">
-                Ploting Personel Armada & Posko Operasional
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Pilih PIC (Slot #1 paling atas) dan kru dinas untuk seluruh unit kendaraan dan posko watchroom
-              </p>
-            </div>
+          <div className="mb-4">
+            <h3 className="text-base font-bold text-slate-900">
+              Ploting Personel Armada & Posko Operasional
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Pilih PIC (Slot #1 paling atas) dan kru dinas untuk seluruh unit kendaraan dan posko watchroom
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -353,120 +389,6 @@ export default function HalamanPenugasan() {
                 />
               );
             })}
-          </div>
-        </div>
-
-        {/* Absent / Tidak Hadir Recording */}
-        <div className="mb-8">
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center">
-                  <UserX className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900">Pencatatan Cuti / Sakit / Dinas Luar</h4>
-                  <p className="text-xs text-slate-500">Personel regu yang tidak berdinas pada shift ini</p>
-                </div>
-              </div>
-
-              {(!isApproved || isAdmin) && (
-                <button
-                  type="button"
-                  onClick={handleAddAbsent}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-arff-primary hover:underline"
-                >
-                  <PlusCircle className="w-4 h-4" />
-                  <span>Tambah Data</span>
-                </button>
-              )}
-            </div>
-
-            {absentList.length === 0 ? (
-              <div className="py-6 text-center text-xs text-slate-500">
-                Seluruh personel regu terdaftar hadir berdinas normal.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {absentList.map((abs, idx) => (
-                  <div key={idx} className="p-3 rounded-lg border border-slate-200 bg-slate-50 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={abs.personnel_id || ''}
-                        disabled={isApproved && !isAdmin}
-                        onChange={(e) => {
-                          const updated = [...absentList];
-                          updated[idx].personnel_id = e.target.value ? Number(e.target.value) : '';
-                          setAbsentList(updated);
-                        }}
-                        className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 min-h-[38px] transition-colors duration-100"
-                      >
-                        <option value="">(Pilih Personel)</option>
-                        {teamPersonnel.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.full_name} {p.nip ? `[NIP: ${p.nip}]` : ''}
-                          </option>
-                        ))}
-                      </select>
-
-                      <select
-                        value={abs.reason}
-                        disabled={isApproved && !isAdmin}
-                        onChange={(e) => {
-                          const updated = [...absentList];
-                          updated[idx].reason = e.target.value;
-                          setAbsentList(updated);
-                        }}
-                        className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 min-h-[38px] transition-colors duration-100"
-                      >
-                        <option value="cuti">Cuti</option>
-                        <option value="sakit">Sakit</option>
-                        <option value="dinas">Dinas Luar</option>
-                        <option value="tukar_dinas">Tukar Dinas</option>
-                      </select>
-
-                      {(!isApproved || isAdmin) && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveAbsent(idx)}
-                          className="text-xs text-red-600 hover:text-red-800 p-1"
-                        >
-                          Hapus
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Bottom Save & Action Toolbar */}
-        <div className="sticky bottom-4 z-20 bg-white border border-slate-300 shadow-lg rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="text-xs text-slate-600">
-            {isApproved ? (
-              <span className="text-emerald-700 font-bold flex items-center gap-1.5">
-                <CheckCircle className="w-4 h-4" />
-                Shift ini telah berstatus disahkan (`approved`).
-              </span>
-            ) : (
-              <span>Pastikan seluruh slot kendaraan memiliki PIC sebelum menyimpan.</span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            {(!isApproved || isAdmin) && (
-              <Button
-                variant="primary"
-                icon={Save}
-                loading={saving}
-                onClick={handleSaveDeployments}
-                className="w-full sm:w-auto"
-              >
-                Simpan Ploting Dinas
-              </Button>
-            )}
           </div>
         </div>
       </StateView>

@@ -6,6 +6,7 @@ import {
   Truck,
   Radio,
   UserCheck,
+  UserX,
   AlertTriangle,
   ClipboardList,
   FileText,
@@ -22,7 +23,7 @@ export default function Sidebar({ isOpen, onClose }) {
   const navItems = [
     {
       to: '/dashboard',
-      label: 'Ringkasan KPI',
+      label: 'Dashboard',
       icon: LayoutDashboard,
     },
     {
@@ -44,6 +45,11 @@ export default function Sidebar({ isOpen, onClose }) {
       to: '/incidents',
       label: 'Laporan Insiden',
       icon: AlertTriangle,
+    },
+    {
+      to: '/leave',
+      label: 'Pencatatan Cuti',
+      icon: UserX,
     },
     {
       to: '/activities',

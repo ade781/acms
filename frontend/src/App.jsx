@@ -9,10 +9,10 @@ import HalamanDashboard from './pages/HalamanDashboard';
 import HalamanPersonel from './pages/HalamanPersonel';
 import HalamanDetailPersonel from './pages/HalamanDetailPersonel';
 import HalamanKesiapanKendaraan from './pages/HalamanKesiapanKendaraan';
-import HalamanKesiapanWatchroom from './pages/HalamanKesiapanWatchroom';
 import HalamanPenugasan from './pages/HalamanPenugasan';
 import HalamanInsiden from './pages/HalamanInsiden';
 import HalamanDetailInsiden from './pages/HalamanDetailInsiden';
+import HalamanCuti from './pages/HalamanCuti';
 import HalamanKegiatan from './pages/HalamanKegiatan';
 import HalamanLaporan from './pages/HalamanLaporan';
 import HalamanPengaturan from './pages/HalamanPengaturan';
@@ -75,6 +75,7 @@ export default function App() {
             <Route path="/personnel/:id" element={<HalamanDetailPersonel />} />
             <Route path="/incidents" element={<HalamanInsiden />} />
             <Route path="/incidents/:id" element={<HalamanDetailInsiden />} />
+            <Route path="/leave" element={<HalamanCuti />} />
             <Route path="/activities" element={<HalamanKegiatan />} />
             <Route path="/reports" element={<HalamanLaporan />} />
             <Route
