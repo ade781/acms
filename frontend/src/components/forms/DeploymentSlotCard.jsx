@@ -90,13 +90,14 @@ export default function DeploymentSlotCard({
                       <option value="">(Pilih Personel Dinas)</option>
                       {availablePersonnel.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.full_name} ({p.rank_position || p.cert_level || 'Kru'})
+                          {p.full_name} {p.nip ? `[NIP: ${p.nip}]` : ''} ({p.rank_position || p.cert_level || 'Kru'})
                         </option>
                       ))}
                     </select>
                   ) : (
                     <div className="text-xs font-semibold text-slate-800">
                       {slot.personnel_name || '(Belum Ditugaskan)'}
+                      {slot.nip && <span className="text-[11px] font-mono text-slate-500 ml-1.5">(NIP: {slot.nip})</span>}
                     </div>
                   )}
 

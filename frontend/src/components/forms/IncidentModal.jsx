@@ -6,6 +6,7 @@ import InputField from '../common/InputField';
 import SelectField from '../common/SelectField';
 import TextareaField from '../common/TextareaField';
 import { compressImageToWebP } from '../../utils/imageCompressor';
+import { cleanTeam, formatTeam } from '../../utils/shiftHelper';
 import api from '../../services/api';
 
 export default function IncidentModal({
@@ -66,7 +67,7 @@ export default function IncidentModal({
       formData.append('incident_date', activeDate);
       formData.append('incident_time', new Date().toTimeString().slice(0, 5));
       formData.append('shift_number', activeShiftNumber);
-      formData.append('team_group', activeTeam);
+      formData.append('team_group', cleanTeam(activeTeam));
       formData.append('location', location);
       formData.append('priority_level', priorityLevel);
       formData.append('aircraft_info', aircraftInfo);
@@ -75,6 +76,7 @@ export default function IncidentModal({
       formData.append('last_condition', lastCondition);
 
       if (photoFile) {
+        formData.append('photos', photoFile);
         formData.append('attachment', photoFile);
       }
 
@@ -99,7 +101,7 @@ export default function IncidentModal({
       isOpen={isOpen}
       onClose={onClose}
       title="Catat Laporan Kejadian / Insiden Operasional"
-      subtitle={`Shift ${activeShiftNumber} | Regu ${activeTeam} | ${activeDate}`}
+      subtitle={`Shift ${activeShiftNumber} | ${formatTeam(activeTeam)} | ${activeDate}`}
       maxWidth="max-w-2xl"
       footer={
         <>

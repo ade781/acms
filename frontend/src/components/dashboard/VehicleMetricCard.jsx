@@ -9,8 +9,10 @@ export default function VehicleMetricCard({
   canInspect = false,
   onInspect,
 }) {
-  const log = vehicle.current_log;
-  const status = log?.status || 'belum_dilaporkan';
+  const log = vehicle.current_log || vehicle;
+  const status = vehicle.status || log?.status || 'belum_dilaporkan';
+  const justification = vehicle.justification || log?.justification;
+  const notes = vehicle.notes || log?.notes;
 
   const statusConfig = {
     serviceable: {
@@ -79,20 +81,20 @@ export default function VehicleMetricCard({
         </div>
 
         {/* Justification snippet if unserviceable */}
-        {status === 'unserviceable' && log?.justification && (
+        {status === 'unserviceable' && justification && (
           <div className="mt-3 p-2.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-900">
             <div className="flex items-center gap-1 font-bold mb-1">
               <ShieldAlert className="w-3.5 h-3.5 text-red-600" />
               <span>Kendala / Kerusakan:</span>
             </div>
-            <p className="line-clamp-2">{log.justification}</p>
+            <p className="line-clamp-2">{justification}</p>
           </div>
         )}
 
         {/* Notes if serviceable */}
-        {status === 'serviceable' && log?.notes && (
+        {status === 'serviceable' && notes && (
           <div className="mt-3 text-xs text-slate-500 line-clamp-1 italic">
-            Catatan: {log.notes}
+            Catatan: {notes}
           </div>
         )}
       </div>

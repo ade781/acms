@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import api from '../services/api';
-import { getCurrentOperationalShift, TEAMS } from '../utils/shiftHelper';
+import { getCurrentOperationalShift, getScheduledTeam, TEAMS, cleanTeam } from '../utils/shiftHelper';
 
 const AuthContext = createContext(null);
 
@@ -18,9 +18,22 @@ export function AuthProvider({ children }) {
 
   // Operational Context (active date, shift number 1-3, team Alpha-Delta)
   const currentOp = getCurrentOperationalShift();
-  const [activeDate, setActiveDate] = useState(currentOp.shiftDate);
-  const [activeShiftNumber, setActiveShiftNumber] = useState(currentOp.shiftNumber);
-  const [activeTeam, setActiveTeam] = useState(TEAMS[0]);
+  const [activeDate, setActiveDateState] = useState(currentOp.shiftDate);
+  const [activeShiftNumber, setActiveShiftNumberState] = useState(currentOp.shiftNumber);
+  const [activeTeam, setActiveTeam] = useState(currentOp.scheduledTeam || TEAMS[0]);
+
+  // Otomatis sinkronkan regu dinas saat tanggal dipilih, kecuali user sengaja memilih regu lain
+  const setActiveDate = (newDate) => {
+    setActiveDateState(newDate);
+    setActiveTeam(getScheduledTeam(newDate, activeShiftNumber));
+  };
+
+  // Otomatis sinkronkan regu dinas saat shift (1-3) dipilih
+  const setActiveShiftNumber = (newShift) => {
+    const shiftNum = Number(newShift);
+    setActiveShiftNumberState(shiftNum);
+    setActiveTeam(getScheduledTeam(activeDate, shiftNum));
+  };
 
   // Sync token to API defaults and verify
   useEffect(() => {
@@ -38,7 +51,7 @@ export function AuthProvider({ children }) {
           localStorage.setItem('arff_user', JSON.stringify(userData));
           // If user belongs to a specific team, prioritize that team
           if (userData.team_group) {
-            setActiveTeam(userData.team_group);
+            setActiveTeam(cleanTeam(userData.team_group));
           }
         }
       } catch (err) {
@@ -71,7 +84,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem('arff_user', JSON.stringify(receivedUser));
 
     if (receivedUser?.team_group) {
-      setActiveTeam(receivedUser.team_group);
+      setActiveTeam(cleanTeam(receivedUser.team_group));
     }
 
     return receivedUser;

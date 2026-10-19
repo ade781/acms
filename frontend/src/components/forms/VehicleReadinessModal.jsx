@@ -5,6 +5,7 @@ import Button from '../common/Button';
 import SelectField from '../common/SelectField';
 import TextareaField from '../common/TextareaField';
 import { compressImageToWebP } from '../../utils/imageCompressor';
+import { cleanTeam, formatTeam } from '../../utils/shiftHelper';
 import api from '../../services/api';
 
 export default function VehicleReadinessModal({
@@ -16,9 +17,9 @@ export default function VehicleReadinessModal({
   activeTeam,
   onSuccess,
 }) {
-  const [status, setStatus] = useState(vehicle?.current_log?.status || 'serviceable');
-  const [justification, setJustification] = useState(vehicle?.current_log?.justification || '');
-  const [notes, setNotes] = useState(vehicle?.current_log?.notes || '');
+  const [status, setStatus] = useState(vehicle?.status || vehicle?.current_log?.status || 'serviceable');
+  const [justification, setJustification] = useState(vehicle?.justification || vehicle?.current_log?.justification || '');
+  const [notes, setNotes] = useState(vehicle?.notes || vehicle?.current_log?.notes || '');
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(vehicle?.current_log?.photo_webp_url || null);
   const [compressing, setCompressing] = useState(false);
@@ -64,7 +65,7 @@ export default function VehicleReadinessModal({
       formData.append('vehicle_id', vehicle.id);
       formData.append('shift_date', activeDate);
       formData.append('shift_number', activeShiftNumber);
-      formData.append('team_group', activeTeam);
+      formData.append('team_group', cleanTeam(activeTeam));
       formData.append('status', status);
       formData.append('justification', justification);
       formData.append('notes', notes);
@@ -94,7 +95,7 @@ export default function VehicleReadinessModal({
       isOpen={isOpen}
       onClose={onClose}
       title={`Pemeriksaan Kondisi Kendaraan: ${vehicle.code_name || vehicle.vehicle_name}`}
-      subtitle={`Shift ${activeShiftNumber} | Regu ${activeTeam} | ${activeDate}`}
+      subtitle={`Shift ${activeShiftNumber} | ${formatTeam(activeTeam)} | ${activeDate}`}
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={submitting}>

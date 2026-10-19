@@ -4,6 +4,7 @@ import Modal from '../common/Modal';
 import Button from '../common/Button';
 import SelectField from '../common/SelectField';
 import TextareaField from '../common/TextareaField';
+import { cleanTeam, formatTeam } from '../../utils/shiftHelper';
 import api from '../../services/api';
 
 export default function WatchroomReadinessModal({
@@ -34,7 +35,7 @@ export default function WatchroomReadinessModal({
       await api.post('/readiness/watchroom', {
         shift_date: activeDate,
         shift_number: activeShiftNumber,
-        team_group: activeTeam,
+        team_group: cleanTeam(activeTeam),
         status,
         notes,
       });
@@ -54,7 +55,7 @@ export default function WatchroomReadinessModal({
       isOpen={isOpen}
       onClose={onClose}
       title="Pemeriksaan Kesiapan Fasilitas Watchroom"
-      subtitle={`Shift ${activeShiftNumber} | Regu ${activeTeam} | ${activeDate}`}
+      subtitle={`Shift ${activeShiftNumber} | ${formatTeam(activeTeam)} | ${activeDate}`}
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={submitting}>
