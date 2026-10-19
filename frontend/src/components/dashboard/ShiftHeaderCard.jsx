@@ -36,7 +36,7 @@ export default function ShiftHeaderCard({
               </Badge>
             ) : (
               <Badge variant="pending" size="md">
-                Status: Sesi Terbuka (Open)
+                Sesi Aktif
               </Badge>
             )}
           </div>
@@ -48,7 +48,7 @@ export default function ShiftHeaderCard({
             </span>
             <span className="flex items-center gap-1.5 font-semibold text-slate-800">
               <Clock className="w-4 h-4 text-slate-400" />
-              {currentDef.name} ({currentDef.startTime} s.d. {currentDef.endTime} WIB, {currentDef.durationHours} Jam)
+              {currentDef.name} ({currentDef.startTime} s.d. {currentDef.endTime} WIB)
             </span>
             {supervisorName && (
               <span className="flex items-center gap-1.5 font-medium text-slate-700">
@@ -73,7 +73,7 @@ export default function ShiftHeaderCard({
                       {')'}
                     </>
                   ) : (
-                    <span className="text-slate-500 italic"> (Siaga/Belum Diploting)</span>
+                    <span className="text-slate-600 font-medium"> ({personnelStats.total} Siaga)</span>
                   )}
                 </span>
               </span>
@@ -88,7 +88,7 @@ export default function ShiftHeaderCard({
               type="button"
               onClick={onApproveShift}
               disabled={approving}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors duration-100 min-h-[44px] shadow-sm disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-emerald-600 text-emerald-700 hover:bg-emerald-50 text-xs font-semibold transition-colors duration-100 min-h-[40px] shadow-sm disabled:opacity-50"
             >
               <CheckCircle className="w-4 h-4" />
               <span>{approving ? 'Mengesahkan...' : 'Sahkan Laporan Shift'}</span>

@@ -37,8 +37,10 @@ export default function Navbar({ onToggleSidebar }) {
             <Logo className="h-7 w-7" withText={false} />
           </div>
 
-          <div className="hidden lg:flex items-center gap-2 pl-2 text-xs text-slate-500">
-            <span className="font-semibold text-slate-700">Unit Pertolongan Kecelakaan Penerbangan dan Pemadam Kebakaran</span>
+          <div className="hidden lg:flex items-center gap-2 pl-2">
+            <span className="font-bold text-slate-900 text-sm tracking-wide">ARFF YIA</span>
+            <span className="text-xs text-slate-400">|</span>
+            <span className="text-xs font-medium text-slate-600">Bandara Internasional Yogyakarta</span>
           </div>
         </div>
 

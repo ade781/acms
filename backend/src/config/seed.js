@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import pool from './db.js';
 import { seedPersonnel } from './seedPersonnel.js';
+import { seedVehicles } from './seedVehicles.js';
 
 async function seed() {
   console.log('Menjalankan seeder akun admin...');
@@ -32,6 +33,9 @@ async function seed() {
 
   // Seed 68 data personel resmi 4 regu (Alpha, Bravo, Charlie, Delta)
   await seedPersonnel();
+
+  // Seed armada baku ARFF YIA
+  await seedVehicles();
 
   await pool.end();
 }

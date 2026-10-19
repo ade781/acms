@@ -40,13 +40,13 @@ export default function HalamanLogin() {
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center mb-4">
-          <Logo className="h-12 w-12" subtitle="Sistem Monitoring Operasional ARFF" />
+          <Logo className="h-12 w-12" />
         </div>
         <h2 className="text-center text-xl font-bold tracking-tight text-slate-900">
           Masuk ke Sistem Operasional ARFF
         </h2>
         <p className="mt-1 text-center text-xs text-slate-600">
-          Monitoring Kesiapan Armada, Personel, dan Penugasan Shift
+          Silakan masukkan kredensial akun untuk melanjutkan dinas
         </p>
       </div>
 
@@ -66,7 +66,7 @@ export default function HalamanLogin() {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Masukkan username Anda..."
+              placeholder="Masukkan username..."
               icon={User}
               required
               autoFocus
@@ -78,7 +78,7 @@ export default function HalamanLogin() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Masukkan password Anda..."
+              placeholder="Masukkan password..."
               icon={Lock}
               required
             />
@@ -94,18 +94,6 @@ export default function HalamanLogin() {
               </Button>
             </div>
           </form>
-
-          {/* Quick Access Info for Testing */}
-          <div className="mt-6 pt-5 border-t border-slate-200 text-center">
-            <div className="text-[11px] text-slate-500 font-medium">
-              Akun Administrator Awal:
-            </div>
-            <div className="mt-1 inline-flex items-center gap-2 px-3 py-1 bg-slate-100 rounded text-xs font-mono text-slate-800">
-              <span>User: <strong>aaa</strong></span>
-              <span>|</span>
-              <span>Pass: <strong>aaaaaa</strong></span>
-            </div>
-          </div>
         </div>
       </div>
     </div>

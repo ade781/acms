@@ -198,13 +198,19 @@ export default function HalamanDashboard() {
               </span>
             </div>
           </div>
-          <div className="mt-3 text-[11px] font-medium text-slate-600">
-            {metrics.unserviceableVehicles > 0 ? (
+          <div className="mt-3 text-[11px] font-medium">
+            {metrics.totalVehicles === 0 ? (
+              <span className="text-slate-500 font-medium">Belum ada armada terdaftar</span>
+            ) : metrics.unserviceableVehicles > 0 ? (
               <span className="text-red-700 font-bold">
-                {metrics.unserviceableVehicles} unit unserviceable
+                {metrics.unserviceableVehicles} unit tidak siap operasi
               </span>
+            ) : metrics.serviceableVehicles === metrics.totalVehicles ? (
+              <span className="text-emerald-700 font-semibold">Semua armada siap operasi ({metrics.totalVehicles} unit)</span>
             ) : (
-              <span className="text-emerald-700 font-semibold">Semua armada beroperasi normal</span>
+              <span className="text-amber-700 font-medium">
+                {metrics.serviceableVehicles} dari {metrics.totalVehicles} unit siap operasi
+              </span>
             )}
           </div>
         </div>
@@ -228,18 +234,18 @@ export default function HalamanDashboard() {
               <span className="text-xs text-slate-500 font-medium">
                 {metrics.isPersonnelPlotted
                   ? `/ ${metrics.totalPersonnelCount} Sedang Bertugas`
-                  : `Anggota ${formatTeam(activeTeam)}`}
+                  : `Anggota Regu ${formatTeam(activeTeam)}`}
               </span>
             </div>
 
-            {/* Keterangan Berapa yang Bertugas & Berapa yang Izin */}
-            <div className="mt-2.5 grid grid-cols-2 gap-1.5 text-xs">
-              <div className="px-2 py-1.5 rounded-lg bg-emerald-50/80 border border-emerald-200/70">
+            {/* Rincian Bertugas, Izin, dan Siaga */}
+            <div className="mt-2.5 grid grid-cols-3 gap-1 text-xs">
+              <div className="px-2 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200/70">
                 <span className="text-[10px] text-emerald-700 font-semibold uppercase block leading-none mb-1">
                   Bertugas
                 </span>
                 <span className="text-sm font-bold text-emerald-800">
-                  {metrics.dutyPersonnelCount} <span className="text-[10px] font-normal text-emerald-600">Orang</span>
+                  {metrics.dutyPersonnelCount}
                 </span>
               </div>
 
@@ -249,10 +255,21 @@ export default function HalamanDashboard() {
                   : 'bg-slate-50 border-slate-200 text-slate-600'
               }`}>
                 <span className="text-[10px] font-semibold uppercase block leading-none mb-1 text-slate-500">
-                  Izin / Cuti
+                  Izin
                 </span>
                 <span className="text-sm font-bold">
-                  {metrics.absentPersonnelCount} <span className="text-[10px] font-normal text-slate-500">Orang</span>
+                  {metrics.absentPersonnelCount}
+                </span>
+              </div>
+
+              <div className="px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700">
+                <span className="text-[10px] font-semibold uppercase block leading-none mb-1 text-slate-500">
+                  Siaga
+                </span>
+                <span className="text-sm font-bold text-slate-800">
+                  {metrics.isPersonnelPlotted
+                    ? Math.max(0, metrics.totalPersonnelCount - metrics.dutyPersonnelCount - metrics.absentPersonnelCount)
+                    : metrics.totalPersonnelCount}
                 </span>
               </div>
             </div>
@@ -273,7 +290,7 @@ export default function HalamanDashboard() {
             <button
               type="button"
               onClick={() => navigate('/deployment')}
-              className="text-arff-primary hover:underline font-semibold"
+              className="text-slate-800 hover:text-slate-900 hover:underline font-semibold"
             >
               {metrics.isPersonnelPlotted ? 'Lihat Ploting' : '+ Atur Ploting Kru'}
             </button>
@@ -281,64 +298,68 @@ export default function HalamanDashboard() {
         </div>
 
         {/* Watchroom Status */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Fasilitas Watchroom
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
-              <Radio className="w-4 h-4" />
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Fasilitas Watchroom
+              </span>
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                <Radio className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span
+                className={`text-lg font-bold ${
+                  watchroomLog?.status === 'unserviceable'
+                    ? 'text-red-700'
+                    : watchroomLog?.status === 'serviceable'
+                    ? 'text-emerald-700'
+                    : 'text-amber-700'
+                }`}
+              >
+                {watchroomLog?.status === 'serviceable'
+                  ? 'Siap Operasi'
+                  : watchroomLog?.status === 'unserviceable'
+                  ? 'Unserviceable'
+                  : 'Belum Diperiksa'}
+              </span>
             </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span
-              className={`text-lg font-bold ${
-                watchroomLog?.status === 'unserviceable'
-                  ? 'text-red-700'
-                  : watchroomLog?.status === 'serviceable'
-                  ? 'text-emerald-700'
-                  : 'text-amber-700'
-              }`}
-            >
-              {watchroomLog?.status === 'serviceable'
-                ? 'Serviceable'
-                : watchroomLog?.status === 'unserviceable'
-                ? 'Unserviceable'
-                : 'Belum Diperiksa'}
-            </span>
-          </div>
-          <div className="mt-2 text-[11px] font-medium">
+          <div className="mt-3 pt-2 border-t border-slate-100 text-[11px] font-medium">
             <button
               type="button"
               onClick={() => setWatchroomModalOpen(true)}
-              className="text-arff-primary hover:underline font-semibold"
+              className="text-slate-800 hover:text-slate-900 hover:underline font-semibold"
             >
-              Input / Perbarui Status
+              {watchroomLog?.status ? 'Perbarui Checklist' : '+ Input Checklist'}
             </button>
           </div>
         </div>
 
         {/* Operational Incidents */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Laporan Insiden
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
-              <AlertTriangle className="w-4 h-4" />
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Laporan Insiden
+              </span>
+              <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
+                <AlertTriangle className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-slate-900">
+                {metrics.openIncidentsCount}
+              </span>
+              <span className="text-xs text-slate-500 font-medium">Insiden Terbuka</span>
             </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">
-              {metrics.openIncidentsCount}
-            </span>
-            <span className="text-xs text-slate-500">Insiden Terbuka</span>
-          </div>
-          <div className="mt-2 text-[11px] font-medium">
+          <div className="mt-3 pt-2 border-t border-slate-100 text-[11px] font-medium">
             <button
               type="button"
               onClick={() => setIncidentModalOpen(true)}
-              className="text-red-700 hover:underline font-semibold"
+              className="text-slate-800 hover:text-slate-900 hover:underline font-semibold"
             >
               + Catat Kejadian Baru
             </button>
@@ -383,12 +404,12 @@ export default function HalamanDashboard() {
             loading={loading}
             error={error}
             isEmpty={vehicles.length === 0}
-            emptyTitle="Belum Ada Data Master Armada"
-            emptyDescription="Master data kendaraan ARFF dimulai dari kosong. Silakan masuk ke menu Pengaturan Master untuk mendaftarkan unit kendaraan operasional."
+            emptyTitle="Belum Ada Data Armada"
+            emptyDescription="Data armada operasional ARFF belum tersedia. Silakan daftarkan unit kendaraan di menu Pengaturan."
             emptyAction={
               isAdmin && (
                 <Button variant="primary" size="sm" onClick={() => navigate('/settings')}>
-                  Buka Pengaturan Master Armada
+                  Kelola Data Armada
                 </Button>
               )
             }

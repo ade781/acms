@@ -72,9 +72,9 @@ export default function HalamanKesiapanWatchroom() {
       </div>
 
       <StateView loading={loading} error={error} onRetry={fetchWatchroomStatus}>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="w-full">
           {/* Main Status Display Card */}
-          <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
             <div className="flex items-start justify-between pb-4 border-b border-slate-200">
               <div className="flex items-center gap-3">
                 <div
@@ -160,31 +160,6 @@ export default function HalamanKesiapanWatchroom() {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* SOP Guidance Sidebar */}
-          <div className="bg-slate-50 rounded-xl border border-slate-200 p-5">
-            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3">
-              Standard Fasilitas Watchroom
-            </h4>
-            <ul className="space-y-2.5 text-xs text-slate-600">
-              <li className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-600 mt-1.5 flex-shrink-0" />
-                <span>Saluran langsung (Direct line) Tower ATC & Rescue Coordination Center harus aktif tanpa gangguan kresek.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-600 mt-1.5 flex-shrink-0" />
-                <span>Pengujian tombol sirine tanda bahaya gedung (crash bell) wajib dilaksanakan sesuai SOP harian.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-600 mt-1.5 flex-shrink-0" />
-                <span>Radio komunikasi Base Station VHF frekuensi ground harus dapat memonitor pergerakan pesawat di maneuvering area.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-600 mt-1.5 flex-shrink-0" />
-                <span>Baterai cadangan power backup (UPS) watchroom beroperasi normal.</span>
-              </li>
-            </ul>
           </div>
         </div>
       </StateView>

@@ -139,12 +139,6 @@ export default function Sidebar({ isOpen, onClose }) {
             );
           })}
         </div>
-
-        {/* Footer info banner */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50 text-[11px] text-slate-500">
-          <div className="font-semibold text-slate-700 mb-0.5">SOP ICAO & PKP-PK</div>
-          <div>Kesiapan Armada & Penugasan Shift Berkelanjutan</div>
-        </div>
       </aside>
     </>
   );

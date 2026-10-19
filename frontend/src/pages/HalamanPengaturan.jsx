@@ -179,10 +179,10 @@ export default function HalamanPengaturan() {
         error={error}
         isEmpty={vehicles.length === 0}
         emptyTitle="Belum Ada Master Armada Kendaraan"
-        emptyDescription="Seluruh master data berawal dari kosong sesuai SOP keamanan bandara. Daftarkan armada pertama Anda sekarang."
+        emptyDescription="Belum ada data unit kendaraan terdaftar. Silakan daftarkan unit kendaraan operasional."
         emptyAction={
           <Button variant="primary" size="sm" onClick={handleOpenAddVehicle}>
-            Daftarkan Kendaraan Pertama
+            Tambah Kendaraan
           </Button>
         }
         onRetry={fetchMasterData}
