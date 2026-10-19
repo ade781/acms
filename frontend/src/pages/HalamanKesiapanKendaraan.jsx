@@ -6,6 +6,7 @@ import api from '../services/api';
 import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import VehicleMetricCard from '../components/dashboard/VehicleMetricCard';
 import VehicleReadinessModal from '../components/forms/VehicleReadinessModal';
+import WatchroomReadinessModal from '../components/forms/WatchroomReadinessModal';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
 
@@ -34,7 +35,7 @@ export default function HalamanKesiapanKendaraan() {
       setVehicles(list);
     } catch (err) {
       console.error('Error fetching vehicles:', err);
-      setError('Gagal memuat status kesiapan armada.');
+      setError('Gagal memuat status kesiapan armada & posko.');
     } finally {
       setLoading(false);
     }
@@ -62,10 +63,10 @@ export default function HalamanKesiapanKendaraan() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="text-xl font-bold tracking-tight text-slate-900">
-            Monitoring Kesiapan Fisik & Operasional Armada
+            Monitoring Kesiapan Armada & Posko Operasional
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Status pemeriksaan kondisi armada ARFF. Pengisian form hanya dapat dilakukan oleh PIC kendaraan atau Ketua Regu.
+            Status pemeriksaan kondisi armada dan fasilitas posko komunikasi watchroom. Pengisian checklist dilakukan oleh PIC atau Ketua Regu.
           </p>
         </div>
 
@@ -84,8 +85,8 @@ export default function HalamanKesiapanKendaraan() {
         loading={loading}
         error={error}
         isEmpty={vehicles.length === 0}
-        emptyTitle="Belum Ada Master Kendaraan"
-        emptyDescription="Daftarkan kendaraan operasional di Pengaturan Master terlebih dahulu."
+        emptyTitle="Belum Ada Unit Operasional"
+        emptyDescription="Daftarkan armada dan posko di Pengaturan Master terlebih dahulu."
         onRetry={fetchVehicles}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -107,15 +108,27 @@ export default function HalamanKesiapanKendaraan() {
       </StateView>
 
       {selectedVehicle && (
-        <VehicleReadinessModal
-          isOpen={Boolean(selectedVehicle)}
-          onClose={() => setSelectedVehicle(null)}
-          vehicle={selectedVehicle}
-          activeDate={activeDate}
-          activeShiftNumber={activeShiftNumber}
-          activeTeam={activeTeam}
-          onSuccess={fetchVehicles}
-        />
+        (selectedVehicle.category === 'posko' || selectedVehicle.code_name === 'WATCHROOM') ? (
+          <WatchroomReadinessModal
+            isOpen={Boolean(selectedVehicle)}
+            onClose={() => setSelectedVehicle(null)}
+            logItem={selectedVehicle}
+            activeDate={activeDate}
+            activeShiftNumber={activeShiftNumber}
+            activeTeam={activeTeam}
+            onSuccess={fetchVehicles}
+          />
+        ) : (
+          <VehicleReadinessModal
+            isOpen={Boolean(selectedVehicle)}
+            onClose={() => setSelectedVehicle(null)}
+            vehicle={selectedVehicle}
+            activeDate={activeDate}
+            activeShiftNumber={activeShiftNumber}
+            activeTeam={activeTeam}
+            onSuccess={fetchVehicles}
+          />
+        )
       )}
     </div>
   );

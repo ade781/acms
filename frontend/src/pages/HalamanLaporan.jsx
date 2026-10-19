@@ -76,18 +76,11 @@ export default function HalamanLaporan() {
 
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
-            icon={Printer}
-            onClick={handleExportPDF}
-          >
-            Cetak Dokumen A4
-          </Button>
-          <Button
             variant="primary"
             icon={Download}
             onClick={handleExportPDF}
           >
-            Unduh Laporan PDF
+            Cetak / Unduh Laporan PDF (A4)
           </Button>
         </div>
       </div>

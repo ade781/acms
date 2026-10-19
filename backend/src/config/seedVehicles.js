@@ -49,6 +49,13 @@ export const STANDARD_VEHICLES = [
     category: 'pendukung',
     license_plate: 'AB 8007 YA',
     description: 'Ambulans evakuasi medis darurat dan pertolongan pertama'
+  },
+  {
+    code_name: 'WATCHROOM',
+    vehicle_name: 'Watch Room',
+    category: 'posko',
+    license_plate: '-',
+    description: 'Posko Komunikasi & Pengamatan Darurat ARFF YIA'
   }
 ];
 

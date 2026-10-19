@@ -36,12 +36,16 @@ export function AuthProvider({ children }) {
   };
 
   // Sync token to API defaults and verify
+  const isVerifyingRef = React.useRef(false);
+
   useEffect(() => {
     async function verifySession() {
       if (!token) {
         setLoading(false);
         return;
       }
+      if (isVerifyingRef.current) return;
+      isVerifyingRef.current = true;
 
       try {
         const res = await api.get('/auth/me');
@@ -49,19 +53,20 @@ export function AuthProvider({ children }) {
         if (userData && userData.id) {
           setUser(userData);
           localStorage.setItem('arff_user', JSON.stringify(userData));
-          // If user belongs to a specific team, prioritize that team
+          // If user belongs to a specific team, prioritize that team only if different
           if (userData.team_group) {
-            setActiveTeam(cleanTeam(userData.team_group));
+            const userTeam = cleanTeam(userData.team_group);
+            setActiveTeam((prev) => (prev !== userTeam ? userTeam : prev));
           }
         }
       } catch (err) {
         console.warn('Sesi kedaluwarsa atau server belum siap:', err.message);
-        // Do not immediately drop user if network is momentarily unavailable, but clear on 401
         if (err.response && err.response.status === 401) {
           logout();
         }
       } finally {
         setLoading(false);
+        isVerifyingRef.current = false;
       }
     }
 

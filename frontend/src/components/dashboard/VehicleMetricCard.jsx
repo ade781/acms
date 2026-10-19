@@ -1,5 +1,5 @@
 import React from 'react';
-import { Truck, CheckCircle2, AlertTriangle, HelpCircle, Star, Edit3, ShieldAlert } from 'lucide-react';
+import { Truck, Radio, CheckCircle2, AlertTriangle, HelpCircle, Star, Edit3, ShieldAlert } from 'lucide-react';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
 
@@ -9,6 +9,9 @@ export default function VehicleMetricCard({
   canInspect = false,
   onInspect,
 }) {
+  const isPosko = vehicle.category === 'posko' || vehicle.code_name === 'WATCHROOM';
+  const CardIcon = isPosko ? Radio : Truck;
+
   const log = vehicle.current_log || vehicle;
   const status = vehicle.status || log?.status || 'belum_dilaporkan';
   const justification = vehicle.justification || log?.justification;
@@ -50,14 +53,14 @@ export default function VehicleMetricCard({
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-3">
             <div className={`w-11 h-11 rounded-lg ${cfg.iconBg} flex items-center justify-center flex-shrink-0`}>
-              <Truck className="w-6 h-6" />
+              <CardIcon className="w-6 h-6" />
             </div>
             <div>
               <h4 className="text-base font-bold text-slate-900 leading-tight">
                 {vehicle.code_name || vehicle.vehicle_name}
               </h4>
               <p className="text-xs text-slate-500 font-mono mt-0.5">
-                {vehicle.license_plate || vehicle.category || 'Armada'}
+                {isPosko ? 'Posko Komunikasi' : (vehicle.license_plate || vehicle.category || 'Armada')}
               </p>
             </div>
           </div>

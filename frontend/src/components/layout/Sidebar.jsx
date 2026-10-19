@@ -32,13 +32,8 @@ export default function Sidebar({ isOpen, onClose }) {
     },
     {
       to: '/readiness/vehicles',
-      label: 'Kesiapan Armada',
+      label: 'Kesiapan Armada & Posko',
       icon: Truck,
-    },
-    {
-      to: '/readiness/watchroom',
-      label: 'Kesiapan Watchroom',
-      icon: Radio,
     },
     {
       to: '/personnel',

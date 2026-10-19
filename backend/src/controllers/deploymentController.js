@@ -113,35 +113,34 @@ export const saveDeploymentBatch = async (req, res) => {
       return errorResponse(res, 'Regu dinas harus salah satu dari: Alpha, Bravo, Charlie, Delta', 400);
     }
 
-    // Validasi aturan: Ploting kendaraan menampung 3 s.d. 4 personel per kendaraan, dengan tepat 1 personel ditandai is_pic = 1
-    const vehicleCrewCount = {};
-    const vehiclePicCount = {};
+    // Validasi aturan: Setiap unit operasional yang ditugaskan wajib memiliki tepat 1 PIC dan maksimal 4 personel
+    const unitCrewCount = {};
+    const unitPicCount = {};
 
     for (const d of deployments) {
-      if (d.deployment_type === 'vehicle_utama' || d.deployment_type === 'vehicle_pendukung') {
-        if (!d.vehicle_id) {
-          return errorResponse(res, 'Penempatan kendaraan wajib menyertakan vehicle_id', 400);
-        }
-        vehicleCrewCount[d.vehicle_id] = (vehicleCrewCount[d.vehicle_id] || 0) + 1;
-        if (d.is_pic) {
-          vehiclePicCount[d.vehicle_id] = (vehiclePicCount[d.vehicle_id] || 0) + 1;
+      if (d.deployment_type === 'vehicle_utama' || d.deployment_type === 'vehicle_pendukung' || d.deployment_type === 'watchroom') {
+        if (d.vehicle_id) {
+          unitCrewCount[d.vehicle_id] = (unitCrewCount[d.vehicle_id] || 0) + 1;
+          if (d.is_pic) {
+            unitPicCount[d.vehicle_id] = (unitPicCount[d.vehicle_id] || 0) + 1;
+          }
         }
       }
     }
 
-    for (const [vId, count] of Object.entries(vehicleCrewCount)) {
-      if (count < 3 || count > 4) {
+    for (const [vId, count] of Object.entries(unitCrewCount)) {
+      if (count > 4) {
         return errorResponse(
           res,
-          `Kendaraan ID ${vId} memiliki ${count} kru. Sesuai aturan operasional, setiap armada wajib beranggotakan 3 s.d. 4 personel.`,
+          `Unit ID ${vId} memiliki ${count} kru (maksimal 4 personel per unit).`,
           400
         );
       }
-      const picCount = vehiclePicCount[vId] || 0;
+      const picCount = unitPicCount[vId] || 0;
       if (picCount !== 1) {
         return errorResponse(
           res,
-          `Kendaraan ID ${vId} memiliki ${picCount} PIC. Tepat 1 personel harus ditunjuk sebagai Penanggung Jawab (PIC).`,
+          `Unit ID ${vId} memiliki ${picCount} PIC. Tepat 1 personel wajib ditunjuk sebagai Penanggung Jawab (PIC).`,
           400
         );
       }

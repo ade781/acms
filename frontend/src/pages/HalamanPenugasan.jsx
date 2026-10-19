@@ -1,14 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Users2,
   Save,
   CheckCircle,
   AlertCircle,
-  Radio,
   UserX,
   PlusCircle,
-  Star,
-  Info,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam, formatTeam } from '../utils/shiftHelper';
@@ -39,11 +35,8 @@ export default function HalamanPenugasan() {
   const [supervisorName, setSupervisorName] = useState('');
 
   // Ploting state: vehicleId -> Array of { personnel_id, is_pic }
-  // STARTS FROM EMPTY!
+  // Slot 0 FIX PIC, slot 1-3 Kru (untuk Watchroom: Slot 0 PIC, Slot 1 Kru)
   const [vehicleSlots, setVehicleSlots] = useState({});
-
-  // Watchroom operator slot: Array of personnel_id
-  const [watchroomOperators, setWatchroomOperators] = useState(['']);
 
   // Absent personnel: Array of { personnel_id, reason: 'cuti'|'sakit'|'dinas'|'tukar_dinas', notes }
   const [absentList, setAbsentList] = useState([]);
@@ -51,7 +44,7 @@ export default function HalamanPenugasan() {
   const [saving, setSaving] = useState(false);
   const [approving, setApproving] = useState(false);
 
-  // Fetch current deployment & master data
+  // Fetch current deployment & master data concurrently
   const fetchDeploymentData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -60,61 +53,70 @@ export default function HalamanPenugasan() {
     try {
       const currentTeam = cleanTeam(activeTeam);
 
-      // 1. Get active team personnel
-      const pRes = await api.get(`/personnel?team_group=${currentTeam}&is_active=1`);
-      const personnel = Array.isArray(pRes.data?.personnel) ? pRes.data.personnel : (Array.isArray(pRes.data) ? pRes.data : []);
+      // Concurrent fetch (Promise.all) to prevent request waterfalls
+      const [pRes, vRes, depRes] = await Promise.all([
+        api.get(`/personnel?team_group=${currentTeam}&is_active=1`),
+        api.get(`/readiness/vehicles?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`),
+        api.get(`/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`),
+      ]);
+
+      const personnel = Array.isArray(pRes.data?.personnel)
+        ? pRes.data.personnel
+        : (Array.isArray(pRes.data) ? pRes.data : []);
       setTeamPersonnel(personnel);
 
-      // 2. Get active vehicles
-      const vRes = await api.get(`/readiness/vehicles?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`);
-      const fetchedVehicles = Array.isArray(vRes.data?.vehicles) ? vRes.data.vehicles : (Array.isArray(vRes.data) ? vRes.data : []);
+      const rawVehicles = Array.isArray(vRes.data?.vehicles)
+        ? vRes.data.vehicles
+        : (Array.isArray(vRes.data) ? vRes.data : []);
+      // Ensure id is always valid and consistent
+      const fetchedVehicles = rawVehicles.map((v) => ({
+        ...v,
+        id: v.id || v.vehicle_id,
+      }));
       setVehicles(fetchedVehicles);
 
-      // 3. Get existing deployments if already saved
-      const depRes = await api.get(`/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`);
       const depData = depRes.data;
-
       setIsApproved(Boolean(depData?.status === 'approved'));
       setSupervisorName(depData?.supervisor_name || '');
 
-      // Initialize vehicle slots
-      // If no deployments yet, START FROM EMPTY (3 empty slots per vehicle)
+      // Initialize vehicle & watchroom slots
+      // Slot 0 (paling atas) selalu FIX sebagai PIC
       const initialSlots = {};
       fetchedVehicles.forEach((v) => {
-        const existingForVehicle = (depData?.deployments || []).filter(
-          (d) => Number(d.vehicle_id) === Number(v.id)
+        const vId = v.id;
+        const isPosko = v.category === 'posko' || v.code_name === 'WATCHROOM';
+        const targetSlotsCount = isPosko ? 2 : 3;
+
+        const existingForUnit = (depData?.deployments || []).filter((d) =>
+          isPosko
+            ? (d.deployment_type === 'watchroom' || Number(d.vehicle_id) === Number(vId))
+            : Number(d.vehicle_id) === Number(vId)
         );
 
-        if (existingForVehicle.length > 0) {
-          // Map existing
-          initialSlots[v.id] = existingForVehicle.map((d) => ({
+        if (existingForUnit.length > 0) {
+          // Sort so that PIC is at slot 0
+          const sorted = [...existingForUnit].sort((a, b) => (b.is_pic ? 1 : 0) - (a.is_pic ? 1 : 0));
+          initialSlots[vId] = sorted.map((d, idx) => ({
             personnel_id: d.personnel_id || '',
-            is_pic: Boolean(d.is_pic),
+            is_pic: idx === 0, // Slot 0 selalu PIC
           }));
-          // Ensure at least 3 slots
-          while (initialSlots[v.id].length < 3) {
-            initialSlots[v.id].push({ personnel_id: '', is_pic: false });
+          while (initialSlots[vId].length < targetSlotsCount) {
+            initialSlots[vId].push({ personnel_id: '', is_pic: false });
           }
         } else {
-          // Starts EMPTY with 3 slots per vehicle
-          initialSlots[v.id] = [
-            { personnel_id: '', is_pic: true },  // slot 1 default pic candidate
-            { personnel_id: '', is_pic: false },
-            { personnel_id: '', is_pic: false },
-          ];
+          initialSlots[vId] = isPosko
+            ? [
+                { personnel_id: '', is_pic: true },   // Slot 0: PIC / Operator Utama
+                { personnel_id: '', is_pic: false },  // Slot 1: Operator Pendukung
+              ]
+            : [
+                { personnel_id: '', is_pic: true },   // Slot 0: FIX PIC
+                { personnel_id: '', is_pic: false },  // Slot 1: Kru
+                { personnel_id: '', is_pic: false },  // Slot 2: Kru
+              ];
         }
       });
       setVehicleSlots(initialSlots);
-
-      // Watchroom operators
-      const existingWatchroom = (depData?.deployments || []).filter(
-        (d) => d.deployment_type === 'watchroom'
-      );
-      if (existingWatchroom.length > 0) {
-        setWatchroomOperators(existingWatchroom.map((d) => d.personnel_id));
-      } else {
-        setWatchroomOperators(['']);
-      }
 
       // Absent personnel
       const existingAbsent = (depData?.deployments || []).filter(
@@ -150,18 +152,8 @@ export default function HalamanPenugasan() {
       currentList[slotIndex] = {
         ...currentList[slotIndex],
         personnel_id: personnelId ? Number(personnelId) : '',
+        is_pic: slotIndex === 0, // Slot 0 selalu FIX sebagai PIC
       };
-      return { ...prev, [vehicleId]: currentList };
-    });
-  };
-
-  // Handle setting PIC for a vehicle (EXACTLY 1 PIC per vehicle)
-  const handleSlotPicChange = (vehicleId, selectedIndex) => {
-    setVehicleSlots((prev) => {
-      const currentList = (prev[vehicleId] || []).map((slot, idx) => ({
-        ...slot,
-        is_pic: idx === selectedIndex,
-      }));
       return { ...prev, [vehicleId]: currentList };
     });
   };
@@ -213,32 +205,25 @@ export default function HalamanPenugasan() {
     try {
       const payloadDeployments = [];
 
-      // Collect vehicles
+      // Collect all operational units (armada & posko watchroom)
       Object.entries(vehicleSlots).forEach(([vId, slots]) => {
-        slots.forEach((s) => {
+        const unitObj = vehicles.find((v) => Number(v.id) === Number(vId));
+        const isPosko = unitObj?.category === 'posko' || unitObj?.code_name === 'WATCHROOM';
+        const depType = isPosko
+          ? 'watchroom'
+          : (unitObj?.category === 'pendukung' ? 'vehicle_pendukung' : 'vehicle_utama');
+
+        slots.forEach((s, idx) => {
           if (s.personnel_id) {
             payloadDeployments.push({
-              personnel_id: s.personnel_id,
-              deployment_type: 'vehicle_utama',
+              personnel_id: Number(s.personnel_id),
+              deployment_type: depType,
               vehicle_id: Number(vId),
-              is_pic: Boolean(s.is_pic),
-              notes: '',
+              is_pic: idx === 0, // Slot 0 paling atas FIX sebagai PIC
+              notes: isPosko ? 'Operator Komunikasi Watchroom' : (idx === 0 ? 'PIC Armada' : 'Kru Armada'),
             });
           }
         });
-      });
-
-      // Collect watchroom
-      watchroomOperators.forEach((pId) => {
-        if (pId) {
-          payloadDeployments.push({
-            personnel_id: Number(pId),
-            deployment_type: 'watchroom',
-            vehicle_id: null,
-            is_pic: false,
-            notes: 'Petugas komunikasi & watchroom',
-          });
-        }
       });
 
       // Collect absent
@@ -342,73 +327,37 @@ export default function HalamanPenugasan() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-base font-bold text-slate-900">
-                Ploting Personel Kendaraan Operasional
+                Ploting Personel Armada & Posko Operasional
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Pilih kru dinas dan tandai 1 personel sebagai PIC per kendaraan
+                Pilih PIC (Slot #1 paling atas) dan kru dinas untuk seluruh unit kendaraan dan posko watchroom
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {vehicles.map((v) => (
-              <DeploymentSlotCard
-                key={v.id}
-                vehicle={v}
-                slots={vehicleSlots[v.id] || []}
-                availablePersonnel={teamPersonnel}
-                onSlotPersonnelChange={(slotIdx, pId) =>
-                  handleSlotPersonnelChange(v.id, slotIdx, pId)
-                }
-                onSlotPicChange={(slotIdx) => handleSlotPicChange(v.id, slotIdx)}
-                onAddSlot={() => handleAddSlot(v.id)}
-                onRemoveSlot={(slotIdx) => handleRemoveSlot(v.id, slotIdx)}
-                readOnly={isApproved && !isAdmin}
-              />
-            ))}
+            {vehicles.map((v) => {
+              const vId = v.id || v.vehicle_id;
+              return (
+                <DeploymentSlotCard
+                  key={vId}
+                  vehicle={v}
+                  slots={vehicleSlots[vId] || []}
+                  availablePersonnel={teamPersonnel}
+                  onSlotPersonnelChange={(slotIdx, pId) =>
+                    handleSlotPersonnelChange(vId, slotIdx, pId)
+                  }
+                  onAddSlot={() => handleAddSlot(vId)}
+                  onRemoveSlot={(slotIdx) => handleRemoveSlot(vId, slotIdx)}
+                  readOnly={isApproved && !isAdmin}
+                />
+              );
+            })}
           </div>
         </div>
 
-        {/* Watchroom & Absent Personnels Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Watchroom Operator Slot */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-            <div className="flex items-center gap-2.5 pb-3 border-b border-slate-200 mb-4">
-              <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
-                <Radio className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-slate-900">Petugas Watchroom</h4>
-                <p className="text-xs text-slate-500">Personel siaga operator komunikasi & hotline ATC</p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {watchroomOperators.map((pId, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <select
-                    value={pId || ''}
-                    disabled={isApproved && !isAdmin}
-                    onChange={(e) => {
-                      const updated = [...watchroomOperators];
-                      updated[idx] = e.target.value ? Number(e.target.value) : '';
-                      setWatchroomOperators(updated);
-                    }}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 min-h-[44px] transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-red-500"
-                  >
-                    <option value="">(Pilih Personel Watchroom)</option>
-                    {teamPersonnel.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.full_name} {p.nip ? `[NIP: ${p.nip}]` : ''} ({p.rank_position || 'Kru'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Absent / Tidak Hadir Recording */}
+        {/* Absent / Tidak Hadir Recording */}
+        <div className="mb-8">
           <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
               <div className="flex items-center gap-2.5">
@@ -416,10 +365,22 @@ export default function HalamanPenugasan() {
                   <UserX className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900">Pencatatan Cuti / Sakit / Dinas</h4>
+                  <h4 className="text-sm font-bold text-slate-900">Pencatatan Cuti / Sakit / Dinas Luar</h4>
                   <p className="text-xs text-slate-500">Personel regu yang tidak berdinas pada shift ini</p>
                 </div>
               </div>
+
+              {(!isApproved || isAdmin) && (
+                <button
+                  type="button"
+                  onClick={handleAddAbsent}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-arff-primary hover:underline"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>Tambah Data</span>
+                </button>
+              )}
+            </div>
 
               {(!isApproved || isAdmin) && (
                 <button

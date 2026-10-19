@@ -35,8 +35,8 @@ export default function ShiftHeaderCard({
                 Dinas Telah Disahkan
               </Badge>
             ) : (
-              <Badge variant="pending" size="md">
-                Sesi Aktif
+              <Badge variant="default" size="md">
+                Belum Disahkan
               </Badge>
             )}
           </div>

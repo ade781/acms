@@ -10,7 +10,7 @@ export const getVehicleReadiness = async (req, res) => {
 
     // Ambil semua armada aktif beserta status kesiapannya pada shift yang dipilih
     const [rows] = await pool.query(
-      `SELECT v.id as vehicle_id, v.code_name, v.vehicle_name, v.category, v.license_plate, v.description,
+      `SELECT v.id, v.id as vehicle_id, v.code_name, v.vehicle_name, v.category, v.license_plate, v.description,
               vrl.id as log_id,
               COALESCE(vrl.status, 'belum_dilaporkan') as status,
               vrl.justification, vrl.photo_webp_url, vrl.follow_up_status, vrl.notes, vrl.updated_at as logged_at,
@@ -272,6 +272,28 @@ export const submitWatchroomReadiness = async (req, res) => {
         ) VALUES (?, ?, ?, ?, ?, ?)`,
         [shift_date, shift_number, team_group || req.user.team_group || 'Alpha', req.user.id, status, notes || null]
       );
+    }
+
+    // Sinkronisasikan juga ke entri master Watch Room di vehicle_readiness_logs
+    const [wrVehicle] = await pool.query(`SELECT id FROM vehicles WHERE code_name = 'WATCHROOM'`);
+    if (wrVehicle.length > 0) {
+      const wrId = wrVehicle[0].id;
+      const [existingVLog] = await pool.query(
+        `SELECT id FROM vehicle_readiness_logs WHERE vehicle_id = ? AND shift_date = ? AND shift_number = ?`,
+        [wrId, shift_date, shift_number]
+      );
+      if (existingVLog.length > 0) {
+        await pool.query(
+          `UPDATE vehicle_readiness_logs SET status = ?, notes = ?, team_group = COALESCE(?, team_group) WHERE id = ?`,
+          [status, notes || null, team_group || null, existingVLog[0].id]
+        );
+      } else {
+        await pool.query(
+          `INSERT INTO vehicle_readiness_logs (vehicle_id, shift_date, shift_number, team_group, status, notes)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [wrId, shift_date, shift_number, team_group || req.user.team_group || 'Alpha', status, notes || null]
+        );
+      }
     }
 
     const [updated] = await pool.query(

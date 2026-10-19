@@ -1,7 +1,7 @@
 import React from 'react';
-import { Menu, LogOut, User, Calendar, Clock, Users } from 'lucide-react';
+import { Menu, LogOut, User, Calendar, Clock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { TEAMS, SHIFT_DEFINITIONS, cleanTeam, formatTeam } from '../../utils/shiftHelper';
+import { SHIFT_DEFINITIONS, formatTeam } from '../../utils/shiftHelper';
 import Logo from '../common/Logo';
 import Badge from '../common/Badge';
 
@@ -14,7 +14,6 @@ export default function Navbar({ onToggleSidebar }) {
     activeShiftNumber,
     setActiveShiftNumber,
     activeTeam,
-    setActiveTeam,
   } = useAuth();
 
   const currentShiftDef = SHIFT_DEFINITIONS.find((s) => s.number === Number(activeShiftNumber));
@@ -44,7 +43,7 @@ export default function Navbar({ onToggleSidebar }) {
           </div>
         </div>
 
-        {/* Center: Operational Shift Controls (Date, Shift 1-3, Team Alpha-Delta) */}
+        {/* Center: Operational Shift Controls (Date, Shift 1-3) */}
         <div className="hidden sm:flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-1">
           {/* Date Picker */}
           <div className="flex items-center gap-1.5 px-2 py-1 bg-white border border-slate-200 rounded text-xs font-medium text-slate-700">
@@ -70,23 +69,6 @@ export default function Navbar({ onToggleSidebar }) {
               {SHIFT_DEFINITIONS.map((s) => (
                 <option key={s.number} value={s.number}>
                   {s.name} ({s.startTime} s.d. {s.endTime})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Team Select */}
-          <div className="flex items-center gap-1.5 px-2 py-1 bg-white border border-slate-200 rounded text-xs font-medium text-slate-700">
-            <Users className="w-3.5 h-3.5 text-slate-400" />
-            <select
-              value={cleanTeam(activeTeam)}
-              onChange={(e) => setActiveTeam(cleanTeam(e.target.value))}
-              className="bg-transparent border-none text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
-              aria-label="Pilih regu dinas"
-            >
-              {TEAMS.map((team) => (
-                <option key={team} value={cleanTeam(team)}>
-                  Regu {cleanTeam(team)}
                 </option>
               ))}
             </select>

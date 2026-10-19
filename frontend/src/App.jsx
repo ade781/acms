@@ -70,7 +70,7 @@ export default function App() {
             <Route path="/dashboard" element={<HalamanDashboard />} />
             <Route path="/deployment" element={<HalamanPenugasan />} />
             <Route path="/readiness/vehicles" element={<HalamanKesiapanKendaraan />} />
-            <Route path="/readiness/watchroom" element={<HalamanKesiapanWatchroom />} />
+            <Route path="/readiness/watchroom" element={<Navigate to="/readiness/vehicles" replace />} />
             <Route path="/personnel" element={<HalamanPersonel />} />
             <Route path="/personnel/:id" element={<HalamanDetailPersonel />} />
             <Route path="/incidents" element={<HalamanInsiden />} />
