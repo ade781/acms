@@ -290,6 +290,7 @@ export default function HalamanPengaturan() {
                 options={[
                   { value: 'utama', label: 'Armada Utama (Major Fire Vehicle)' },
                   { value: 'pendukung', label: 'Armada Pendukung (Ambulance / Comm)' },
+                  { value: 'posko', label: 'Posko Operasional (Watchroom / Pos Pantau)' },
                 ]}
                 required
               />

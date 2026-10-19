@@ -367,15 +367,15 @@ export default function HalamanDashboard() {
         </div>
       </div>
 
-      {/* Fleet Monitoring Section */}
+      {/* Fleet & Posko Monitoring Section */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 mb-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
           <div>
             <h3 className="text-base font-bold text-slate-900">
-              Kesiapan Fisik & Operasional Armada
+              Kesiapan Fisik Armada & Posko Operasional
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Pemeriksaan wajib dilakukan oleh Penanggung Jawab (PIC) masing-masing unit kendaraan
+              Pemeriksaan wajib dilakukan oleh Penanggung Jawab (PIC) masing-masing unit armada dan posko watchroom
             </p>
           </div>
 
@@ -385,7 +385,7 @@ export default function HalamanDashboard() {
               size="sm"
               onClick={() => navigate('/readiness/vehicles')}
             >
-              Lihat Seluruh Armada
+              Lihat Seluruh Armada & Posko
             </Button>
             <Button
               variant="primary"
@@ -436,17 +436,29 @@ export default function HalamanDashboard() {
         </div>
       </div>
 
-      {/* Inspection Modal */}
+      {/* Inspection Modal (Armada atau Posko Watchroom) */}
       {selectedVehicleForInspect && (
-        <VehicleReadinessModal
-          isOpen={Boolean(selectedVehicleForInspect)}
-          onClose={() => setSelectedVehicleForInspect(null)}
-          vehicle={selectedVehicleForInspect}
-          activeDate={activeDate}
-          activeShiftNumber={activeShiftNumber}
-          activeTeam={activeTeam}
-          onSuccess={fetchDashboardData}
-        />
+        (selectedVehicleForInspect.category === 'posko' || selectedVehicleForInspect.code_name === 'WATCHROOM') ? (
+          <WatchroomReadinessModal
+            isOpen={Boolean(selectedVehicleForInspect)}
+            onClose={() => setSelectedVehicleForInspect(null)}
+            logItem={selectedVehicleForInspect}
+            activeDate={activeDate}
+            activeShiftNumber={activeShiftNumber}
+            activeTeam={activeTeam}
+            onSuccess={fetchDashboardData}
+          />
+        ) : (
+          <VehicleReadinessModal
+            isOpen={Boolean(selectedVehicleForInspect)}
+            onClose={() => setSelectedVehicleForInspect(null)}
+            vehicle={selectedVehicleForInspect}
+            activeDate={activeDate}
+            activeShiftNumber={activeShiftNumber}
+            activeTeam={activeTeam}
+            onSuccess={fetchDashboardData}
+          />
+        )
       )}
 
       {/* Watchroom Modal */}

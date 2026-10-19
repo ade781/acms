@@ -382,18 +382,6 @@ export default function HalamanPenugasan() {
               )}
             </div>
 
-              {(!isApproved || isAdmin) && (
-                <button
-                  type="button"
-                  onClick={handleAddAbsent}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-arff-primary hover:underline"
-                >
-                  <PlusCircle className="w-4 h-4" />
-                  <span>Tambah Data</span>
-                </button>
-              )}
-            </div>
-
             {absentList.length === 0 ? (
               <div className="py-6 text-center text-xs text-slate-500">
                 Seluruh personel regu terdaftar hadir berdinas normal.
