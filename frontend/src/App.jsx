@@ -17,6 +17,7 @@ import HalamanKegiatan from './pages/HalamanKegiatan';
 import HalamanLaporan from './pages/HalamanLaporan';
 import HalamanJadwal from './pages/HalamanJadwal';
 import HalamanPengumuman from './pages/HalamanPengumuman';
+import HalamanKelolaPejabat from './pages/HalamanKelolaPejabat';
 
 
 
@@ -77,6 +78,7 @@ export default function App() {
             <Route path="/readiness/vehicles" element={<HalamanKesiapanKendaraan />} />
             <Route path="/readiness/watchroom" element={<Navigate to="/readiness/vehicles" replace />} />
             <Route path="/personnel" element={<HalamanPersonel />} />
+            <Route path="/personnel/officials" element={<HalamanKelolaPejabat />} />
             <Route path="/personnel/:id" element={<HalamanDetailPersonel />} />
             <Route path="/incidents" element={<HalamanInsiden />} />
             <Route path="/incidents/:id" element={<HalamanDetailInsiden />} />

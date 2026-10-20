@@ -1,5 +1,5 @@
 import React from 'react';
-import { UserPlus, Trash2, ShieldCheck, User } from 'lucide-react';
+import { UserPlus, Trash2, ShieldCheck, User, Camera, Sparkles } from 'lucide-react';
 import { getVehicleIcon } from '../../utils/vehicleHelper';
 import Badge from '../common/Badge';
 
@@ -13,6 +13,11 @@ export default function DeploymentSlotCard({
   onAddSlot,
   onRemoveSlot,
   readOnly = false,
+  currentPersonnelId = null,
+  currentUserName = '',
+  onInspectVehicle = null,
+  isAdmin = false,
+  isSupervisor = false,
 }) {
   const isPosko = vehicle.category === 'posko' || vehicle.code_name === 'WATCHROOM';
   const maxSlots = isPosko ? 2 : 4;
@@ -20,21 +25,76 @@ export default function DeploymentSlotCard({
 
   const IconComponent = getVehicleIcon(vehicle);
 
+  // PIC kendaraan selalu berada di Slot #0 (paling atas)
+  const picSlot = slots[0];
+  const isUserThePic = Boolean(
+    picSlot &&
+    picSlot.personnel_id &&
+    ((currentPersonnelId && Number(picSlot.personnel_id) === Number(currentPersonnelId)) ||
+     (currentUserName && (availablePersonnel.find((p) => Number(p.id) === Number(picSlot.personnel_id))?.full_name || picSlot.personnel_name)?.toLowerCase() === currentUserName.toLowerCase()))
+  );
+
+  // Periksa apakah user bertugas sebagai kru biasa di slot 1, 2, atau 3 (bukan PIC)
+  const isUserKru = Boolean(
+    !isUserThePic &&
+    slots.slice(1).some((s) => {
+      if (!s.personnel_id) return false;
+      if (currentPersonnelId && Number(s.personnel_id) === Number(currentPersonnelId)) return true;
+      const pName = availablePersonnel.find((p) => Number(p.id) === Number(s.personnel_id))?.full_name || s.personnel_name;
+      return Boolean(currentUserName && pName && currentUserName.toLowerCase() === pName.toLowerCase());
+    })
+  );
+
+  const isAssignedToThisUnit = isUserThePic || isUserKru;
+
+  // Hak periksa fisik armada: HANYA PIC kendaraan (atau admin/supervisor unit). KRU TIDAK BISA.
+  const canInspect = Boolean(
+    onInspectVehicle && !isPosko && (isUserThePic || isAdmin || isSupervisor)
+  );
+
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col justify-between">
+    <div
+      className={`rounded-xl border shadow-sm p-4 sm:p-5 flex flex-col justify-between transition-colors duration-100 ${
+        isUserThePic
+          ? 'bg-white border-emerald-500 ring-2 ring-emerald-500/30 shadow-md'
+          : isUserKru
+          ? 'bg-white border-blue-400 ring-1 ring-blue-300/30 shadow-sm'
+          : 'bg-white border-slate-200'
+      }`}
+    >
       {/* Header */}
       <div>
         <div className="flex items-start justify-between gap-2 pb-3 border-b border-slate-200">
           <div className="flex items-center gap-2.5">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-              isPosko ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-arff-primary'
-            }`}>
+            <div
+              className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                isPosko
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : isUserThePic
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : isUserKru
+                  ? 'bg-blue-100 text-blue-800'
+                  : 'bg-red-100 text-arff-primary'
+              }`}
+            >
               <IconComponent className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-slate-900 leading-tight">
-                {vehicle.code_name || vehicle.vehicle_name}
-              </h4>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-bold text-slate-900 leading-tight">
+                  {vehicle.code_name || vehicle.vehicle_name}
+                </h4>
+                {isUserThePic && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    PIC Anda
+                  </span>
+                )}
+                {isUserKru && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-300">
+                    Kru Anda
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-500 font-mono mt-0.5">
                 {isPosko ? 'Posko Komunikasi' : (vehicle.license_plate || vehicle.category || 'Armada Utama')}
               </p>
@@ -49,31 +109,58 @@ export default function DeploymentSlotCard({
         <div className="mt-4 space-y-3">
           {slots.map((slot, index) => {
             const isPic = index === 0; // Slot paling atas selalu FIX sebagai PIC
+
+            const personObj = availablePersonnel.find(
+              (p) => Number(p.id) === Number(slot.personnel_id)
+            );
+            const displayName = personObj?.full_name || slot.personnel_name || '';
+
+            const isCurrentUser = Boolean(
+              (currentPersonnelId && Number(slot.personnel_id) === Number(currentPersonnelId)) ||
+              (currentUserName && displayName && currentUserName.toLowerCase() === displayName.toLowerCase())
+            );
+
             return (
               <div
                 key={`${vehicle.id || vehicle.vehicle_id || 'v'}-slot-${index}`}
                 className={`p-3 rounded-lg border transition-colors duration-100 ${
-                  isPic
+                  isCurrentUser
+                    ? 'border-emerald-400 bg-emerald-50/90 ring-2 ring-emerald-500/40 shadow-xs'
+                    : isPic
                     ? 'border-amber-300 bg-amber-50/70'
                     : 'border-slate-200 bg-slate-50'
                 }`}
               >
                 <div className="flex items-center justify-between gap-2 mb-1.5">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                    <span
+                      className={`text-[11px] font-bold uppercase tracking-wider ${
+                        isCurrentUser ? 'text-emerald-900' : 'text-slate-700'
+                      }`}
+                    >
                       {isPic
                         ? (isPosko ? 'Slot #1 (PIC Watchroom)' : 'Slot #1 (PIC Kendaraan)')
                         : (isPosko ? `Operator #${index + 1}` : `Kru Slot #${index + 1}`)}
                     </span>
                   </div>
 
-                  {/* Fixed PIC Badge for top slot */}
-                  {isPic && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                      <ShieldCheck className="w-3 h-3 text-amber-700" />
-                      <span>PIC</span>
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    {/* Glowing highlight indicator for current user */}
+                    {isCurrentUser && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-600 text-white shadow-xs">
+                        <Sparkles className="w-2.5 h-2.5" />
+                        <span>Tugas Saya</span>
+                      </span>
+                    )}
+
+                    {/* Fixed PIC Badge for top slot */}
+                    {isPic && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                        <ShieldCheck className="w-3 h-3 text-amber-700" />
+                        <span>PIC</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -81,7 +168,11 @@ export default function DeploymentSlotCard({
                     <select
                       value={slot.personnel_id || ''}
                       onChange={(e) => onSlotPersonnelChange(index, e.target.value)}
-                      className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 min-h-[38px] transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-red-500"
+                      className={`w-full rounded-lg border px-2.5 py-1.5 text-xs min-h-[38px] transition-colors duration-100 focus:outline-none focus:ring-2 ${
+                        isCurrentUser
+                          ? 'border-emerald-400 bg-white text-emerald-950 font-bold focus:ring-emerald-500'
+                          : 'border-slate-300 bg-white text-slate-900 focus:ring-red-500'
+                      }`}
                     >
                       <option value="">
                         {isPic ? '(Pilih Personel PIC / Penanggung Jawab)' : '(Pilih Personel Kru)'}
@@ -108,8 +199,16 @@ export default function DeploymentSlotCard({
                       })}
                     </select>
                   ) : (
-                    <div className="text-xs font-semibold text-slate-800">
-                      {slot.personnel_name || '(Belum Ditugaskan)'}
+                    <div
+                      className={`text-xs min-h-[38px] flex items-center px-2 rounded ${
+                        isCurrentUser
+                          ? 'font-extrabold text-emerald-950 bg-emerald-100/60'
+                          : displayName
+                          ? 'font-semibold text-slate-800'
+                          : 'italic text-slate-400'
+                      }`}
+                    >
+                      {displayName || '(Belum Ditugaskan)'}
                     </div>
                   )}
 
@@ -117,7 +216,7 @@ export default function DeploymentSlotCard({
                     <button
                       type="button"
                       onClick={() => onRemoveSlot(index)}
-                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded min-h-[38px] min-w-[38px] flex items-center justify-center"
+                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded min-h-[38px] min-w-[38px] flex items-center justify-center transition-colors duration-100"
                       title="Hapus slot ke-4"
                       aria-label="Hapus slot"
                     >
@@ -141,6 +240,46 @@ export default function DeploymentSlotCard({
           <UserPlus className="w-3.5 h-3.5" />
           <span>Tambah Slot ke-4</span>
         </button>
+      )}
+
+      {/* Bagian Status & Pemeriksaan Kesiapan Armada (HANYA PIC yang bisa memeriksa, KRU TIDAK BISA) */}
+      {!isPosko && (
+        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+            {isUserThePic ? (
+              <span className="inline-flex items-center gap-1.5 text-emerald-700 font-bold">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                PIC Kendaraan
+              </span>
+            ) : isUserKru ? (
+              <span className="inline-flex items-center gap-1 text-slate-500 font-medium">
+                <span>Kru Armada (Pemeriksaan oleh PIC)</span>
+              </span>
+            ) : (
+              <span className="text-slate-400">Pemeriksaan PIC</span>
+            )}
+          </div>
+
+          {canInspect ? (
+            <button
+              type="button"
+              onClick={() => onInspectVehicle(vehicle)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-100 shadow-xs ${
+                isUserThePic
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-400/40'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+              }`}
+              title="Input status serviceable/unserviceable & foto kesiapan armada oleh PIC"
+            >
+              <Camera className="w-3.5 h-3.5" />
+              <span>{isUserThePic ? 'Periksa Kesiapan (PIC)' : 'Periksa Kesiapan'}</span>
+            </button>
+          ) : isUserKru ? (
+            <span className="text-[10px] text-slate-400 italic bg-slate-50 px-2 py-1 rounded border border-slate-200">
+              Kru tidak berwenang input
+            </span>
+          ) : null}
+        </div>
       )}
     </div>
   );

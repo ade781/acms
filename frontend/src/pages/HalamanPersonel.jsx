@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Search, Plus, Filter, UserCheck, ChevronRight, Download, Trash2 } from 'lucide-react';
+import { Users, Search, Plus, Filter, UserCheck, ChevronRight, Download, Settings } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { TEAMS, cleanTeam, formatTeam, OPERATIONAL_ROLES } from '../utils/shiftHelper';
 import api from '../services/api';
@@ -10,6 +10,23 @@ import Badge from '../components/common/Badge';
 import InputField from '../components/common/InputField';
 import Modal from '../components/common/Modal';
 import SelectField from '../components/common/SelectField';
+
+function isActualChief(p) {
+  if (!p) return false;
+  const rank = (p.rank_position || '').toLowerCase();
+  const role = (p.user_role || '').toLowerCase();
+  if (role === 'chief_assistant' || rank.includes('asisten') || rank.includes('assistant') || rank.includes('wakil')) {
+    return false;
+  }
+  return role === 'chief' || role === 'supervisor' || rank.includes('chief') || rank.includes('ketua regu');
+}
+
+function isChiefAssistant(p) {
+  if (!p) return false;
+  const rank = (p.rank_position || '').toLowerCase();
+  const role = (p.user_role || '').toLowerCase();
+  return role === 'chief_assistant' || rank.includes('asisten') || rank.includes('assistant') || rank.includes('wakil');
+}
 
 export default function HalamanPersonel() {
   const { isAdmin, isSupervisor, activeTeam } = useAuth();
@@ -140,22 +157,6 @@ export default function HalamanPersonel() {
     }
   };
 
-  const handleDeletePersonnel = async (e, person) => {
-    e.stopPropagation();
-    const confirmMsg = `PERINGATAN: Apakah Anda yakin ingin menghapus data anggota "${person.full_name}"?\n\nTindakan ini akan menghapus profil personel, seluruh berkas dokumen terkait, serta akun login yang terhubung. Tindakan ini tidak dapat dibatalkan.`;
-    if (!window.confirm(confirmMsg)) return;
-
-    try {
-      await api.delete(`/personnel/${person.id}`);
-      setSuccessNotification(`Anggota ${person.full_name} berhasil dihapus.`);
-      fetchPersonnel();
-    } catch (err) {
-      console.error('Error deleting personnel:', err);
-      const errMsg = err.response?.data?.message || 'Gagal menghapus personel.';
-      alert(errMsg);
-    }
-  };
-
   return (
     <div>
       {/* Header */}
@@ -164,9 +165,6 @@ export default function HalamanPersonel() {
           <h2 className="text-xl font-bold tracking-tight text-slate-900">
             Data Personel
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Daftar anggota 4 regu
-          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -210,8 +208,6 @@ export default function HalamanPersonel() {
         </div>
       )}
 
-
-
       {/* Filter Bar */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-6 flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="w-full sm:max-w-md">
@@ -223,10 +219,23 @@ export default function HalamanPersonel() {
             icon={Search}
           />
         </div>
-        <div className="text-xs text-slate-500 font-medium">
-          Dinas Aktif: <span className="font-bold text-slate-800">{formatTeam(activeTeam)}</span>
-          <span className="text-slate-300 mx-2">•</span>
-          Menampilkan <span className="font-bold text-slate-800">{personnelList.length}</span> personel
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+          <div className="text-xs text-slate-500 font-medium">
+            Dinas: <span className="font-bold text-slate-800">{formatTeam(activeTeam)}</span>
+            <span className="text-slate-300 mx-2">•</span>
+            <span className="font-bold text-slate-800">{personnelList.length}</span> personel
+          </div>
+          {(isAdmin || isSupervisor) && (
+            <Button
+              variant="outline"
+              size="sm"
+              icon={Settings}
+              onClick={() => navigate('/personnel/officials')}
+              title="Kelola Pejabat (Dept Head & 4 Ketua Regu)"
+            >
+              Kelola Pejabat
+            </Button>
+          )}
         </div>
       </div>
 
@@ -290,24 +299,23 @@ export default function HalamanPersonel() {
             // Filter berdasarkan pencarian jika ada
             const isFiltering = Boolean(searchQuery.trim());
 
-            // Urutkan agar Ketua Regu (supervisor / Chief) selalu di urutan paling atas #1
+            // Urutkan: Ketua Regu (Chief aktual) selalu paling atas #1, disusul Asisten Chief, lalu anggota lainnya
             const sortedMembers = [...members].sort((a, b) => {
-              const isChiefA =
-                a.user_role === 'supervisor' ||
-                a.user_role === 'chief' ||
-                a.rank_position?.toLowerCase().includes('chief') ||
-                a.rank_position?.toLowerCase().includes('ketua');
-              const isChiefB =
-                b.user_role === 'supervisor' ||
-                b.user_role === 'chief' ||
-                b.rank_position?.toLowerCase().includes('chief') ||
-                b.rank_position?.toLowerCase().includes('ketua');
+              const isChiefA = isActualChief(a);
+              const isChiefB = isActualChief(b);
               if (isChiefA && !isChiefB) return -1;
               if (!isChiefA && isChiefB) return 1;
+
+              const isAsstA = isChiefAssistant(a);
+              const isAsstB = isChiefAssistant(b);
+              if (isAsstA && !isAsstB) return -1;
+              if (!isAsstA && isAsstB) return 1;
+
               return a.id - b.id;
             });
 
             const isOnDuty = cleanTeam(teamName).toLowerCase() === cleanTeam(activeTeam).toLowerCase();
+            const hasChief = sortedMembers.some((m) => isActualChief(m));
 
             return (
               <div
@@ -339,12 +347,18 @@ export default function HalamanPersonel() {
                   {/* List Nama Anggota */}
                   <div className="space-y-1">
                     {sortedMembers.map((person, idx) => {
-                      const isChief = idx === 0;
+                      const isChief = isActualChief(person);
+                      const isAssistant = isChiefAssistant(person);
                       const isMatchedSearch =
                         !isFiltering ||
                         (person.full_name || '')
                           .toLowerCase()
                           .includes(searchQuery.trim().toLowerCase());
+
+                      // Nomor urut: Bintang ★ HANYA untuk Chief resmi
+                      const memberNumber = isChief
+                        ? '★'
+                        : String(hasChief ? idx : idx + 1).padStart(2, '0');
 
                       return (
                         <div
@@ -353,6 +367,8 @@ export default function HalamanPersonel() {
                           className={`group px-2.5 py-1.5 rounded transition-colors duration-100 cursor-pointer flex items-center justify-between gap-2 border ${
                             isChief
                               ? `${theme.chiefRow} font-semibold shadow-xs`
+                              : isAssistant
+                              ? 'bg-amber-50/50 border-amber-200/60 hover:bg-amber-50 text-slate-800'
                               : 'border-transparent hover:bg-slate-50 text-slate-800 hover:text-slate-900'
                           } ${!isMatchedSearch ? 'opacity-30' : 'opacity-100'}`}
                           title={`Klik untuk melihat detail profil ${person.full_name}`}
@@ -363,7 +379,7 @@ export default function HalamanPersonel() {
                                 isChief ? `${theme.chiefStar} font-bold` : 'text-slate-400'
                               }`}
                             >
-                              {isChief ? '★' : String(idx + 1).padStart(2, '0')}
+                              {memberNumber}
                             </span>
                             <span
                               className={`truncate text-xs ${
@@ -379,15 +395,10 @@ export default function HalamanPersonel() {
                                 Ketua
                               </span>
                             )}
-                            {(isAdmin || isSupervisor) && (
-                              <button
-                                type="button"
-                                onClick={(e) => handleDeletePersonnel(e, person)}
-                                className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-opacity duration-100"
-                                title={`Hapus ${person.full_name}`}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                            {isAssistant && !isChief && (
+                              <span className="text-[10px] bg-amber-100 text-amber-800 border border-amber-300 font-semibold px-1.5 py-0.5 rounded uppercase tracking-tight">
+                                Asisten
+                              </span>
                             )}
                           </div>
                         </div>
@@ -461,7 +472,9 @@ export default function HalamanPersonel() {
                 id="rankPosition"
                 value={rankPosition}
                 onChange={(e) => setRankPosition(e.target.value)}
-                options={OPERATIONAL_ROLES.map((r) => ({
+                options={OPERATIONAL_ROLES.filter(
+                  (r) => !['dept_head', 'chief', 'admin'].includes(r.role)
+                ).map((r) => ({
                   value: r.rank_position,
                   label: r.label,
                 }))}

@@ -93,7 +93,16 @@ export const createAnnouncement = async (req, res) => {
       return errorResponse(res, 'Berkas dokumen PDF pengumuman wajib diunggah', 400);
     }
 
-    const pubDate = published_date || new Date().toISOString().split('T')[0];
+    let pubDate = published_date;
+    if (!pubDate) {
+      pubDate = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    } else if (pubDate.includes('T')) {
+      pubDate = pubDate.replace('T', ' ').slice(0, 19);
+    } else if (pubDate.length === 10) {
+      const currentTime = new Date().toTimeString().slice(0, 8);
+      pubDate = `${pubDate} ${currentTime}`;
+    }
+
     const filePath = `/uploads/${file.filename}`;
     const fileName = file.originalname;
     const createdBy = req.user?.id || null;

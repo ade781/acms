@@ -10,7 +10,10 @@ import {
   deleteSignature,
   getPersonnelDocuments,
   uploadPersonnelDocument,
-  deletePersonnelDocument
+  deletePersonnelDocument,
+  getOfficials,
+  replaceDeptHead,
+  replaceChief
 } from '../controllers/personnelController.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
 import { requireRole } from '../middleware/roleMiddleware.js';
@@ -22,6 +25,12 @@ router.use(requireAuth);
 
 router.get('/', getPersonnelList);
 router.get('/export/pdf', exportPersonnelPdf);
+
+// Rute kelola pejabat (Dept Head & Ketua Regu) - Wajib sebelum rute parameterized /:id
+router.get('/officials', getOfficials);
+router.post('/officials/dept-head', requireRole(['admin', 'dept_head']), replaceDeptHead);
+router.post('/officials/chief', requireRole(['admin', 'dept_head', 'supervisor', 'chief']), replaceChief);
+
 router.get('/:id', getPersonnelById);
 router.post('/', requireRole(['admin', 'supervisor']), createPersonnel);
 router.put('/:id', updatePersonnel);

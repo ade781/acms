@@ -34,11 +34,37 @@ export default function HalamanPengumuman() {
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  const getCurrentDateTimeLocal = () => {
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - offset).toISOString().slice(0, 16);
+  };
+
+  const formatDateTime = (dateStr) => {
+    if (!dateStr) return '-';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      const dateFormatted = d.toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+      const timeFormatted = d.toLocaleTimeString('id-ID', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }).replace('.', ':');
+      return `${dateFormatted}, ${timeFormatted} WIB`;
+    } catch {
+      return dateStr;
+    }
+  };
+
   // Modal Upload Pengumuman
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [circularNumber, setCircularNumber] = useState('');
-  const [publishedDate, setPublishedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [publishedDate, setPublishedDate] = useState(getCurrentDateTimeLocal());
   const [description, setDescription] = useState('');
   const [pdfFile, setPdfFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -309,8 +335,8 @@ export default function HalamanPengumuman() {
 
                           <div className="mt-2.5 flex items-center gap-3 text-[10px] text-slate-500">
                             <span className="flex items-center gap-1 font-medium">
-                              <Calendar className="w-3 h-3 text-slate-400" />
-                              {ann.published_date}
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              {formatDateTime(ann.published_date || ann.created_at)}
                             </span>
                             {ann.creator_name && (
                               <span className="truncate">Oleh: {ann.creator_name}</span>
@@ -344,7 +370,7 @@ export default function HalamanPengumuman() {
                 {/* Header Preview */}
                 <div className="p-4 border-b border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
                         Pratinjau Dokumen
                       </span>
@@ -353,6 +379,10 @@ export default function HalamanPengumuman() {
                           {selectedAnnouncement.circular_number}
                         </span>
                       )}
+                      <span className="text-[11px] text-slate-500 font-medium flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-slate-400" />
+                        {formatDateTime(selectedAnnouncement.published_date || selectedAnnouncement.created_at)}
+                      </span>
                     </div>
                     <h3 className="text-sm font-bold text-slate-900 truncate mt-0.5">
                       {selectedAnnouncement.title}
@@ -448,8 +478,8 @@ export default function HalamanPengumuman() {
             />
 
             <InputField
-              label="Tanggal Terbit"
-              type="date"
+              label="Tanggal & Waktu Terbit (WIB)"
+              type="datetime-local"
               value={publishedDate}
               onChange={(e) => setPublishedDate(e.target.value)}
               required

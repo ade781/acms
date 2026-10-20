@@ -11,8 +11,8 @@ import { cleanTeam, formatTeam, getScheduledTeam } from '../utils/shiftHelper';
 import api from '../services/api';
 import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import DeploymentSlotCard from '../components/forms/DeploymentSlotCard';
+import VehicleReadinessModal from '../components/forms/VehicleReadinessModal';
 import StateView from '../components/common/StateView';
-
 
 export default function HalamanPenugasan() {
   const {
@@ -33,7 +33,11 @@ export default function HalamanPenugasan() {
   const [isApproved, setIsApproved] = useState(false);
   const [supervisorName, setSupervisorName] = useState('');
 
-  // Ploting state: vehicleId -> Array of { personnel_id, is_pic }
+  // Modal Kesiapan Kendaraan di Ploting
+  const [selectedVehicleForInspection, setSelectedVehicleForInspection] = useState(null);
+  const [inspectionModalOpen, setInspectionModalOpen] = useState(false);
+
+  // Ploting state: vehicleId -> Array of { personnel_id, is_pic, personnel_name }
   // Slot 0 FIX PIC, slot 1-3 Kru (untuk Watchroom: Slot 0 PIC, Slot 1 Kru)
   const [vehicleSlots, setVehicleSlots] = useState({});
 
@@ -107,9 +111,13 @@ export default function HalamanPenugasan() {
       }));
       setVehicles(fetchedVehicles);
 
-      const depData = depRes.data;
-      setIsApproved(Boolean(depData?.status === 'approved'));
-      setSupervisorName(depData?.supervisor_name || '');
+      const depPayload = depRes.data?.data || depRes.data;
+      const deploymentsList = Array.isArray(depPayload?.deployments)
+        ? depPayload.deployments
+        : (Array.isArray(depRes.data?.deployments) ? depRes.data.deployments : []);
+
+      setIsApproved(Boolean(depPayload?.shift?.status === 'approved' || depPayload?.status === 'approved'));
+      setSupervisorName(depPayload?.shift?.supervisor_name || depPayload?.supervisor_name || '');
 
       // Initialize vehicle & watchroom slots
       // Slot 0 (paling atas) selalu FIX sebagai PIC
@@ -119,7 +127,7 @@ export default function HalamanPenugasan() {
         const isPosko = v.category === 'posko' || v.code_name === 'WATCHROOM';
         const targetSlotsCount = isPosko ? 2 : 3;
 
-        const existingForUnit = (depData?.deployments || []).filter((d) =>
+        const existingForUnit = (deploymentsList || []).filter((d) =>
           isPosko
             ? (d.deployment_type === 'watchroom' || Number(d.vehicle_id) === Number(vId))
             : Number(d.vehicle_id) === Number(vId)
@@ -131,27 +139,28 @@ export default function HalamanPenugasan() {
           initialSlots[vId] = sorted.map((d, idx) => ({
             personnel_id: d.personnel_id || '',
             is_pic: idx === 0, // Slot 0 selalu PIC
+            personnel_name: d.full_name || '',
           }));
           while (initialSlots[vId].length < targetSlotsCount) {
-            initialSlots[vId].push({ personnel_id: '', is_pic: false });
+            initialSlots[vId].push({ personnel_id: '', is_pic: false, personnel_name: '' });
           }
         } else {
           initialSlots[vId] = isPosko
             ? [
-                { personnel_id: '', is_pic: true },   // Slot 0: PIC / Operator Utama
-                { personnel_id: '', is_pic: false },  // Slot 1: Operator Pendukung
+                { personnel_id: '', is_pic: true, personnel_name: '' },   // Slot 0: PIC / Operator Utama
+                { personnel_id: '', is_pic: false, personnel_name: '' },  // Slot 1: Operator Pendukung
               ]
             : [
-                { personnel_id: '', is_pic: true },   // Slot 0: FIX PIC
-                { personnel_id: '', is_pic: false },  // Slot 1: Kru
-                { personnel_id: '', is_pic: false },  // Slot 2: Kru
+                { personnel_id: '', is_pic: true, personnel_name: '' },   // Slot 0: FIX PIC
+                { personnel_id: '', is_pic: false, personnel_name: '' },  // Slot 1: Kru
+                { personnel_id: '', is_pic: false, personnel_name: '' },  // Slot 2: Kru
               ];
         }
       });
       setVehicleSlots(initialSlots);
 
       // Absent personnel
-      const existingAbsent = (depData?.deployments || []).filter(
+      const existingAbsent = (deploymentsList || []).filter(
         (d) => d.deployment_type === 'absent'
       );
       if (existingAbsent.length > 0) {
@@ -277,6 +286,11 @@ export default function HalamanPenugasan() {
     }
   };
 
+  const handleInspectVehicle = (vehicle) => {
+    setSelectedVehicleForInspection(vehicle);
+    setInspectionModalOpen(true);
+  };
+
   return (
     <div>
       <ShiftHeaderCard
@@ -367,12 +381,40 @@ export default function HalamanPenugasan() {
                   readOnly={!canEditPlot}
                   assignedPersonnelIds={assignedPersonnelIds}
                   absentPersonnelIds={absentPersonnelIds}
+                  currentPersonnelId={user?.personnel_id}
+                  currentUserName={user?.name}
+                  onInspectVehicle={handleInspectVehicle}
+                  isAdmin={isAdmin}
+                  isSupervisor={isSupervisor}
                 />
               );
             })}
           </div>
         </div>
       </StateView>
+
+      {/* Modal Pemeriksaan Kesiapan Fisik Armada Langsung dari Ploting */}
+      {inspectionModalOpen && selectedVehicleForInspection && (
+        <VehicleReadinessModal
+          isOpen={inspectionModalOpen}
+          onClose={() => {
+            setInspectionModalOpen(false);
+            setSelectedVehicleForInspection(null);
+          }}
+          vehicle={selectedVehicleForInspection}
+          activeDate={activeDate}
+          activeShiftNumber={activeShiftNumber}
+          activeTeam={activeTeam}
+          onSuccess={() => {
+            fetchDeploymentData();
+            setSuccessMsg(
+              `Kesiapan fisik kendaraan ${
+                selectedVehicleForInspection.code_name || selectedVehicleForInspection.vehicle_name
+              } berhasil diperbarui.`
+            );
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -692,4 +692,242 @@ export const deletePersonnelDocument = async (req, res) => {
   }
 };
 
+export const getOfficials = async (req, res) => {
+  try {
+    // Dept Head
+    const [deptHeads] = await pool.query(
+      `SELECT p.*, u.username, u.email as user_email, u.role as user_role,
+              COALESCE(u.signature_url, p.signature_url) as signature_url
+       FROM personnel p
+       LEFT JOIN users u ON u.id = p.user_id
+       WHERE p.rank_position LIKE '%Dept%Head%' OR p.rank_position LIKE '%Department Head%' OR u.role = 'dept_head'
+       ORDER BY p.id ASC
+       LIMIT 1`
+    );
+    const deptHead = deptHeads.length > 0 ? deptHeads[0] : null;
+
+    // 4 Chiefs for Alpha, Bravo, Charlie, Delta
+    const [chiefs] = await pool.query(
+      `SELECT p.*, u.username, u.email as user_email, u.role as user_role,
+              COALESCE(u.signature_url, p.signature_url) as signature_url
+       FROM personnel p
+       LEFT JOIN users u ON u.id = p.user_id
+       WHERE (u.role IN ('chief', 'supervisor') OR p.rank_position LIKE '%Chief%' OR p.rank_position LIKE '%Ketua%')
+         AND p.rank_position NOT LIKE '%Assistant%'
+         AND p.rank_position NOT LIKE '%Asisten%'
+         AND p.rank_position NOT LIKE '%Wakil%'
+         AND u.role != 'chief_assistant'
+       ORDER BY p.team_group ASC, p.id ASC`
+    );
+
+    const chiefsByTeam = {
+      Alpha: chiefs.find((c) => c.team_group === 'Alpha') || null,
+      Bravo: chiefs.find((c) => c.team_group === 'Bravo') || null,
+      Charlie: chiefs.find((c) => c.team_group === 'Charlie') || null,
+      Delta: chiefs.find((c) => c.team_group === 'Delta') || null,
+    };
+
+    return successResponse(res, 'Data pejabat berhasil diambil', {
+      dept_head: deptHead,
+      chiefs: chiefsByTeam,
+      raw_chiefs: chiefs,
+    });
+  } catch (error) {
+    console.error('Error getOfficials:', error);
+    return errorResponse(res, 'Gagal mengambil data pejabat', 500);
+  }
+};
+
+export const replaceDeptHead = async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    const { new_personnel_id } = req.body;
+    if (!new_personnel_id) {
+      return errorResponse(res, 'Personel Dept Head baru wajib dipilih', 400);
+    }
+
+    await connection.beginTransaction();
+
+    // 1. Ambil data Dept Head lama
+    const [currentDeptHeads] = await connection.query(
+      `SELECT p.*, u.id as u_id
+       FROM personnel p
+       LEFT JOIN users u ON u.id = p.user_id
+       WHERE p.rank_position LIKE '%Dept%Head%' OR p.rank_position LIKE '%Department Head%' OR u.role = 'dept_head'`
+    );
+
+    for (const oldDh of currentDeptHeads) {
+      if (oldDh.id === Number(new_personnel_id)) continue;
+
+      // Hapus file tanda tangan lama jika ada
+      if (oldDh.signature_url) {
+        const sigPath = path.resolve(__dirname, '../../', oldDh.signature_url.replace(/^\//, ''));
+        if (fs.existsSync(sigPath)) {
+          try {
+            fs.unlinkSync(sigPath);
+          } catch (e) {}
+        }
+      }
+
+      // Demote Dept Head lama: tidak masuk regu manapun (Non-Shift), tanda tangan dihapus otomatis
+      await connection.query(
+        `UPDATE personnel 
+         SET rank_position = 'Staf Non-Operasional', team_group = 'Non-Shift', signature_url = NULL 
+         WHERE id = ?`,
+        [oldDh.id]
+      );
+      if (oldDh.u_id) {
+        await connection.query(
+          `UPDATE users 
+           SET role = 'junior_firefighter', signature_url = NULL 
+           WHERE id = ? AND role = 'dept_head'`,
+          [oldDh.u_id]
+        );
+      }
+    }
+
+    // 2. Angkat Dept Head baru
+    const [newCandidate] = await connection.query(
+      `SELECT p.*, u.id as u_id FROM personnel p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?`,
+      [new_personnel_id]
+    );
+
+    if (newCandidate.length === 0) {
+      await connection.rollback();
+      return errorResponse(res, 'Personel baru tidak ditemukan', 404);
+    }
+
+    const candidate = newCandidate[0];
+    await connection.query(
+      `UPDATE personnel 
+       SET rank_position = 'Airport Technology & ARFF Dept. Head', team_group = 'Non-Shift' 
+       WHERE id = ?`,
+      [candidate.id]
+    );
+
+    if (candidate.u_id) {
+      await connection.query(
+        `UPDATE users SET role = 'dept_head' WHERE id = ? AND role != 'admin'`,
+        [candidate.u_id]
+      );
+    }
+
+    await connection.commit();
+    return successResponse(res, `Dept. Head berhasil diperbarui menjadi ${candidate.full_name}. Tanda tangan lama telah dibersihkan.`);
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error replaceDeptHead:', error);
+    return errorResponse(res, 'Gagal memperbarui Dept Head: ' + error.message, 500);
+  } finally {
+    connection.release();
+  }
+};
+
+export const replaceChief = async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    const { team_group, new_chief_id, old_chief_target_role } = req.body;
+    if (!team_group || !new_chief_id) {
+      return errorResponse(res, 'Regu dan Ketua Regu baru wajib dipilih', 400);
+    }
+
+    const validTargetRoles = [
+      'ARFF Operation Senior Fire Fighter',
+      'ARFF Operation Chief Assistant',
+      'ARFF Operation Junior Fire Fighter',
+    ];
+    const demoteRole = validTargetRoles.includes(old_chief_target_role)
+      ? old_chief_target_role
+      : 'ARFF Operation Senior Fire Fighter';
+
+    const demoteUserRole =
+      demoteRole === 'ARFF Operation Chief Assistant'
+        ? 'chief_assistant'
+        : demoteRole === 'ARFF Operation Senior Fire Fighter'
+        ? 'senior_firefighter'
+        : 'junior_firefighter';
+
+    await connection.beginTransaction();
+
+    // 1. Ambil Chief lama untuk regu ini
+    const [currentChiefs] = await connection.query(
+      `SELECT p.*, u.id as u_id
+       FROM personnel p
+       LEFT JOIN users u ON u.id = p.user_id
+       WHERE p.team_group = ? 
+         AND (u.role IN ('chief', 'supervisor') OR p.rank_position LIKE '%Chief%' OR p.rank_position LIKE '%Ketua%')
+         AND p.rank_position NOT LIKE '%Assistant%'
+         AND p.rank_position NOT LIKE '%Asisten%'
+         AND u.role != 'chief_assistant'`,
+      [team_group]
+    );
+
+    for (const oldChief of currentChiefs) {
+      if (oldChief.id === Number(new_chief_id)) continue;
+
+      // Hapus file tanda tangan lama jika ada
+      if (oldChief.signature_url) {
+        const sigPath = path.resolve(__dirname, '../../', oldChief.signature_url.replace(/^\//, ''));
+        if (fs.existsSync(sigPath)) {
+          try {
+            fs.unlinkSync(sigPath);
+          } catch (e) {}
+        }
+      }
+
+      // Demote Chief lama ke target posisi sesuai Opsi C, tanda tangan otomatis terhapus
+      await connection.query(
+        `UPDATE personnel 
+         SET rank_position = ?, signature_url = NULL 
+         WHERE id = ?`,
+        [demoteRole, oldChief.id]
+      );
+      if (oldChief.u_id) {
+        await connection.query(
+          `UPDATE users 
+           SET role = ?, signature_url = NULL 
+           WHERE id = ? AND role != 'admin'`,
+          [demoteUserRole, oldChief.u_id]
+        );
+      }
+    }
+
+    // 2. Angkat Chief baru untuk regu ini
+    const [newCandidate] = await connection.query(
+      `SELECT p.*, u.id as u_id FROM personnel p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?`,
+      [new_chief_id]
+    );
+
+    if (newCandidate.length === 0) {
+      await connection.rollback();
+      return errorResponse(res, 'Personel baru tidak ditemukan', 404);
+    }
+
+    const candidate = newCandidate[0];
+    await connection.query(
+      `UPDATE personnel 
+       SET rank_position = 'ARFF Operation Chief', team_group = ? 
+       WHERE id = ?`,
+      [team_group, candidate.id]
+    );
+
+    if (candidate.u_id) {
+      await connection.query(
+        `UPDATE users SET role = 'chief' WHERE id = ? AND role != 'admin'`,
+        [candidate.u_id]
+      );
+    }
+
+    await connection.commit();
+    return successResponse(res, `Ketua Regu ${team_group} berhasil diganti menjadi ${candidate.full_name}.`);
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error replaceChief:', error);
+    return errorResponse(res, 'Gagal mengganti Ketua Regu: ' + error.message, 500);
+  } finally {
+    connection.release();
+  }
+};
+
+
 
