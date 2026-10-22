@@ -106,19 +106,28 @@ export const generateShiftReportPdf = (reportData) => {
   const infoY2 = infoY + 16;
   doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0f172a');
   doc.text(`Supervisor / Ketua Regu: `, startX + 10, infoY2);
-  doc.font('Helvetica').text(supervisor_name || 'Ketua Regu', startX + 125, infoY2);
+  doc.font('Helvetica').text(supervisor_name || `Ketua Regu ${team_group}`, startX + 125, infoY2);
 
-  doc.font('Helvetica-Bold').text(`Status Pengesahan: `, startX + 320, infoY2);
-  const isApp = status === 'approved';
-  doc.font('Helvetica-Bold').fillColor(isApp ? '#15803d' : '#b91c1c').text(
-    isApp ? 'TELAH DISAHKAN (APPROVED)' : 'DRAF OPERASIONAL (OPEN)',
-    startX + 415,
+  doc.font('Helvetica-Bold').text(`Status Dokumen: `, startX + 320, infoY2);
+  doc.font('Helvetica-Bold').fillColor('#15803d').text(
+    'REKAPITULASI RESMI OPERASIONAL',
+    startX + 400,
     infoY2
   );
 
   doc.y = 145;
 
+  const checkPageBreak = (neededHeight) => {
+    if (doc.y + neededHeight > 740) {
+      doc.addPage();
+      doc.y = 35;
+      return true;
+    }
+    return false;
+  };
+
   // 1. Kesiapan Fasilitas Posko Watch Room
+  checkPageBreak(40);
   doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('1. KESIAPAN FASILITAS WATCH ROOM & KOMUNIKASI');
   doc.moveDown(0.3);
 
@@ -137,19 +146,24 @@ export const generateShiftReportPdf = (reportData) => {
   doc.y += 28;
 
   // 2. Kesiapan Armada Utama & Pendukung
+  checkPageBreak(50);
   doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('2. KESIAPAN ARMADA PEMADAM & KENDARAAN OPERASIONAL');
   doc.moveDown(0.3);
 
   // Table Armada
+  const drawArmadaHeader = (headY) => {
+    doc.rect(startX, headY, contentWidth, 18).fill('#1e293b');
+    doc.fontSize(8).font('Helvetica-Bold').fillColor('#ffffff');
+    doc.text('No', startX + 4, headY + 5, { width: 25, align: 'center' });
+    doc.text('Nama Unit Armada', startX + 32, headY + 5, { width: 140 });
+    doc.text('Kategori', startX + 175, headY + 5, { width: 70 });
+    doc.text('Penanggung Jawab (PIC)', startX + 250, headY + 5, { width: 125 });
+    doc.text('Kondisi Fisik', startX + 380, headY + 5, { width: 65, align: 'center' });
+    doc.text('Justifikasi / Catatan', startX + 450, headY + 5, { width: 100 });
+  };
+
   const vHeadY = doc.y;
-  doc.rect(startX, vHeadY, contentWidth, 18).fill('#1e293b');
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#ffffff');
-  doc.text('No', startX + 4, vHeadY + 5, { width: 25, align: 'center' });
-  doc.text('Nama Unit Armada', startX + 32, vHeadY + 5, { width: 140 });
-  doc.text('Kategori', startX + 175, vHeadY + 5, { width: 70 });
-  doc.text('Penanggung Jawab (PIC)', startX + 250, vHeadY + 5, { width: 125 });
-  doc.text('Kondisi Fisik', startX + 380, vHeadY + 5, { width: 65, align: 'center' });
-  doc.text('Justifikasi / Catatan', startX + 450, vHeadY + 5, { width: 100 });
+  drawArmadaHeader(vHeadY);
 
   let curY = vHeadY + 18;
   if (vehicles.length === 0) {
@@ -158,6 +172,12 @@ export const generateShiftReportPdf = (reportData) => {
     curY += 18;
   } else {
     vehicles.forEach((v, idx) => {
+      if (curY + 18 > 740) {
+        doc.addPage();
+        drawArmadaHeader(35);
+        curY = 35 + 18;
+      }
+
       const vStat = (v.status || 'belum_dilaporkan').toUpperCase();
       const isServ = vStat === 'SERVICEABLE';
       const isUnserv = vStat === 'UNSERVICEABLE';
@@ -187,6 +207,7 @@ export const generateShiftReportPdf = (reportData) => {
   doc.y = curY + 10;
 
   // 3. Ploting Kekuatan Personel
+  checkPageBreak(45);
   doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('3. KEKUATAN & DISTRIBUSI PERSONEL DINAS');
   doc.moveDown(0.3);
 
@@ -202,10 +223,12 @@ export const generateShiftReportPdf = (reportData) => {
   doc.moveDown(0.8);
 
   // 4. Rekapitulasi Insiden & Kejadian
+  checkPageBreak(40);
   doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('4. REKAPITULASI KEJADIAN & INSIDEN OPERASIONAL');
   doc.moveDown(0.3);
 
   if (incidents.length === 0) {
+    checkPageBreak(25);
     doc.rect(startX, doc.y, contentWidth, 18).fillAndStroke('#f0fdf4', '#bbf7d0');
     doc.fontSize(8).font('Helvetica-Bold').fillColor('#15803d').text(
       'NIHIL — Seluruh operasional penerbangan dan fasilitas bandara berlangsung dalam kondisi aman terkendali.',
@@ -215,6 +238,7 @@ export const generateShiftReportPdf = (reportData) => {
     doc.y += 24;
   } else {
     incidents.forEach((inc, idx) => {
+      checkPageBreak(30);
       doc.rect(startX, doc.y, contentWidth, 24).fillAndStroke('#fef2f2', '#fecaca');
       const incBoxY = doc.y + 5;
       doc.fontSize(8).font('Helvetica-Bold').fillColor('#991b1b').text(
@@ -232,6 +256,7 @@ export const generateShiftReportPdf = (reportData) => {
   }
 
   // 5. Logbook Kegiatan Shift
+  checkPageBreak(40);
   doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('5. JURNAL KEGIATAN RUTIN SHIFT OPERASIONAL');
   doc.moveDown(0.3);
 
@@ -240,6 +265,7 @@ export const generateShiftReportPdf = (reportData) => {
     doc.moveDown(0.6);
   } else {
     activities.forEach((act, idx) => {
+      checkPageBreak(20);
       doc.fontSize(8).font('Helvetica-Bold').fillColor('#0f172a').text(
         `${idx + 1}. [${act.activity_time}] ${act.title}: `,
         { continued: true }
@@ -248,17 +274,18 @@ export const generateShiftReportPdf = (reportData) => {
     doc.moveDown(0.8);
   }
 
-  // Tanda Tangan Pengesahan (Pindah halaman jika ruang di bawah tidak cukup)
-  if (doc.y > 660) {
+  // Tanda Tangan Pengesahan Pejabat (Pindah halaman jika ruang di bawah tidak cukup)
+  if (doc.y + 105 > 740) {
     doc.addPage();
+    doc.y = 45;
   } else {
     doc.moveDown(1.5);
   }
 
-  const signY = Math.max(doc.y, 665);
+  const signY = doc.y;
   doc.fontSize(8.5).font('Helvetica').fillColor('#0f172a');
   doc.text('Mengetahui / Menyetujui,', startX + 20, signY, { width: 200, align: 'center' });
-  doc.text('Disahkan Oleh,', startX + 295, signY, { width: 200, align: 'center' });
+  doc.text('Pejabat Penanggung Jawab Shift,', startX + 295, signY, { width: 200, align: 'center' });
 
   doc.fontSize(8).font('Helvetica-Bold').fillColor('#0f172a');
   doc.text('AIRPORT RESCUE & FIRE FIGHTING SECTION HEAD', startX + 20, signY + 12, { width: 200, align: 'center' });
@@ -274,8 +301,8 @@ export const generateShiftReportPdf = (reportData) => {
     }
   }
 
-  // Sematkan tanda tangan digital Supervisor jika shift telah disahkan / tersedia
-  const supSigFile = (status === 'approved' || supervisor_signature_url) ? resolveSignatureFile(supervisor_signature_url) : null;
+  // Sematkan tanda tangan digital Supervisor dinas jika tersedia
+  const supSigFile = resolveSignatureFile(supervisor_signature_url);
   if (supSigFile) {
     try {
       doc.image(supSigFile, startX + 345, signY + 25, { fit: [100, 38], align: 'center' });
@@ -286,7 +313,7 @@ export const generateShiftReportPdf = (reportData) => {
 
   doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0f172a');
   doc.text(`( ${dept_head_name} )`, startX + 20, signY + 68, { width: 200, align: 'center' });
-  doc.text(`( ${supervisor_name || 'Ketua Regu'} )`, startX + 295, signY + 68, { width: 200, align: 'center' });
+  doc.text(`( ${supervisor_name || `Ketua Regu ${team_group}`} )`, startX + 295, signY + 68, { width: 200, align: 'center' });
 
   doc.fontSize(7.5).font('Helvetica').fillColor('#475569');
   if (dept_head_nip && dept_head_nip !== '-') {
@@ -294,11 +321,6 @@ export const generateShiftReportPdf = (reportData) => {
   }
   if (supervisor_nip && supervisor_nip !== '-') {
     doc.text(`NIP. ${supervisor_nip}`, startX + 295, signY + 79, { width: 200, align: 'center' });
-  }
-
-  if (status === 'approved') {
-    doc.fontSize(7).font('Helvetica-Bold').fillColor('#15803d');
-    doc.text('Telah Disahkan Secara Digital', startX + 295, signY + (supervisor_nip && supervisor_nip !== '-' ? 89 : 80), { width: 200, align: 'center' });
   }
 
   // Penomoran Halaman Otomatis
@@ -336,13 +358,13 @@ export const generatePersonnelAccountsPdf = (personnelList = []) => {
 
   const columns = [
     { header: 'No', width: 30, align: 'center' },
-    { header: 'Status Sandi', width: 130, align: 'left' },
-    { header: 'Nama Lengkap', width: 165, align: 'left' },
-    { header: 'NIP', width: 95, align: 'left' },
-    { header: 'Regu', width: 60, align: 'center' },
-    { header: 'Jabatan', width: 120, align: 'left' },
-    { header: 'Username', width: 75, align: 'left' },
-    { header: 'Kata Sandi', width: 95, align: 'left' },
+    { header: 'Nama Lengkap', width: 175, align: 'left' },
+    { header: 'NIP', width: 105, align: 'left' },
+    { header: 'Regu', width: 65, align: 'center' },
+    { header: 'Jabatan', width: 135, align: 'left' },
+    { header: 'Username', width: 90, align: 'left' },
+    { header: 'Status Akun', width: 85, align: 'center' },
+    { header: 'Keamanan Sandi', width: 85, align: 'center' },
   ];
 
   const startX = 35;
@@ -359,7 +381,7 @@ export const generatePersonnelAccountsPdf = (personnelList = []) => {
       { align: 'left' }
     );
     doc.fontSize(8.5).font('Helvetica').fillColor('#475569').text(
-      'Bandara Internasional Yogyakarta (YIA) • Dokumen Distribusi Akun Mandiri (Default Password: 123456)',
+      'Bandara Internasional Yogyakarta (YIA) • Dokumen Distribusi Akun & Verifikasi Kredensial',
       startX,
       50,
       { align: 'left' }
@@ -414,35 +436,30 @@ export const generatePersonnelAccountsPdf = (personnelList = []) => {
     const isDefault = p.must_change_password === 1 || p.must_change_password === true;
     const hasAccount = Boolean(p.username);
 
+    const statusAkun = !hasAccount ? 'Belum Ada Akun' : 'Terdaftar';
     const statusSandi = !hasAccount
-      ? 'Belum Ada Akun'
-      : isDefault
-      ? 'Belum Diganti (Default)'
-      : 'Sudah Diganti';
-
-    const passwordDisplay = !hasAccount
       ? '-'
       : isDefault
-      ? '123456'
-      : '[Diubah Mandiri]';
+      ? 'Sandi Default (Wajib Ganti)'
+      : 'Telah Diperbarui Mandiri';
 
     const cellData = [
       { text: String(idx + 1), align: 'center', color: '#64748b', font: 'Helvetica' },
-      {
-        text: statusSandi,
-        align: 'left',
-        color: !hasAccount ? '#64748b' : isDefault ? '#b91c1c' : '#15803d',
-        font: isDefault ? 'Helvetica-Bold' : 'Helvetica',
-      },
       { text: p.full_name || '-', align: 'left', color: '#0f172a', font: 'Helvetica-Bold' },
       { text: p.nip || '-', align: 'left', color: '#475569', font: 'Helvetica' },
       { text: p.team_group || '-', align: 'center', color: '#0f172a', font: 'Helvetica' },
       { text: p.rank_position || '-', align: 'left', color: '#475569', font: 'Helvetica' },
       { text: p.username || '-', align: 'left', color: '#0f172a', font: 'Helvetica-Bold' },
       {
-        text: passwordDisplay,
-        align: 'left',
-        color: isDefault ? '#b91c1c' : '#64748b',
+        text: statusAkun,
+        align: 'center',
+        color: !hasAccount ? '#64748b' : '#15803d',
+        font: 'Helvetica',
+      },
+      {
+        text: statusSandi,
+        align: 'center',
+        color: !hasAccount ? '#64748b' : isDefault ? '#b91c1c' : '#15803d',
         font: isDefault ? 'Helvetica-Bold' : 'Helvetica',
       },
     ];

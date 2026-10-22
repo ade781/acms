@@ -70,6 +70,17 @@ export function AuthProvider({ children }) {
     verifySession();
   }, [token]);
 
+  // Tangani event sesi kedaluwarsa secara otomatis
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      logout();
+    };
+    window.addEventListener('arff:unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('arff:unauthorized', handleUnauthorized);
+    };
+  }, []);
+
   const login = async (username, password) => {
     const res = await api.post('/auth/login', { username, password });
     const payload = res.data?.data || res.data;
@@ -124,7 +135,6 @@ export function AuthProvider({ children }) {
   const isChiefAssistant = isRole('chief_assistant');
   // Supervisor & Ploting mencakup chief, chief_assistant, dept head, dan admin
   const isSupervisor = isRole('supervisor', 'admin', 'chief', 'chief_assistant', 'operation_chief', 'dept_head');
-  const canApprove = isSupervisor;
   const canPlot = isSupervisor;
 
   const value = {
@@ -140,7 +150,7 @@ export function AuthProvider({ children }) {
     isDeptHead,
     isChiefAssistant,
     isSupervisor,
-    canApprove,
+    canPlot,
     activeDate,
     setActiveDate,
     activeShiftNumber,

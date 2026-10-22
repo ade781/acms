@@ -24,11 +24,40 @@ export const getShiftReportPdf = async (req, res) => {
       shift_date: shiftDate,
       shift_number: shiftNumber,
       team_group: teamGroup,
-      supervisor_name: req.user.name,
+      supervisor_name: null,
       supervisor_nip: null,
       supervisor_signature_url: null,
       status: 'open'
     };
+
+    // Ambil identitas Ketua Regu / Supervisor dinas secara dinamis dari database
+    let supervisorName = shiftData?.supervisor_name || null;
+    let supervisorNip = shiftData?.supervisor_nip || null;
+    let supervisorSignatureUrl = shiftData?.pers_sig || shiftData?.user_sig || null;
+
+    if (!supervisorName) {
+      const [teamChiefs] = await pool.query(
+        `SELECT p.full_name, p.nip, COALESCE(u.signature_url, p.signature_url) as signature_url
+         FROM personnel p
+         LEFT JOIN users u ON u.id = p.user_id
+         WHERE (u.role IN ('chief', 'supervisor') OR p.rank_position LIKE '%Chief%' OR p.rank_position LIKE '%Ketua%')
+           AND p.rank_position NOT LIKE '%Assistant%'
+           AND p.rank_position NOT LIKE '%Asisten%'
+           AND p.rank_position NOT LIKE '%Wakil%'
+           AND (u.role IS NULL OR u.role != 'chief_assistant')
+           AND p.team_group = ?
+         ORDER BY p.id ASC
+         LIMIT 1`,
+        [teamGroup]
+      );
+      if (teamChiefs.length > 0) {
+        supervisorName = teamChiefs[0].full_name;
+        supervisorNip = teamChiefs[0].nip;
+        supervisorSignatureUrl = teamChiefs[0].signature_url;
+      } else {
+        supervisorName = `Ketua Regu ${teamGroup}`;
+      }
+    }
 
     // Ambil data pejabat Dept Head / Section Head secara dinamis dari database
     const [deptHeads] = await pool.query(
@@ -110,9 +139,9 @@ export const getShiftReportPdf = async (req, res) => {
       shift_date: shiftData.shift_date,
       shift_number: shiftData.shift_number,
       team_group: shiftData.team_group,
-      supervisor_name: shiftData.supervisor_name || req.user.name,
-      supervisor_nip: shiftData.supervisor_nip || null,
-      supervisor_signature_url: shiftData.pers_sig || shiftData.user_sig || null,
+      supervisor_name: supervisorName,
+      supervisor_nip: supervisorNip,
+      supervisor_signature_url: supervisorSignatureUrl,
       dept_head_name: deptHeadData?.name || 'Section Head ARFF',
       dept_head_nip: deptHeadData?.nip || null,
       dept_head_signature_url: deptHeadData?.signature_url || null,

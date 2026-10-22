@@ -21,11 +21,14 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor to handle 401 Unauthorized and normalize data envelope
+let isRedirecting = false;
+
+// Response interceptor to handle 401 Unauthorized and normalize data envelope safely
 api.interceptors.response.use(
   (response) => {
-    // If backend uses standard envelope { success: true, data: ... }
-    // Attach top-level aliases to response.data so both res.data.key and res.data.data.key work
+    // If backend uses standard envelope { success: true, message: ..., data: ... }
+    // Wrap response.data with a safe Proxy fallback so callers can read res.data.data
+    // or direct properties without mutating the envelope or shadowing standard keys.
     if (
       response.data &&
       typeof response.data === 'object' &&
@@ -33,26 +36,38 @@ api.interceptors.response.use(
       response.data.data !== null &&
       typeof response.data.data === 'object'
     ) {
-      if (Array.isArray(response.data.data)) {
-        // If data is array (e.g. list of personnel/incidents)
-        response.data.items = response.data.data;
-      } else {
-        Object.keys(response.data.data).forEach((key) => {
-          if (!(key in response.data)) {
-            response.data[key] = response.data.data[key];
+      const payload = response.data.data;
+      response.data = new Proxy(response.data, {
+        get(target, prop, receiver) {
+          if (prop in target) {
+            return Reflect.get(target, prop, receiver);
           }
-        });
-      }
+          if (payload && typeof payload === 'object' && prop in payload) {
+            return payload[prop];
+          }
+          return undefined;
+        },
+      });
     }
     return response;
   },
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Clear token and broadcast logout if unauthorized
-      localStorage.removeItem('arff_token');
-      localStorage.removeItem('arff_user');
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+      const isAuthLogin = error.config?.url?.includes('/auth/login');
+      if (!isAuthLogin) {
+        localStorage.removeItem('arff_token');
+        localStorage.removeItem('arff_user');
+        window.dispatchEvent(new CustomEvent('arff:unauthorized'));
+
+        if (window.location.pathname !== '/login' && !isRedirecting) {
+          isRedirecting = true;
+          setTimeout(() => {
+            if (window.location.pathname !== '/login') {
+              window.location.href = '/login';
+            }
+            isRedirecting = false;
+          }, 100);
+        }
       }
     }
     return Promise.reject(error);
