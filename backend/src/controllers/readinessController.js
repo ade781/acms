@@ -49,24 +49,40 @@ export const getVehicleReadiness = async (req, res) => {
     const currentUserPersonnelId = req.user.personnel_id;
 
     // Carry-over status: Jika unit belum dilaporkan di shift ini, cek apakah unit sebelumnya unserviceable
-    for (let i = 0; i < rows.length; i++) {
-      if (rows[i].status === 'belum_dilaporkan') {
-        const [prevLogs] = await pool.query(
-          `SELECT vrl.status, vrl.justification, vrl.photo_webp_url, vrl.follow_up_status, vrl.notes,
-                  vrl.shift_date, vrl.shift_number, vrl.team_group, p.full_name as prev_pic_name
-           FROM vehicle_readiness_logs vrl
-           LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
-           WHERE vrl.vehicle_id = ?
-             AND (vrl.shift_date < ? OR (vrl.shift_date = ? AND vrl.shift_number < ?))
-             AND vrl.status = 'unserviceable'
-             AND vrl.follow_up_status != 'resolved'
-           ORDER BY vrl.shift_date DESC, vrl.shift_number DESC
-           LIMIT 1`,
-          [rows[i].id, shiftDate, shiftDate, shiftNumber]
-        );
+    // Gunakan 1 query efisien untuk semua unit yang belum dilaporkan (eliminasi N+1 query loop)
+    const unreportedVehicleIds = rows.filter(r => r.status === 'belum_dilaporkan').map(r => r.id);
 
-        if (prevLogs.length > 0) {
-          const prev = prevLogs[0];
+    if (unreportedVehicleIds.length > 0) {
+      const [prevLogs] = await pool.query(
+        `SELECT vrl.vehicle_id, vrl.status, vrl.justification, vrl.photo_webp_url, vrl.follow_up_status, vrl.notes,
+                vrl.shift_date, vrl.shift_number, vrl.team_group, p.full_name as prev_pic_name
+         FROM vehicle_readiness_logs vrl
+         JOIN (
+           SELECT vehicle_id, MAX(CONCAT(shift_date, '_', LPAD(shift_number, 2, '0'))) as max_shift
+           FROM vehicle_readiness_logs
+           WHERE vehicle_id IN (?)
+             AND (shift_date < ? OR (shift_date = ? AND shift_number < ?))
+             AND status = 'unserviceable'
+             AND follow_up_status != 'resolved'
+           GROUP BY vehicle_id
+         ) latest ON latest.vehicle_id = vrl.vehicle_id
+                 AND CONCAT(vrl.shift_date, '_', LPAD(vrl.shift_number, 2, '0')) = latest.max_shift
+         LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
+         WHERE vrl.status = 'unserviceable'
+           AND vrl.follow_up_status != 'resolved'`,
+        [unreportedVehicleIds, shiftDate, shiftDate, shiftNumber]
+      );
+
+      const carryOverMap = new Map();
+      for (const prev of prevLogs) {
+        if (!carryOverMap.has(prev.vehicle_id)) {
+          carryOverMap.set(prev.vehicle_id, prev);
+        }
+      }
+
+      for (let i = 0; i < rows.length; i++) {
+        if (rows[i].status === 'belum_dilaporkan' && carryOverMap.has(rows[i].id)) {
+          const prev = carryOverMap.get(rows[i].id);
           rows[i].status = 'unserviceable';
           rows[i].justification = prev.justification;
           rows[i].photo_webp_url = prev.photo_webp_url;
@@ -126,6 +142,16 @@ export const submitVehicleReadiness = async (req, res) => {
 
     if (!['serviceable', 'unserviceable'].includes(status)) {
       return errorResponse(res, 'Status armada harus serviceable atau unserviceable', 400);
+    }
+
+    const validFollowUp = ['pending', 'in_progress', 'resolved'];
+    const effectiveFollowUp = follow_up_status || 'pending';
+    if (!validFollowUp.includes(effectiveFollowUp)) {
+      return errorResponse(res, 'follow_up_status harus salah satu dari: pending, in_progress, resolved', 400);
+    }
+
+    if (status === 'unserviceable' && effectiveFollowUp === 'resolved') {
+      return errorResponse(res, 'Armada dengan status unserviceable tidak dapat ditandai sebagai resolved. Ubah status menjadi serviceable jika kendala telah teratasi.', 400);
     }
 
     if (status === 'unserviceable' && (!justification || justification.trim().length === 0)) {
@@ -317,7 +343,12 @@ export const submitWatchroomReadiness = async (req, res) => {
       return errorResponse(res, 'Status watchroom harus serviceable atau unserviceable', 400);
     }
 
+    if (status === 'unserviceable' && (!notes || notes.trim().length === 0)) {
+      return errorResponse(res, 'Justifikasi kendala wajib diisi jika kondisi watchroom unserviceable', 400);
+    }
+
     const targetTeam = team_group || req.user.team_group || 'Alpha';
+    const inspectorPersonnelId = req.user.personnel_id || null;
 
     // Cari ID unit watchroom di tabel vehicles
     let [wrVehicles] = await pool.query(
@@ -345,16 +376,17 @@ export const submitWatchroomReadiness = async (req, res) => {
       await pool.query(
         `UPDATE vehicle_readiness_logs SET
           status = ?,
+          pic_personnel_id = COALESCE(?, pic_personnel_id),
           notes = ?
          WHERE id = ?`,
-        [status, notes || null, existing[0].id]
+        [status, inspectorPersonnelId, notes || null, existing[0].id]
       );
     } else {
       await pool.query(
         `INSERT INTO vehicle_readiness_logs (
-          vehicle_id, shift_date, shift_number, team_group, status, notes
-        ) VALUES (?, ?, ?, ?, ?, ?)`,
-        [wrId, shift_date, shift_number, targetTeam, status, notes || null]
+          vehicle_id, shift_date, shift_number, team_group, status, pic_personnel_id, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [wrId, shift_date, shift_number, targetTeam, status, inspectorPersonnelId, notes || null]
       );
     }
 

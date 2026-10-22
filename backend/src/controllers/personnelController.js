@@ -179,6 +179,7 @@ async function generateUniqueUsername(nip, fullName) {
 }
 
 export const createPersonnel = async (req, res) => {
+  const connection = await pool.getConnection();
   try {
     const {
       nip,
@@ -197,11 +198,13 @@ export const createPersonnel = async (req, res) => {
     } = req.body;
 
     if (!full_name || !rank_position || !team_group) {
+      connection.release();
       return errorResponse(res, 'Nama lengkap, jabatan, dan regu dinas wajib diisi', 400);
     }
 
     const validTeams = ['Alpha', 'Bravo', 'Charlie', 'Delta'];
     if (!validTeams.includes(team_group)) {
+      connection.release();
       return errorResponse(res, 'Regu dinas harus salah satu dari: Alpha, Bravo, Charlie, Delta', 400);
     }
 
@@ -210,7 +213,7 @@ export const createPersonnel = async (req, res) => {
     if (!accountUsername) {
       accountUsername = await generateUniqueUsername(nip, full_name);
     } else {
-      const [existingUser] = await pool.query('SELECT id FROM users WHERE username = ?', [accountUsername]);
+      const [existingUser] = await connection.query('SELECT id FROM users WHERE username = ?', [accountUsername]);
       if (existingUser.length > 0) {
         accountUsername = await generateUniqueUsername(nip, full_name);
       }
@@ -220,14 +223,16 @@ export const createPersonnel = async (req, res) => {
     const passwordHash = await bcrypt.hash(password || '123456', salt);
     const effectiveRole = role && role !== 'operator' ? role : mapRankPositionToRole(rank_position);
 
-    const [userResult] = await pool.query(
+    await connection.beginTransaction();
+
+    const [userResult] = await connection.query(
       'INSERT INTO users (username, name, password_hash, role, must_change_password) VALUES (?, ?, ?, ?, 1)',
       [accountUsername, full_name, passwordHash, effectiveRole]
     );
     const linkedUserId = userResult.insertId;
 
     // 2. Simpan data personel tertaut dengan akun pengguna
-    const [result] = await pool.query(
+    const [result] = await connection.query(
       `INSERT INTO personnel (
         user_id, nip, full_name, rank_position, birth_date,
         employment_status, team_group, formal_education, cert_level,
@@ -249,18 +254,22 @@ export const createPersonnel = async (req, res) => {
     );
 
     const newPersonnelId = result.insertId;
-    const [createdRows] = await pool.query('SELECT * FROM personnel WHERE id = ?', [newPersonnelId]);
+    const [createdRows] = await connection.query('SELECT * FROM personnel WHERE id = ?', [newPersonnelId]);
+
+    await connection.commit();
+    connection.release();
 
     return createdResponse(
       res,
-      `Personel berhasil ditambahkan. Akun login otomatis dibuat: Username "${accountUsername}", Kata Sandi Default "123456".`,
+      `Personel berhasil ditambahkan. Akun login dibuat dengan username "${accountUsername}" dan wajib ganti kata sandi pada login pertama.`,
       {
         ...createdRows[0],
-        created_username: accountUsername,
-        default_password: '123456'
+        created_username: accountUsername
       }
     );
   } catch (error) {
+    await connection.rollback();
+    connection.release();
     console.error('Error createPersonnel:', error);
     return errorResponse(res, 'Gagal menambahkan personel: ' + error.message, 500);
   }
@@ -299,50 +308,57 @@ export const updatePersonnel = async (req, res) => {
       return errorResponse(res, 'Anda hanya memiliki izin untuk memperbarui data profil Anda sendiri', 403);
     }
 
-    // Hanya staf berwenang (Chief, Dept Head, Admin) yang dapat mengubah Jabatan Operasional (Role)
+    // Hanya staf kepemimpinan (Admin, Supervisor, Chief, Dept Head) yang berhak mengubah data kedinasan:
+    // jabatan (rank_position), regu (team_group), status keaktifan (is_active), status kepegawaian, dan nama resmi
     const effectiveRankPosition = isStaffAdmin && rank_position ? rank_position : existing[0].rank_position;
+    const effectiveTeamGroup = isStaffAdmin && team_group ? team_group : existing[0].team_group;
+    const effectiveIsActive = isStaffAdmin && is_active !== undefined ? Number(is_active) : existing[0].is_active;
+    const effectiveEmploymentStatus = isStaffAdmin && employment_status ? employment_status : existing[0].employment_status;
+    const effectiveFullName = isStaffAdmin && full_name ? full_name : existing[0].full_name;
+    const effectiveNip = isStaffAdmin && nip !== undefined ? nip : existing[0].nip;
+    const effectiveCertLevel = isStaffAdmin && cert_level ? cert_level : existing[0].cert_level;
 
     await pool.query(
       `UPDATE personnel SET
-        nip = COALESCE(?, nip),
-        full_name = COALESCE(?, full_name),
+        nip = ?,
+        full_name = ?,
         rank_position = ?,
         birth_date = ?,
-        employment_status = COALESCE(?, employment_status),
-        team_group = COALESCE(?, team_group),
+        employment_status = ?,
+        team_group = ?,
         formal_education = ?,
-        cert_level = COALESCE(?, cert_level),
+        cert_level = ?,
         cert_number = ?,
         cert_expiry_date = ?,
-        is_active = COALESCE(?, is_active)
+        is_active = ?
       WHERE id = ?`,
       [
-        nip || null,
-        full_name || null,
+        effectiveNip,
+        effectiveFullName,
         effectiveRankPosition,
         birth_date !== undefined ? birth_date : existing[0].birth_date,
-        employment_status || null,
-        team_group || null,
+        effectiveEmploymentStatus,
+        effectiveTeamGroup,
         formal_education !== undefined ? formal_education : existing[0].formal_education,
-        cert_level || null,
+        effectiveCertLevel,
         cert_number !== undefined ? cert_number : existing[0].cert_number,
         cert_expiry_date !== undefined ? cert_expiry_date : existing[0].cert_expiry_date,
-        is_active !== undefined ? is_active : existing[0].is_active,
+        effectiveIsActive,
         id
       ]
     );
 
-    // Sinkronisasikan role di tabel users jika akun pengguna terhubung
+    // Sinkronisasikan role di tabel users jika akun pengguna terhubung (hanya jika diubah oleh staf berwenang)
     if (existing[0].user_id) {
       const synchedRole = (isStaffAdmin && rank_position) ? mapRankPositionToRole(rank_position) : null;
       if (synchedRole) {
         await pool.query('UPDATE users SET role = ?, name = COALESCE(?, name) WHERE id = ?', [
           synchedRole,
-          full_name || null,
+          effectiveFullName,
           existing[0].user_id
         ]);
-      } else if (full_name) {
-        await pool.query('UPDATE users SET name = ? WHERE id = ?', [full_name, existing[0].user_id]);
+      } else if (isStaffAdmin && full_name) {
+        await pool.query('UPDATE users SET name = ? WHERE id = ?', [effectiveFullName, existing[0].user_id]);
       }
     }
 
@@ -562,6 +578,26 @@ export const deleteSignature = async (req, res) => {
 export const getPersonnelDocuments = async (req, res) => {
   try {
     const { id } = req.params;
+
+    const [rows] = await pool.query(
+      `SELECT p.id, p.user_id FROM personnel p WHERE p.id = ?`,
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return errorResponse(res, 'Personel tidak ditemukan', 404);
+    }
+
+    const target = rows[0];
+    const currentUserRole = req.user.role;
+    const isLeadership = ['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor', 'operation_chief'].includes(currentUserRole);
+    const isOwner = (req.user.personnel_id && Number(req.user.personnel_id) === Number(id)) ||
+                    (target.user_id && Number(req.user.id) === Number(target.user_id));
+
+    if (!isLeadership && !isOwner) {
+      return errorResponse(res, 'Akses ditolak: Anda tidak memiliki wewenang untuk melihat berkas dokumen personel ini', 403);
+    }
+
     const [docs] = await pool.query(
       `SELECT pd.*, u.name as uploader_name
        FROM personnel_documents pd

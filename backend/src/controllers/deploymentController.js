@@ -52,6 +52,29 @@ export const getCurrentDeployment = async (req, res) => {
 
     const currentShift = shifts[0];
 
+    // Jika supervisor belum tercatat di sesi shift, cari Ketua Regu sah untuk regu tersebut
+    if (!currentShift.supervisor_name && currentShift.team_group) {
+      const [teamChiefs] = await pool.query(
+        `SELECT u.name as supervisor_name, p.nip as supervisor_nip, COALESCE(u.signature_url, p.signature_url) as supervisor_signature_url
+         FROM personnel p
+         LEFT JOIN users u ON u.id = p.user_id
+         WHERE p.team_group = ?
+           AND (u.role IN ('chief', 'supervisor') OR p.rank_position LIKE '%Chief%' OR p.rank_position LIKE '%Ketua%')
+           AND p.rank_position NOT LIKE '%Assistant%'
+           AND p.rank_position NOT LIKE '%Asisten%'
+           AND p.rank_position NOT LIKE '%Wakil%'
+           AND (u.role IS NULL OR u.role != 'chief_assistant')
+         ORDER BY p.id ASC
+         LIMIT 1`,
+        [currentShift.team_group]
+      );
+      if (teamChiefs.length > 0) {
+        currentShift.supervisor_name = teamChiefs[0].supervisor_name;
+        currentShift.supervisor_nip = teamChiefs[0].supervisor_nip;
+        currentShift.supervisor_signature_url = teamChiefs[0].supervisor_signature_url;
+      }
+    }
+
     const [deployments] = await pool.query(
       `SELECT pd.*,
               p.nip, p.full_name, p.rank_position, p.cert_level, p.team_group as personnel_team,
@@ -120,11 +143,13 @@ export const saveDeploymentBatch = async (req, res) => {
     } = req.body;
 
     if (!shift_date || !shift_number || !team_group) {
+      connection.release();
       return errorResponse(res, 'Tanggal shift, nomor shift, dan regu dinas wajib diisi', 400);
     }
 
     const validTeams = ['Alpha', 'Bravo', 'Charlie', 'Delta'];
     if (!validTeams.includes(team_group)) {
+      connection.release();
       return errorResponse(res, 'Regu dinas harus salah satu dari: Alpha, Bravo, Charlie, Delta', 400);
     }
 
@@ -142,28 +167,13 @@ export const saveDeploymentBatch = async (req, res) => {
       return true;
     });
 
-    // Pastikan jika ada unit kendaraan yang kehilangan PIC (misal PIC cuti) namun masih ada kru lain,
-    // tunjuk kru pertama sebagai PIC pengganti
-    const unitMap = {};
-    for (const d of rawDeployments) {
-      if ((d.deployment_type === 'vehicle_utama' || d.deployment_type === 'vehicle_pendukung' || d.deployment_type === 'watchroom') && d.vehicle_id) {
-        if (!unitMap[d.vehicle_id]) unitMap[d.vehicle_id] = [];
-        unitMap[d.vehicle_id].push(d);
-      }
-    }
-    for (const [vId, crew] of Object.entries(unitMap)) {
-      const hasPic = crew.some(c => c.is_pic);
-      if (!hasPic && crew.length > 0) {
-        crew[0].is_pic = true;
-      }
-    }
-
     // Validasi: Cegah duplikasi penugasan (satu personel tidak boleh bertugas di >1 unit atau bertugas sekaligus cuti)
     const assignedPersonnelIds = new Set();
     for (const d of rawDeployments) {
       if (!d.personnel_id) continue;
       const pId = Number(d.personnel_id);
       if (assignedPersonnelIds.has(pId)) {
+        connection.release();
         return errorResponse(
           res,
           `Personel (ID: ${pId}) ditugaskan lebih dari satu kali pada shift ini. Satu anggota hanya boleh ditugaskan pada 1 kendaraan atau berstatus izin/cuti.`,
@@ -188,19 +198,42 @@ export const saveDeploymentBatch = async (req, res) => {
       }
     }
 
+    const unitIds = Object.keys(unitCrewCount);
+    let vehicleNamesMap = {};
+    if (unitIds.length > 0) {
+      const [vList] = await connection.query(
+        'SELECT id, code_name, vehicle_name FROM vehicles WHERE id IN (?)',
+        [unitIds]
+      );
+      vList.forEach(v => {
+        vehicleNamesMap[v.id] = v.code_name || v.vehicle_name || `Unit ID ${v.id}`;
+      });
+    }
+
     for (const [vId, count] of Object.entries(unitCrewCount)) {
+      const unitName = vehicleNamesMap[vId] || `Unit ID ${vId}`;
       if (count > 4) {
+        connection.release();
         return errorResponse(
           res,
-          `Unit ID ${vId} memiliki ${count} kru (maksimal 4 personel per unit).`,
+          `Unit ${unitName} memiliki ${count} kru (maksimal 4 personel per unit).`,
           400
         );
       }
       const picCount = unitPicCount[vId] || 0;
-      if (picCount !== 1) {
+      if (picCount === 0) {
+        connection.release();
         return errorResponse(
           res,
-          `Unit ID ${vId} memiliki ${picCount} PIC. Tepat 1 personel wajib ditunjuk sebagai Penanggung Jawab (PIC).`,
+          `Unit ${unitName} belum memiliki Penanggung Jawab (PIC). Silakan tunjuk tepat 1 PIC untuk unit ini.`,
+          400
+        );
+      }
+      if (picCount > 1) {
+        connection.release();
+        return errorResponse(
+          res,
+          `Unit ${unitName} memiliki ${picCount} PIC. Tepat 1 personel wajib ditunjuk sebagai Penanggung Jawab (PIC).`,
           400
         );
       }
@@ -210,13 +243,38 @@ export const saveDeploymentBatch = async (req, res) => {
 
     // 1. Buat atau perbarui entri personnel_shifts
     const [existingShifts] = await connection.query(
-      `SELECT id, status FROM personnel_shifts
+      `SELECT id, supervisor_id, status FROM personnel_shifts
        WHERE shift_date = ? AND shift_number = ? AND team_group = ?`,
       [shift_date, shift_number, team_group]
     );
 
     let shiftId;
-    const supId = supervisor_id || req.user.id;
+    let supId = supervisor_id || null;
+
+    if (existingShifts.length > 0 && !supId) {
+      supId = existingShifts[0].supervisor_id;
+    }
+
+    if (!supId) {
+      // Cari supervisor sah / Ketua Regu dari database untuk team_group ini
+      const [chiefRows] = await connection.query(
+        `SELECT p.user_id, u.id as direct_user_id
+         FROM personnel p
+         LEFT JOIN users u ON u.id = p.user_id
+         WHERE p.team_group = ?
+           AND (u.role IN ('chief', 'supervisor') OR p.rank_position LIKE '%Chief%' OR p.rank_position LIKE '%Ketua%')
+           AND p.rank_position NOT LIKE '%Assistant%'
+           AND p.rank_position NOT LIKE '%Asisten%'
+           AND p.rank_position NOT LIKE '%Wakil%'
+           AND (u.role IS NULL OR u.role != 'chief_assistant')
+         ORDER BY p.id ASC
+         LIMIT 1`,
+        [team_group]
+      );
+      if (chiefRows.length > 0) {
+        supId = chiefRows[0].user_id || chiefRows[0].direct_user_id || null;
+      }
+    }
 
     if (existingShifts.length > 0) {
       shiftId = existingShifts[0].id;
@@ -307,62 +365,13 @@ export const saveDeploymentBatch = async (req, res) => {
   }
 };
 
-export const approveShift = async (req, res) => {
-  try {
-    const { shift_id, shift_date, shift_number, team_group } = req.body;
-
-    let targetShiftId = shift_id;
-
-    if (!targetShiftId) {
-      if (!shift_date || !shift_number || !team_group) {
-        return errorResponse(res, 'Sertakan shift_id atau kombinasi shift_date, shift_number, dan team_group', 400);
-      }
-      const [find] = await pool.query(
-        'SELECT id FROM personnel_shifts WHERE shift_date = ? AND shift_number = ? AND team_group = ?',
-        [shift_date, shift_number, team_group]
-      );
-      if (find.length === 0) {
-        // Otomatis buatkan entri sesi shift jika belum dibuat di awal
-        const [insertShift] = await pool.query(
-          `INSERT INTO personnel_shifts (shift_date, shift_number, team_group, supervisor_id, status, approved_at)
-           VALUES (?, ?, ?, ?, 'approved', CURRENT_TIMESTAMP)`,
-          [shift_date, shift_number, team_group, req.user.id]
-        );
-        targetShiftId = insertShift.insertId;
-      } else {
-        targetShiftId = find[0].id;
-      }
-    }
-
-    const [rows] = await pool.query('SELECT * FROM personnel_shifts WHERE id = ?', [targetShiftId]);
-    if (rows.length === 0) {
-      return errorResponse(res, 'Sesi shift tidak ditemukan', 404);
-    }
-
-    await pool.query(
-      `UPDATE personnel_shifts SET
-        status = 'approved',
-        supervisor_id = ?,
-        approved_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-      [req.user.id, targetShiftId]
-    );
-
-    const [updated] = await pool.query('SELECT * FROM personnel_shifts WHERE id = ?', [targetShiftId]);
-
-    return successResponse(res, 'Laporan shift dinas berhasil disahkan (Approved)', updated[0]);
-  } catch (error) {
-    console.error('Error approveShift:', error);
-    return errorResponse(res, 'Gagal mengesahkan laporan shift', 500);
-  }
-};
-
 export const requestLeaveRange = async (req, res) => {
   const connection = await pool.getConnection();
   try {
     const { personnel_id, start_date, end_date, absent_reason = 'cuti', notes } = req.body;
 
     if (!start_date || !end_date) {
+      connection.release();
       return errorResponse(res, 'Tanggal mulai dan tanggal selesai cuti wajib diisi', 400);
     }
 
@@ -371,6 +380,7 @@ export const requestLeaveRange = async (req, res) => {
 
     if (!isPrivileged) {
       if (!req.user.personnel_id) {
+        connection.release();
         return errorResponse(res, 'Akun Anda tidak terhubung dengan data personel operasional', 403);
       }
       targetPersonnelId = Number(req.user.personnel_id);
@@ -381,11 +391,13 @@ export const requestLeaveRange = async (req, res) => {
     }
 
     if (!targetPersonnelId) {
+      connection.release();
       return errorResponse(res, 'ID Personel tidak valid', 400);
     }
 
     const [pRows] = await connection.query('SELECT * FROM personnel WHERE id = ?', [targetPersonnelId]);
     if (pRows.length === 0) {
+      connection.release();
       return errorResponse(res, 'Data personel tidak ditemukan', 404);
     }
     const person = pRows[0];
@@ -394,28 +406,36 @@ export const requestLeaveRange = async (req, res) => {
     const startDateObj = new Date(start_date);
     const endDateObj = new Date(end_date);
     if (startDateObj > endDateObj) {
+      connection.release();
       return errorResponse(res, 'Tanggal selesai tidak boleh lebih awal dari tanggal mulai', 400);
     }
+
+    await connection.beginTransaction();
 
     // Jika ada lampiran berkas dokumen bukti cuti (opsional)
     let uploadedDocUrl = null;
     if (req.file) {
       uploadedDocUrl = `/uploads/${req.file.filename}`;
+      const docTitle = `Bukti Cuti (${absent_reason.toUpperCase()} ${start_date} s/d ${end_date})`;
+      const fileName = req.file.originalname || req.file.filename;
+      const fileSize = req.file.size || 0;
+      const mimeType = req.file.mimetype || 'application/octet-stream';
+
       await connection.query(
         `INSERT INTO personnel_documents (
-          personnel_id, title, doc_type, file_path, file_size, uploaded_by
-        ) VALUES (?, ?, 'dokumen_lain', ?, ?, ?)`,
+          personnel_id, title, document_type, file_name, file_url, file_size, mime_type, uploaded_by
+        ) VALUES (?, ?, 'dokumen_lain', ?, ?, ?, ?, ?)`,
         [
           targetPersonnelId,
-          `Bukti Cuti (${absent_reason.toUpperCase()} ${start_date} s/d ${end_date})`,
+          docTitle,
+          fileName,
           uploadedDocUrl,
-          req.file.size,
+          fileSize,
+          mimeType,
           req.user.id
         ]
       );
     }
-
-    await connection.beginTransaction();
 
     let cur = new Date(startDateObj);
     let daysCount = 0;

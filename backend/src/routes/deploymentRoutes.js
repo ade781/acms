@@ -2,7 +2,6 @@ import { Router } from 'express';
 import {
   getCurrentDeployment,
   saveDeploymentBatch,
-  approveShift,
   requestLeaveRange
 } from '../controllers/deploymentController.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
@@ -16,7 +15,6 @@ router.use(requireAuth);
 router.get('/', getCurrentDeployment);
 router.get('/current', getCurrentDeployment);
 router.post('/batch', requireRole(['admin', 'supervisor', 'chief', 'chief_assistant', 'dept_head']), saveDeploymentBatch);
-router.post('/approve', requireRole(['admin', 'supervisor', 'chief', 'chief_assistant', 'dept_head']), approveShift);
 router.post('/leave-range', uploadSingleDocument('document'), requestLeaveRange);
 
 export default router;
