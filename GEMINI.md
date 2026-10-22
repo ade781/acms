@@ -17,8 +17,8 @@
 1. **Dilarang Menuliskan Tombol Aksi / Keterangan Dobel (Anti-Redundansi UI)**:
    - Dilarang membuat tombol aksi yang sama dua kali dalam satu halaman (misal: tombol "Simpan Draf Ploting" di dalam banner info dan di header tabel sekaligus). Satu aksi wajib memiliki tepat satu tempat yang jelas dan intuitif.
    - Dilarang mengulang teks petunjuk yang sama di dalam banner dan di sub-judul komponen secara bertumpuk.
-2. **Pemusatan Tombol Sesuai Alur Operasional (Anti-Tercerak)**:
-   - Tombol pengesahan resmi ("Sahkan Shift") HANYA boleh ada di **Halaman Laporan Dinas** (`HalamanLaporan.jsx`) di samping tombol cetak/unduh PDF. Dilarang memasang tombol pengesahan di Dashboard atau Halaman Penugasan.
+2. **Penghapusan Fitur Sahkan Shift (Sistem Tanpa Pengesahan Manual)**:
+   - Fitur tombol "Sahkan Shift" dihilangkan secara menyeluruh dari sistem (baik mobile, admin, maupun web desktop). Laporan dinas bersifat transparan dan otomatis terekapitulasi dari data operasional shift yang berjalan tanpa memerlukan tombol penguncian/pengesahan manual.
 3. **Dilarang Over-Engineering / Menambah Dashboard Pecahan**:
    - Dilarang membuat banyak varian dashboard terpisah (seperti Dashboard Ops, Fleet, Personnel) yang memecah konsentrasi pengguna dan membuat navigasi berantakan. Jaga antarmuka tetap satu pintu, terpadu, ringkas, dan fokus pada operasional riil.
 4. **Dilarang Hardcode Data Pejabat / Pimpinan**:

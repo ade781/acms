@@ -148,8 +148,8 @@ Berdasarkan telaah dokumen **`DOK. PEMBUATAN APLIKASI OPS ARFF 2026.docx`**, kod
    - **Koreksi 5 (Keseragaman Akses Profil Mandiri di Header Atas - Pemindahan dari Bottom Bar):**
      - Menu Profil **DIKELUARKAN dari Bottom Navigation Bar** pada antarmuka Kru maupun Chief.
      - Bottom Bar difokuskan murni untuk aksi operasional:
-       - **Kru**: 2 Menu Utama: 1. `Tugas Saya` (Penugasan & Lapor Kesiapan PIC) dan 2. `Cuti / Izin` (Pengajuan Cuti Operasional).
-       - **Chief**: 5 Menu Utama: `Posko`, `Ploting`, `Kegiatan`, `Insiden`, `Laporan`.
+       - **Kru**: 2 Menu Utama: 1. `Dashboard` (Penugasan Saya, Lapor PIC, Pengumuman Dinas & Situasi Posko) dan 2. `Laporan` (Rekapitulasi Lengkap Shift Dinas versi Read-Only & Unduh PDF).
+        - **Chief**: 5 Menu Utama: `Dashboard`, `Ploting`, `Kegiatan`, `Insiden`, `Laporan`.
      - Akses Profil Pribadi dan Arsip Dokumen seragam dibuka melalui **Avatar / Tombol Profil di Header Atas (*Top App Bar*)** di samping lonceng 🔔 dan kunci 🔒.
    - **Koreksi 6 (Fitur Pengumuman / Edaran via Ikon Lonceng 🔔):** Akses pengumuman dan surat edaran dinas dipindahkan ke header atas berupa ikon lonceng notifikasi (dengan badge indikator). Mengklik ikon ini membuka drawer/modal daftar pengumuman resmi tanpa membebani navigasi bawah.
    - **Koreksi 7 (Fitur Ubah Password dengan Ikon Kunci 🔒):** Disediakan tombol ubah kata sandi dengan simbol kunci di tab Profil (dan header bagi Chief) yang memicu modal ganti password aman (password lama, password baru, konfirmasi) sesuai standar autentikasi.
@@ -183,6 +183,66 @@ Berdasarkan telaah dokumen **`DOK. PEMBUATAN APLIKASI OPS ARFF 2026.docx`**, kod
        2. Tombol **`+ Izin Saya`** pada ringkasan Personel di tab Posko.
        3. Tombol **`+ Cuti Saya`** pada Sub-View Profil Mandiri di Header Atas.
        4. Membuka modal formulir permohonan resmi (*Cuti Tahunan, Sakit, Dinas Luar, Tukar Dinas*) yang diajukan langsung ke pimpinan unit.
+    - **Koreksi 15 (Bottom Bar Kru: Penggantian Menu Cuti menjadi Laporan Read-Only):**
+      - Fitur pengajuan cuti/izin pada Kru dipusatkan secara terpadu di **Profil Mandiri Header Atas** (`+ Cuti / Izin`) sehingga menu Cuti di Bottom Navigation Bar Kru resmi dieliminasi untuk mencegah redundansi UI.
+      - Sebagai gantinya, Bottom Bar Kru kini berisi 2 menu baku operasional:
+        1. **`Tugas Saya`**: Status unit tugas hari ini, peran dinas (Driver/Nozzleman/PIC), dan formulir pelaporan kesiapan armada bagi PIC dengan upload foto wajib.
+        2. **`Laporan` (Read-Only)**: Akses transparan bagi seluruh personel untuk memantau rekapitulasi shift resmi (status hadir/izin personel, status 8 armada, logbook kegiatan, laporan insiden) dan tombol *Unduh PDF Resmi (A4)*.
+      - Tombol pengesahan resmi (*"Sahkan Laporan Shift Dinas"*) diproteksi secara ketat dan disembunyikan total pada mode Kru (hanya muncul pada akun pimpinan/Chief).
+    - **Koreksi 16 (Feed Pengumuman Dashboard & Standar Penanganan PDF Mobile):**
+      - Pada halaman **Dashboard**, dihadirkan feed ringkas Pengumuman & Surat Edaran Dinas (maksimal 3 pengumuman terbaru).
+      - **Standar Arsitektur Berkas PDF di Mobile (Anti-Iframe Bug):**
+        - Browser smartphone (terutama iOS Safari dan Android Chrome) bermasalah jika menampilkan file PDF langsung di dalam tag `<iframe>` (scroll macet, pinch-to-zoom tidak responsif, atau memicu unduhan paksa).
+        - Sistem ACMS menerapkan **Dual-Action Mobile PDF UX**:
+          1. *In-App Official Sheet Preview*: Membuka sheet modal pratinjau lembar surat resmi A4 dengan format standar dokumen ARFF YIA sehingga pengguna dapat langsung membaca isi surat tanpa keluar dari aplikasi.
+          2. *Buka Layar Penuh (Native Viewer)*: Membuka berkas PDF asli pada PDF viewer bawaan smartphone (`window.open(url, '_blank')`) dengan gesture zoom dan pencarian teks yang optimal.
+          3. *Unduh Berkas PDF*: Opsi simpan berkas fisik ke memori HP.
+    - **Koreksi 17 (Tab Laporan Dinas Komprehensif - 100% Code Reuse):**
+      - Halaman **Laporan** tidak lagi hanya menampilkan angka ringkasan statistik, melainkan memuat laporan dinas utuh:
+        1. *Rekapitulasi 8 Unit Armada*: Detail status (*Serviceable/Unserviceable*), nama PIC, jumlah kru, dan catatan kendala jika rusak.
+        2. *Presensi Personel*: Rincian personel yang hadir bertugas vs personel yang izin/cuti.
+        3. *Logbook Rangkaian Kegiatan Shift*: Kronologis kegiatan shift dinas (serah terima, apel/briefing, pemeriksaan fisik armada, drill, dsb).
+        4. *Rekapitulasi Insiden*: Nomor laporan (`INC-XXXX`), waktu, klasifikasi kejadian, lokasi airside/grid, tingkat prioritas, dan kronologi penanganan.
+        5. *Otoritas Pengesahan*: Tombol *"Sahkan Laporan Shift Dinas"* hanya tampil bagi Chief. Kru berada dalam mode *Read-Only* yang transparan dan dapat mengunduh PDF resmi (A4).
+    - **Koreksi 18 (Penyelarasan Final Alur Operasional & Keputusan Pengguna):**
+      - **1. Eliminasi Total 'Sahkan Shift'**: Fitur pengesahan shift manual resmi dihapus menyeluruh dari sistem (baik mobile, admin, maupun desktop web). Laporan operasional shift bersifat otomatis dan transparan tanpa perlu tombol penguncian atau status ganda.
+      - **2. Form Kesiapan PIC Bersifat Kondisional**: Pada Dashboard, formulir lapor kesiapan unit armada **hanya muncul bagi personel yang ditugaskan sebagai PIC**. Bagi kru pelaksana (driver pendamping, nozzleman, crew), formulir ini disembunyikan total (*clean interface*).
+      - **3. Dukungan Visual Personel Lepas Piket (Off Duty)**: Personel yang membuka aplikasi di luar jadwal shiftnya disajikan banner status *"Lepas Piket (Off Duty)"* dengan form dinas nonaktif, sementara akses pengumuman dan laporan tetap dapat ditinjau.
+      - **4. Posisi & Logika Kendala Armada**: Widget kendala armada di Dashboard **hanya muncul jika terdapat kendaraan yang berstatus Unserviceable**. Jika seluruh unit siap (*0 kendala*), widget ini disembunyikan.
+      - **5. Pengumuman Ringkas di Bagian Terbawah Dashboard**: Widget Pengumuman Dinas diletakkan di bagian paling bawah Dashboard dan disederhanakan: hanya menampilkan *Judul*, *Deskripsi Singkat*, dan tombol *Baca Lengkap*. Wewenang pembuatan edaran dinas berada di Admin/Dept Head (Desktop).
+      - **6. Fitur Upload Surat pada Form Cuti/Sakit**: Pada modal pengajuan izin/cuti mandiri, disediakan tombol **"Upload"** untuk melampirkan berkas bukti fisik (seperti surat dokter saat sakit atau surat disposisi dinas). Halaman Laporan tetap bersih hanya berfokus pada ringkasan shift dan tombol unduh PDF resmi (A4).
+      - **7. Tanda Tangan Dokumen**: Format pengesahan dokumen cetak (PDF) menggunakan pindaian berkas gambar tanda tangan biasa (tanpa QR code).
+      - **8. Pending Fitur Tukar Dinas**: Opsi permohonan izin mandiri difokuskan pada Cuti Tahunan, Sakit, dan Dinas Luar.
+     - **Koreksi 19 (Penyederhanaan Arsip Pengumuman Dinas & Pagination per 10):**
+       - Pada modal **Arsip Pengumuman Dinas** (diakses via ikon lonceng 🔔 atau tautan *"Lihat Semua →"*):
+         1. **Tanpa Tombol / Teks "Baca Lengkap"**: Seluruh pengumuman dinas berwujud dokumen PDF resmi, sehingga kartu langsung dapat diklik untuk membuka pratinjau surat PDF / native viewer secara instan.
+         2. **Struktur Data Minimalis & Tajam**: Setiap item kartu arsip hanya memuat: (a) **Judul Pengumuman**, (b) **Deskripsi Singkat**, dan (c) **Tanggal Pembuatan** (dilengkapi nomor surat registrasi dinas).
+         3. **Pagination per 10 Item**: Dilengkapi navigasi halaman (`Halaman X dari Y`, tombol `← Sebelumnya`, dan `Selanjutnya →`) untuk memastikan performa render cepat dan layout tidak meluber panjang.
+     - **Koreksi 20 (Sinkronisasi Total Format Laporan Dinas & Pejabat dengan Dokumen DOCX & Excel):**
+       - **Kop & Badan Usaha**: Menggunakan standar resmi **PT ANGKASA PURA INDONESIA - KC BANDARA INTERNASIONAL YOGYAKARTA (YIA)**, Unit ARFF Section, Kode ICAO: WAHI, Kategori Bandara: CAT 8.
+       - **Struktur Pejabat & Penandatangan**: Berdasarkan data riil *1.a.PERSONEL* dan *LEMBAR PENGESAHAN* pada berkas `YIA LAPBUL AGUSTUS 2026.xlsx`:
+         1. **Tamsul Sadikin** (NIP. 20240657) ditetapkan sebagai **ARFF Operation Department Head** (pejabat yang memeriksa dan mengetahui laporan dinas, bukan Ketua Regu).
+         2. **Ghufran Riyadi** (NIP. 20241347) ditetapkan sebagai **ARFF Operation Chief** (Ketua Regu Alpha yang memimpin shift dan membuat laporan).
+       - **Struktur Laporan Shift**: Memenuhi Modul 2, 3, dan 4 `DOK. PEMBUATAN APLILASI OPS ARFF 2026.docx` (I. Kesiapan 8 Unit Armada & Watchroom, II. Presensi & Distribusi Personel, III. Logbook Kegiatan Rutin, IV. Rekapitulasi Laporan Kejadian/Insiden Sisi Udara).
+      - **Koreksi 22 (Penyempurnaan Fitur Cuti: Hapus Tombol Silang & Tambah Cancel Cuti + Upload Foto Dokumentasi Kegiatan & Insiden):**
+        - **1. Halaman Ploting Bersih dari Tombol Hapus Kasar**:
+          - Tombol silang `✕` (`hapusAbsen`) yang berisiko tertekan secara tidak sengaja telah dihapus sepenuhnya dari daftar cuti/absen di halaman Ploting.
+          - Digantikan dengan aksi resmi **"Cancel Cuti"**: tombol terarah yang dilengkapi konfirmasi resmi (*"Batalkan pengajuan izin/cuti untuk [Nama Personel]? Personel akan dikembalikan ke status aktif dinas"*).
+        - **2. Fitur Cancel Cuti Mandiri (Profil Personel)**:
+          - Pada modal Cuti Mandiri, jika personel yang sedang login memiliki permohonan izin/cuti yang sedang aktif di shift berjalan, sistem menampilkan box status *"STATUS: IZIN/CUTI AKTIF"* lengkap dengan tombol merah **"Cancel Cuti Saya (Kembali Bertugas Aktif)"** untuk membatalkan pengajuan dan langsung mengaktifkan kembali personel ke tugas dinas lapangan.
+        - **3. Fitur Upload Foto Dokumentasi di Catat Kegiatan Shift**:
+          - Modal *"Catat Kegiatan Shift"* kini dilengkapi input pengunggahan berkas foto dokumentasi kegiatan (`image/*`) dengan preview thumbnail instan dan label nama file.
+          - Foto terarsip otomatis dan ditampilkan pada linimasa kegiatan di Tab Kegiatan serta di rekapitulasi Tab Laporan Shift.
+        - **4. Fitur Upload Foto Dokumentasi di Laporan Insiden Baru**:
+          - Modal *"Laporan Insiden Baru"* kini dilengkapi input pengunggahan berkas bukti/dokumentasi visual insiden di lapangan (`image/*`) dengan preview thumbnail instan.
+          - Bukti foto terintegrasi pada riwayat insiden di Tab Insiden serta rekapitulasi kejadian di Tab Laporan Shift.
+      - **Koreksi 21 (Pelacakan Status & Audit Trail Pergantian Kesiapan Armada Antar-Regu):**
+        - **Siklus Hidup Kendala (Lifecycle Tracking)**: Menjawab kebutuhan operasional saat armada dinyatakan *Unserviceable* pada suatu tanggal (misal tgl 19 Okt oleh Regu Bravo), status tersebut **otomatis berlanjut (*carried-over*)** pada shift-shift berikutnya tanpa hilang atau ter-reset.
+        - **Pencatatan Pemulihan ke Serviceable (Tgl 25 Okt)**:
+          1. **Pembedaan Jelas di Laporan Shift**: Pada laporan shift dinas tgl 25 Okt (di Regu Charlie), tertulis secara hitam di atas putih: `Rescue 01 (RIV): KEMBALI SERVICEABLE (Pulih dari Unserviceable sejak 19 Okt 2026 oleh Regu Bravo). Diverifikasi oleh PIC Satria Pratama (NIP. 199201102019011003) beserta bukti foto fisik terverifikasi.`
+          2. **Modal Riwayat Kesiapan & Perubahan Status (Audit Trail)**: Disediakan modal timeline kronologis yang dapat dibuka dengan menyentuh status unit di Dashboard, Ploting, maupun Laporan. Tiap entri menampilkan: Tanggal & Waktu, Shift & Regu Dinas, Aksi Perubahan Status (*Awal Unserviceable / Handover / Pulih Serviceable*), Nama & NIP PIC, Catatan Tindak Lanjut Perbaikan, serta status bukti foto fisik.
+          3. **Formulir PIC Cerdas & Antisipatif**: Ketika PIC memeriksa armada yang berstatus bawaan *Unserviceable*, muncul banner peringatan status bawaan. Jika armada telah selesai diperbaiki dan PIC memilih *Serviceable*, sistem otomatis membuka kolom isian wajib: *"Catatan Hasil Perbaikan / Tindak Lanjut"* dan mewajibkan unggah foto fisik bukti verifikasi sebelum disimpan ke audit trail.
+          4. **Dokumen Cetak PDF Resmi**: Memuat baris catatan khusus jejak audit armada di bawah rekapitulasi 8 unit armada agar transparan bagi Dept. Head maupun auditor keselamatan penerbangan.
 
 ---
 
