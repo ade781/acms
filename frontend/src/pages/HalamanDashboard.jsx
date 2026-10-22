@@ -334,317 +334,37 @@ export default function HalamanDashboard() {
 
       {/* Dashboard Utama: Layout 3 Kolom */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-8 items-stretch">
-        {/* Kolom 1 (Kiri): Personel & Kekuatan Regu (Pecah Setengah-Setengah) */}
-        <div className="flex flex-col gap-4 justify-between h-full">
-          {/* Card 1A: Personel Shift Aktif */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-sm flex-1 flex flex-col justify-between hover:border-slate-300 transition-colors duration-100">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Personel Dinas
-                </span>
-                <div className="w-7 h-7 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center">
-                  <Users2 className="w-3.5 h-3.5" />
-                </div>
-              </div>
-
-              <div className="mt-2.5 flex items-baseline gap-2">
-                <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                  {metrics.isPersonnelPlotted ? metrics.dutyPersonnelCount : metrics.totalPersonnelCount}
-                </span>
-                <span className="text-xs text-slate-500 font-medium">
-                  / {metrics.totalPersonnelCount} Personel ({formatTeam(activeTeam)})
-                </span>
-              </div>
-
-              {/* Status Kehadiran (3 Kotak Lega) */}
-              <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                <div className="px-2 py-2 rounded-lg bg-emerald-50 border border-emerald-200/70">
-                  <span className="text-[10px] text-emerald-700 font-semibold uppercase block leading-none mb-1">
-                    Dinas
-                  </span>
-                  <span className="text-base font-bold text-emerald-800">
-                    {metrics.dutyPersonnelCount}
-                  </span>
-                </div>
-
-                <div className={`px-2 py-2 rounded-lg border ${
-                  metrics.absentPersonnelCount > 0
-                    ? 'bg-amber-50 border-amber-200 text-amber-900'
-                    : 'bg-slate-50 border-slate-200/70 text-slate-600'
-                }`}>
-                  <span className="text-[10px] font-semibold uppercase block leading-none mb-1 text-slate-500">
-                    Izin/Cuti
-                  </span>
-                  <span className="text-base font-bold">
-                    {metrics.absentPersonnelCount}
-                  </span>
-                </div>
-
-                <div className="px-2 py-2 rounded-lg bg-slate-50 border border-slate-200/70 text-slate-700">
-                  <span className="text-[10px] font-semibold uppercase block leading-none mb-1 text-slate-500">
-                    Cadangan
-                  </span>
-                  <span className="text-base font-bold text-slate-800">
-                    {metrics.isPersonnelPlotted
-                      ? Math.max(0, metrics.totalPersonnelCount - metrics.dutyPersonnelCount - metrics.absentPersonnelCount)
-                      : metrics.totalPersonnelCount}
-                  </span>
-                </div>
-              </div>
-
-              {/* Catatan Izin/Cuti jika ada */}
-              {metrics.absentDetails && metrics.absentDetails.length > 0 ? (
-                <div className="mt-2.5 p-2 rounded-lg bg-amber-50/70 border border-amber-200/80 text-[11px] text-amber-900">
-                  <span className="font-semibold block text-amber-800 mb-0.5">Personel Berhalangan:</span>
-                  <p className="line-clamp-2">
-                    {metrics.absentDetails.map((a) => `${a.full_name} (${a.reason || 'Izin'})`).join(', ')}
-                  </p>
-                </div>
-              ) : (
-                <div className="mt-2.5 text-xs text-slate-500 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  <span>Semua anggota hadir dinas</span>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-3 pt-2.5 border-t border-slate-100 text-xs font-medium text-slate-600 flex items-center justify-between">
-              <span className="text-slate-500">Shift {activeShiftNumber}</span>
-              <button
-                type="button"
-                onClick={() => navigate('/deployment')}
-                className="text-slate-800 hover:text-slate-900 hover:underline font-semibold"
-              >
-                {metrics.isPersonnelPlotted ? 'Lihat Ploting →' : '+ Atur Ploting →'}
-              </button>
-            </div>
+        {/* Kolom 1 (Kiri): Container 1 & Container 2 */}
+        <div className="flex flex-col gap-4 h-full">
+          {/* Container 1 */}
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex-1 flex items-center justify-center text-center min-h-[220px]">
+            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">
+              Coming Soon
+            </span>
           </div>
 
-          {/* Card 1B: Kekuatan Personel & Breakdown Regu (Dibawah Container Personel) */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-sm flex-1 flex flex-col justify-between hover:border-slate-300 transition-colors duration-100">
-            <div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-                    Total Personel
-                  </span>
-                  <div className="mt-1 flex items-baseline gap-1.5">
-                    <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                      {allPersonnelList.length || 69}
-                    </span>
-                    <span className="text-xs text-slate-500 font-medium">Anggota</span>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md block">
-                    Siaga Operasional
-                  </span>
-                </div>
-              </div>
-
-              {/* Grid 4 Tim (Alpha, Bravo, Charlie, Delta) */}
-              <div className="mt-3.5 grid grid-cols-2 gap-2">
-                {['Alpha', 'Bravo', 'Charlie', 'Delta'].map((teamName) => {
-                  const teamCount = allPersonnelList.filter(
-                    (p) => cleanTeam(p.team_group).toLowerCase() === teamName.toLowerCase()
-                  ).length || (teamName === 'Alpha' ? 18 : 17);
-
-                  const isOnDuty = cleanTeam(teamName).toLowerCase() === cleanTeam(activeTeam).toLowerCase();
-
-                  const teamStyles = {
-                    alpha: {
-                      activeCard: 'bg-red-50/90 border-red-300 ring-1 ring-red-400/30 text-red-950',
-                      activeBadge: 'bg-red-100 text-red-800 border-red-300',
-                      activeCount: 'text-red-900',
-                    },
-                    bravo: {
-                      activeCard: 'bg-blue-50/90 border-blue-300 ring-1 ring-blue-400/30 text-blue-950',
-                      activeBadge: 'bg-blue-100 text-blue-800 border-blue-300',
-                      activeCount: 'text-blue-900',
-                    },
-                    charlie: {
-                      activeCard: 'bg-emerald-50/90 border-emerald-300 ring-1 ring-emerald-400/30 text-emerald-950',
-                      activeBadge: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-                      activeCount: 'text-emerald-900',
-                    },
-                    delta: {
-                      activeCard: 'bg-purple-50/90 border-purple-300 ring-1 ring-purple-400/30 text-purple-950',
-                      activeBadge: 'bg-purple-100 text-purple-800 border-purple-300',
-                      activeCount: 'text-purple-900',
-                    },
-                  };
-                  const s = teamStyles[teamName.toLowerCase()];
-
-                  return (
-                    <div
-                      key={teamName}
-                      className={`p-2.5 rounded-lg border flex flex-col justify-between transition-colors duration-100 ${
-                        isOnDuty ? s.activeCard : 'bg-slate-50/60 border-slate-200/80 text-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-[11px] font-bold uppercase tracking-wider truncate">
-                          {teamName}
-                        </span>
-                        {isOnDuty ? (
-                          <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full border ${s.activeBadge}`}>
-                            Bertugas
-                          </span>
-                        ) : (
-                          <span className="text-[9px] font-medium text-slate-400">
-                            Off
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="my-1.5 flex items-baseline gap-1">
-                        <span className={`text-lg sm:text-xl font-extrabold tracking-tight ${isOnDuty ? s.activeCount : 'text-slate-900'}`}>
-                          {teamCount}
-                        </span>
-                        <span className="text-[10px] text-slate-500 font-medium">Personel</span>
-                      </div>
-
-                      <div className="text-[10px] font-medium leading-tight">
-                        {isOnDuty ? (
-                          <span className="font-bold text-emerald-700">Dinas Aktif Saat Ini</span>
-                        ) : (
-                          <span className="text-slate-400">Siaga Cadangan</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="mt-3 pt-2.5 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
-              <span>Status Penugasan</span>
-              <span className="font-semibold text-slate-700">
-                {cleanTeam(activeTeam)} Bertugas
-              </span>
-            </div>
+          {/* Container 2 */}
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex-1 flex items-center justify-center text-center min-h-[220px]">
+            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">
+              Coming Soon
+            </span>
           </div>
         </div>
 
-        {/* Kolom 2 (Tengah): Kesiapan Operasi & Logbook Kegiatan (Pecah Setengah-Setengah) */}
-        <div className="flex flex-col gap-4 justify-between h-full">
-          {/* Card 2A: Kesiapan Operasi */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-sm flex-1 flex flex-col justify-between hover:border-slate-300 transition-colors duration-100">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Kesiapan Operasi
-                </span>
-                <div className="w-7 h-7 rounded-lg bg-red-50 text-arff-primary flex items-center justify-center">
-                  <Truck className="w-3.5 h-3.5" />
-                </div>
-              </div>
-
-              <div className="mt-2.5 flex items-baseline gap-2">
-                <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                  {metrics.serviceableVehicles}
-                </span>
-                <span className="text-xs text-slate-500 font-medium">
-                  / {metrics.totalVehicles} Unit Siap
-                </span>
-              </div>
-
-              {/* Progress Bar & Status */}
-              <div className="mt-3">
-                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                  <div
-                    className={`h-2 rounded-full transition-all duration-300 ${
-                      metrics.totalVehicles > 0 && metrics.serviceableVehicles === metrics.totalVehicles
-                        ? 'bg-emerald-500'
-                        : metrics.unserviceableVehicles > 0
-                        ? 'bg-red-500'
-                        : 'bg-amber-500'
-                    }`}
-                    style={{
-                      width: `${metrics.totalVehicles > 0 ? (metrics.serviceableVehicles / metrics.totalVehicles) * 100 : 0}%`,
-                    }}
-                  />
-                </div>
-
-                <div className="mt-2 text-xs font-medium">
-                  {metrics.totalVehicles === 0 ? (
-                    <span className="text-slate-500">Belum ada unit terdaftar</span>
-                  ) : metrics.unserviceableVehicles > 0 ? (
-                    <span className="text-red-700 font-bold">{metrics.unserviceableVehicles} unit rusak</span>
-                  ) : metrics.serviceableVehicles === metrics.totalVehicles ? (
-                    <span className="text-emerald-700 font-semibold">Semua unit siap dinas</span>
-                  ) : (
-                    <span className="text-amber-700 font-medium">{metrics.totalVehicles - metrics.serviceableVehicles} unit belum diperiksa</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Ringkasan Komposisi Unit */}
-              <div className="mt-2.5 pt-2 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
-                <span>7 Armada</span>
-                <span>1 Posko</span>
-              </div>
-            </div>
-
-            <div className="mt-3 pt-2.5 border-t border-slate-100 text-xs font-medium text-slate-600 flex items-center justify-between">
-              <span className="text-slate-500">Total 8 Unit</span>
-              <button
-                type="button"
-                onClick={() => navigate('/readiness/vehicles')}
-                className="text-slate-800 hover:text-slate-900 hover:underline font-semibold"
-              >
-                Detail Kesiapan →
-              </button>
-            </div>
+        {/* Kolom 2 (Tengah): Container 3 & Container 4 */}
+        <div className="flex flex-col gap-4 h-full">
+          {/* Container 3 */}
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex-1 flex items-center justify-center text-center min-h-[220px]">
+            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">
+              Coming Soon
+            </span>
           </div>
 
-          {/* Card 2B: Logbook Kegiatan */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-sm flex-1 flex flex-col justify-between hover:border-slate-300 transition-colors duration-100">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Logbook Kegiatan
-                </span>
-                <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center">
-                  <ClipboardList className="w-3.5 h-3.5" />
-                </div>
-              </div>
-
-              <div className="mt-2.5 flex items-baseline gap-2">
-                <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                  {metrics.activitiesCount}
-                </span>
-                <span className="text-xs text-slate-500 font-medium">
-                  Kegiatan Dicatat
-                </span>
-              </div>
-
-              <div className="mt-2.5 text-xs">
-                {metrics.activitiesCount > 0 ? (
-                  <span className="text-emerald-700 font-medium flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    Jurnal kegiatan terisi
-                  </span>
-                ) : (
-                  <span className="text-slate-500 flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    Belum ada kegiatan
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-3 pt-2.5 border-t border-slate-100 text-xs font-medium text-slate-600 flex items-center justify-between">
-              <span className="text-slate-500">Jurnal Harian</span>
-              <button
-                type="button"
-                onClick={() => navigate('/activities')}
-                className="text-slate-800 hover:text-slate-900 hover:underline font-semibold"
-              >
-                Buka Logbook →
-              </button>
-            </div>
+          {/* Container 4 */}
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex-1 flex items-center justify-center text-center min-h-[220px]">
+            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">
+              Coming Soon
+            </span>
           </div>
         </div>
 
