@@ -1,5 +1,5 @@
 -- Skema Database Sistem Monitoring ARFF (logbuk)
--- 12 Tabel Resmi Sesuai Panduan Operasional
+-- Tabel Resmi Terintegrasi Sesuai Panduan Operasional & Kode Aktif
 
 CREATE TABLE IF NOT EXISTS `users` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
@@ -7,7 +7,9 @@ CREATE TABLE IF NOT EXISTS `users` (
   `name` VARCHAR(100) NOT NULL,
   `email` VARCHAR(100) NULL UNIQUE,
   `password_hash` VARCHAR(255) NOT NULL,
-  `role` ENUM('operator', 'supervisor', 'admin') NOT NULL DEFAULT 'operator',
+  `role` ENUM('admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor', 'senior_firefighter', 'junior_firefighter', 'operator') NOT NULL DEFAULT 'junior_firefighter',
+  `must_change_password` TINYINT(1) NOT NULL DEFAULT 1,
+  `signature_url` VARCHAR(255) NULL DEFAULT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -25,6 +27,7 @@ CREATE TABLE IF NOT EXISTS `personnel` (
   `cert_level` ENUM('Basic', 'Junior', 'Senior') NOT NULL DEFAULT 'Basic',
   `cert_number` VARCHAR(100) NULL,
   `cert_expiry_date` DATE NULL,
+  `signature_url` VARCHAR(255) NULL DEFAULT NULL,
   `is_active` TINYINT(1) NOT NULL DEFAULT 1,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -35,7 +38,7 @@ CREATE TABLE IF NOT EXISTS `vehicles` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `code_name` VARCHAR(50) NOT NULL UNIQUE,
   `vehicle_name` VARCHAR(100) NOT NULL,
-  `category` ENUM('utama', 'pendukung') NOT NULL,
+  `category` ENUM('utama', 'pendukung', 'posko') NOT NULL DEFAULT 'utama',
   `license_plate` VARCHAR(30) NULL,
   `description` TEXT NULL,
   `is_active` TINYINT(1) NOT NULL DEFAULT 1,
@@ -164,7 +167,7 @@ CREATE TABLE IF NOT EXISTS `personnel_documents` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `personnel_id` INT NOT NULL,
   `title` VARCHAR(255) NOT NULL,
-  `document_type` ENUM('lisensi_stkp', 'sertifikat_diklat', 'medical_checkup', 'sk_tugas', 'dokumen_lain') NOT NULL DEFAULT 'dokumen_lain',
+  `document_type` ENUM('lisensi_stkp', 'sertifikat_diklat', 'medical_checkup', 'sk_tugas', 'cuti', 'dokumen_lain') NOT NULL DEFAULT 'dokumen_lain',
   `file_name` VARCHAR(255) NOT NULL,
   `file_url` VARCHAR(500) NOT NULL,
   `file_size` INT DEFAULT 0,
@@ -175,6 +178,7 @@ CREATE TABLE IF NOT EXISTS `personnel_documents` (
   CONSTRAINT `fk_pdoc_personnel` FOREIGN KEY (`personnel_id`) REFERENCES `personnel` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_pdoc_uploader` FOREIGN KEY (`uploaded_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `announcements` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `title` VARCHAR(255) NOT NULL,
@@ -200,4 +204,38 @@ CREATE TABLE IF NOT EXISTS `announcement_reads` (
   INDEX `idx_announcement` (`announcement_id`),
   CONSTRAINT `fk_aread_announcement` FOREIGN KEY (`announcement_id`) REFERENCES `announcements` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_aread_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `schedule_cycles` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `start_date` DATE NOT NULL,
+  `pattern_json` TEXT NOT NULL,
+  `notes` TEXT NULL,
+  `created_by` INT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX `idx_sc_start_date` (`start_date`),
+  CONSTRAINT `fk_sc_creator` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `schedule_rosters` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `roster_date` DATE NOT NULL UNIQUE,
+  `shift_1_team` ENUM('Alpha', 'Bravo', 'Charlie', 'Delta') NOT NULL,
+  `shift_2_team` ENUM('Alpha', 'Bravo', 'Charlie', 'Delta') NOT NULL,
+  `shift_3_team` ENUM('Alpha', 'Bravo', 'Charlie', 'Delta') NOT NULL,
+  `off_team` ENUM('Alpha', 'Bravo', 'Charlie', 'Delta') NOT NULL,
+  `notes` TEXT NULL,
+  `created_by` INT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX `idx_sr_date` (`roster_date`),
+  CONSTRAINT `fk_sr_creator` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `system_settings` (
+  `setting_key` VARCHAR(100) NOT NULL PRIMARY KEY,
+  `setting_value` TEXT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

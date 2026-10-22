@@ -81,10 +81,25 @@ export const getMe = async (req, res) => {
       return errorResponse(res, 'Pengguna tidak ditemukan', 404);
     }
 
-    return successResponse(res, 'Profil pengguna berhasil diambil', {
-      ...users[0],
-      must_change_password: Boolean(users[0].must_change_password)
-    });
+    const user = users[0];
+    const safeProfile = {
+      id: user.id,
+      username: user.username,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      must_change_password: Boolean(user.must_change_password),
+      created_at: user.created_at,
+      personnel_id: user.personnel_id,
+      nip: user.nip,
+      full_name: user.full_name,
+      rank_position: user.rank_position,
+      team_group: user.team_group,
+      cert_level: user.cert_level,
+      employment_status: user.employment_status
+    };
+
+    return successResponse(res, 'Profil pengguna berhasil diambil', safeProfile);
   } catch (error) {
     console.error('Error getMe:', error);
     return errorResponse(res, 'Terjadi kesalahan saat mengambil data profil', 500);

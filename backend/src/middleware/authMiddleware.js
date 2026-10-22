@@ -4,13 +4,22 @@ import { errorResponse } from '../utils/responseHelper.js';
 
 export const requireAuth = async (req, res, next) => {
   try {
+    let token = null;
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.query && req.query.token) {
+      token = req.query.token;
+    }
+
+    if (!token) {
       return errorResponse(res, 'Akses ditolak: Token autentikasi tidak ditemukan', 401);
     }
 
-    const token = authHeader.split(' ')[1];
     const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      return errorResponse(res, 'Konfigurasi server internal tidak lengkap', 500);
+    }
 
     const decoded = jwt.verify(token, secret);
 
