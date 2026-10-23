@@ -1,66 +1,88 @@
-# FEEDBACK HASIL PEKERJAAN: AGENT 2 (LOGIKA OPERASIONAL, PLOTING, PERSONEL, CUTI & KESIAPAN ARMADA)
+# PANDUAN TUGAS: AGENT 2 - MOBILE DASHBOARD (TUGAS SAYA, KESIAPAN PIC, RINGKASAN DINAS & CUTI MANDIRI)
 
-**Status:** SELESAI & DIVERIFIKASI (PASSED)
-
----
-
-### Evaluasi Pencapaian Tugas:
-1. **Otorisasi & Transaksi Data Personel (Audit 1.2, 1.4, 2.2)**:
-   - **Hasil:** Sangat Baik. Di `updatePersonnel`, kru biasa dibatasi hanya boleh mengubah data profil biodata dirinya sendiri. Field struktural kedinasan (`team_group`, `rank_position`, `is_active`, `employment_status`, `cert_level`, `full_name`, `nip`) diproteksi dan hanya bisa diubah oleh pimpinan (`admin`, `dept_head`, `chief`, `supervisor`).
-   - Endpoint `GET /api/personnel/:id/documents` kini memiliki pengecekan wewenang: hanya pemilik dokumen atau pimpinan yang dapat melihat daftar dokumen.
-   - Di `createPersonnel`, insert ke `users` dan `personnel` telah dibungkus transaksi `connection.beginTransaction()` dan rollback. Pengembalian teks `default_password` pada respons API telah dihapus.
-2. **Koreksi Bug SQL Cuti & Integritas Ploting (Audit 2.2, 2.3, 3.1, 3.3)**:
-   - **Hasil:** Sangat Baik. **Bug fatal SQL di `requestLeaveRange` telah diperbaiki**: nama kolom disesuaikan menjadi `document_type` dan `file_url`, sehingga upload lampiran cuti tidak lagi crash 500.
-   - Trik penunjukan PIC otomatis diam-diam (`crew[0].is_pic = true`) berhasil dihapus. Jika unit belum memiliki PIC, sistem mengembalikan error validasi HTTP 400 dengan pesan yang jelas bagi pengguna.
-   - Sesuai aturan `GEMINI.md`, **endpoint sisa pengesahan manual `approveShift` (`POST /api/deployments/approve`) berhasil dihapus tuntas**. Laporan dinas shift kini murni terekapitulasi otomatis secara transparan.
-3. **Kesiapan Armada & Watchroom (Audit 4.1, 4.2, 4.3, 8.1)**:
-   - **Hasil:** Sangat Baik. Loop query N+1 pada `getVehicleReadiness` berhasil dieliminasi dan digantikan oleh 1 query agregat efisien dengan subquery `MAX(shift_date, shift_number)`.
-   - Di `submitVehicleReadiness`, `follow_up_status` divalidasi terhadap enum (`pending`, `in_progress`, `resolved`), dan kondisi `unserviceable` dilarang diset `resolved` secara tidak sah.
-   - Kategori `'posko'` pada unit Watchroom ditangani secara konsisten bersama armada utama dan pendukung.
+## Peran & Batasan Tanggung Jawab
+Agent 2 bertindak sebagai **Spesialis Dashboard & Kesiapan Tugas Lapangan Mobile**. Bertanggung jawab penuh membangun tampilan Tab Utama Dashboard (`MobileDashboard.jsx`), kartu penugasan dinas individu, formulir pelaporan kesiapan armada oleh PIC, widget kendala armada, feed pengumuman ringkas, serta modal pengajuan cuti/izin mandiri.
+- **DILARANG** menyentuh komponen shell luar (`MobileLayout`, `MobileHeader`, `MobileBottomNav`) agar tidak tabrakan dengan Agent 1.
+- **DILARANG** mengutak-atik halaman ploting 8 unit armada / crew picker (Tugas Agent 3).
+- **DILARANG** mengutak-atik modul kegiatan rutin & insiden (Tugas Agent 4).
+- **DILARANG** mengutak-atik halaman laporan shift dinas / modal audit trail (Tugas Agent 5).
+- **WAJIB** mematuhi aturan baku di [`GEMINI.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/GEMINI.md), [`plan.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/plan.md), dan prototype [`masak/mobile/tipe_2_chief.html`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/mobile/tipe_2_chief.html).
 
 ---
 
-# TUGAS TAMBAHAN: UNIT TESTING (AGENT 2)
-
-## Workspace & Lokasi File
-- **Direktori Uji:** `masak/unit_testing/`
-- **Nama File Skrip Uji:** `masak/unit_testing/test_operational_deployment_readiness.js`
-- **Format:** Node.js ESM script mandiri (`node masak/unit_testing/test_operational_deployment_readiness.js`), memanfaatkan modul backend dan koneksi pool database.
-
----
-
-## Cakupan Fitur yang Wajib Diuji Secara Menyeluruh
-
-### 1. Manajemen Personel & Otorisasi Profil (`personnelController.js`)
-- [x] **Transaksi `createPersonnel`:** Pendaftaran personel baru berhasil membuat entri di tabel `users` dan `personnel`. Pastikan tidak ada kebocoran field `default_password` pada respons API. Uji rollback jika salah satu query sengaja digagalkan.
-- [x] **Proteksi Field Struktural di `updatePersonnel`:** Kru biasa hanya boleh mengubah data biodata pribadi (tanggal lahir, pendidikan, dll). Percobaan mengubah `team_group`, `rank_position`, `is_active`, `employment_status`, atau `role` oleh kru biasa wajib diabaikan/ditolak oleh server.
-- [x] **Pengecekan Akses Dokumen Personel:** Endpoint `GET /api/personnel/:id/documents` menolak akses pengguna yang bukan pemilik dan bukan pimpinan (HTTP 403).
-
-### 2. Ploting Shift & Aturan Penugasan (`deploymentController.js`)
-- [x] **Penugasan Normal:** Ploting unit armada dengan tepat 1 PIC dan kru (maksimal 4 orang) berhasil disimpan.
-- [x] **Penolakan Duplikasi Personel:** Sistem menolak jika 1 personel diplot pada 2 unit armada berbeda atau bertugas sekaligus cuti pada shift yang sama (HTTP 400).
-- [x] **Pembatasan Maksimal Kru:** Sistem menolak jika 1 unit diisi lebih dari 4 orang kru (HTTP 400).
-- [x] **KEWAJIBAN 1 PIC (Anti-Silent Assignment):** Sistem menolak dengan HTTP 400 jika unit tidak memiliki PIC (`picCount === 0`). Tidak boleh ada lagi penunjukan PIC otomatis diam-diam.
-- [x] **Pelepasan Ploting Saat Absent:** Jika personel ditandai `absent` (cuti/izin), penugasannya pada armada kendaraan operasional otomatis dibatalkan/dilepaskan.
-- [x] **Verifikasi Penghapusan Sisa Pengesahan Shift:** Memastikan endpoint `/api/deployments/approve` sudah tidak ada (mengembalikan HTTP 404).
-
-### 3. Modul Cuti & Integritas SQL (`requestLeaveRange`)
-- [x] **Rentang Cuti:** Pengajuan cuti multi-hari berhasil mencatat status `absent` untuk setiap hari dinas dalam rentang tersebut.
-- [x] **Integritas Kolom Unggah Bukti Cuti:** Pengunggahan berkas bukti cuti berhasil menyimpan ke kolom `document_type` dan `file_url` pada tabel `personnel_documents` tanpa error SQL.
-
-### 4. Kesiapan Armada & Watchroom (`readinessController.js`)
-- [x] **Pelaporan Kesiapan oleh PIC:** Personel yang bertindak sebagai PIC armada pada shift aktif berhak mengirimkan laporan serviceable (sukses 200).
-- [x] **Penolakan Non-PIC:** Personel yang bukan PIC dan bukan pimpinan ditolak saat mencoba melaporkan kesiapan unit (HTTP 403).
-- [x] **Wajib Justifikasi Unserviceable:** Status armada `unserviceable` tanpa teks justifikasi wajib ditolak (HTTP 400).
-- [x] **Validasi Follow-up Status:** Status kendala armada hanya boleh `pending`, `in_progress`, atau `resolved`.
-- [x] **Pencegahan Status Ilegal:** Kondisi armada `unserviceable` tidak dapat ditandai sebagai `resolved` (HTTP 400).
-- [x] **Efisiensi Query Carry-Over:** Memastikan fungsi `getVehicleReadiness` mengambil kendala shift sebelumnya menggunakan 1 query agregat tanpa query berulang di dalam perulangan loop.
-- [x] **Kesiapan Posko Watchroom:** Pelaporan kondisi Posko Watchroom (kategori posko) berhasil disimpan dan terekam dengan benar.
+## Berkas yang Dikelola oleh Agent 2 (Eksklusif)
+1. `frontend/src/pages/mobile/MobileDashboard.jsx`
+2. `frontend/src/components/mobile/dashboard/MobileDutyCard.jsx`
+3. `frontend/src/components/mobile/dashboard/MobilePicReadinessForm.jsx`
+4. `frontend/src/components/mobile/dashboard/MobileOpsSummaryCards.jsx`
+5. `frontend/src/components/mobile/dashboard/MobileUnserviceableWidget.jsx`
+6. `frontend/src/components/mobile/dashboard/MobileRecentAnnouncements.jsx`
+7. `frontend/src/components/mobile/dashboard/MobileLeaveModal.jsx`
 
 ---
 
-## Format Eksekusi & Output Pengujian
-Skrip harus mencetak ringkasan hasil pengujian yang jelas di terminal:
-- `[PASS]` / `[FAIL]` per kasus uji.
-- Total pengujian yang dijalankan, jumlah lulus, dan jumlah gagal.
-- Exit code 0 jika semua lulus, exit code 1 jika ada yang gagal.
+## Standar Desain & Aturan Kritis (`GEMINI.md` & `plan.md`)
+1. **Kartu Tugas Dinas Saya (`MobileDutyCard.jsx`)**:
+   - Jika personel bertugas aktif di shift berjalan: tampilkan nama petugas, NIP, badge lisensi STKP, nama unit kendaraan/posko jaga (misal: "Foam Tender 01"), dan peran operasional (Driver Utama / Nozzleman / Rescuer / Komunikasi) beserta badge `PIC` bila ditugaskan sebagai PIC.
+   - **Mode Lepas Piket (Off Duty)**: Jika personel membuka aplikasi di luar jadwal shiftnya, sembunyikan form kesiapan dan tampilkan banner amber elegan: *"Status Hari Ini: Lepas Piket (Off Duty). Anda tidak memiliki jadwal dinas aktif pada Shift ini."*
+2. **Formulir Kesiapan PIC Bersifat Sangat Kondisional (`MobilePicReadinessForm.jsx`)**:
+   - **HANYA MUNCUL JIKA USER DITUGASKAN SEBAGAI PIC** pada kendaraan/watchroom di shift berjalan. Bagi kru biasa (driver pendamping, nozzleman, kru bantuan), formulir ini disembunyikan total (*clean interface*).
+   - Juga muncul bagi Komandan Regu (Chief) jika Chief merangkap sebagai PIC salah satu armada.
+   - Pilihan status murni baku: **`Serviceable`** (Hijau) vs **`Unserviceable`** (Merah).
+   - **Status Bawaan Estafet (Carried-over)**: Jika kendaraan berstatus bawaan *Unserviceable* dari regu sebelumnya, tampilkan banner peringatan merah berdenyut (*pulse*) lengkap dengan ringkasan kerusakan sebelumnya dan tombol untuk memeriksa riwayat kendala.
+   - **Upload Foto Fisik WAJIB UNTUK KEDUANYA**: Baik saat memilih `Serviceable` (bukti pergantian shift) maupun `Unserviceable` (bukti kendala/kerusakan). Lengkapi dengan kompresi WebP instan dan thumbnail pratinjau.
+   - Field *Keterangan Kerusakan & Kendala*: Wajib diisi jika status `Unserviceable`. Jika memulihkan unit unserviceable menjadi serviceable, otomatis minta input catatan perbaikan.
+3. **Ringkasan Situasi Operasional (`MobileOpsSummaryCards.jsx`)**:
+   - Dua kartu metrik berdampingan (grid 2 kolom, border tipis, anti-glow):
+     - Kartu 1 (Personel): Jumlah hadir bertugas vs total kekuatan regu (misal: `15 / 17 Hadir`, `2 Izin/Cuti`), dilengkapi tombol aksi `+ Izin Saya`.
+     - Kartu 2 (Armada & Pos): Jumlah unit serviceable vs total 8 unit (misal: `7 / 8 Siap`), keterangan unit unserviceable.
+4. **Widget Kendala Armada (`MobileUnserviceableWidget.jsx`)**:
+   - **HANYA MUNCUL JIKA TERDAPAT UNIT UNSERVICEABLE**. Jika seluruh unit siap (0 kendala), widget disembunyikan otomatis (*clean zero-clutter*).
+   - Menampilkan daftar unit yang bermasalah, regu pelapor awal, dan deskripsi kerusakan.
+5. **Widget Pengumuman Dinas Ringkas (`MobileRecentAnnouncements.jsx`)**:
+   - Diletakkan di **paling bawah Dashboard**.
+   - Menampilkan maksimal 3 pengumuman terbaru dengan struktur data ringkas: (a) Judul Pengumuman, (b) Deskripsi Singkat, (c) Tanggal Surat.
+   - Dilengkapi tautan *"Lihat Semua →"* yang memicu `MobileAnnouncementsModal`. Mengklik kartu pengumuman langsung memicu pembukaan dokumen PDF resmi.
+6. **Modal Pengajuan Cuti / Izin Mandiri (`MobileLeaveModal.jsx`)**:
+   - Kategori izin: Cuti Tahunan, Sakit, Dinas Luar.
+   - Input tanggal mulai & tanggal selesai, alasan, dan tombol upload surat keterangan (surat dokter/disposisi dinas).
+   - **Fitur Cancel Cuti Mandiri**: Jika personel sedang berstatus cuti aktif di shift tersebut, tampilkan kotak status *"STATUS: IZIN/CUTI AKTIF"* lengkap dengan tombol merah **"Cancel Cuti (Kembali Bertugas Aktif)"** untuk membatalkan izin dan mengaktifkan kembali personel ke tugas dinas.
+
+---
+
+## Rincian Tugas yang Wajib Dikerjakan
+
+### 1. Bangun Halaman `MobileDashboard.jsx`
+- Hubungkan data dinas aktif dari `AuthContext` (tanggal dinas, shift berjalan, regu dinas).
+- Muat data ploting shift berjalan melalui API `/api/deployments/current` untuk mengecek penugasan user saat ini (apakah sebagai PIC atau Kru biasa, atau Lepas Piket).
+- Muat ringkasan kesiapan 8 unit armada dari `/api/readiness/vehicles`.
+- Muat daftar pengumuman dinas dari `/api/announcements`.
+
+### 2. Kembangkan `MobileDutyCard.jsx`
+- Desain kartu grounded putih dengan border `border-slate-200 shadow-xs`.
+- Tangani 2 kondisi: Dinas Aktif vs Lepas Piket (Off Duty).
+- Tampilkan badge PIC berwarna amber kontras saat user bertindak sebagai komandan kendaraan/operator utama.
+
+### 3. Kembangkan `MobilePicReadinessForm.jsx`
+- Tangani state pemilihan status (`serviceable` / `unserviceable`).
+- Terapkan validasi upload berkas foto bukti fisik (`image/*`) dengan preview foto instan.
+- Kirim laporan ke endpoint backend `/api/readiness/vehicles` dengan payload:
+  `{ vehicle_id, date, shift_number, status, notes, justification, photo_file }`.
+- Setelah berhasil disimpan, berikan feedback instan dan perbarui status unit di dashboard.
+
+### 4. Kembangkan `MobileOpsSummaryCards.jsx` & `MobileUnserviceableWidget.jsx`
+- Format angka jujur (tidak ada angka hardcoded 17).
+- Sembunyikan widget kendala jika tidak ada unit rusak.
+
+### 5. Kembangkan `MobileLeaveModal.jsx`
+- Tangani permohonan izin baru mandiri ke endpoint `/api/leave`.
+- Tangani aksi pembatalan izin mandiri (*cancel leave*) via endpoint `/api/leave/:id/cancel` atau `/api/leave/cancel-mine`.
+
+---
+
+## Kriteria Selesai Agent 2
+- Personel login dapat melihat status dinasnya secara akurat (apakah bertugas pada unit tertentu atau lepas piket).
+- Formulir kesiapan PIC hanya tampil jika user bertugas sebagai PIC, dan mewajibkan foto bukti fisik untuk Serviceable maupun Unserviceable.
+- Widget kendala armada otomatis muncul saat ada unit rusak dan sembunyi saat semua unit siap.
+- Modal cuti mandiri mendukung pengajuan baru, upload surat bukti, dan tombol pembatalan cuti (*cancel cuti*).
+- Kompilasi `npm run build` sukses 0 error.

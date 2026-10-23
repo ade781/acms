@@ -38,7 +38,6 @@ export default function HalamanCuti() {
   const [teamPersonnel, setTeamPersonnel] = useState([]);
   const [existingDeployments, setExistingDeployments] = useState([]);
   const [absentList, setAbsentList] = useState([]);
-  const [isApproved, setIsApproved] = useState(false);
   const [supervisorName, setSupervisorName] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -74,7 +73,6 @@ export default function HalamanCuti() {
       setTeamPersonnel(personnel);
 
       const depData = depRes.data;
-      setIsApproved(Boolean(depData?.status === 'approved'));
       setSupervisorName(depData?.supervisor_name || '');
       setExistingDeployments(depData?.deployments || []);
 
@@ -237,7 +235,6 @@ export default function HalamanCuti() {
         shiftDate={activeDate}
         teamGroup={activeTeam}
         supervisorName={supervisorName}
-        isApproved={isApproved}
         personnelStats={{
           total: teamPersonnel.length,
           duty: Math.max(0, teamPersonnel.length - absentList.length),
@@ -287,7 +284,7 @@ export default function HalamanCuti() {
                 {!isAdmin && !isSupervisor ? 'Ajukan Izin / Cuti Saya' : 'Ajukan Cuti (Rentang Tanggal)'}
               </Button>
 
-              {(isAdmin || isSupervisor) && (!isApproved || isAdmin) && (
+              {(isAdmin || isSupervisor) && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -313,7 +310,7 @@ export default function HalamanCuti() {
               {absentList.map((abs, idx) => {
                 const isMyOwnLeave = user?.personnel_id && Number(user.personnel_id) === Number(abs.personnel_id);
                 const canModifyThis = isAdmin || isSupervisor;
-                const canDeleteThis = (isAdmin || isSupervisor || isMyOwnLeave) && (!isApproved || isAdmin);
+                const canDeleteThis = isAdmin || isSupervisor || isMyOwnLeave;
 
                 return (
                   <div
@@ -327,7 +324,7 @@ export default function HalamanCuti() {
                       </label>
                       <select
                         value={abs.personnel_id || ''}
-                        disabled={!canModifyThis || (isApproved && !isAdmin)}
+                        disabled={!canModifyThis}
                         onChange={(e) => {
                           const updated = [...absentList];
                           updated[idx].personnel_id = e.target.value ? Number(e.target.value) : '';
@@ -351,7 +348,7 @@ export default function HalamanCuti() {
                       </label>
                       <select
                         value={abs.reason}
-                        disabled={!canModifyThis || (isApproved && !isAdmin)}
+                        disabled={!canModifyThis}
                         onChange={(e) => {
                           const updated = [...absentList];
                           updated[idx].reason = e.target.value;
@@ -375,7 +372,7 @@ export default function HalamanCuti() {
                         type="text"
                         placeholder="Contoh: Izin keperluan keluarga, surat dokter..."
                         value={abs.notes || ''}
-                        disabled={!canModifyThis || (isApproved && !isAdmin)}
+                        disabled={!canModifyThis}
                         onChange={(e) => {
                           const updated = [...absentList];
                           updated[idx].notes = e.target.value;
@@ -405,7 +402,7 @@ export default function HalamanCuti() {
           )}
 
           {/* Action Footer (Khusus Supervisor / Admin) */}
-          {(isAdmin || isSupervisor) && (!isApproved || isAdmin) && absentList.length > 0 && (
+          {(isAdmin || isSupervisor) && absentList.length > 0 && (
             <div className="mt-5 pt-3 border-t border-slate-100 flex justify-end">
               <Button
                 variant="primary"

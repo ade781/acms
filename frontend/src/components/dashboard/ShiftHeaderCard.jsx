@@ -8,7 +8,6 @@ export default function ShiftHeaderCard({
   shiftDate,
   teamGroup,
   supervisorName,
-  isApproved = false,
   personnelStats,
   openIncidentsCount = 0,
   onOpenIncidentModal,
@@ -28,16 +27,10 @@ export default function ShiftHeaderCard({
             <Badge variant={`team${team}`} size="md">
               Dinas Aktif
             </Badge>
-            {isApproved ? (
-              <Badge variant="serviceable" size="md">
-                <CheckCircle className="w-3.5 h-3.5" />
-                Telah Disahkan
-              </Badge>
-            ) : (
-              <Badge variant="default" size="md">
-                Belum Disahkan
-              </Badge>
-            )}
+            <Badge variant="serviceable" size="md">
+              <CheckCircle className="w-3.5 h-3.5" />
+              Rekapitulasi Berjalan (Real-Time)
+            </Badge>
           </div>
 
           <div className="flex items-center gap-4 text-xs text-slate-600 flex-wrap pt-1">

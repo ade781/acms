@@ -120,7 +120,11 @@ export const getPersonnelById = async (req, res) => {
        ORDER BY pd.created_at DESC`,
       [id]
     );
-    personnel.documents = docs;
+    personnel.documents = (docs || []).map((doc) => ({
+      ...doc,
+      view_url: `/api/documents/${doc.id}/view`,
+      download_url: `/api/documents/${doc.id}/download`,
+    }));
 
     return res.status(200).json({
       success: true,
@@ -607,7 +611,13 @@ export const getPersonnelDocuments = async (req, res) => {
       [id]
     );
 
-    return successResponse(res, 'Daftar dokumen personel berhasil diambil', docs);
+    const formattedDocs = (docs || []).map((doc) => ({
+      ...doc,
+      view_url: `/api/documents/${doc.id}/view`,
+      download_url: `/api/documents/${doc.id}/download`,
+    }));
+
+    return successResponse(res, 'Daftar dokumen personel berhasil diambil', formattedDocs);
   } catch (error) {
     console.error('Error getPersonnelDocuments:', error);
     return errorResponse(res, 'Gagal mengambil dokumen personel', 500);
@@ -670,7 +680,13 @@ export const uploadPersonnelDocument = async (req, res) => {
       [result.insertId]
     );
 
-    return successResponse(res, 'Dokumen personel berhasil diunggah', newDocRows[0], 201);
+    const createdDoc = {
+      ...newDocRows[0],
+      view_url: `/api/documents/${newDocRows[0].id}/view`,
+      download_url: `/api/documents/${newDocRows[0].id}/download`,
+    };
+
+    return successResponse(res, 'Dokumen personel berhasil diunggah', createdDoc, 201);
   } catch (error) {
     if (req.file && req.file.path && fs.existsSync(req.file.path)) {
       try {

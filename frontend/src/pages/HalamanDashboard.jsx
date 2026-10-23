@@ -42,7 +42,7 @@ export default function HalamanDashboard() {
     totalVehicles: 0,
     serviceableVehicles: 0,
     unserviceableVehicles: 0,
-    totalPersonnelCount: 17,
+    totalPersonnelCount: 0,
     dutyPersonnelCount: 0,
     absentPersonnelCount: 0,
     isPersonnelPlotted: false,
@@ -114,7 +114,7 @@ export default function HalamanDashboard() {
 
       // 6. Determine total roster and personnel duty/absent breakdown
       let totalRoster = summaryData?.personnel?.total_roster ?? summaryData?.total_team_members;
-      if (!totalRoster) {
+      if (totalRoster === undefined || totalRoster === null) {
         try {
           const pRes = await api.get(`/personnel?team_group=${currentTeam}&is_active=1`);
           const pList = Array.isArray(pRes.data?.data)
@@ -122,9 +122,10 @@ export default function HalamanDashboard() {
             : (Array.isArray(pRes.data?.personnel)
             ? pRes.data.personnel
             : (Array.isArray(pRes.data) ? pRes.data : []));
-          totalRoster = pList.length || 17;
-        } catch {
-          totalRoster = 17;
+          totalRoster = pList.length;
+        } catch (err) {
+          console.warn('Gagal memuat jumlah personel:', err);
+          totalRoster = 0;
         }
       }
 
@@ -191,7 +192,6 @@ export default function HalamanDashboard() {
         shiftDate={activeDate}
         teamGroup={activeTeam}
         supervisorName={metrics.supervisorName}
-        isApproved={metrics.isShiftApproved}
         openIncidentsCount={metrics.openIncidentsCount}
 
         onOpenIncidentModal={() => setIncidentModalOpen(true)}

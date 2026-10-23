@@ -50,7 +50,15 @@ function formatBytes(bytes) {
 export default function HalamanDetailPersonel() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, isAdmin, isSupervisor } = useAuth();
+  const { user, token, isAdmin, isSupervisor } = useAuth();
+
+  const getAuthorizedUrl = (rawUrl) => {
+    if (!rawUrl) return '';
+    const currentToken = token || localStorage.getItem('arff_token') || '';
+    if (!currentToken) return rawUrl;
+    const separator = rawUrl.includes('?') ? '&' : '?';
+    return `${rawUrl}${separator}token=${encodeURIComponent(currentToken)}`;
+  };
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -495,7 +503,7 @@ export default function HalamanDetailPersonel() {
                   <div className="w-full sm:w-64 h-32 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/60 flex items-center justify-center p-3 relative overflow-hidden">
                     {personnel.signature_url ? (
                       <img
-                        src={personnel.signature_url}
+                        src={getAuthorizedUrl(personnel.signature_url)}
                         alt={`Tanda tangan ${personnel.full_name}`}
                         className="max-h-full max-w-full object-contain filter drop-shadow-sm"
                       />
@@ -685,7 +693,7 @@ export default function HalamanDetailPersonel() {
 
                           <div className="flex items-center gap-2">
                             <a
-                              href={doc.file_url}
+                              href={getAuthorizedUrl(doc.view_url || `/api/documents/${doc.id}/view`)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 transition-colors duration-100"

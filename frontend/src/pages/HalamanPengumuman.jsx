@@ -69,6 +69,7 @@ export default function HalamanPengumuman() {
   const [pdfFile, setPdfFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
+  const [downloadError, setDownloadError] = useState(null);
 
   const fetchAnnouncements = useCallback(async () => {
     setLoading(true);
@@ -239,12 +240,8 @@ export default function HalamanPengumuman() {
         loading={loading}
         error={error}
         isEmpty={announcements.length === 0}
-        emptyTitle="Belum Ada Pengumuman Resmi"
-        emptyDescription={
-          canPublish
-            ? 'Belum ada surat edaran atau pengumuman yang diunggah. Klik tombol di atas untuk mengunggah berkas PDF pertama.'
-            : 'Belum ada surat edaran yang diterbitkan pimpinan saat ini.'
-        }
+        emptyTitle="Belum Ada Surat Edaran Dinas"
+        emptyDescription="Belum ada surat edaran dinas yang dipublikasikan."
         onRetry={fetchAnnouncements}
       >
         {/* Split View Container */}
@@ -393,6 +390,14 @@ export default function HalamanPengumuman() {
                     <a
                       href={getPdfUrl(selectedAnnouncement.file_path)}
                       download={selectedAnnouncement.file_name || 'pengumuman.pdf'}
+                      onClick={(e) => {
+                        if (!selectedAnnouncement.file_path) {
+                          e.preventDefault();
+                          setDownloadError('Lampiran berkas surat edaran ini belum tersedia di server.');
+                        } else {
+                          setDownloadError(null);
+                        }
+                      }}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-white text-xs font-bold transition-colors duration-100 shadow-xs"
@@ -412,6 +417,19 @@ export default function HalamanPengumuman() {
                     </a>
                   </div>
                 </div>
+
+                {downloadError && (
+                  <div className="p-3 bg-amber-50 border-b border-amber-200 text-xs text-amber-800 flex items-center justify-between">
+                    <span>{downloadError}</span>
+                    <button
+                      type="button"
+                      onClick={() => setDownloadError(null)}
+                      className="font-bold text-amber-900 ml-2 hover:underline"
+                    >
+                      Tutup
+                    </button>
+                  </div>
+                )}
 
                 {/* In-Web Viewer Iframe */}
                 <div className="flex-1 w-full bg-slate-100 relative">

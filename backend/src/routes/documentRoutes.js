@@ -12,9 +12,18 @@ const uploadsDir = path.resolve(__dirname, '../../uploads');
 
 const router = Router();
 
+// Helper pemetaan MIME type berdasarkan ekstensi berkas
+const EXT_TO_MIME = {
+  '.pdf': 'application/pdf',
+  '.webp': 'image/webp',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+};
+
 /**
- * Route terproteksi untuk melihat / mengunduh dokumen pribadi personel.
- * Memeriksa token autentikasi JWT dan wewenang kepemilikan dokumen.
+ * Route terproteksi untuk melihat dokumen personel (Inline Browser Preview).
+ * Mendukung autentikasi via header Authorization: Bearer <token> maupun query param ?token=<jwt>.
  */
 router.get('/:id/view', requireAuth, async (req, res) => {
   try {
@@ -29,18 +38,18 @@ router.get('/:id/view', requireAuth, async (req, res) => {
     );
 
     if (docRows.length === 0) {
-      return errorResponse(res, 'Dokumen tidak ditemukan', 404);
+      return errorResponse(res, 'Dokumen kepegawaian tidak ditemukan', 404);
     }
 
     const doc = docRows[0];
     const currentUserRole = req.user.role;
-    const isLeadership = ['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor'].includes(currentUserRole);
+    const isLeadership = ['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor', 'operation_chief'].includes(currentUserRole);
     const isOwner = (req.user.personnel_id && Number(req.user.personnel_id) === Number(doc.personnel_id)) ||
                     (doc.user_id && Number(req.user.id) === Number(doc.user_id)) ||
                     (doc.uploaded_by && Number(req.user.id) === Number(doc.uploaded_by));
 
     if (!isLeadership && !isOwner) {
-      return errorResponse(res, 'Akses ditolak: Anda tidak memiliki wewenang untuk melihat dokumen ini', 403);
+      return errorResponse(res, 'Akses ditolak: Anda tidak memiliki wewenang untuk melihat berkas ini', 403);
     }
 
     const rawFileUrl = doc.file_url || '';
@@ -48,13 +57,19 @@ router.get('/:id/view', requireAuth, async (req, res) => {
     const filePath = path.resolve(uploadsDir, cleanFileName);
 
     if (!fs.existsSync(filePath)) {
-      return errorResponse(res, 'Berkas fisik dokumen tidak ditemukan pada server', 404);
+      return errorResponse(res, `Berkas fisik dokumen (${cleanFileName}) tidak ditemukan pada disk server`, 404);
     }
 
-    if (doc.mime_type) {
-      res.setHeader('Content-Type', doc.mime_type);
-    }
-    res.setHeader('Content-Disposition', `inline; filename="${doc.file_name || cleanFileName}"`);
+    const ext = path.extname(cleanFileName).toLowerCase();
+    const contentType = (doc.mime_type && doc.mime_type !== 'application/octet-stream')
+      ? doc.mime_type
+      : (EXT_TO_MIME[ext] || 'application/pdf');
+
+    const downloadName = doc.file_name || cleanFileName;
+    const safeAsciiName = downloadName.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${safeAsciiName}"; filename*=UTF-8''${encodeURIComponent(downloadName)}`);
 
     return res.sendFile(filePath);
   } catch (error) {
@@ -63,6 +78,9 @@ router.get('/:id/view', requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * Route terproteksi untuk mengunduh dokumen personel sebagai lampiran berkas (Attachment Download).
+ */
 router.get('/:id/download', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
@@ -76,18 +94,18 @@ router.get('/:id/download', requireAuth, async (req, res) => {
     );
 
     if (docRows.length === 0) {
-      return errorResponse(res, 'Dokumen tidak ditemukan', 404);
+      return errorResponse(res, 'Dokumen kepegawaian tidak ditemukan', 404);
     }
 
     const doc = docRows[0];
     const currentUserRole = req.user.role;
-    const isLeadership = ['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor'].includes(currentUserRole);
+    const isLeadership = ['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor', 'operation_chief'].includes(currentUserRole);
     const isOwner = (req.user.personnel_id && Number(req.user.personnel_id) === Number(doc.personnel_id)) ||
                     (doc.user_id && Number(req.user.id) === Number(doc.user_id)) ||
                     (doc.uploaded_by && Number(req.user.id) === Number(doc.uploaded_by));
 
     if (!isLeadership && !isOwner) {
-      return errorResponse(res, 'Akses ditolak: Anda tidak memiliki wewenang untuk mengunduh dokumen ini', 403);
+      return errorResponse(res, 'Akses ditolak: Anda tidak memiliki wewenang untuk mengunduh berkas ini', 403);
     }
 
     const rawFileUrl = doc.file_url || '';
@@ -95,13 +113,60 @@ router.get('/:id/download', requireAuth, async (req, res) => {
     const filePath = path.resolve(uploadsDir, cleanFileName);
 
     if (!fs.existsSync(filePath)) {
-      return errorResponse(res, 'Berkas fisik dokumen tidak ditemukan pada server', 404);
+      return errorResponse(res, `Berkas fisik dokumen (${cleanFileName}) tidak ditemukan pada disk server`, 404);
     }
 
-    return res.download(filePath, doc.file_name || cleanFileName);
+    const downloadName = doc.file_name || cleanFileName;
+    return res.download(filePath, downloadName);
   } catch (error) {
     console.error('Error downloadDocument:', error);
     return errorResponse(res, 'Gagal mengunduh dokumen: ' + error.message, 500);
+  }
+});
+
+/**
+ * Route terproteksi untuk pratinjau spesimen tanda tangan digital personel.
+ */
+router.get('/signature/:personnelId', requireAuth, async (req, res) => {
+  try {
+    const { personnelId } = req.params;
+
+    const [rows] = await pool.query(
+      `SELECT p.id, p.user_id, p.signature_url, p.full_name
+       FROM personnel p
+       WHERE p.id = ?`,
+      [personnelId]
+    );
+
+    if (rows.length === 0 || !rows[0].signature_url) {
+      return errorResponse(res, 'Spesimen tanda tangan digital tidak ditemukan', 404);
+    }
+
+    const pers = rows[0];
+    const currentUserRole = req.user.role;
+    const isLeadership = ['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor', 'operation_chief'].includes(currentUserRole);
+    const isOwner = (req.user.personnel_id && Number(req.user.personnel_id) === Number(pers.id)) ||
+                    (pers.user_id && Number(req.user.id) === Number(pers.user_id));
+
+    if (!isLeadership && !isOwner) {
+      return errorResponse(res, 'Akses ditolak: Anda tidak memiliki wewenang untuk melihat tanda tangan ini', 403);
+    }
+
+    const cleanFileName = path.basename(pers.signature_url);
+    const filePath = path.resolve(uploadsDir, cleanFileName);
+
+    if (!fs.existsSync(filePath)) {
+      return errorResponse(res, `Berkas fisik spesimen tanda tangan (${cleanFileName}) tidak ditemukan`, 404);
+    }
+
+    const ext = path.extname(cleanFileName).toLowerCase();
+    res.setHeader('Content-Type', EXT_TO_MIME[ext] || 'image/png');
+    res.setHeader('Content-Disposition', `inline; filename="${cleanFileName}"`);
+
+    return res.sendFile(filePath);
+  } catch (error) {
+    console.error('Error viewSignature:', error);
+    return errorResponse(res, 'Gagal mengambil spesimen tanda tangan: ' + error.message, 500);
   }
 });
 

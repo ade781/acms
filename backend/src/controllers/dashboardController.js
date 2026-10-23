@@ -101,7 +101,7 @@ export const getDashboardSummary = async (req, res) => {
       `SELECT COUNT(*) as total_members FROM personnel WHERE team_group = ? AND is_active = 1`,
       [cleanTeamGroup]
     );
-    const totalTeamMembers = Number(teamRosterRows[0]?.total_members) || 17;
+    const totalTeamMembers = Number(teamRosterRows[0]?.total_members) || 0;
 
     let personnelSummary = {
       total_roster: totalTeamMembers,

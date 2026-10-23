@@ -30,7 +30,6 @@ export default function HalamanPenugasan() {
 
   const [vehicles, setVehicles] = useState([]);
   const [teamPersonnel, setTeamPersonnel] = useState([]);
-  const [isApproved, setIsApproved] = useState(false);
   const [supervisorName, setSupervisorName] = useState('');
 
   // Modal Kesiapan Kendaraan di Ploting
@@ -45,7 +44,6 @@ export default function HalamanPenugasan() {
   const [absentList, setAbsentList] = useState([]);
 
   const [saving, setSaving] = useState(false);
-  const [approving, setApproving] = useState(false);
 
   // Jadwal dinas operasional shift aktif
   const scheduledTeam = useMemo(
@@ -55,7 +53,7 @@ export default function HalamanPenugasan() {
   const isScheduledTeam = cleanTeam(activeTeam) === cleanTeam(scheduledTeam);
 
   // Hak edit: Hanya supervisor/admin, dan regu harus terjadwal dinas aktif (kecuali admin)
-  const canEditPlot = (isAdmin || isSupervisor) && (!isApproved || isAdmin) && (isScheduledTeam || isAdmin);
+  const canEditPlot = (isAdmin || isSupervisor) && (isScheduledTeam || isAdmin);
 
   // ID Personel yang telah ditugaskan di slot armada manapun
   const assignedPersonnelIds = useMemo(() => {
@@ -116,7 +114,6 @@ export default function HalamanPenugasan() {
         ? depPayload.deployments
         : (Array.isArray(depRes.data?.deployments) ? depRes.data.deployments : []);
 
-      setIsApproved(Boolean(depPayload?.shift?.status === 'approved' || depPayload?.status === 'approved'));
       setSupervisorName(depPayload?.shift?.supervisor_name || depPayload?.supervisor_name || '');
 
       // Initialize vehicle & watchroom slots
@@ -298,7 +295,6 @@ export default function HalamanPenugasan() {
         shiftDate={activeDate}
         teamGroup={activeTeam}
         supervisorName={supervisorName}
-        isApproved={isApproved}
       />
 
       {/* Peringatan jika regu yang aktif di header sedang OFF / Libur */}

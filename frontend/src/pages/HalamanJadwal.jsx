@@ -377,8 +377,15 @@ export default function HalamanJadwal() {
         </div>
       </div>
 
-      <StateView loading={loading} error={error} onRetry={fetchMonthlySchedule}>
-        {scheduleData && (
+      <StateView
+        loading={loading}
+        error={error}
+        isEmpty={!loading && !error && daysList.length === 0}
+        emptyTitle="Jadwal Belum Tersedia"
+        emptyDescription="Data rotasi dinas untuk periode ini belum terbentuk di sistem."
+        onRetry={fetchMonthlySchedule}
+      >
+        {scheduleData && daysList.length > 0 && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             {/* Tabel Matriks Horizontal (Tanggal Ke Samping) */}
             <div className="overflow-x-auto max-w-full">
@@ -438,7 +445,7 @@ export default function HalamanJadwal() {
                             className="py-2 px-1.5 border-r border-slate-100 cursor-pointer hover:bg-slate-100/70"
                           >
                             <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${getTeamPillClass(item.shift_1)}`}>
-                              {item.shift_1}
+                              {item.shift_1 || '-'}
                             </span>
                           </td>
                         ))}
@@ -456,7 +463,7 @@ export default function HalamanJadwal() {
                             className="py-2 px-1.5 border-r border-slate-100 cursor-pointer hover:bg-slate-100/70"
                           >
                             <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${getTeamPillClass(item.shift_2)}`}>
-                              {item.shift_2}
+                              {item.shift_2 || '-'}
                             </span>
                           </td>
                         ))}
@@ -474,7 +481,7 @@ export default function HalamanJadwal() {
                             className="py-2 px-1.5 border-r border-slate-100 cursor-pointer hover:bg-slate-100/70"
                           >
                             <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${getTeamPillClass(item.shift_3)}`}>
-                              {item.shift_3}
+                              {item.shift_3 || '-'}
                             </span>
                           </td>
                         ))}
@@ -492,7 +499,7 @@ export default function HalamanJadwal() {
                             className="py-2 px-1.5 border-r border-slate-100 cursor-pointer hover:bg-slate-100/70"
                           >
                             <span className="inline-block px-2 py-0.5 rounded text-[11px] font-medium text-slate-500 bg-slate-100">
-                              {item.off_team}
+                              {item.off_team || '-'}
                             </span>
                           </td>
                         ))}

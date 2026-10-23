@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Download, CheckCircle, AlertCircle } from 'lucide-react';
+import { Download, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { SHIFT_DEFINITIONS, formatIndoDate, cleanTeam, formatTeam } from '../utils/shiftHelper';
 import api from '../services/api';
@@ -8,18 +8,13 @@ import Button from '../components/common/Button';
 
 export default function HalamanLaporan() {
   const {
-    user,
     activeDate,
     activeShiftNumber,
     activeTeam,
-    isSupervisor,
-    isAdmin,
   } = useAuth();
 
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState(null);
-  const [approving, setApproving] = useState(false);
-  const [approvedStatus, setApprovedStatus] = useState(false);
   const [shiftData, setShiftData] = useState(null);
   const [deptHeadData, setDeptHeadData] = useState(null);
   const [vehicleIssues, setVehicleIssues] = useState({ current_issues: [], backlog_issues: [], resolved_this_shift: [] });
@@ -36,7 +31,6 @@ export default function HalamanLaporan() {
       if (deployRes.data?.data) {
         const s = deployRes.data.data.shift;
         setShiftData(s);
-        setApprovedStatus(Boolean(s && s.status === 'approved'));
         if (deployRes.data.data.dept_head) {
           setDeptHeadData(deployRes.data.data.dept_head);
         }
@@ -80,31 +74,12 @@ export default function HalamanLaporan() {
     }
   };
 
-  const handleApproveShift = async () => {
-    if (!window.confirm('Sahkan laporan dinas shift ini secara resmi?')) return;
-    setApproving(true);
-    try {
-      await api.post('/deployments/approve', {
-        shift_date: activeDate,
-        shift_number: activeShiftNumber,
-        team_group: cleanTeam(activeTeam),
-      });
-      setApprovedStatus(true);
-      fetchShiftData();
-    } catch (err) {
-      alert(`Gagal mengesahkan shift: ${err.response?.data?.message || err.message}`);
-    } finally {
-      setApproving(false);
-    }
-  };
-
   return (
     <div>
       <ShiftHeaderCard
         shiftNumber={activeShiftNumber}
         shiftDate={activeDate}
         teamGroup={activeTeam}
-        isApproved={approvedStatus}
       />
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -115,17 +90,6 @@ export default function HalamanLaporan() {
         </div>
 
         <div className="flex items-center gap-2">
-          {!approvedStatus && (isSupervisor || isAdmin) && (
-            <Button
-              variant="outline"
-              icon={CheckCircle}
-              onClick={handleApproveShift}
-              loading={approving}
-              className="text-emerald-700 border-emerald-600 hover:bg-emerald-50"
-            >
-              Sahkan Laporan Shift
-            </Button>
-          )}
           <Button
             variant="primary"
             icon={Download}
@@ -316,10 +280,10 @@ export default function HalamanLaporan() {
               {/* Ketua Regu Dinas */}
               <div className="text-center min-w-[200px]">
                 <p className="text-slate-500 mb-2">Ketua Regu Dinas ({cleanTeam(activeTeam)})</p>
-                {approvedStatus && (shiftData?.supervisor_signature_url || user?.signature_url) ? (
+                {shiftData?.supervisor_signature_url ? (
                   <div className="h-14 flex items-center justify-center my-1">
                     <img
-                      src={shiftData?.supervisor_signature_url || user?.signature_url}
+                      src={shiftData.supervisor_signature_url}
                       alt="Tanda Tangan Ketua Regu"
                       className="max-h-12 object-contain"
                     />
@@ -328,15 +292,15 @@ export default function HalamanLaporan() {
                   <div className="h-14" />
                 )}
                 <p className="font-bold text-slate-900 underline">
-                  {shiftData?.supervisor_name || user?.name || `Chief ${formatTeam(activeTeam)}`}
+                  {shiftData?.supervisor_name || `Chief ${formatTeam(activeTeam)}`}
                 </p>
-                {(shiftData?.supervisor_nip || user?.nip) && (
+                {shiftData?.supervisor_nip && shiftData.supervisor_nip !== '-' && (
                   <p className="text-[10px] text-slate-500 font-mono">
-                    NIP. {shiftData?.supervisor_nip || user.nip}
+                    NIP. {shiftData.supervisor_nip}
                   </p>
                 )}
-                <p className={`text-[10px] font-semibold mt-0.5 ${approvedStatus ? 'text-emerald-600' : 'text-slate-400'}`}>
-                  {approvedStatus ? '✓ Telah Disahkan Secara Digital' : '(Menunggu Pengesahan)'}
+                <p className="text-[10px] text-slate-500">
+                  Airport Rescue & Fire Fighting Shift Supervisor
                 </p>
               </div>
             </div>

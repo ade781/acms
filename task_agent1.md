@@ -1,98 +1,94 @@
-# FEEDBACK HASIL PEKERJAAN: AGENT 1 (KEAMANAN INTI, AUTORISASI, STORAGE & DATABASE)
+# PANDUAN TUGAS: AGENT 1 - PONDASI SHELL MOBILE, NAVIGASI, TOP APP BAR, PROFIL MANDIRI & ROUTING
 
-**Status:** SELESAI & DIVERIFIKASI (PASSED)
-
----
-
-### Evaluasi Pencapaian Tugas:
-1. **Refactor `roleMiddleware.js` (Audit 1.1)**:
-   - **Hasil:** Sangat Baik. Pemetaan `ROLE_EQUIVALENTS` berhasil dipisahkan antara kelompok manajemen/pimpinan (`admin`, `dept_head`, `chief`, `chief_assistant`, `supervisor`) dan kelompok pelaksana/kru (`senior_firefighter`, `junior_firefighter`, `operator`).
-   - Role `admin` tidak lagi secara otomatis membobol endpoint yang strictly mewajibkan role lapangan.
-2. **Proteksi Berkas Unggahan & Storage (Audit 1.3 & 7)**:
-   - **Hasil:** Sangat Baik. Di `app.js`, akses statis langsung ke berkas pribadi (`document-*`, `signature-*`, file PDF pribadi) kini dicegat oleh middleware autentikasi yang memeriksa token JWT dan wewenang kepemilikan dokumen.
-   - Dibuat modul rute baru [`backend/src/routes/documentRoutes.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/routes/documentRoutes.js) dengan endpoint `/api/documents/:id/view` dan `/api/documents/:id/download`.
-   - Di `uploadMiddleware.js`, Multer `.any()` berhasil diganti menjadi `.array(fieldName, maxCount)` dengan sanitasi ekstensi canonical berbasis MIME type.
-3. **Penyelarasan Skema Database `schema.sql` (Audit 2.1)**:
-   - **Hasil:** Sangat Baik. `schema.sql` telah diperbarui mencakup enum role terbaru, `must_change_password`, `signature_url` pada `users` dan `personnel`, serta kategori `'posko'` pada tabel `vehicles`.
-   - Skrip migrasi aman di [`masak/migrate_schema_sync.sql`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/migrate_schema_sync.sql) dan runner [`masak/run_schema_sync.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/run_schema_sync.js) telah berhasil dieksekusi 100% pada database MySQL aktif.
-4. **Proteksi Kredensial & Validasi Fail-Fast (Audit 1.4 & 1.5)**:
-   - **Hasil:** Sangat Baik. Booting server di `server.js` kini memiliki validasi fail-fast untuk `JWT_SECRET`. Controller `authController.js` membersihkan objek profile (`safeProfile`) tanpa membocorkan hash password.
+## Peran & Batasan Tanggung Jawab
+Agent 1 bertindak sebagai **Arsitek Fondasi Mobile Web App**. Bertanggung jawab penuh membangun kerangka antarmuka shell mobile (*MobileLayout*), navigasi atas (*Top App Bar*), navigasi bawah (*Bottom Navigation Bar*), sub-view mandiri Profil & Dokumen kepegawaian, modal pengumuman resmi, serta konfigurasi routing di `App.jsx`.
+- **DILARANG** mengutak-atik isi form dashboard operasional / kesiapan PIC (Tugas Agent 2).
+- **DILARANG** mengutak-atik halaman ploting 8 unit armada / crew picker (Tugas Agent 3).
+- **DILARANG** mengutak-atik modul kegiatan rutin & insiden (Tugas Agent 4).
+- **DILARANG** mengutak-atik halaman rekapitulasi laporan shift dinas / audit trail (Tugas Agent 5).
+- **WAJIB** mematuhi aturan baku di [`GEMINI.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/GEMINI.md), [`plan.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/plan.md), dan prototype [`masak/mobile/tipe_2_chief.html`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/mobile/tipe_2_chief.html).
 
 ---
 
-# TUGAS TAMBAHAN: UNIT TESTING (AGENT 1)
-
-## Workspace & Lokasi File
-- **Direktori Uji:** `masak/unit_testing/`
-- **Nama File Skrip Uji:** `masak/unit_testing/test_security_auth_storage.js`
-- **Format:** Node.js ESM script mandiri (`node masak/unit_testing/test_security_auth_storage.js`), memanfaatkan modul backend dan koneksi pool database.
-
----
-
-## Cakupan Fitur yang Wajib Diuji Secara Menyeluruh
-
-### 1. Autentikasi & Sesi Kredensial (`authController.js` & `authMiddleware.js`)
-- [x] **Login Sukses:** Kredensial yang benar menghasilkan JWT token valid dan objek `user` safe profile (tanpa ada field `password_hash` atau salt).
-- [x] **Login Gagal:** Username salah atau password salah mengembalikan HTTP 401 dengan pesan error yang aman.
-- [x] **Akses Tanpa Token:** Endpoint terproteksi yang dipanggil tanpa header `Authorization` mengembalikan HTTP 401.
-- [x] **Token Tidak Valid/Kedaluwarsa:** Header dengan Bearer token palsu atau kedaluwarsa mengembalikan HTTP 401.
-- [x] **Sanitasi Profil `getMe`:** Data pengguna yang dikembalikan tidak memuat data sensitif keamanan.
-
-### 2. Matriks Wewenang & Role Hierarchy (`roleMiddleware.js`)
-- [x] **Wewenang Pimpinan:** Role `admin`, `dept_head`, `chief`, `chief_assistant`, dan `supervisor` memiliki akses ke endpoint bersyarat pimpinan.
-- [x] **Wewenang Pelaksana/Kru:** Role `senior_firefighter`, `junior_firefighter`, dan `operator` memiliki akses ke endpoint level pelaksana.
-- [x] **Pencegahan Penerobosan (Strict Role):** Jika endpoint hanya mengizinkan role kru/pelaksana lapangan, role manajemen (`admin`/`dept_head`) harus ditolak jika tidak memiliki alias pelaksana (HTTP 403).
-- [x] **Penolakan Kru pada Rute Pimpinan:** Kru biasa ditolak saat mencoba mengakses rute pimpinan (HTTP 403).
-
-### 3. Proteksi Berkas Unggahan & Storage (`uploadMiddleware.js`, `app.js`, `documentRoutes.js`)
-- [x] **Filter MIME & Ekstensi:** Hanya berkas gambar sah (`image/webp`, `image/jpeg`, `image/png`) dan PDF (`application/pdf`) yang lolos. Berkas dengan ekstensi tidak sah (`.exe`, `.sh`, `.php`, `.svg`) wajib ditolak.
-- [x] **Proteksi Berkas Privat di `/uploads`:** Permintaan langsung ke berkas privat (`document-*`, `signature-*`, file PDF pribadi) tanpa token JWT wajib mengembalikan HTTP 401.
-- [x] **Verifikasi Kepemilikan Dokumen:** Personel biasa tidak dapat melihat atau mengunduh dokumen personel lain melalui `/api/documents/:id/view` atau `/download` (HTTP 403), kecuali pimpinan atau pemilik dokumen sah.
-
-### 4. Integritas Skema Database & Enum
-- [x] Memastikan enum `users.role` di database mendukung seluruh role operasional: `('admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor', 'senior_firefighter', 'junior_firefighter', 'operator')`.
-- [x] Memastikan tabel `users` memiliki kolom `must_change_password` dan `signature_url`.
-- [x] Memastikan tabel `vehicles` memiliki kategori `'posko'`.
+## Berkas yang Dikelola oleh Agent 1 (Eksklusif)
+1. `frontend/src/components/mobile/MobileLayout.jsx`
+2. `frontend/src/components/mobile/MobileHeader.jsx`
+3. `frontend/src/components/mobile/MobileBottomNav.jsx`
+4. `frontend/src/components/mobile/profile/MobileProfileView.jsx`
+5. `frontend/src/components/mobile/profile/MobileEditProfileModal.jsx`
+6. `frontend/src/components/mobile/profile/MobileChangePasswordModal.jsx`
+7. `frontend/src/components/mobile/announcements/MobileAnnouncementsModal.jsx`
+8. `frontend/src/App.jsx` (integrasi rute mobile & deteksi role)
 
 ---
 
-## Hasil Eksekusi Pengujian CLI (Output Riil)
-```text
-=================================================================
-   UNIT TESTING SUITE: AGENT 1 - KEAMANAN, AUTORISASI & STORAGE
-=================================================================
+## Standar Desain & Aturan Kritis (`GEMINI.md` & `plan.md`)
+1. **Viewport Smartphone Modern 20:9**:
+   - Batas kontainer: `w-full max-w-[412px] min-h-screen bg-slate-50 flex flex-col shadow-2xl relative border-x border-slate-700/20 mx-auto`.
+   - Hindari lebar *phablet* 448px (`max-w-md`). Gunakan `max-w-[412px]` atau `max-w-[393px]`.
+2. **Kesesuaian Navigasi Bawah Berdasarkan Role**:
+   - **Kru (`senior_firefighter`, `junior_firefighter`)**: Tepat 2 Menu Bottom Bar:
+     1. `Dashboard` (`nav-btn-dashboard-kru`)
+     2. `Laporan` (`nav-btn-laporan-kru`) [Read-Only]
+   - **Chief (`chief`, `chief_assistant`, `operation_chief`)**: Tepat 5 Menu Bottom Bar:
+     1. `Dashboard` (`nav-btn-dashboard-chief`)
+     2. `Ploting` (`nav-btn-ploting`)
+     3. `Kegiatan` (`nav-btn-kegiatan`)
+     4. `Insiden` (`nav-btn-insiden`)
+     5. `Laporan` (`nav-btn-laporan-chief`)
+   - **DILARANG KERAS** memasukkan menu Profil atau Cuti ke dalam Bottom Bar (Sesuai `GEMINI.md` Butir 9 & Koreksi 5).
+3. **Keseragaman Akses Profil Mandiri di Header Atas (Top App Bar)**:
+   - Header atas memuat: Logo ARFF + YIA Airport, Indikator Regu & Shift berjalan, Tombol Lonceng Pengumuman 🔔 (dengan badge titik merah), dan Avatar Profil Inisial Pengguna (misal: "GA", "DA").
+   - Mengklik avatar membuka **`MobileProfileView`** sebagai layar penuh (*full sub-view*) bersih dengan tombol `← Kembali`.
+   - Layout profil wajib 2 kartu baku:
+     - **Card 1: PROFIL & KREDENSIAL** (Nama Lengkap, NIP, Tempat/Tanggal Lahir, Pendidikan Terakhir, Golongan Darah, Kualifikasi STKP, Nomor Lisensi STKP, Masa Berlaku STKP, tombol `Edit Data`, tombol `🔒 Ubah Password`, dan tombol `+ Cuti Mandiri`).
+     - **Card 2: DOKUMEN & SERTIFIKAT SAYA** (Arsip ijazah/STKP/MCU/diklat, tombol `+ Upload Dokumen`, dan list berkas dengan endpoint token terproteksi `/api/documents/:id/view?token=...`).
+     - Tombol **Logout Sesi Operasional** di bagian paling bawah.
+4. **Modal Pengumuman Dinas via Lonceng 🔔 (`MobileAnnouncementsModal.jsx`)**:
+   - Menampilkan arsip surat edaran dinas dengan **Pagination per 10 item** (`Halaman X dari Y`, tombol `← Sebelumnya` & `Selanjutnya →`).
+   - Tanpa teks filler "Baca Lengkap". Mengklik item langsung memicu pembukaan dokumen PDF.
+5. **Anti-Lag & Strict INP/LCP**:
+   - Dilarang keras memakai `transition-all` pada elemen input. Gunakan `transition-colors duration-100`.
+   - Dilarang memakai `backdrop-filter: blur(...)` pada overlay modal saat ada input form. Gunakan `bg-black/50`.
 
---- SEKSI 1: AUTENTIKASI & SESI KREDENSIAL ---
-[PASS] 1.1 Login Sukses Kredensial Sah (Token JWT diperoleh, user safeProfile bersih)
-[PASS] 1.2 Login Gagal (Username Salah) (Mengembalikan HTTP 401 kredensial tidak valid)
-[PASS] 1.3 Login Gagal (Password Salah) (Mengembalikan HTTP 401 kredensial tidak valid)
-[PASS] 1.4 Akses Tanpa Token Terproteksi (Mengembalikan HTTP 401 token tidak ditemukan)
-[PASS] 1.5 Akses dengan Token Palsu (Mengembalikan HTTP 401 token tidak valid)
-[PASS] 1.6 Sanitasi Profil getMe (Data pengguna aman tanpa atribut hash atau kredensial internal)
+---
 
---- SEKSI 2: MATRIKS WEWENANG & ROLE HIERARCHY ---
-[PASS] 2.1 Akses Pimpinan pada Rute Manajemen (admin, dept_head, chief, chief_assistant, supervisor lolos)
-[PASS] 2.2 Penolakan Kru pada Rute Pimpinan (Kru biasa menerima HTTP 403 saat mengakses fitur pimpinan)
-[PASS] 2.3 Akses Pelaksana pada Rute Lapangan (senior_firefighter, junior_firefighter, operator lolos)
-[PASS] 2.4 Strict Role Kru (Anti-Bypass Pimpinan) (Role pimpinan tidak membobol endpoint khusus kru (HTTP 403))
-[PASS] 2.5 Penolakan Akses Tanpa User di roleMiddleware (Mengembalikan HTTP 401 autentikasi diperlukan)
+## Rincian Tugas yang Wajib Dikerjakan
 
---- SEKSI 3: PROTEKSI BERKAS UNGGAHAN & STORAGE ---
-[PASS] 3.1 Filter MIME & Ekstensi Gambar (WebP/JPG/PNG diterima, berkas berbahaya/spoofed ditolak)
-[PASS] 3.2 Filter MIME & Ekstensi Dokumen (PDF & dokumen sah diterima, ekstensi terlarang ditolak)
-[PASS] 3.3 Proteksi Berkas Privat di /uploads (Akses langsung document-* dan signature-* dicegat HTTP 401)
-[PASS] 3.4 Verifikasi Kepemilikan Dokumen (/api/documents) (Kru lain ditolak HTTP 403, pimpinan lolos otorisasi)
+### 1. Implementasi `MobileLayout.jsx` & Navigasi
+- Buat shell wrapper responsif yang membungkus seluruh konten mobile.
+- Sertakan padding bawah aman (`pb-20` atau `safe-pb`) agar konten tidak tertutup oleh bottom navigation bar.
+- Integrasikan state tab aktif (`activeTab`: 'dashboard' | 'ploting' | 'kegiatan' | 'insiden' | 'laporan').
+- Pasang tombol kembali dan header kontekstual saat sub-view Profil sedang dibuka.
 
---- SEKSI 4: INTEGRITAS SKEMA DATABASE & ENUM ---
-[PASS] 4.1 Integritas Enum users.role (Mencakup ke-8 peran: admin, dept_head, chief, chief_assistant, supervisor, senior_firefighter, junior_firefighter, operator)
-[PASS] 4.2 Kolom must_change_password & signature_url pada users (Kedua kolom terdaftar sah)
-[PASS] 4.3 Kolom signature_url pada personnel (Kolom tanda tangan digital terdaftar sah)
-[PASS] 4.4 Kategori posko pada vehicles (category vehicles mencakup 'posko')
-[PASS] 4.5 Tabel Jadwal & Konfigurasi Sistem (schedule_cycles, schedule_rosters, system_settings aktif)
+### 2. Implementasi `MobileHeader.jsx`
+- Desain kompak tinggi `h-14` (sticky top, z-40, `bg-white border-b border-slate-200/80 px-3 py-1.5`).
+- Sisi kiri: Logo ARFF merah tegas, teks "YIA AIRPORT", titik hijau operasional, dan info shift (`${activeTeam} • Shift ${activeShiftNumber}`).
+- Sisi kanan:
+  - Lonceng pengumuman dinas 🔔 dengan badge indikator merah (membuka `MobileAnnouncementsModal`).
+  - Avatar profil lingkaran dengan inisial nama petugas (membuka `MobileProfileView`).
 
-=================================================================
-RINGKASAN PENGUJIAN: 20 LULUS, 0 GAGAL (TOTAL: 20)
-=================================================================
-Status: SEMUA PENGUJIAN KEAMANAN, AUTORISASI & STORAGE LULUS 100%!
-```
+### 3. Implementasi `MobileBottomNav.jsx`
+- Mengambang di bagian bawah (*fixed bottom*, `z-40`, `bg-white border-t border-slate-200 shadow-lg pb-safe`).
+- Menampilkan grid 2 tombol untuk role Kru dan grid 5 tombol untuk role Chief.
+- Target sentuh minimal 44x44 px (`tap-target`) dengan ikon SVG bersih, teks label 10px, dan warna aktif `text-red-600 font-bold`.
 
+### 4. Implementasi `MobileProfileView.jsx`, `MobileEditProfileModal.jsx`, `MobileChangePasswordModal.jsx`
+- Tampilan sub-view layar penuh yang mengambil data user login dari `AuthContext`.
+- Terapkan Card 1 (Profil & Kredensial) dan Card 2 (Dokumen & Sertifikat Saya).
+- Hubungkan aksi upload dokumen ke endpoint backend `/api/personnel/:id/documents`.
+- Sediakan modal edit data diri mandiri (NIP, Tanggal Lahir, Pendidikan, Lisensi STKP) dan modal ganti password aman (`/api/auth/change-password`).
+
+### 5. Integrasi Routing di `App.jsx`
+- Konfigurasikan percabangan tampilan:
+  - Role lapangan (`chief`, `chief_assistant`, `senior_firefighter`, `junior_firefighter`) diarahkan ke antarmuka `MobileLayout` secara default.
+  - Sediakan fallback atau toggle responsif agar tetap nyaman diakses baik via viewport browser mobile maupun desktop inspection.
+
+---
+
+## Kriteria Selesai Agent 1
+- `MobileLayout` ter-render sempurna dengan `max-w-[412px]` di tengah layar pada browser mobile/desktop.
+- Header atas menampilkan identitas dinas riil, lonceng pengumuman aktif, dan avatar inisial.
+- Bottom Bar menampilkan 2 tab untuk Kru dan 5 tab untuk Chief tanpa lag.
+- Sub-view Profil terbuka mulus menampilkan 2 kartu baku dan berkas dokumen terproteksi.
+- Kompilasi `npm run build` sukses 0 error.
