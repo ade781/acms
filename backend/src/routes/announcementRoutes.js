@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   getAnnouncements,
   getAnnouncementById,
+  getAnnouncementAttachment,
   createAnnouncement,
   markAsRead,
   deleteAnnouncement
@@ -16,6 +17,8 @@ router.use(requireAuth);
 
 router.get('/', getAnnouncements);
 router.get('/:id', getAnnouncementById);
+router.get('/:id/attachment', getAnnouncementAttachment);
+
 router.post(
   '/',
   requireRole(['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor']),

@@ -1,40 +1,61 @@
-# PANDUAN TUGAS AGENT 1: SHELL MOBILE, HEADER, NAVIGASI, PROFIL MANDIRI & DOKUMEN
+# PANDUAN EKSEKUSI AGENT 1: FASE PERBAIKAN TOTAL (AUTH, SHELL, PERSONEL, STKP & PEJABAT)
 
-## Status Kinerja & Evaluasi Agent 1
-- **Skor Kinerja**: 98% (Sangat Baik — Git Commit Tersimpan & Fail-Fast JWT Aktif)
-- **Capaian Positif Terkini**:
-  1. Git Commit Berkala: Perubahan kode dan konfigurasi telah disimpan ke repositori lokal (commit `2ae9462`).
-  2. Penyelarasan Dokumen Baku: Berkas acuan `plan.md` telah resmi dihapus dan aturan dipusatkan pada `GEMINI.md`.
-  3. Fail-Fast Security: `validateSecurityConfig()` di `backend/src/server.js` menolak booting (`process.exit(1)`) jika `JWT_SECRET` lemah pada mode produksi.
-  4. Kontainer shell terpusat smartphone modern 20:9 (`max-w-[412px]`) stabil dan grounded.
-  5. Bottom Nav Bar dinamis: Kru 2 menu, Chief 5 menu (bebas menu profil/cuti di navigasi bawah).
-  6. Kotak merah "ARFF" pada header mobile telah dihapus tuntas.
+> 🚀 **MANDAT FASE 3 (EKSEKUSI PERBAIKAN KODE & PENGUJIAN):**
+> 1. **EKSEKUSI SELURUH PERBAIKAN DI BAWAH INI** pada berkas yang menjadi tanggung jawab Anda.
+> 2. **BATAS KODE EKSKLUSIF (ZERO COLLISION)**: Hanya edit berkas domain Agent 1.
+> 3. **SEMUA PENGUJIAN DI FOLDER `masak/`**: Dilarang membuat folder `tests/` di `backend/` atau `frontend/`.
+> 4. **VALIDASI SISTEM VIA CLI**: Jalankan `node -c` dan pastikan sintaks 100% valid.
+> 5. **LAPORAN HASIL KERJA MANDIRI**: Tuliskan laporan perbaikan ke `masak/temp/hasil_agent1.md`.
 
 ---
 
-## Mandat Prioritas Keamanan & Zero Dummy Data
-1. **Pengamanan Akses Langsung Berkas Privat (`/uploads`)**:
-   - Seluruh dokumen kepegawaian (`document-*`) dan tanda tangan digital (`signature-*`) wajib diproteksi dari akses URL publik langsung tanpa autentikasi.
-   - Uji verifikasi hak akses kepemilikan dokumen (`isOwner` atau `isLeadership`) untuk mencegah IDOR (*Insecure Direct Object Reference*).
-2. **Zero Dummy Policy**:
-   - Seluruh data personel dan kredensial STKP ditarik 100% dari tabel `users`, `personnel`, dan `personnel_documents`.
+## Daftar Pekerjaan Eksekusi Perbaikan Agent 1
+
+1. **Perbaiki Mismatch ENUM `cert_level` di `MobileEditProfileModal.jsx`**:
+   - Di baris 151–153, ubah nilai `<option value="...">`:
+     * Dari `"Basic Fire Fighter"` -> ubah ke value `"Basic"` (label tetap "Basic Fire Fighter").
+     * Dari `"Junior Fire Fighter"` -> ubah ke value `"Junior"` (label tetap "Junior Fire Fighter").
+     * Dari `"Senior Fire Fighter"` -> ubah ke value `"Senior"` (label tetap "Senior Fire Fighter").
+   - Ini mencegah MySQL menolak data dengan error *Data truncated for column 'cert_level'*.
+
+2. **Hilangkan Double Redirect / Layar Berkedip di `HalamanLogin.jsx`**:
+   - Di baris 30, periksa role pengguna yang dikembalikan dari fungsi `login`.
+   - Jika role tergolong lapangan (`chief`, `chief_assistant`, `senior_firefighter`, `junior_firefighter`, `firefighter`), langsung arahkan ke `/m/dashboard`.
+   - Jika role adalah `admin` atau `dept_head`, arahkan ke `/dashboard`.
+
+3. **Ganti Fallback Strip `"-"` Menjadi `null` di `HalamanDetailPersonel.jsx`**:
+   - Di baris 149–160 pada fungsi `handleUpdatePersonnel`, ubah fallback atribut opsional (`nip`, `cert_number`, `formal_education`, `birth_date`) dari `|| '-'` menjadi `|| null` agar database tersimpan bersih.
+
+4. **Tambahkan Fitur Reset Kata Sandi Personel ke 123456**:
+   - Di `HalamanDetailPersonel.jsx`, tambahkan tombol *"Reset Password"* (khusus role `admin`) pada kartu kedinasan lengkap dengan modal/konfirmasi.
+   - Di `backend/src/controllers/personnelController.js` & `personnelRoutes.js`, sediakan endpoint `POST /api/personnel/:id/reset-password` yang mengenkripsi ulang password menjadi hash `123456` dan mengatur flag `must_change_password = 1`.
+
+5. **Hubungkan Avatar Header Desktop ke Profil Akun Mandiri di `Navbar.jsx`**:
+   - Di baris 91–93, bungkus avatar inisial pengguna dengan tombol/link interaktif yang mengarahkan pengguna ke halaman profil akun miliknya (`/personnel/${user.personnel_id}`) sesuai mandat Rule 9 `GEMINI.md`.
+
+6. **Tambahkan Pengelolaan Section Head di `HalamanKelolaPejabat.jsx` & `getOfficials`**:
+   - Perluas query dan respon `getOfficials` di `personnelController.js` untuk menyertakan `section_head`.
+   - Tambahkan kartu dan modal pergantian Section Head di `HalamanKelolaPejabat.jsx` (serupa dengan Dept. Head).
+
+7. **Normalisasi Case-Insensitive Perbandingan Nama Regu di `getOfficials`**:
+   - Di `personnelController.js` baris 775–780, gunakan `(c.team_group || '').toLowerCase().trim() === 'alpha'` dst., agar tidak gagal mencocokkan regu jika ada variasi huruf kecil/besar di database.
+
+8. **Ganti Seluruh `window.alert()` dengan Toast Notifikasi Visual**:
+   - Di `HalamanDetailPersonel.jsx` dan `MobileProfileView.jsx`, ganti seluruh alert blocking dengan toast notifikasi visual instan (hijau untuk sukses, merah untuk error) sesuai Rule 10 `GEMINI.md`.
+
+9. **Tambahkan Dropdown Filter Lisensi STKP di `HalamanPersonel.jsx`**:
+   - Pasang elemen dropdown pilihan tingkat lisensi STKP (`Semua Kualifikasi`, `Basic`, `Junior`, `Senior`) di samping input pencarian nama agar state `selectedCert` berfungsi nyata.
+
+10. **Tambahkan Pagination Terstandar di `HalamanPersonel.jsx`**:
+    - Pasang navigasi halaman dan batasan baris per halaman pada tabel katalog personel desktop.
+    - *Catatan Penting*: Katalog personel tetap fokus 100% pada 4 regu dinas operasional (Alpha, Bravo, Charlie, Delta), tidak perlu menambah tab non-shift/Dept Head.
+
+11. **Sanitasi `username.trim()` & Fallback `JWT_EXPIRES_IN` di Backend**:
+    - Di `authController.js`, tambahkan `.trim()` pada username sebelum query database, dan tambahkan fallback `process.env.JWT_EXPIRES_IN || '24h'`.
 
 ---
 
-## Audit Fungsi & Endpoint Agent 1
+## Format Pelaporan Mandiri di `masak/temp/hasil_agent1.md`
 
-| Endpoint | Metode | Fungsi Backend (Controller) | Fungsi Frontend (Handler) | Status Verifikasi |
-| :--- | :---: | :--- | :--- | :---: |
-| `/api/announcements` | GET | `getAnnouncements` (`announcementController.js`) | `fetchAnnouncements` di `MobileAnnouncementsModal.jsx` | ✅ Aktif (13 Tabel, tanpa join `announcement_reads`) |
-| `/api/announcements/:id/attachment` | GET | `getAnnouncementAttachment` (`announcementController.js`) | Pratinjau PDF di `MobileHeader.jsx` & modal | ✅ Aktif (Akses edaran dinas resmi) |
-| `/api/personnel/:id/documents` | GET | `getPersonnelDocuments` (`documentController.js`) | `fetchDocuments` di `MobileProfileView.jsx` | ✅ Aktif (Tarik data berkas dari DB) |
-| `/api/personnel/:id/documents` | POST | `uploadDocument` (`documentController.js`) | Handler upload di `MobileProfileView.jsx` | ✅ Aktif (`multipart/form-data`) |
-| `/api/auth/profile` | PUT | `updateProfile` (`authController.js`) | `handleSaveProfile` di `MobileEditProfileModal.jsx` | ✅ Aktif (Update NIP, TTL, Gol Darah) |
-| `/api/auth/change-password` | PUT | `changePassword` (`authController.js`) | `handleChangePassword` di `MobileChangePasswordModal.jsx` | ✅ Aktif (Bcrypt hash & proteksi sandi) |
-
----
-
-## Rincian Tanggung Jawab Lanjutan Agent 1
-1. **Uji Penetrasi Endpoint `/uploads`**: Pastikan akses `curl /uploads/document-xxx.pdf` tanpa token ditolak dengan HTTP 401, dan akses oleh kru berbeda ditolak HTTP 403.
-2. **Validasi Anti-Lag Input Profil**: Memastikan seluruh form edit profil dan ganti sandi tetap responsif (< 16ms).
-3. **Validasi Build CLI**: Jalankan `npm run build` dan pastikan 0 error.
+Setelah seluruh kode di atas diperbaiki dan divalidasi via CLI:
+Tuliskan rincian hasil pekerjaan, berkas yang diubah, dan bukti pengujian ke dalam `masak/temp/hasil_agent1.md`.

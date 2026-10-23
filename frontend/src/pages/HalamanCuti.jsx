@@ -52,10 +52,20 @@ export default function HalamanCuti() {
   const [submittingLeave, setSubmittingLeave] = useState(false);
   const [leaveModalError, setLeaveModalError] = useState(null);
 
-  const fetchLeaveData = useCallback(async () => {
+  // Auto-dismiss timer untuk pesan sukses
+  useEffect(() => {
+    if (successMsg) {
+      const timer = setTimeout(() => setSuccessMsg(null), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [successMsg]);
+
+  const fetchLeaveData = useCallback(async (options = {}) => {
     setLoading(true);
     setError(null);
-    setSuccessMsg(null);
+    if (!options?.keepSuccessMsg) {
+      setSuccessMsg(null);
+    }
 
     try {
       const currentTeam = cleanTeam(activeTeam);
@@ -152,7 +162,7 @@ export default function HalamanCuti() {
 
       setSuccessMsg(res.data?.message || 'Pengajuan cuti berhasil dicatat.');
       setLeaveModalOpen(false);
-      fetchLeaveData();
+      fetchLeaveData({ keepSuccessMsg: true });
     } catch (err) {
       console.error('Error submitting leave range:', err);
       setLeaveModalError(err.response?.data?.message || err.message || 'Gagal mengajukan cuti.');
@@ -218,7 +228,7 @@ export default function HalamanCuti() {
       });
 
       setSuccessMsg('Pencatatan cuti dan izin personel berhasil disimpan.');
-      fetchLeaveData();
+      fetchLeaveData({ keepSuccessMsg: true });
     } catch (err) {
       console.error('Error saving leave data:', err);
       setError(`Gagal menyimpan data cuti: ${err.response?.data?.message || err.message}`);
@@ -229,6 +239,35 @@ export default function HalamanCuti() {
 
   return (
     <div>
+      {/* Floating Viewport Toast Notifikasi (Selalu Terlihat di Posisi Scroll Manapun) */}
+      {successMsg && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-emerald-600 text-white shadow-xl text-xs font-semibold animate-in fade-in slide-in-from-top-2 duration-150">
+          <CheckCircle className="w-4 h-4 flex-shrink-0 text-white" />
+          <span>{successMsg}</span>
+          <button
+            type="button"
+            onClick={() => setSuccessMsg(null)}
+            className="ml-2 hover:bg-emerald-700 p-0.5 rounded text-emerald-100"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-red-600 text-white shadow-xl text-xs font-semibold animate-in fade-in slide-in-from-top-2 duration-150">
+          <AlertCircle className="w-4 h-4 flex-shrink-0 text-white" />
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="ml-2 hover:bg-red-700 p-0.5 rounded text-red-100"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Header Info Shift */}
       <ShiftHeaderCard
         shiftNumber={activeShiftNumber}
@@ -242,20 +281,6 @@ export default function HalamanCuti() {
           isPlotted: true,
         }}
       />
-
-      {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
-          <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {successMsg && (
-        <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-start gap-2">
-          <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-          <span>{successMsg}</span>
-        </div>
-      )}
 
       <StateView loading={loading} onRetry={fetchLeaveData}>
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mb-6">

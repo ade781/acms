@@ -17,11 +17,14 @@ export default function VehicleReadinessModal({
   activeTeam,
   onSuccess,
 }) {
-  const [status, setStatus] = useState(vehicle?.status || vehicle?.current_log?.status || 'serviceable');
+  const initialStatus = vehicle?.status || vehicle?.current_log?.status;
+  const wasInitiallyUnserviceable = initialStatus === 'unserviceable';
+
+  const [status, setStatus] = useState(initialStatus || 'serviceable');
   const [justification, setJustification] = useState(vehicle?.justification || vehicle?.current_log?.justification || '');
   const [notes, setNotes] = useState(vehicle?.notes || vehicle?.current_log?.notes || '');
   const [photoFile, setPhotoFile] = useState(null);
-  const [photoPreview, setPhotoPreview] = useState(vehicle?.current_log?.photo_webp_url || null);
+  const [photoPreview, setPhotoPreview] = useState(vehicle?.photo_webp_url || vehicle?.current_log?.photo_webp_url || null);
   const [compressing, setCompressing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -54,21 +57,37 @@ export default function VehicleReadinessModal({
     e.preventDefault();
     setError(null);
 
-    if (status === 'unserviceable' && !justification.trim()) {
+    // Validasi Foto Bukti Fisik Wajib
+    if (!photoFile && !photoPreview) {
+      setError('Foto bukti fisik kelaikan armada wajib disertakan untuk verifikasi kondisi lapangan.');
+      return;
+    }
+
+    if (status === 'unserviceable' && (!justification || !justification.trim())) {
       setError('Justifikasi kendala wajib diisi apabila status unserviceable.');
+      return;
+    }
+
+    // Validasi Catatan Tindak Lanjut saat Pemulihan Armada
+    if (status === 'serviceable' && wasInitiallyUnserviceable && (!notes || notes.trim().length < 3)) {
+      setError('Catatan tindak lanjut pemulihan/perbaikan wajib diisi ketika memulihkan status armada ke Serviceable.');
       return;
     }
 
     setSubmitting(true);
     try {
       const formData = new FormData();
-      formData.append('vehicle_id', vehicle.id);
+      formData.append('vehicle_id', vehicle.id || vehicle.vehicle_id);
       formData.append('shift_date', activeDate);
       formData.append('shift_number', activeShiftNumber);
       formData.append('team_group', cleanTeam(activeTeam));
       formData.append('status', status);
-      formData.append('justification', justification);
-      formData.append('notes', notes);
+      formData.append('justification', status === 'unserviceable' ? justification.trim() : '');
+      formData.append('notes', notes.trim());
+
+      if (status === 'serviceable' && wasInitiallyUnserviceable) {
+        formData.append('follow_up_status', 'resolved');
+      }
 
       if (photoFile) {
         formData.append('photo', photoFile);
@@ -80,7 +99,8 @@ export default function VehicleReadinessModal({
         },
       });
 
-      if (onSuccess) onSuccess();
+      const successText = `Status kesiapan ${vehicle.code_name || vehicle.vehicle_name} berhasil disimpan.`;
+      if (onSuccess) onSuccess(successText);
       onClose();
     } catch (err) {
       const msg = err.response?.data?.message || err.message || 'Gagal menyimpan data kesiapan kendaraan.';
@@ -171,7 +191,7 @@ export default function VehicleReadinessModal({
         {/* Photo Upload with Client-Side WebP Compression */}
         <div className="space-y-2">
           <label className="text-xs font-semibold text-slate-700 block">
-            Dokumentasi Foto Fisik (Otomatis Kompresi WebP di Klien)
+            Dokumentasi Foto Fisik <span className="text-red-500 font-bold">* Wajib</span> (Otomatis Kompresi WebP di Klien)
           </label>
 
           <div className="flex items-center gap-4">

@@ -378,9 +378,13 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
 
             {/* Aksi Unduh / Buka Dokumen */}
             <div className="grid grid-cols-2 gap-1.5">
-              {previewPdfDoc.file_url ? (
+              {previewPdfDoc.file_path ? (
                 <a
-                  href={previewPdfDoc.file_url}
+                  href={
+                    previewPdfDoc.file_path.startsWith('http')
+                      ? previewPdfDoc.file_path
+                      : `${import.meta.env.VITE_API_URL || '/api'}/announcements/${previewPdfDoc.id}/attachment`
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
                   className="py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] flex items-center justify-center gap-1 transition-colors duration-100"

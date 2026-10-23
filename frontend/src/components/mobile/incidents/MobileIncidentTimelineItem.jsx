@@ -7,7 +7,17 @@ export const INCIDENT_PRIORITIES = {
     badge: 'bg-red-50 text-red-700 border-red-200',
     dot: 'bg-red-600',
   },
+  critical: {
+    label: 'Kritis (Siaga I)',
+    badge: 'bg-red-50 text-red-700 border-red-200',
+    dot: 'bg-red-600',
+  },
   tinggi: {
+    label: 'Tinggi (Siaga II)',
+    badge: 'bg-orange-50 text-orange-700 border-orange-200',
+    dot: 'bg-orange-600',
+  },
+  high: {
     label: 'Tinggi (Siaga II)',
     badge: 'bg-orange-50 text-orange-700 border-orange-200',
     dot: 'bg-orange-600',
@@ -17,7 +27,17 @@ export const INCIDENT_PRIORITIES = {
     badge: 'bg-amber-50 text-amber-800 border-amber-200',
     dot: 'bg-amber-600',
   },
+  medium: {
+    label: 'Sedang (Siaga III)',
+    badge: 'bg-amber-50 text-amber-800 border-amber-200',
+    dot: 'bg-amber-600',
+  },
   rendah: {
+    label: 'Rendah (Info)',
+    badge: 'bg-blue-50 text-blue-700 border-blue-200',
+    dot: 'bg-blue-600',
+  },
+  low: {
     label: 'Rendah (Info)',
     badge: 'bg-blue-50 text-blue-700 border-blue-200',
     dot: 'bg-blue-600',

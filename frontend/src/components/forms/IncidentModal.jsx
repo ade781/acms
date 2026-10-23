@@ -10,6 +10,19 @@ import { cleanTeam, formatTeam } from '../../utils/shiftHelper';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 
+export const OFFICIAL_INCIDENT_CLASSIFICATIONS = [
+  'Aircraft Accident',
+  'Aircraft Incident',
+  'Kebakaran Gedung atau Terminal',
+  'Kebakaran Fasilitas atau Objek Lain di Bandara',
+  'Aircraft Go-Around',
+  'Hewan Liar atau Wildlife Hazard',
+  'Emergency atau Standby Operasional',
+  'Temuan Gangguan Fasilitas',
+  'Latihan atau Kegiatan Operasional',
+  'Kejadian Lainnya',
+];
+
 export default function IncidentModal({
   isOpen,
   onClose,
@@ -20,7 +33,8 @@ export default function IncidentModal({
 }) {
   const { user, isAdmin, isSupervisor } = useAuth();
   const canReportIncident = isAdmin || isSupervisor || ['admin', 'chief', 'chief_assistant', 'supervisor', 'dept_head'].includes(user?.role);
-  const [title, setTitle] = useState('');
+  const [classification, setClassification] = useState(OFFICIAL_INCIDENT_CLASSIFICATIONS[0]);
+  const [customTitle, setCustomTitle] = useState('');
   const [location, setLocation] = useState('');
   const [priorityLevel, setPriorityLevel] = useState('sedang');
   const [aircraftInfo, setAircraftInfo] = useState('');
@@ -58,15 +72,28 @@ export default function IncidentModal({
     e.preventDefault();
     setError(null);
 
-    if (!title.trim() || !location.trim() || !chronology.trim()) {
-      setError('Judul kejadian, lokasi, dan kronologis wajib diisi.');
+    const finalTitle = classification === 'Kejadian Lainnya'
+      ? customTitle.trim()
+      : (customTitle.trim() ? `${classification} - ${customTitle.trim()}` : classification);
+
+    if (!finalTitle || !location.trim() || !chronology.trim()) {
+      setError('Klasifikasi/judul kejadian, lokasi, dan kronologis wajib diisi.');
       return;
     }
+
+    // Pemetaan ke ENUM database baku
+    let mappedCategory = 'other';
+    if (classification === 'Aircraft Accident') mappedCategory = 'aircraft_accident';
+    else if (classification === 'Aircraft Incident' || classification === 'Aircraft Go-Around') mappedCategory = 'aircraft_incident';
+    else if (classification.includes('Kebakaran')) mappedCategory = 'fire';
+    else if (classification.includes('Emergency')) mappedCategory = 'medical_emergency';
+    else if (classification.includes('Hewan') || classification.includes('Wildlife')) mappedCategory = 'hazmat';
 
     setSubmitting(true);
     try {
       const formData = new FormData();
-      formData.append('title', title);
+      formData.append('title', finalTitle);
+      formData.append('category', mappedCategory);
       formData.append('incident_date', activeDate);
       formData.append('incident_time', new Date().toTimeString().slice(0, 5));
       formData.append('shift_number', activeShiftNumber);
@@ -89,7 +116,7 @@ export default function IncidentModal({
         },
       });
 
-      if (onSuccess) onSuccess();
+      if (onSuccess) onSuccess('Laporan insiden berhasil dikirimkan.');
       onClose();
     } catch (err) {
       const msg = err.response?.data?.message || err.message || 'Gagal menyimpan laporan kejadian.';
@@ -142,13 +169,30 @@ export default function IncidentModal({
             </div>
           )}
 
-        <InputField
-          label="Judul Laporan / Peristiwa"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Contoh: Tumpahan Bahan Bakar Pesawat di Stand 04"
-          required
-        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <SelectField
+            label="Klasifikasi Baku Kejadian ARFF"
+            value={classification}
+            onChange={(e) => setClassification(e.target.value)}
+            required
+            options={OFFICIAL_INCIDENT_CLASSIFICATIONS.map((c) => ({
+              value: c,
+              label: c,
+            }))}
+          />
+
+          <InputField
+            label="Rincian Singkat / Sub-Judul"
+            value={customTitle}
+            onChange={(e) => setCustomTitle(e.target.value)}
+            placeholder={
+              classification === 'Kejadian Lainnya'
+                ? 'Wajib diisi: sebutkan jenis kejadian...'
+                : 'Contoh: Stand 04 / Taxiway Echo (opsional)'
+            }
+            required={classification === 'Kejadian Lainnya'}
+          />
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <InputField

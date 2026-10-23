@@ -27,6 +27,7 @@ pnpm-debug.log*
 
 # Editor & OS files
 .vscode/
+*.code-workspace
 .idea/
 *.suo
 *.ntvs*

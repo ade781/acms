@@ -61,6 +61,10 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
   const [isPasswordOpen, setIsPasswordOpen] = useState(false);
   const [isUploadDocOpen, setIsUploadDocOpen] = useState(false);
 
+  // Visual Toast Feedback
+  const [feedbackSuccess, setFeedbackSuccess] = useState(null);
+  const [feedbackError, setFeedbackError] = useState(null);
+
   // Upload Doc State
   const [uploadDocTitle, setUploadDocTitle] = useState('');
   const [uploadDocType, setUploadDocType] = useState('lisensi_stkp');
@@ -133,6 +137,7 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
       setIsUploadDocOpen(false);
       setUploadDocTitle('');
       setUploadDocFile(null);
+      setFeedbackSuccess('Dokumen berkas berhasil diunggah ke arsip pribadi.');
       await loadProfileAndDocs();
     } catch (err) {
       console.error('Error upload doc:', err);
@@ -146,12 +151,15 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
     if (!window.confirm('Hapus dokumen ini dari arsip pribadi?')) return;
 
     setDeletingDocId(docId);
+    setFeedbackSuccess(null);
+    setFeedbackError(null);
     try {
       await api.delete(`/personnel/${personnelId}/documents/${docId}`);
       setDocuments((prev) => prev.filter((d) => d.id !== docId));
+      setFeedbackSuccess('Berkas dokumen berhasil dihapus dari arsip.');
     } catch (err) {
       console.error('Error delete doc:', err);
-      alert(err.response?.data?.message || 'Gagal menghapus dokumen');
+      setFeedbackError(err.response?.data?.message || 'Gagal menghapus dokumen.');
     } finally {
       setDeletingDocId(null);
     }
@@ -210,6 +218,38 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
           </button>
         </div>
       </div>
+
+      {feedbackSuccess && (
+        <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between gap-2 shadow-2xs animate-in fade-in">
+          <div className="flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
+            <span className="font-semibold">{feedbackSuccess}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFeedbackSuccess(null)}
+            className="text-emerald-700 hover:text-emerald-900 font-bold px-1"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {feedbackError && (
+        <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-2 shadow-2xs animate-in fade-in">
+          <div className="flex items-center gap-1.5">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0 text-red-600" />
+            <span>{feedbackError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFeedbackError(null)}
+            className="text-red-700 hover:text-red-900 font-bold px-1"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
@@ -374,6 +414,7 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
         onClose={() => setIsEditOpen(false)}
         personnel={activePersonnel}
         onSuccess={async () => {
+          setFeedbackSuccess('Data profil mandiri berhasil diperbarui.');
           await refreshUser();
           await loadProfileAndDocs();
         }}

@@ -1,51 +1,75 @@
-# MASTER ROADMAP: PEMBAGIAN TUGAS 5 AGENT — IMPLEMENTASI MOBILE WEB APP ACMS (ARFF YIA)
+# MASTER ROADMAP: FASE EKSEKUSI PERBAIKAN TOTAL 5 AGENT (FIX & VERIFY PHASE)
 
-Dokumen ini adalah **panduan koordinasi utama** pembagian implementasi antarmuka Mobile Web App ACMS ARFF Bandara Internasional Yogyakarta (YIA) ke dalam **5 Agent Spesialis**. Setiap agent memiliki batasan tanggung jawab, daftar berkas eksklusif, audit endpoint & fungsi, serta mandat **Zero Dummy Data**.
+Dokumen ini adalah **panduan eksekusi utama** bagi **5 Agent Spesialis**.
+Seluruh temuan audit dari kelima agen telah **DI-ACC OLEH PENGGUNA** (dengan penegasan bahwa katalog personel tetap fokus 100% pada 4 regu dinas operasional).
 
-> **Riwayat Git Commit Berkala**:
-> - Commit hash: `2ae9462`
-> - Pesan: `feat: implementasi antarmuka mobile web app acms, migrasi 13 tabel, penyelarasan aturan bisnis, dan proteksi hak akses shift`
-> - Total: 51 files changed, 7635 insertions(+), 1009 deletions(-)
-
----
-
-## 1. Landasan & Prinsip Desain Wajib (`GEMINI.md`)
-
-Seluruh agent **WAJIB** tunduk pada aturan baku operasional berikut:
-1. **Penghapusan Total Fitur Sahkan Shift**:
-   - Laporan dinas bersifat transparan, otomatis terekapitulasi, dan tidak memerlukan pengesahan manual. Dilarang keras membuat tombol atau badge "Sahkan Shift".
-2. **Keamanan Berkas Privat & Fail-Fast JWT Secret**:
-   - Berkas privat (dokumen personel dan tanda tangan) diisolasi dari akses publik langsung (`/uploads`).
-   - Pada mode produksi (`NODE_ENV === 'production'`), aplikasi wajib gagal berjalan (`process.exit(1)`) jika `JWT_SECRET` lemah atau < 32 karakter.
-3. **Integritas Data Operasional & Validasi Backend (Atomic Transactions)**:
-   - Pelepasan penugasan kru saat cuti wajib dieksekusi secara atomik (`beginTransaction`, `commit`, `rollback`).
-   - Backend memvalidasi pencegahan dua orang mengisi slot armada yang sama (anti-race condition) dan menolak kru berstatus cuti aktif ditugaskan tanpa pembatalan resmi.
-4. **Mandat Zero Dummy Data (Kebijakan Nol Data Tiruan Tanpa Kompromi)**:
-   - Dilarang membuat data dummy, angka magic, array mock, atau nama pejabat tiruan.
-   - Seluruh data personel, armada, tanda tangan digital, dan logbook ditarik 100% dari database `logbuk` (13 tabel aktif).
-5. **Proteksi Hak Akses Shift & Efisiensi Request Server**:
-   - Menu Ploting hanya dapat diakses untuk mengubah susunan kru jika user berdinas aktif pada shift tersebut. Jika bukan shift dinas regunya, sistem menampilkan layar santun *"Bukan Shift Dinas Anda"* dan **melewati (skip) pemanggilan API berat** ke server.
-   - Perubahan ploting hanya disimpan ke backend saat user menekan tombol **"Simpan Ploting"** (dilarang auto-save per klik slot).
-6. **Performa Anti-Lag (Strict INP & LCP)**:
-   - Dilarang memakai `transition-all` pada input form. Gunakan `transition-colors duration-100`.
-   - Dilarang memakai `backdrop-filter: blur(...)` pada overlay modal saat input form aktif.
-   - Tanpa browser otomatis (`browser_subagent`). Seluruh pengujian via CLI terminal (`npm run build`, `node -c`).
+> 🚀 **MANDAT FASE 3 (EKSEKUSI PERBAIKAN KODE & PENGUJIAN):**
+> 1. **EKSEKUSI PERBAIKAN KODE**: Setiap agen wajib memperbaiki seluruh butir kesalahan di domain masing-masing sesuai instruksi tugas `task_agent[1-5].md`.
+> 2. **BATAS KODE EKSKLUSIF (ZERO COLLISION)**: Setiap agen hanya menyentuh berkas yang menjadi tanggung jawabnya. Dilarang mengedit berkas di luar domain.
+> 3. **SEMUA PENGUJIAN / TESTING DI FOLDER `masak/`**: Dilarang membuat folder `tests/` di `backend/` atau `frontend/`. Seluruh skrip uji verifikasi ditempatkan di `masak/`.
+> 4. **VALIDASI SISTEM VIA CLI**: Pastikan sintaks valid (`node -c`), build lolos (`npm run build`), dan bebas error console.
+> 5. **LAPORAN HASIL KERJA MANDIRI**: Tuliskan laporan perbaikan dan bukti pengujian secara mandiri ke `masak/temp/hasil_agent[1-5].md`.
 
 ---
 
-## 2. Matriks Pembagian Tugas & Berkas 5 Agent
+## 1. Rekapitulasi Rencana Eksekusi Perbaikan 5 Agent
 
-| Agent | Spesialisasi & Modul | Berkas Eksklusif yang Dikelola | Tautan Detail Panduan |
-| :---: | :--- | :--- | :--- :---: |
-| **Agent 1** | **Pondasi Shell, Header, Profil, RBAC Dokumen & Fail-Fast Security** | • `frontend/src/components/mobile/MobileLayout.jsx`<br>• `frontend/src/components/mobile/MobileHeader.jsx`<br>• `frontend/src/components/mobile/MobileBottomNav.jsx`<br>• `frontend/src/components/mobile/profile/MobileProfileView.jsx`<br>• `frontend/src/components/mobile/profile/MobileEditProfileModal.jsx`<br>• `frontend/src/components/mobile/profile/MobileChangePasswordModal.jsx`<br>• `frontend/src/components/mobile/announcements/MobileAnnouncementsModal.jsx`<br>• `frontend/src/App.jsx`<br>• `backend/src/server.js`<br>• `backend/src/app.js` | [task_agent1.md](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/task_agent1.md) |
-| **Agent 2** | **Dashboard, Tugas Saya, Form Kesiapan PIC, Integritas Transaksi Cuti** | • `frontend/src/pages/mobile/MobileDashboard.jsx`<br>• `frontend/src/components/mobile/dashboard/MobileDutyCard.jsx`<br>• `frontend/src/components/mobile/dashboard/MobilePicReadinessForm.jsx`<br>• `frontend/src/components/mobile/dashboard/MobileOpsSummaryCards.jsx`<br>• `frontend/src/components/mobile/dashboard/MobileUnserviceableWidget.jsx`<br>• `frontend/src/components/mobile/dashboard/MobileRecentAnnouncements.jsx`<br>• `frontend/src/components/mobile/dashboard/MobileLeaveModal.jsx` | [task_agent2.md](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/task_agent2.md) |
-| **Agent 3** | **Ploting 8 Unit Armada, Crew Picker, Anti-Race Condition & Validasi Backend** | • `frontend/src/pages/mobile/MobilePloting.jsx`<br>• `frontend/src/components/mobile/ploting/MobilePlotCard.jsx`<br>• `frontend/src/components/mobile/ploting/MobileCrewPickerSheet.jsx`<br>• `frontend/src/components/mobile/ploting/MobileAbsentCrewSection.jsx`<br>• `frontend/src/components/mobile/ploting/MobileCancelLeaveConfirmModal.jsx`<br>• `backend/src/controllers/deploymentController.js` | [task_agent3.md](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/task_agent3.md) |
-| **Agent 4** | **Logbook Kegiatan Rutin, Pelaporan Insiden & Validasi File Upload** | • `frontend/src/pages/mobile/MobileKegiatan.jsx`<br>• `frontend/src/pages/mobile/MobileInsiden.jsx`<br>• `frontend/src/components/mobile/activities/MobileActivityModal.jsx`<br>• `frontend/src/components/mobile/activities/MobileActivityTimelineItem.jsx`<br>• `frontend/src/components/mobile/incidents/MobileIncidentModal.jsx`<br>• `frontend/src/components/mobile/incidents/MobileIncidentTimelineItem.jsx`<br>• `frontend/src/components/mobile/incidents/MobileIncidentDetailModal.jsx`<br>• `backend/src/middleware/uploadMiddleware.js` | [task_agent4.md](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/task_agent4.md) |
-| **Agent 5** | **Rekap Laporan Dinas Shift, Pejabat Dinamis PDF A4 & Automated Testing** | • `frontend/src/pages/mobile/MobileLaporan.jsx`<br>• `frontend/src/components/mobile/reports/MobileReportSummaryCard.jsx`<br>• `frontend/src/components/mobile/reports/MobileUnitAuditModal.jsx`<br>• `frontend/src/components/mobile/reports/MobilePdfViewerModal.jsx`<br>• `frontend/src/components/mobile/reports/MobileSignaturesSection.jsx`<br>• `backend/src/controllers/reportController.js`<br>• `backend/src/services/pdfService.js` | [task_agent5.md](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/task_agent5.md) |
+### **Agent 1: Autentikasi, Shell/Layout, Master Personel, Kredensial STKP & Pejabat**
+- **Berkas yang Diperbaiki**:
+  - `frontend/src/components/mobile/profile/MobileEditProfileModal.jsx` (Perbaiki opsi ENUM cert_level: Basic, Junior, Senior)
+  - `frontend/src/pages/HalamanLogin.jsx` (Hilangkan double redirect / flash navigasi pasca-login role lapangan)
+  - `frontend/src/pages/HalamanDetailPersonel.jsx` (Ganti fallback strip `"-"` menjadi `null`, tambahkan tombol & modal Reset Password ke 123456)
+  - `frontend/src/components/layout/Navbar.jsx` (Hubungkan avatar header desktop ke profil akun sendiri)
+  - `frontend/src/pages/HalamanKelolaPejabat.jsx` & `backend/src/controllers/personnelController.js` (Tambahkan Section Head & normalisasi case-insensitive perbandingan nama regu)
+  - `HalamanDetailPersonel.jsx` & `MobileProfileView.jsx` (Ganti `window.alert()` dengan toast notifikasi)
+  - `frontend/src/pages/HalamanPersonel.jsx` (Tambahkan dropdown filter sertifikasi lisensi dan pagination terstandar)
+  - `backend/src/controllers/authController.js` (Sanitasi `username.trim()` dan fallback default `JWT_EXPIRES_IN || '24h'`)
+  - *Catatan Khusus: Katalog personel tetap fokus 4 regu dinas (Alpha, Bravo, Charlie, Delta), tidak perlu menambah tab non-shift/Dept Head.*
+
+### **Agent 2: Dashboard Operasional, Kesiapan Armada (Fleet), & Pengumuman**
+- **Berkas yang Diperbaiki**:
+  - `frontend/src/pages/HalamanDashboard.jsx` (Perbaiki rute `/deployments` -> `/deployment`, bersihkan 4 kartu placeholder "Coming Soon", ubah badge counter total armada jadi dinamis `{metrics.totalVehicles || 0}`)
+  - `backend/src/controllers/dashboardController.js` (Sinkronkan perhitungan carry-over armada rusak unserviceable dengan `readinessController.js`)
+  - `frontend/src/pages/HalamanPengumuman.jsx` (Hilangkan hardcode URL `http://localhost:5000` pada pratinjau edaran dinas PDF)
+  - `frontend/src/pages/mobile/MobileDashboard.jsx` (Perbaiki mismatch properti file lampiran PDF `previewPdfDoc.file_path`)
+  - `frontend/src/pages/HalamanKesiapanKendaraan.jsx` & modal kelaikan (Pasang toast notifikasi sukses/gagal pada tambah/edit/hapus armada dan log kelaikan)
+  - `frontend/src/components/forms/VehicleReadinessModal.jsx` (Wajibkan upload foto bukti fisik dan wajibkan catatan perbaikan saat transisi unserviceable -> serviceable)
+  - `frontend/src/components/mobile/dashboard/MobilePicReadinessForm.jsx` (Integrasikan kompresi canvas WebP pada foto kamera PIC mobile)
+
+### **Agent 3: Ploting Penugasan Shift & Manajemen Cuti / Izin Dinas**
+- **Berkas yang Diperbaiki**:
+  - `frontend/src/pages/HalamanPenugasan.jsx` (Hapus `setSuccessMsg(null)` di `fetchDeploymentData()` pasca-simpan, jadikan notifikasi floating fixed viewport dengan auto-dismiss, render panel daftar personel izin/cuti shift ini, tambahkan auto-evict kru yang cuti dari slot armada)
+  - `frontend/src/pages/mobile/MobilePloting.jsx` (Ubah kontainer `toastMsg` menjadi floating fixed pill viewport dengan timer auto-dismiss 3s, tangani pembatalan cuti lokal tanpa request 404 ke backend)
+  - `frontend/src/components/mobile/MobileLayout.jsx` (Pasang listener global `arff:open-leave-modal` agar tombol `+ Cuti Mandiri` di Profil membuka modal secara responsif)
+  - `frontend/src/App.jsx` (Teruskan prop `onOpenCutiModal` ke `MobilePloting.jsx` agar tombol `+ Cuti Saya` tampil)
+  - `frontend/src/components/mobile/dashboard/MobileLeaveModal.jsx` & `backend/src/controllers/deploymentController.js` (Sediakan dropdown pemilih personel jika dibuka Admin/Chief dan tangani kasus `personnel_id` null agar tidak error 400, serta lengkapi opsi `tukar_dinas`)
+  - `frontend/src/pages/HalamanCuti.jsx` (Hapus pembersihan instan pesan sukses di `fetchLeaveData()`)
+
+### **Agent 4: Logbook Kegiatan Rutin, Manajemen Insiden & Upload Berkas**
+- **Berkas yang Diperbaiki**:
+  - `frontend/src/pages/HalamanInsiden.jsx` (Impor `useNavigate` dan definisikan `const navigate = useNavigate();` untuk mencegah crash baris tabel)
+  - `backend/src/controllers/incidentController.js` (Perbaiki variabel `selectedCategory` yang tidak didefinisikan pada `createIncident` agar laporan insiden baru berhasil tersimpan 100%)
+  - `frontend/src/pages/HalamanKegiatan.jsx` (Selaraskan opsi kegiatan dengan 8 Kategori Baku Operasional ARFF YIA, tambahkan input upload foto kegiatan, thumbnail gambar, dan tombol Edit/Hapus)
+  - `frontend/src/components/forms/IncidentModal.jsx` (Tambahkan dropdown 10 Klasifikasi Baku Kejadian ARFF dan kirim field `category` pada `FormData`)
+  - `backend/src/controllers/activityController.js` (Hapus berkas fisik di `uploads/` saat aktivitas berfoto dihapus)
+  - `HalamanInsiden.jsx` & `HalamanDetailInsiden.jsx` (Standarisasi pembacaan badge prioritas insiden bahasa Inggris & dinamiskan di halaman detail)
+  - Ganti seluruh dialog browser `alert()` dan `confirm()` dengan notifikasi visual in-app.
+
+### **Agent 5: Jadwal Dinas, Rekap Laporan Shift, Export PDF A4 & Database**
+- **Berkas yang Diperbaiki**:
+  - `frontend/src/pages/HalamanLaporan.jsx` (Lengkapi pemanggilan data: fetch dan render tabel 8 armada kelaikan, tabel presensi & ploting kru, tabel log kegiatan, dan tabel insiden, perbarui kop surat standar PT Angkasa Pura Indonesia YIA Kode WAHI Kategori 8)
+  - `frontend/src/components/mobile/reports/MobilePdfViewerModal.jsx` (Ambil token dari key `'arff_token'`, dan perbaiki URL tombol unduh agar tidak ganda `/api/api/...`)
+  - `frontend/src/pages/HalamanJadwal.jsx` (Ganti `window.confirm` dan `window.alert` dengan modal/toast in-app, dan nonaktifkan cursor-pointer bagi kru biasa)
+  - `frontend/src/pages/HalamanLaporan.jsx` (Tambahkan penanganan visual error yang jelas dan tombol coba lagi jika gagal load data)
+  - `backend/src/controllers/reportController.js` & `backend/src/services/pdfService.js` (Kirimkan data personel izin/cuti ke generator PDF agar dokumen cetak A4 mencantumkan daftar nama dan alasan cuti secara akurat)
+  - `backend/src/controllers/scheduleController.js` (Teruskan kustomisasi `schedule_anchor_date` ke fungsi `getScheduleCyclePreview`)
+  - Pastikan seluruh pengujian integrasi tetap berada di folder `masak/`.
 
 ---
 
-## 3. Rencana Bertahap Penerapan (3 Prioritas Fondasi)
-1. **Tahap 1 (Selesai)**: Penyelarasan aturan bisnis, penghapusan `plan.md`, fail-fast `JWT_SECRET`, dan git commit berkala (`2ae9462`).
-2. **Tahap 2**: Penguatan validasi backend transaksi cuti vs penugasan, anti-race condition ploting, dan validasi berkas upload.
-3. **Tahap 3**: Pengujian integrasi otomatis (*automated integration test*) dan kesiapan operasional nyata.
+## 2. Protokol Pelaporan Akhir
+Setelah perbaikan selesai dan divalidasi via CLI:
+Setiap agen **WAJIB mengisi laporannya secara mandiri** ke berkas `masak/temp/hasil_agent[1-5].md` dengan menyertakan:
+1. Daftar butir yang telah diperbaiki.
+2. Hasil verifikasi fungsional dan pengujian CLI.
+3. Status kesiapan rilis.

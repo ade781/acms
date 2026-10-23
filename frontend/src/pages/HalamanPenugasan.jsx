@@ -5,6 +5,10 @@ import {
   Info,
   Save,
   ShieldAlert,
+  UserX,
+  PlusCircle,
+  Trash2,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam, formatTeam, getScheduledTeam } from '../utils/shiftHelper';
@@ -45,6 +49,14 @@ export default function HalamanPenugasan() {
 
   const [saving, setSaving] = useState(false);
 
+  // Auto-dismiss timer untuk notifikasi sukses
+  useEffect(() => {
+    if (successMsg) {
+      const timer = setTimeout(() => setSuccessMsg(null), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [successMsg]);
+
   // Jadwal dinas operasional shift aktif
   const scheduledTeam = useMemo(
     () => getScheduledTeam(activeDate, activeShiftNumber),
@@ -77,10 +89,12 @@ export default function HalamanPenugasan() {
 
 
   // Fetch current deployment & master data concurrently
-  const fetchDeploymentData = useCallback(async () => {
+  const fetchDeploymentData = useCallback(async (options = {}) => {
     setLoading(true);
     setError(null);
-    setSuccessMsg(null);
+    if (!options?.keepSuccessMsg) {
+      setSuccessMsg(null);
+    }
 
     try {
       const currentTeam = cleanTeam(activeTeam);
@@ -116,8 +130,27 @@ export default function HalamanPenugasan() {
 
       setSupervisorName(depPayload?.shift?.supervisor_name || depPayload?.supervisor_name || '');
 
+      // Absent personnel
+      const existingAbsent = (deploymentsList || []).filter(
+        (d) => d.deployment_type === 'absent'
+      );
+      const absentIdSet = new Set(existingAbsent.map((d) => Number(d.personnel_id)));
+
+      if (existingAbsent.length > 0) {
+        setAbsentList(
+          existingAbsent.map((d) => ({
+            personnel_id: d.personnel_id,
+            reason: d.absent_reason || 'cuti',
+            notes: d.notes || '',
+          }))
+        );
+      } else {
+        setAbsentList([]);
+      }
+
       // Initialize vehicle & watchroom slots
       // Slot 0 (paling atas) selalu FIX sebagai PIC
+      // Auto-evict: Jika personel tercatat cuti/izin, otomatis lepaskan dari slot kendaraan
       const initialSlots = {};
       fetchedVehicles.forEach((v) => {
         const vId = v.id;
@@ -133,11 +166,14 @@ export default function HalamanPenugasan() {
         if (existingForUnit.length > 0) {
           // Sort so that PIC is at slot 0
           const sorted = [...existingForUnit].sort((a, b) => (b.is_pic ? 1 : 0) - (a.is_pic ? 1 : 0));
-          initialSlots[vId] = sorted.map((d, idx) => ({
-            personnel_id: d.personnel_id || '',
-            is_pic: idx === 0, // Slot 0 selalu PIC
-            personnel_name: d.full_name || '',
-          }));
+          initialSlots[vId] = sorted.map((d, idx) => {
+            const isAbsentCrew = d.personnel_id && absentIdSet.has(Number(d.personnel_id));
+            return {
+              personnel_id: isAbsentCrew ? '' : (d.personnel_id || ''),
+              is_pic: idx === 0, // Slot 0 selalu PIC
+              personnel_name: isAbsentCrew ? '' : (d.full_name || ''),
+            };
+          });
           while (initialSlots[vId].length < targetSlotsCount) {
             initialSlots[vId].push({ personnel_id: '', is_pic: false, personnel_name: '' });
           }
@@ -155,22 +191,6 @@ export default function HalamanPenugasan() {
         }
       });
       setVehicleSlots(initialSlots);
-
-      // Absent personnel
-      const existingAbsent = (deploymentsList || []).filter(
-        (d) => d.deployment_type === 'absent'
-      );
-      if (existingAbsent.length > 0) {
-        setAbsentList(
-          existingAbsent.map((d) => ({
-            personnel_id: d.personnel_id,
-            reason: d.absent_reason || 'cuti',
-            notes: d.notes || '',
-          }))
-        );
-      } else {
-        setAbsentList([]);
-      }
     } catch (err) {
       console.error('Error fetching deployments:', err);
       setError('Gagal memuat data ploting penugasan shift.');
@@ -220,6 +240,45 @@ export default function HalamanPenugasan() {
       }
       return { ...prev, [vehicleId]: currentList };
     });
+  };
+
+  // Tambah baris cuti/absen baru
+  const handleAddAbsent = () => {
+    setAbsentList((prev) => [
+      ...prev,
+      { personnel_id: '', reason: 'cuti', notes: '' },
+    ]);
+  };
+
+  // Ubah personel cuti & auto-evict dari slot kendaraan
+  const handleAbsentPersonnelChange = (index, personnelId) => {
+    const pId = personnelId ? Number(personnelId) : '';
+    setAbsentList((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], personnel_id: pId };
+      return updated;
+    });
+
+    // Auto-evict: Jika personel dipilih izin/cuti, otomatis kosongkan dari slot kendaraan yang pernah ditempatinya
+    if (pId) {
+      setVehicleSlots((prev) => {
+        const nextSlots = { ...prev };
+        Object.keys(nextSlots).forEach((vId) => {
+          nextSlots[vId] = nextSlots[vId].map((s) => {
+            if (Number(s.personnel_id) === pId) {
+              return { ...s, personnel_id: '', personnel_name: '' };
+            }
+            return s;
+          });
+        });
+        return nextSlots;
+      });
+    }
+  };
+
+  // Hapus baris cuti
+  const handleRemoveAbsent = (index) => {
+    setAbsentList((prev) => prev.filter((_, idx) => idx !== index));
   };
 
   // Save all deployments
@@ -274,7 +333,7 @@ export default function HalamanPenugasan() {
       });
 
       setSuccessMsg('Ploting penugasan kru berhasil disimpan!');
-      fetchDeploymentData();
+      fetchDeploymentData({ keepSuccessMsg: true });
     } catch (err) {
       const msg = err.response?.data?.message || err.message || 'Gagal menyimpan ploting kru.';
       setError(msg);
@@ -290,6 +349,35 @@ export default function HalamanPenugasan() {
 
   return (
     <div>
+      {/* Floating Viewport Toast Notifikasi (Selalu Terlihat di Mana Pun Pengguna Scroll) */}
+      {successMsg && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-emerald-600 text-white shadow-xl text-xs font-semibold animate-in fade-in slide-in-from-top-2 duration-150">
+          <CheckCircle className="w-4 h-4 flex-shrink-0 text-white" />
+          <span>{successMsg}</span>
+          <button
+            type="button"
+            onClick={() => setSuccessMsg(null)}
+            className="ml-2 hover:bg-emerald-700 p-0.5 rounded text-emerald-100"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-red-600 text-white shadow-xl text-xs font-semibold animate-in fade-in slide-in-from-top-2 duration-150">
+          <AlertCircle className="w-4 h-4 flex-shrink-0 text-white" />
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="ml-2 hover:bg-red-700 p-0.5 rounded text-red-100"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       <ShiftHeaderCard
         shiftNumber={activeShiftNumber}
         shiftDate={activeDate}
@@ -312,20 +400,6 @@ export default function HalamanPenugasan() {
                 : ' Ploting kru armada dikunci untuk regu yang sedang siaga cadangan / libur.'}
             </span>
           </div>
-        </div>
-      )}
-
-      {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
-          <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {successMsg && (
-        <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-start gap-2">
-          <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-          <span>{successMsg}</span>
         </div>
       )}
 
@@ -387,6 +461,143 @@ export default function HalamanPenugasan() {
             })}
           </div>
         </div>
+
+        {/* Panel Daftar Personel Izin / Cuti Shift Ini */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mb-8">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4 flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
+                <UserX className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">
+                  Daftar Personel Izin / Cuti Shift Ini
+                </h4>
+                <p className="text-xs text-slate-500">
+                  Personel regu yang berhalangan dinas aktif pada shift berjalan ({absentList.length} orang)
+                </p>
+              </div>
+            </div>
+            {canEditPlot && (
+              <button
+                type="button"
+                onClick={handleAddAbsent}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors duration-100"
+              >
+                <PlusCircle className="w-3.5 h-3.5 text-slate-500" />
+                <span>+ Catat Personel Cuti</span>
+              </button>
+            )}
+          </div>
+
+          {absentList.length === 0 ? (
+            <div className="py-6 text-center text-xs text-slate-500">
+              <CheckCircle className="w-6 h-6 text-emerald-500 mx-auto mb-1 opacity-80" />
+              <p className="font-semibold text-slate-700">Seluruh Personel Hadir</p>
+              <p className="text-slate-400 mt-0.5">
+                Tidak ada personel regu yang tercatat cuti atau berhalangan pada shift ini.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {absentList.map((abs, idx) => {
+                const person = teamPersonnel.find((p) => Number(p.id) === Number(abs.personnel_id));
+                return (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-lg border border-slate-200 bg-slate-50 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 text-xs"
+                  >
+                    <div className="flex-1">
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Nama Personel:
+                      </label>
+                      {canEditPlot ? (
+                        <select
+                          value={abs.personnel_id || ''}
+                          onChange={(e) => handleAbsentPersonnelChange(idx, e.target.value)}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-500"
+                        >
+                          <option value="">(Pilih Personel)</option>
+                          {teamPersonnel.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.full_name} ({p.nip || '-'})
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="font-bold text-slate-800">
+                          {person?.full_name || `Personel #${abs.personnel_id}`}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="w-full sm:w-44">
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Kategori Keterangan:
+                      </label>
+                      {canEditPlot ? (
+                        <select
+                          value={abs.reason || 'cuti'}
+                          onChange={(e) => {
+                            const updated = [...absentList];
+                            updated[idx].reason = e.target.value;
+                            setAbsentList(updated);
+                          }}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-500"
+                        >
+                          <option value="cuti">Cuti Tahunan</option>
+                          <option value="sakit">Sakit</option>
+                          <option value="dinas">Dinas Luar</option>
+                          <option value="tukar_dinas">Tukar Dinas</option>
+                        </select>
+                      ) : (
+                        <span className="inline-block px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold text-[10px] uppercase">
+                          {abs.reason || 'Cuti'}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex-1">
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Catatan / Keterangan:
+                      </label>
+                      {canEditPlot ? (
+                        <input
+                          type="text"
+                          value={abs.notes || ''}
+                          placeholder="Alasan cuti / keterangan..."
+                          onChange={(e) => {
+                            const updated = [...absentList];
+                            updated[idx].notes = e.target.value;
+                            setAbsentList(updated);
+                          }}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-500"
+                        />
+                      ) : (
+                        <span className="text-slate-600 italic">
+                          {abs.notes || '-'}
+                        </span>
+                      )}
+                    </div>
+
+                    {canEditPlot && (
+                      <div className="sm:pt-5">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAbsent(idx)}
+                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-100"
+                          title="Hapus baris cuti ini"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </StateView>
 
       {/* Modal Pemeriksaan Kesiapan Fisik Armada Langsung dari Ploting */}
@@ -402,7 +613,7 @@ export default function HalamanPenugasan() {
           activeShiftNumber={activeShiftNumber}
           activeTeam={activeTeam}
           onSuccess={() => {
-            fetchDeploymentData();
+            fetchDeploymentData({ keepSuccessMsg: true });
             setSuccessMsg(
               `Kesiapan fisik kendaraan ${
                 selectedVehicleForInspection.code_name || selectedVehicleForInspection.vehicle_name

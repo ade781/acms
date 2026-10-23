@@ -95,6 +95,14 @@ export default function HalamanDetailPersonel() {
   const [formError, setFormError] = useState(null);
   const [deletingPersonnel, setDeletingPersonnel] = useState(false);
 
+  // Global Toast Feedback State
+  const [globalSuccess, setGlobalSuccess] = useState(null);
+  const [globalError, setGlobalError] = useState(null);
+
+  // Reset Password State
+  const [resetPasswordModalOpen, setResetPasswordModalOpen] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
+
   const isOwner = Boolean(
     (user?.personnel_id && Number(user.personnel_id) === Number(id)) ||
     (user?.id && personnel?.user_id && Number(user.id) === Number(personnel.user_id)) ||
@@ -139,6 +147,8 @@ export default function HalamanDetailPersonel() {
   const handleUpdatePersonnel = async (e) => {
     e.preventDefault();
     setFormError(null);
+    setGlobalSuccess(null);
+    setGlobalError(null);
     if (!fullName.trim()) {
       setFormError('Nama lengkap wajib diisi.');
       return;
@@ -147,19 +157,20 @@ export default function HalamanDetailPersonel() {
     setSaving(true);
     try {
       await api.put(`/personnel/${id}`, {
-        nip: nip.trim() || '-',
+        nip: nip.trim() || null,
         full_name: fullName.trim(),
-        rank_position: rankPosition.trim() || '-',
+        rank_position: rankPosition.trim() || null,
         team_group: teamGroup,
         cert_level: certLevel,
-        cert_number: certNumber.trim() || '-',
+        cert_number: certNumber.trim() || null,
         cert_expiry_date: certExpiryDate || null,
         birth_date: birthDate || null,
-        formal_education: formalEducation.trim() || '-',
+        formal_education: formalEducation.trim() || null,
         employment_status: employmentStatus,
       });
 
       setEditModalOpen(false);
+      setGlobalSuccess('Data profil personel berhasil diperbarui.');
       fetchPersonnelDetail();
     } catch (err) {
       console.error('Error updating personnel:', err);
@@ -175,15 +186,33 @@ export default function HalamanDetailPersonel() {
     if (!window.confirm(confirmMsg)) return;
 
     setDeletingPersonnel(true);
+    setGlobalSuccess(null);
+    setGlobalError(null);
     try {
       await api.delete(`/personnel/${id}`);
-      alert(`Personel ${personnel.full_name} berhasil dihapus.`);
       navigate('/personnel');
     } catch (err) {
       console.error('Error deleting personnel:', err);
       const errMsg = err.response?.data?.message || 'Gagal menghapus data personel.';
-      alert(errMsg);
+      setGlobalError(errMsg);
       setDeletingPersonnel(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    setResettingPassword(true);
+    setGlobalSuccess(null);
+    setGlobalError(null);
+    try {
+      const res = await api.post(`/personnel/${id}/reset-password`);
+      setGlobalSuccess(res.data?.message || `Kata sandi ${personnel.full_name} berhasil direset ke bawaan (123456).`);
+      setResetPasswordModalOpen(false);
+      fetchPersonnelDetail();
+    } catch (err) {
+      console.error('Error reset password:', err);
+      setGlobalError(err.response?.data?.message || err.message || 'Gagal mereset kata sandi personel.');
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -314,6 +343,36 @@ export default function HalamanDetailPersonel() {
       <StateView loading={loading} error={error} onRetry={() => window.location.reload()}>
         {personnel && (
           <div className="space-y-6">
+            {/* Global Visual Toast Feedbacks */}
+            {globalSuccess && (
+              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center justify-between gap-3 shadow-sm animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                  <span className="font-semibold">{globalSuccess}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setGlobalSuccess(null)}
+                  className="text-emerald-700 hover:text-emerald-900 font-bold px-2 py-1"
+                >
+                  Tutup
+                </button>
+              </div>
+            )}
+
+            {globalError && (
+              <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-800 flex items-center justify-between gap-3 shadow-sm animate-in fade-in">
+                <span>{globalError}</span>
+                <button
+                  type="button"
+                  onClick={() => setGlobalError(null)}
+                  className="text-red-700 hover:text-red-900 font-bold px-2 py-1"
+                >
+                  Tutup
+                </button>
+              </div>
+            )}
+
             {/* Header Identity Card */}
             <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
@@ -443,6 +502,21 @@ export default function HalamanDetailPersonel() {
                         : 'Aman (Telah Diubah Mandiri)'}
                     </span>
                   </div>
+
+                  {isAdmin && (
+                    <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between">
+                      <span className="text-[11px] text-slate-500">Aksi Administratif Akun:</span>
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        icon={Key}
+                        onClick={() => setResetPasswordModalOpen(true)}
+                        className="text-amber-800 border-amber-300 hover:bg-amber-50"
+                      >
+                        Reset Sandi (123456)
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -990,6 +1064,44 @@ export default function HalamanDetailPersonel() {
               </div>
             </div>
           </form>
+        </Modal>
+      )}
+      {/* Modal Konfirmasi Reset Password */}
+      {resetPasswordModalOpen && (
+        <Modal
+          isOpen={resetPasswordModalOpen}
+          onClose={() => setResetPasswordModalOpen(false)}
+          title="Konfirmasi Reset Kata Sandi"
+          subtitle="Atur ulang kata sandi personel ke nilai bawaan sistem"
+          footer={
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setResetPasswordModalOpen(false)}
+                disabled={resettingPassword}
+              >
+                Batal
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleResetPassword}
+                loading={resettingPassword}
+                className="bg-amber-600 hover:bg-amber-700"
+              >
+                Ya, Reset Kata Sandi
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-3 text-xs text-slate-700 leading-relaxed">
+            <p>
+              Apakah Anda yakin ingin mereset kata sandi akun untuk <strong>{personnel?.full_name}</strong>?
+            </p>
+            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] space-y-1">
+              <span className="font-bold block">• Kata sandi baru akan diatur ke: <strong>123456</strong></span>
+              <span className="block">• Pengguna akan diwajibkan mengganti kata sandi secara mandiri pada saat login pertama kali.</span>
+            </div>
+          </div>
         </Modal>
       )}
     </div>

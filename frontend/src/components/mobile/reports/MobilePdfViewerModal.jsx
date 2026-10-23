@@ -43,8 +43,8 @@ export default function MobilePdfViewerModal({
   const serviceableCount = vehicles.filter((v) => v.status === 'serviceable').length + (watchroomData?.status === 'serviceable' ? 1 : 0);
   const totalUnits = Math.max(vehicles.length + (watchroomData?.status ? 1 : 0), 8);
 
-  // Buat URL endpoint PDF resmi ber-token agar aman saat dibuka di tab baru
-  const authToken = token || localStorage.getItem('token') || '';
+  // Buat URL endpoint PDF resmi ber-token agar aman saat dibuka di tab baru (native PDF viewer)
+  const authToken = token || localStorage.getItem('arff_token') || '';
   const pdfApiUrl = `/api/reports/pdf?date=${currentDate}&shift=${currentShiftNum}&team_group=${currentTeam}${authToken ? `&token=${authToken}` : ''}`;
 
   const handleOpenNativePdf = () => {
@@ -57,7 +57,11 @@ export default function MobilePdfViewerModal({
       setDownloading(true);
       setDownloadError(null);
 
-      const res = await api.get(pdfApiUrl, { responseType: 'blob' });
+      // Gunakan path relatif tanpa awalan /api ganda karena baseURL Axios sudah /api
+      const res = await api.get(
+        `/reports/pdf?date=${currentDate}&shift=${currentShiftNum}&team_group=${currentTeam}`,
+        { responseType: 'blob' }
+      );
       const blob = new Blob([res.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');

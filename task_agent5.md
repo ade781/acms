@@ -1,44 +1,56 @@
-# PANDUAN TUGAS AGENT 5: REKAPITULASI LAPORAN DINAS SHIFT, AUDIT TRAIL ARMADA & DUAL-ACTION PDF A4
+# PANDUAN EKSEKUSI AGENT 5: FASE PERBAIKAN TOTAL (JADWAL DINAS, REKAP LAPORAN, EXPORT PDF A4 & DATABASE)
 
-## Status Kinerja & Evaluasi Agent 5
-- **Skor Kinerja**: 97% (Sangat Baik — Laporan Operasional Dinamis & Git Commit Tersimpan)
-- **Capaian Positif Terkini**:
-  1. Git Commit Berkala: Perubahan kode laporan dinas dan dokumen audit tersimpan pada commit `2ae9462`.
-  2. Halaman Rekapitulasi Laporan Dinas Shift Komprehensif: Menggabungkan data 8 unit armada, presensi personel (hadir/izin), logbook kegiatan shift, dan laporan insiden.
-  3. Akses Transparan Dua Arah: Dapat diakses bersama oleh Kru (Read-Only) dan Chief untuk verifikasi fakta dinas.
-  4. STRICT GEMINI.md Butir 2: Bebas total dari tombol "Sahkan Shift" manual atau status "Menunggu Pengesahan". Data dinas transparan real-time.
-  5. Pejabat Penandatangan Dinamis: Section Head ARFF dan Ketua Regu Dinas ditarik 100% dari database sesuai wewenang shift.
-  6. Dual-Action PDF Modal: In-app visual document sheet preview A4 (bebas bug iframe) + Tombol Buka Tab Layar Penuh (dengan query token autentikasi) + Tombol Unduh Berkas PDF A4 Resmi.
-  7. Ornamen kotak merah "YIA" pada kop laporan telah dihapus tuntas.
+> 🚀 **MANDAT FASE 3 (EKSEKUSI PERBAIKAN KODE & PENGUJIAN):**
+> 1. **EKSEKUSI SELURUH PERBAIKAN DI BAWAH INI** pada berkas yang menjadi tanggung jawab Anda.
+> 2. **BATAS KODE EKSKLUSIF (ZERO COLLISION)**: Hanya edit berkas domain Agent 5.
+> 3. **SEMUA PENGUJIAN DI FOLDER `masak/`**: Dilarang membuat folder `tests/` di `backend/` atau `frontend/`.
+> 4. **VALIDASI SISTEM VIA CLI**: Jalankan `node -c` dan pastikan sintaks 100% valid.
+> 5. **LAPORAN HASIL KERJA MANDIRI**: Tuliskan laporan perbaikan ke `masak/temp/hasil_agent5.md`.
 
 ---
 
-## Mandat Otomasi Pengujian & Kesiapan Produksi
-1. **Penyusunan Skrip Automated Testing Backend**:
-   - Menyiapkan skrip pengujian alur kritis operasional pada backend (Login Admin/Chief -> Ambil Sesi Shift -> Ploting Kru -> Pengajuan Cuti -> Generate PDF) agar dapat dijalankan secara headless via terminal CLI.
-2. **Integritas Penandatangan PDF**:
-   - Memastikan nama Section Head dan Ketua Regu tidak berupa titik-titik kosong `( ...... )` dan tanda tangan digital terpasang nyata.
-   - Menolak keras penggunaan nama user yang kebetulan sedang login sebagai Ketua Regu pada PDF laporan dinas.
-3. **Prosedur Pencadangan & Pemulihan Basis Data (Backup & Recovery)**:
-   - Menyediakan panduan skrip dump MySQL dan prosedur pemulihan data operasional sebelum aplikasi diluncurkan ke operasional nyata.
+## Daftar Pekerjaan Eksekusi Perbaikan Agent 5
+
+1. **Lengkapi Pratinjau Rekapitulasi Laporan Dinas di Desktop (`HalamanLaporan.jsx`)**:
+   - Selaraskan fetching data di `HalamanLaporan.jsx` seperti pada versi mobile menggunakan `Promise.allSettled` untuk memanggil endpoint:
+     * `/api/readiness/vehicles` (Tabel kesiapan 8 armada lengkap dengan PIC & catatan kelaikan)
+     * `/api/readiness/watchroom` (Status kesiapan posko watchroom)
+     * `/api/activities` (Tabel logbook kegiatan shift)
+     * `/api/incidents` (Tabel rekapitulasi insiden kejadian darurat)
+   - Render tabel-tabel tersebut di lembar pratinjau desktop sehingga lengkap dan setara dengan dokumen cetak resmi PDF.
+
+2. **Perbarui Kop Surat Dokumen Laporan Dinas Desktop**:
+   - Di `HalamanLaporan.jsx` baris 125–128, perbarui header kop surat agar identik dengan standar resmi:
+     *"PT ANGKASA PURA INDONESIA - KANTOR CABANG BANDARA INTERNASIONAL YOGYAKARTA (YIA) - AIRPORT RESCUE & FIRE FIGHTING (ARFF) SECTION • KODE WAHI • KATEGORI 8"*
+     serta sertakan nomor dinas dinamis: `NOMOR: DSR/ARFF-YIA/{YYYYMMDD}/S{SHIFT}`.
+
+3. **Perbaiki Gagal Autentikasi (401) saat "Buka Layar Penuh" PDF di Mobile**:
+   - Di `frontend/src/components/mobile/reports/MobilePdfViewerModal.jsx` baris 47–48, ubah pembacaan token dari local storage agar membaca kunci `'arff_token'` (bukan `'token'`), dan utamakan nilai token aktif dari `AuthContext`.
+
+4. **Perbaiki Potensi Error 404 URL Ganda `/api/api/reports/pdf` di Mobile**:
+   - Di `MobilePdfViewerModal.jsx` baris 48 & 60, hilangkan awalan `/api` ganda saat memanggil instance Axios `api.get` agar URL tidak menjadi `/api/api/reports/pdf`.
+
+5. **Ganti Popup Native `window.confirm` & `window.alert` di `HalamanJadwal.jsx`**:
+   - Di baris 228 & 239 pada fungsi `handleResetToDefault`, ganti dialog native browser dengan modal konfirmasi dan toast notifikasi visual in-app sesuai Rule 10 `GEMINI.md`.
+
+6. **Perbaiki Dead Click pada Grid Kalender Jadwal bagi Kru Biasa**:
+   - Di `HalamanJadwal.jsx`, kondisikan class `cursor-pointer` dan handler klik hanya aktif bagi pengguna dengan role pimpinan/admin (`isAdmin || isSupervisor`). Untuk kru biasa, gunakan `cursor-default` tanpa aksi klik kosong.
+
+7. **Tambahkan Penanganan Visual Error pada Pratinjau Laporan Desktop**:
+   - Di `HalamanLaporan.jsx`, tangani blok `catch` pada `fetchShiftData`: tampilkan banner notifikasi error yang jelas dilengkapi tombol "Muat Ulang Data", hilangkan kegagalan hening (*silent failure*).
+
+8. **Kirim Data Personel Cuti ke Generator PDF Dokumen Resmi A4**:
+   - Di `backend/src/controllers/reportController.js` pada fungsi `getShiftReportPdf`, ambil seluruh data personel yang berstatus cuti/izin pada shift terkait dan teruskan ke `generateShiftReportPdf` di `backend/src/services/pdfService.js`, sehingga dokumen cetak resmi mencantumkan daftar nama dan alasan cuti secara akurat (tidak lagi tercetak "0 Orang Cuti").
+
+9. **Teruskan Anchor Date Kustom ke `getScheduleCyclePreview`**:
+   - Di `backend/src/controllers/scheduleController.js` baris 210, ambil nilai `schedule_anchor_date` dari `system_settings` dan teruskan ke `resolveRosterForDate(dateStr, storedCycles, anchorDate)`.
+
+10. **Integritas Penempatan Pengujian Murni di Folder `masak/`**:
+    - Seluruh skrip uji coba dan testing otomatis tetap wajib ditempatkan di dalam folder `masak/` (misal: `masak/temp/test_report.js`). Dilarang membuat folder `tests/` di backend/frontend.
 
 ---
 
-## Audit Fungsi & Endpoint Agent 5
+## Format Pelaporan Mandiri di `masak/temp/hasil_agent5.md`
 
-| Endpoint | Metode | Fungsi Backend (Controller) | Fungsi Frontend (Handler) | Status Verifikasi |
-| :--- | :---: | :--- | :--- | :---: |
-| `/api/deployments/current` | GET | `getCurrentDeployments` (`deploymentController.js`) | `fetchReportData` di `MobileLaporan.jsx` | ✅ Aktif (Presensi, absensi, data sesi shift) |
-| `/api/readiness/vehicles` | GET | `getVehiclesReadiness` (`readinessController.js`) | `fetchReportData` di `MobileLaporan.jsx` | ✅ Aktif (Status kelaikan 8 unit armada) |
-| `/api/readiness/watchroom` | GET | `getWatchroomReadiness` (`readinessController.js`) | `fetchReportData` di `MobileLaporan.jsx` | ✅ Aktif (Status kelaikan posko komunikasi) |
-| `/api/reports/vehicle-issues` | GET | `getVehicleIssuesAudit` (`reportController.js`) | `fetchReportData` di `MobileLaporan.jsx` | ✅ Aktif (Audit trail estafet kendala armada) |
-| `/api/activities` | GET | `getActivities` (`activityController.js`) | `fetchReportData` di `MobileLaporan.jsx` | ✅ Aktif (Rekap logbook kegiatan shift) |
-| `/api/incidents` | GET | `getIncidents` (`incidentController.js`) | `fetchReportData` di `MobileLaporan.jsx` | ✅ Aktif (Rekap laporan insiden airside) |
-| `/api/reports/pdf` | GET | `getShiftReportPdf` (`reportController.js`) | `handleDownloadPdf` di `MobileLaporan.jsx` & modal | ✅ Aktif (Generator PDF A4 resmi + token auth) |
-
----
-
-## Rincian Tanggung Jawab Lanjutan Agent 5
-1. **Pembuatan Automated Integration Test**: Buat skrip pengujian mandiri di `backend` untuk memverifikasi fungsionalitas endpoint inti secara otomatis.
-2. **Audit Ukuran Berkas PDF**: Pastikan generator PDF menghasilkan berkas optimal (< 2MB) dan tidak memory leak.
-3. **Validasi Build CLI**: Jalankan `npm run build` dan pastikan 0 error.
+Setelah seluruh kode di atas diperbaiki dan divalidasi via CLI:
+Tuliskan rincian hasil pekerjaan, berkas yang diubah, dan bukti pengujian ke dalam `masak/temp/hasil_agent5.md`.

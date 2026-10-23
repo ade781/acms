@@ -19,15 +19,31 @@ export default function HalamanLogin() {
     e.preventDefault();
     setError(null);
 
-    if (!username.trim() || !password.trim()) {
+    const cleanUser = username.trim();
+    if (!cleanUser || !password.trim()) {
       setError('Silakan masukkan username dan password Anda.');
       return;
     }
 
     setLoading(true);
     try {
-      await login(username, password);
-      navigate('/dashboard', { replace: true });
+      const loggedUser = await login(cleanUser, password);
+      const userRole = (loggedUser?.role || '').toLowerCase();
+      const isFieldRole = [
+        'chief',
+        'chief_assistant',
+        'operation_chief',
+        'senior_firefighter',
+        'junior_firefighter',
+        'firefighter',
+        'operator'
+      ].includes(userRole);
+
+      if (isFieldRole) {
+        navigate('/m/dashboard', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } catch (err) {
       const msg = err.response?.data?.message || err.message || 'Kombinasi username atau password tidak cocok.';
       setError(msg);

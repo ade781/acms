@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Menu, LogOut, User, Calendar, Clock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { SHIFT_DEFINITIONS, formatTeam, formatRoleName } from '../../utils/shiftHelper';
@@ -6,6 +7,7 @@ import Logo from '../common/Logo';
 import Badge from '../common/Badge';
 
 export default function Navbar({ onToggleSidebar }) {
+  const navigate = useNavigate();
   const {
     user,
     logout,
@@ -79,18 +81,41 @@ export default function Navbar({ onToggleSidebar }) {
         <div className="flex items-center gap-3">
           {user ? (
             <div className="flex items-center gap-2">
-              <div className="hidden sm:flex flex-col text-right">
+              <button
+                type="button"
+                onClick={() => {
+                  if (user?.personnel_id) {
+                    navigate(`/personnel/${user.personnel_id}`);
+                  } else {
+                    navigate('/personnel');
+                  }
+                }}
+                className="hidden sm:flex flex-col text-right hover:opacity-80 transition-opacity focus:outline-none cursor-pointer"
+                title="Buka Profil Pribadi & STKP"
+              >
                 <span className="text-xs font-bold text-slate-900 leading-tight">
                   {user.name || user.username}
                 </span>
                 <span className="text-[10px] text-slate-500 font-medium">
                   {formatRoleName(user.role)} {user.team_group ? `• ${formatTeam(user.team_group)}` : ''}
                 </span>
-              </div>
+              </button>
 
-              <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center text-slate-700 font-semibold text-xs select-none">
+              <button
+                type="button"
+                onClick={() => {
+                  if (user?.personnel_id) {
+                    navigate(`/personnel/${user.personnel_id}`);
+                  } else {
+                    navigate('/personnel');
+                  }
+                }}
+                className="w-9 h-9 rounded-full bg-slate-100 hover:bg-red-50 hover:border-red-400 border border-slate-300 flex items-center justify-center text-slate-700 hover:text-red-600 font-semibold text-xs select-none transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-red-500 cursor-pointer"
+                title={`Profil Pribadi: ${user.name || user.username}`}
+                aria-label="Profil Pengguna"
+              >
                 {user.name ? user.name.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
-              </div>
+              </button>
 
               <button
                 type="button"

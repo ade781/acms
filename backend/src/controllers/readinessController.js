@@ -207,6 +207,10 @@ export const submitVehicleReadiness = async (req, res) => {
       );
     }
 
+    if (!picPersonnelId && req.user.personnel_id) {
+      picPersonnelId = req.user.personnel_id;
+    }
+
     let photoWebpUrl = null;
     if (req.file) {
       photoWebpUrl = `/uploads/${req.file.filename}`;
@@ -219,10 +223,18 @@ export const submitVehicleReadiness = async (req, res) => {
       [vehicle_id, shift_date, shift_number, targetTeam]
     );
 
+    const finalPhoto = photoWebpUrl || (existing.length > 0 ? existing[0].photo_webp_url : null);
+    if (!finalPhoto) {
+      return errorResponse(
+        res,
+        'Foto bukti fisik kelaikan armada wajib disertakan untuk verifikasi kondisi lapangan',
+        400
+      );
+    }
+
     const resolvedAt = status === 'serviceable' && follow_up_status === 'resolved' ? new Date() : null;
 
     if (existing.length > 0) {
-      const finalPhoto = photoWebpUrl || existing[0].photo_webp_url;
       await pool.query(
         `UPDATE vehicle_readiness_logs SET
           pic_personnel_id = COALESCE(?, pic_personnel_id),
@@ -259,13 +271,14 @@ export const submitVehicleReadiness = async (req, res) => {
           picPersonnelId,
           status,
           status === 'unserviceable' ? justification : null,
-          photoWebpUrl,
+          finalPhoto,
           follow_up_status,
           resolvedAt,
           notes || null
         ]
       );
     }
+
 
     // Jika armada dinyatakan serviceable, tandai backlog unserviceable sebelumnya sebagai resolved
     if (status === 'serviceable') {

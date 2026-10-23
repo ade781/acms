@@ -29,6 +29,7 @@ export default function HalamanKelolaPejabat() {
 
   const [officials, setOfficials] = useState({
     dept_head: null,
+    section_head: null,
     chiefs: { Alpha: null, Bravo: null, Charlie: null, Delta: null },
   });
 
@@ -39,6 +40,12 @@ export default function HalamanKelolaPejabat() {
   const [newDhPersonnelId, setNewDhPersonnelId] = useState('');
   const [savingDh, setSavingDh] = useState(false);
   const [dhError, setDhError] = useState(null);
+
+  // Modal Ganti Section Head
+  const [shModalOpen, setShModalOpen] = useState(false);
+  const [newShPersonnelId, setNewShPersonnelId] = useState('');
+  const [savingSh, setSavingSh] = useState(false);
+  const [shError, setShError] = useState(null);
 
   // Modal Ganti Chief
   const [chiefModalOpen, setChiefModalOpen] = useState(false);
@@ -60,6 +67,7 @@ export default function HalamanKelolaPejabat() {
       const offData = offRes.data?.data || offRes.data;
       setOfficials({
         dept_head: offData.dept_head || null,
+        section_head: offData.section_head || null,
         chiefs: offData.chiefs || { Alpha: null, Bravo: null, Charlie: null, Delta: null },
       });
 
@@ -84,6 +92,38 @@ export default function HalamanKelolaPejabat() {
     setDhError(null);
     setNewDhPersonnelId('');
     setDhModalOpen(true);
+  };
+
+  // Open Ganti Section Head Modal
+  const openReplaceSectionHeadModal = () => {
+    setShError(null);
+    setNewShPersonnelId('');
+    setShModalOpen(true);
+  };
+
+  // Submit Ganti Section Head
+  const handleSaveSectionHead = async (e) => {
+    e.preventDefault();
+    if (!newShPersonnelId) {
+      setShError('Silakan pilih personel yang akan diangkat sebagai Section Head.');
+      return;
+    }
+
+    setSavingSh(true);
+    setShError(null);
+    try {
+      const res = await api.post('/personnel/officials/section-head', {
+        new_personnel_id: Number(newShPersonnelId),
+      });
+
+      setSuccessMsg(res.data?.message || 'Section Head berhasil diperbarui.');
+      setShModalOpen(false);
+      fetchData();
+    } catch (err) {
+      setShError(err.response?.data?.message || err.message || 'Gagal memperbarui Section Head.');
+    } finally {
+      setSavingSh(false);
+    }
   };
 
   // Submit Ganti Dept Head
@@ -282,6 +322,82 @@ export default function HalamanKelolaPejabat() {
           )}
         </div>
 
+        {/* Section 1B: Section Head */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-200 uppercase tracking-wider mb-1">
+                <Award className="w-3.5 h-3.5 text-blue-600" />
+                Pimpinan Seksi
+              </div>
+              <h3 className="text-base font-bold text-slate-900">
+                Airport Technology & ARFF Section Head
+              </h3>
+              <p className="text-xs text-slate-500">
+                Pejabat kepala seksi teknis yang mengoordinasikan kesiapan fasilitas dan operasional harian ARFF.
+              </p>
+            </div>
+
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                icon={RefreshCw}
+                onClick={openReplaceSectionHeadModal}
+              >
+                Ganti Section Head
+              </Button>
+            )}
+          </div>
+
+          {officials.section_head ? (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="space-y-1">
+                <span className="text-sm font-extrabold text-slate-900 block">
+                  {officials.section_head.full_name}
+                </span>
+                <div className="flex items-center gap-3 text-xs text-slate-500 font-mono">
+                  <span>NIP: {officials.section_head.nip || '-'}</span>
+                  <span>•</span>
+                  <span>Jabatan: {officials.section_head.rank_position}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {officials.section_head.signature_url ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    <FileCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    Tanda Tangan Aktif
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                    <FileX className="w-3.5 h-3.5 text-amber-600" />
+                    Belum Ada Tanda Tangan
+                  </span>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/personnel/${officials.section_head.id}`)}
+                >
+                  Detail Profil
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-6 text-center rounded-xl bg-slate-50 border border-dashed border-slate-300">
+              <p className="text-xs text-slate-500 font-medium mb-3">
+                Belum ada pejabat Airport Technology & ARFF Section Head yang ditetapkan.
+              </p>
+              {isAdmin && (
+                <Button variant="outline" size="sm" onClick={openReplaceSectionHeadModal}>
+                  Tunjuk Section Head Sekarang
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Section 2: 4 Chief Regu */}
         <div className="space-y-4 pt-4">
           <div className="flex items-center justify-between">
@@ -427,6 +543,62 @@ export default function HalamanKelolaPejabat() {
                 { value: '', label: '-- Pilih Personel --' },
                 ...allPersonnel
                   .filter((p) => !officials.dept_head || p.id !== officials.dept_head.id)
+                  .map((p) => ({
+                    value: p.id,
+                    label: `${p.full_name} (${p.rank_position || '-'} | Regu: ${p.team_group || 'Non-Regu'})`,
+                  })),
+              ]}
+              required
+            />
+          </form>
+        </Modal>
+      )}
+
+      {/* Modal 1B: Ganti Section Head */}
+      {shModalOpen && (
+        <Modal
+          isOpen={shModalOpen}
+          onClose={() => setShModalOpen(false)}
+          title="Pergantian Airport Technology & ARFF Section Head"
+          subtitle="Pilih personel yang akan diangkat sebagai kepala seksi baru"
+          footer={
+            <>
+              <Button variant="outline" onClick={() => setShModalOpen(false)} disabled={savingSh}>
+                Batal
+              </Button>
+              <Button variant="primary" onClick={handleSaveSectionHead} loading={savingSh}>
+                Simpan & Tetapkan Section Head
+              </Button>
+            </>
+          }
+        >
+          <form onSubmit={handleSaveSectionHead} className="space-y-4">
+            {shError && (
+              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
+                {shError}
+              </div>
+            )}
+
+            {officials.section_head && (
+              <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 space-y-1">
+                <span className="font-bold block">Pejabat Saat Ini:</span>
+                <p>
+                  <strong>{officials.section_head.full_name}</strong> (NIP: {officials.section_head.nip || '-'})
+                </p>
+                <p className="text-[11px] text-blue-800 leading-relaxed pt-1">
+                  * Catatan Keamanan: Tanda tangan digital milik pejabat lama akan otomatis dihapus dari database.
+                </p>
+              </div>
+            )}
+
+            <SelectField
+              label="Pilih Personel Pengganti (Section Head Baru)"
+              value={newShPersonnelId}
+              onChange={(e) => setNewShPersonnelId(e.target.value)}
+              options={[
+                { value: '', label: '-- Pilih Personel --' },
+                ...allPersonnel
+                  .filter((p) => !officials.section_head || p.id !== officials.section_head.id)
                   .map((p) => ({
                     value: p.id,
                     label: `${p.full_name} (${p.rank_position || '-'} | Regu: ${p.team_group || 'Non-Regu'})`,

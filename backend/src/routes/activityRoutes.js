@@ -21,7 +21,12 @@ router.post(
   uploadSingleImage('photo'),
   createActivity
 );
-router.put('/:id', requireRole(['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor']), updateActivity);
+router.put(
+  '/:id',
+  requireRole(['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor']),
+  uploadSingleImage('photo'),
+  updateActivity
+);
 router.delete('/:id', requireRole(['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor']), deleteActivity);
 
 export default router;

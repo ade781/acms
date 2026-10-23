@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { AlertTriangle, Plus, Search, Calendar, ChevronRight, ShieldAlert } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { AlertTriangle, Plus, Search, Calendar, ChevronRight, ChevronLeft, ShieldAlert, Check, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam, formatTeam } from '../utils/shiftHelper';
 import api from '../services/api';
@@ -10,6 +11,7 @@ import InputField from '../components/common/InputField';
 import IncidentModal from '../components/forms/IncidentModal';
 
 export default function HalamanInsiden() {
+  const navigate = useNavigate();
   const { activeDate, activeShiftNumber, activeTeam } = useAuth();
 
   const [loading, setLoading] = useState(true);
@@ -17,6 +19,11 @@ export default function HalamanInsiden() {
   const [incidents, setIncidents] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [toastMsg, setToastMsg] = useState(null);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   const fetchIncidents = useCallback(async () => {
     setLoading(true);
@@ -47,11 +54,14 @@ export default function HalamanInsiden() {
     );
   });
 
+  const totalPages = Math.ceil(filteredIncidents.length / pageSize) || 1;
+  const paginatedIncidents = filteredIncidents.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   const getPriorityBadge = (lvl) => {
     const l = (lvl || '').toLowerCase();
-    if (l === 'kritis') return <Badge variant="unserviceable">Kritis (Siaga I)</Badge>;
-    if (l === 'tinggi') return <Badge variant="pending">Tinggi (Siaga II)</Badge>;
-    if (l === 'sedang') return <Badge variant="info">Sedang</Badge>;
+    if (l === 'kritis' || l === 'critical') return <Badge variant="unserviceable">Kritis (Siaga I)</Badge>;
+    if (l === 'tinggi' || l === 'high') return <Badge variant="pending">Tinggi (Siaga II)</Badge>;
+    if (l === 'sedang' || l === 'medium') return <Badge variant="info">Sedang</Badge>;
     return <Badge variant="default">Rendah</Badge>;
   };
 
@@ -73,13 +83,34 @@ export default function HalamanInsiden() {
         </Button>
       </div>
 
+      {/* Toast Feedback */}
+      {toastMsg && (
+        <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="font-semibold">{toastMsg}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setToastMsg(null)}
+            className="text-emerald-500 hover:text-emerald-700 p-0.5"
+            aria-label="Tutup Notifikasi"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Search Bar */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-6">
         <InputField
           id="searchIncident"
           placeholder="Cari nomor laporan (contoh: INC-0001), judul, atau lokasi kejadian..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setCurrentPage(1);
+          }}
           icon={Search}
         />
       </div>
@@ -112,7 +143,7 @@ export default function HalamanInsiden() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredIncidents.map((inc) => (
+                {paginatedIncidents.map((inc) => (
                   <tr
                     key={inc.id}
                     onClick={() => navigate(`/incidents/${inc.id}`)}
@@ -160,6 +191,42 @@ export default function HalamanInsiden() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {filteredIncidents.length > 0 && (
+            <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+              <span>
+                Menampilkan <strong className="text-slate-700">{(currentPage - 1) * pageSize + 1}</strong> -{' '}
+                <strong className="text-slate-700">
+                  {Math.min(currentPage * pageSize, filteredIncidents.length)}
+                </strong>{' '}
+                dari <strong className="text-slate-700">{filteredIncidents.length}</strong> insiden
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={ChevronLeft}
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                >
+                  Sebelumnya
+                </Button>
+                <span className="text-xs font-semibold px-2">
+                  Halaman {currentPage} dari {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={ChevronRight}
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Selanjutnya
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </StateView>
 
@@ -170,7 +237,10 @@ export default function HalamanInsiden() {
           activeDate={activeDate}
           activeShiftNumber={activeShiftNumber}
           activeTeam={activeTeam}
-          onSuccess={fetchIncidents}
+          onSuccess={(msg) => {
+            fetchIncidents();
+            setToastMsg(msg || 'Laporan insiden berhasil disimpan.');
+          }}
         />
       )}
     </div>

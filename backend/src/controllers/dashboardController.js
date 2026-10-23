@@ -53,6 +53,55 @@ export const getDashboardSummary = async (req, res) => {
       [shiftDate, shiftNumber, cleanTeamGroup, shiftDate, shiftNumber, cleanTeamGroup]
     );
 
+    // Carry-over status unserviceable dari shift sebelumnya jika belum dilaporkan di shift ini
+    const unreportedVehicleIds = vehicles.filter(v => v.status === 'belum_dilaporkan').map(v => v.id);
+
+    if (unreportedVehicleIds.length > 0) {
+      const [prevLogs] = await pool.query(
+        `SELECT vrl.vehicle_id, vrl.status, vrl.justification, vrl.photo_webp_url, vrl.follow_up_status,
+                vrl.shift_date, vrl.shift_number, vrl.team_group, p.full_name as prev_pic_name
+         FROM vehicle_readiness_logs vrl
+         JOIN (
+           SELECT vehicle_id, MAX(CONCAT(shift_date, '_', LPAD(shift_number, 2, '0'))) as max_shift
+           FROM vehicle_readiness_logs
+           WHERE vehicle_id IN (?)
+             AND (shift_date < ? OR (shift_date = ? AND shift_number < ?))
+             AND status = 'unserviceable'
+             AND follow_up_status != 'resolved'
+           GROUP BY vehicle_id
+         ) latest ON latest.vehicle_id = vrl.vehicle_id
+                 AND CONCAT(vrl.shift_date, '_', LPAD(vrl.shift_number, 2, '0')) = latest.max_shift
+         LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
+         WHERE vrl.status = 'unserviceable'
+           AND vrl.follow_up_status != 'resolved'`,
+        [unreportedVehicleIds, shiftDate, shiftDate, shiftNumber]
+      );
+
+      const carryOverMap = new Map();
+      for (const prev of prevLogs) {
+        if (!carryOverMap.has(prev.vehicle_id)) {
+          carryOverMap.set(prev.vehicle_id, prev);
+        }
+      }
+
+      for (let i = 0; i < vehicles.length; i++) {
+        if (vehicles[i].status === 'belum_dilaporkan' && carryOverMap.has(vehicles[i].id)) {
+          const prev = carryOverMap.get(vehicles[i].id);
+          vehicles[i].status = 'unserviceable';
+          vehicles[i].justification = prev.justification;
+          vehicles[i].photo_webp_url = prev.photo_webp_url;
+          vehicles[i].follow_up_status = prev.follow_up_status;
+          vehicles[i].is_carried_over = true;
+          vehicles[i].carried_from = {
+            shift_date: prev.shift_date,
+            shift_number: prev.shift_number,
+            team_group: prev.team_group,
+            reported_by: prev.prev_pic_name
+          };
+        }
+      }
+    }
+
     let serviceableCount = 0;
     let unserviceableCount = 0;
     let pendingCount = 0;

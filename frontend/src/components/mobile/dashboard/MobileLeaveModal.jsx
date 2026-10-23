@@ -14,6 +14,8 @@ export default function MobileLeaveModal({
 }) {
   if (!isOpen) return null;
 
+  const isPrivileged = ['admin', 'supervisor', 'chief', 'chief_assistant', 'dept_head'].includes(user?.role);
+
   const [category, setCategory] = useState('cuti');
   const [startDate, setStartDate] = useState(activeDate || new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(activeDate || new Date().toISOString().split('T')[0]);
@@ -24,6 +26,10 @@ export default function MobileLeaveModal({
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
 
+  // Pilihan personel untuk Admin / Chief / Supervisor
+  const [personnelList, setPersonnelList] = useState([]);
+  const [selectedPersonnelId, setSelectedPersonnelId] = useState('');
+
   useEffect(() => {
     if (activeDate) {
       setStartDate(activeDate);
@@ -32,6 +38,27 @@ export default function MobileLeaveModal({
     setErrorMsg(null);
     setSuccessMsg(null);
   }, [activeDate, isOpen]);
+
+  useEffect(() => {
+    if (isPrivileged && isOpen) {
+      const fetchPersonnelForLeave = async () => {
+        try {
+          const team = activeTeam || user?.team_group || '';
+          const res = await api.get(`/personnel?is_active=1${team ? `&team_group=${team}` : ''}`);
+          const list = Array.isArray(res.data?.data)
+            ? res.data.data
+            : (Array.isArray(res.data?.personnel) ? res.data.personnel : (Array.isArray(res.data) ? res.data : []));
+          setPersonnelList(list);
+          if (list.length > 0 && !selectedPersonnelId) {
+            setSelectedPersonnelId(String(list[0].id));
+          }
+        } catch (e) {
+          console.error('Gagal mengambil daftar personel di MobileLeaveModal:', e);
+        }
+      };
+      fetchPersonnelForLeave();
+    }
+  }, [isPrivileged, isOpen, activeTeam]);
 
   const handleFileChange = (e) => {
     const selected = e.target.files?.[0];
@@ -50,14 +77,17 @@ export default function MobileLeaveModal({
     setSuccessMsg(null);
 
     try {
-      // Panggil endpoint cancel cuti dengan deployment_id atau parameter dinas
-      await api.post('/deployments/cancel-leave', {
-        deployment_id: activeUserLeave?.id || activeUserLeave?.deployment_id,
-        personnel_id: user?.personnel_id,
-        shift_id: activeUserLeave?.shift_id,
-        shift_date: activeDate,
-        shift_number: activeShiftNumber
-      });
+      if (activeUserLeave?.id) {
+        await api.delete(`/deployments/leave/${activeUserLeave.id}`);
+      } else {
+        await api.post('/deployments/cancel-leave', {
+          deployment_id: activeUserLeave?.deployment_id,
+          personnel_id: user?.personnel_id,
+          shift_id: activeUserLeave?.shift_id,
+          shift_date: activeDate,
+          shift_number: activeShiftNumber
+        });
+      }
 
       setSuccessMsg('Izin/cuti berhasil dibatalkan. Status Anda kembali aktif berdinas.');
       setTimeout(() => {
@@ -77,6 +107,12 @@ export default function MobileLeaveModal({
     setErrorMsg(null);
     setSuccessMsg(null);
 
+    const targetPId = isPrivileged ? selectedPersonnelId : user?.personnel_id;
+    if (!targetPId) {
+      setErrorMsg('Harap tentukan nama personel yang diajukan cuti.');
+      return;
+    }
+
     if (!startDate || !endDate || !reason.trim()) {
       setErrorMsg('Tanggal mulai, tanggal selesai, dan alasan cuti wajib diisi.');
       return;
@@ -90,9 +126,7 @@ export default function MobileLeaveModal({
     setSubmitting(true);
     try {
       const formData = new FormData();
-      if (user?.personnel_id) {
-        formData.append('personnel_id', user.personnel_id);
-      }
+      formData.append('personnel_id', targetPId);
       formData.append('start_date', startDate);
       formData.append('end_date', endDate);
       formData.append('absent_reason', category);
@@ -101,7 +135,7 @@ export default function MobileLeaveModal({
         formData.append('document', file);
       }
 
-      const res = await api.post('/deployments/leave-range', formData, {
+      const res = await api.post('/deployments/leave', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
@@ -184,6 +218,28 @@ export default function MobileLeaveModal({
 
         {/* Formulir Permohonan Cuti Baru */}
         <form onSubmit={handleSubmitLeave} className="space-y-1.5 text-xs">
+          {/* Pilihan Nama Personel jika Admin / Chief / Supervisor */}
+          {isPrivileged && (
+            <div>
+              <label className="text-[10px] font-bold text-slate-600 block mb-0.5">
+                Nama Personel *
+              </label>
+              <select
+                value={selectedPersonnelId}
+                onChange={(e) => setSelectedPersonnelId(e.target.value)}
+                className="w-full p-1.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 outline-none text-xs transition-colors duration-100"
+                required
+              >
+                <option value="">-- Pilih Personel --</option>
+                {personnelList.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.full_name || p.name} ({p.nip || '-'})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div>
             <label className="text-[10px] font-bold text-slate-600 block mb-0.5">
               Kategori Izin *
@@ -196,6 +252,7 @@ export default function MobileLeaveModal({
               <option value="cuti">Cuti Tahunan</option>
               <option value="sakit">Sakit</option>
               <option value="dinas">Dinas Luar</option>
+              <option value="tukar_dinas">Tukar Dinas</option>
             </select>
           </div>
 

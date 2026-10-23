@@ -94,7 +94,7 @@ export default function MobileActivityModal({
       setResultNotes('');
       setSelectedPhoto(null);
       setPhotoPreview(null);
-      onSuccess?.();
+      onSuccess?.('✓ Kegiatan operasional berhasil dicatat ke logbook.');
       onClose();
     } catch (err) {
       console.error('Error simpan kegiatan:', err);

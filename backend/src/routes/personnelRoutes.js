@@ -13,7 +13,9 @@ import {
   deletePersonnelDocument,
   getOfficials,
   replaceDeptHead,
-  replaceChief
+  replaceSectionHead,
+  replaceChief,
+  resetPersonnelPassword
 } from '../controllers/personnelController.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
 import { requireRole } from '../middleware/roleMiddleware.js';
@@ -26,15 +28,17 @@ router.use(requireAuth);
 router.get('/', getPersonnelList);
 router.get('/export/pdf', exportPersonnelPdf);
 
-// Rute kelola pejabat (Dept Head & Ketua Regu) - Wajib sebelum rute parameterized /:id
+// Rute kelola pejabat (Dept Head, Section Head & Ketua Regu) - Wajib sebelum rute parameterized /:id
 router.get('/officials', getOfficials);
 router.post('/officials/dept-head', requireRole(['admin', 'dept_head']), replaceDeptHead);
+router.post('/officials/section-head', requireRole(['admin', 'dept_head']), replaceSectionHead);
 router.post('/officials/chief', requireRole(['admin', 'dept_head', 'supervisor', 'chief']), replaceChief);
 
 router.get('/:id', getPersonnelById);
 router.post('/', requireRole(['admin', 'supervisor']), createPersonnel);
 router.put('/:id', updatePersonnel);
 router.delete('/:id', requireRole(['admin', 'supervisor']), deletePersonnel);
+router.post('/:id/reset-password', requireRole(['admin']), resetPersonnelPassword);
 
 // Rute tanda tangan khusus dept_head, chief, dan chief_assistant
 router.post(

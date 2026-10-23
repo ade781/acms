@@ -11,13 +11,15 @@ export const login = async (req, res) => {
       return errorResponse(res, 'Username dan password wajib diisi', 400);
     }
 
+    const cleanUsername = String(username).trim();
+
     const [users] = await pool.query(
       `SELECT u.id, u.username, u.name, u.email, u.password_hash, u.role, u.must_change_password,
               p.id as personnel_id, p.team_group, p.rank_position
        FROM users u
        LEFT JOIN personnel p ON p.user_id = u.id
        WHERE u.username = ?`,
-      [username]
+      [cleanUsername]
     );
 
     if (users.length === 0) {
@@ -31,7 +33,7 @@ export const login = async (req, res) => {
     }
 
     const secret = process.env.JWT_SECRET;
-    const expiresIn = process.env.JWT_EXPIRES_IN;
+    const expiresIn = process.env.JWT_EXPIRES_IN || '24h';
 
     const token = jwt.sign(
       {
@@ -142,3 +144,43 @@ export const changePassword = async (req, res) => {
     return errorResponse(res, 'Gagal memperbarui password', 500);
   }
 };
+
+export const updateProfile = async (req, res) => {
+  try {
+    const { nip, birth_date, formal_education, cert_level, cert_number, cert_expiry_date } = req.body;
+
+    const [personnelRows] = await pool.query('SELECT * FROM personnel WHERE user_id = ?', [req.user.id]);
+    if (personnelRows.length === 0) {
+      return errorResponse(res, 'Data profil personel terkait akun tidak ditemukan', 404);
+    }
+
+    const pers = personnelRows[0];
+
+    await pool.query(
+      `UPDATE personnel SET
+        nip = COALESCE(?, nip),
+        birth_date = COALESCE(?, birth_date),
+        formal_education = COALESCE(?, formal_education),
+        cert_level = COALESCE(?, cert_level),
+        cert_number = COALESCE(?, cert_number),
+        cert_expiry_date = COALESCE(?, cert_expiry_date)
+      WHERE id = ?`,
+      [
+        nip !== undefined ? nip : pers.nip,
+        birth_date !== undefined ? birth_date : pers.birth_date,
+        formal_education !== undefined ? formal_education : pers.formal_education,
+        cert_level !== undefined ? cert_level : pers.cert_level,
+        cert_number !== undefined ? cert_number : pers.cert_number,
+        cert_expiry_date !== undefined ? cert_expiry_date : pers.cert_expiry_date,
+        pers.id
+      ]
+    );
+
+    const [updated] = await pool.query('SELECT * FROM personnel WHERE id = ?', [pers.id]);
+    return successResponse(res, 'Profil berhasil diperbarui', updated[0]);
+  } catch (error) {
+    console.error('Error updateProfile:', error);
+    return errorResponse(res, 'Gagal memperbarui data profil: ' + error.message, 500);
+  }
+};
+

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, ClipboardList, Filter, RefreshCw, AlertCircle } from 'lucide-react';
+import { Plus, ClipboardList, Filter, RefreshCw, AlertCircle, Check, X, Trash2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { cleanTeam } from '../../utils/shiftHelper';
@@ -15,6 +15,11 @@ export default function MobileKegiatan() {
   const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('ALL');
+  const [toastMsg, setToastMsg] = useState(null);
+
+  // In-app Delete Modal state
+  const [targetDeleteId, setTargetDeleteId] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchActivities = useCallback(async () => {
     setLoading(true);
@@ -45,13 +50,22 @@ export default function MobileKegiatan() {
     fetchActivities();
   }, [fetchActivities]);
 
-  const handleDeleteActivity = async (id) => {
-    if (!window.confirm('Hapus kegiatan ini dari logbook shift?')) return;
+  const handleRequestDelete = (id) => {
+    setTargetDeleteId(id);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!targetDeleteId) return;
+    setIsDeleting(true);
     try {
-      await api.delete(`/activities/${id}`);
-      setActivities((prev) => prev.filter((a) => a.id !== id));
+      await api.delete(`/activities/${targetDeleteId}`);
+      setActivities((prev) => prev.filter((a) => a.id !== targetDeleteId));
+      setToastMsg({ type: 'success', text: '✓ Kegiatan berhasil dihapus dari logbook.' });
+      setTargetDeleteId(null);
     } catch (err) {
-      alert(err.response?.data?.message || 'Gagal menghapus kegiatan.');
+      setToastMsg({ type: 'error', text: err.response?.data?.message || 'Gagal menghapus kegiatan.' });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -62,6 +76,32 @@ export default function MobileKegiatan() {
 
   return (
     <div className="space-y-2 pb-6">
+      {/* Toast Feedback */}
+      {toastMsg && (
+        <div className={`p-2.5 rounded-lg border text-xs flex items-center justify-between shadow-xs ${
+          toastMsg.type === 'error'
+            ? 'bg-red-50 border-red-200 text-red-800'
+            : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+        }`}>
+          <div className="flex items-center gap-1.5">
+            {toastMsg.type === 'error' ? (
+              <AlertCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+            ) : (
+              <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            )}
+            <span className="font-semibold text-[11px]">{toastMsg.text}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setToastMsg(null)}
+            className="p-0.5 opacity-70 hover:opacity-100"
+            aria-label="Tutup Notifikasi"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      )}
+
       {/* Top Header Card */}
       <div className="bg-white rounded-lg border border-slate-200 p-2.5 shadow-xs flex items-center justify-between">
         <div>
@@ -193,7 +233,7 @@ export default function MobileKegiatan() {
               key={act.id}
               activity={act}
               canDelete={canManage}
-              onDelete={handleDeleteActivity}
+              onDelete={handleRequestDelete}
             />
           ))}
         </div>
@@ -203,11 +243,53 @@ export default function MobileKegiatan() {
       <MobileActivityModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSuccess={fetchActivities}
+        onSuccess={(msg) => {
+          fetchActivities();
+          setToastMsg({ type: 'success', text: msg || '✓ Kegiatan operasional berhasil dicatat.' });
+        }}
         shiftDate={activeDate}
         shiftNumber={activeShiftNumber}
         teamGroup={activeTeam}
       />
+
+      {/* In-App Delete Confirmation Modal */}
+      {targetDeleteId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4"
+          onClick={() => setTargetDeleteId(null)}
+        >
+          <div
+            className="w-full max-w-[340px] bg-white rounded-2xl border border-slate-200 p-4 space-y-3 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 text-red-600">
+              <Trash2 className="w-5 h-5 shrink-0" />
+              <h4 className="text-sm font-bold text-slate-900">Hapus Catatan Kegiatan?</h4>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Catatan kegiatan ini beserta lampiran foto fisik pada server akan dihapus secara permanen dari logbook shift.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setTargetDeleteId(null)}
+                disabled={isDeleting}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors duration-100"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors duration-100 disabled:opacity-50"
+              >
+                {isDeleting ? 'Menghapus...' : 'Ya, Hapus'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

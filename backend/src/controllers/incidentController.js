@@ -23,7 +23,7 @@ async function generateNextReportNumber(connection) {
 
 export const getIncidents = async (req, res) => {
   try {
-    const { date, shift, team_group, status, priority, category } = req.query;
+    const { date, shift, team_group, status, priority, category, page, limit } = req.query;
 
     let query = `
       SELECT i.*,
@@ -57,11 +57,26 @@ export const getIncidents = async (req, res) => {
       params.push(status);
     }
     if (priority) {
+      const PRIORITY_MAP = {
+        rendah: 'low',
+        sedang: 'medium',
+        tinggi: 'high',
+        kritis: 'critical',
+      };
+      const normalizedPriority = PRIORITY_MAP[String(priority).toLowerCase()] || priority;
       query += ` AND i.priority_level = ?`;
-      params.push(priority);
+      params.push(normalizedPriority);
     }
 
     query += ` ORDER BY i.incident_date DESC, i.incident_time DESC, i.id DESC`;
+
+    if (limit) {
+      const pageNum = page ? Math.max(1, parseInt(page, 10)) : 1;
+      const limitNum = Math.max(1, parseInt(limit, 10));
+      const offset = (pageNum - 1) * limitNum;
+      query += ` LIMIT ? OFFSET ?`;
+      params.push(limitNum, offset);
+    }
 
     const [rows] = await pool.query(query, params);
     return successResponse(res, 'Daftar insiden berhasil diambil', rows);
@@ -141,7 +156,20 @@ export const createIncident = async (req, res) => {
 
     const reportNumber = await generateNextReportNumber(connection);
     const nowTime = new Date().toTimeString().split(' ')[0];
-    const selectedCategory = category || 'other';
+    const PRIORITY_MAP = {
+      rendah: 'low',
+      sedang: 'medium',
+      tinggi: 'high',
+      kritis: 'critical',
+      low: 'low',
+      medium: 'medium',
+      high: 'high',
+      critical: 'critical'
+    };
+    const mappedPriority = PRIORITY_MAP[String(priority_level || '').toLowerCase()] || 'medium';
+
+    const VALID_CATEGORIES = ['aircraft_accident', 'aircraft_incident', 'fire', 'medical_emergency', 'hazmat', 'other'];
+    const finalCategory = VALID_CATEGORIES.includes(category) ? category : 'other';
 
     const [result] = await connection.query(
       `INSERT INTO incidents (
@@ -159,13 +187,13 @@ export const createIncident = async (req, res) => {
         team_group || req.user.team_group || 'Alpha',
         shift_number ? Number(shift_number) : 1,
         req.user.id,
-        selectedCategory,
+        finalCategory,
         title,
         location,
         chronology,
         source_info || null,
         aircraft_info || null,
-        priority_level,
+        mappedPriority,
         activation_time || null,
         action_taken || null,
         last_condition || null,

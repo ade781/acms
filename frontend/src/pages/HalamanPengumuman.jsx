@@ -12,7 +12,8 @@ import {
   Search,
   AlertCircle,
   ExternalLink,
-  Plus
+  Plus,
+  X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -70,6 +71,7 @@ export default function HalamanPengumuman() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
   const [downloadError, setDownloadError] = useState(null);
+  const [toastMsg, setToastMsg] = useState(null);
 
   const fetchAnnouncements = useCallback(async () => {
     setLoading(true);
@@ -166,6 +168,8 @@ export default function HalamanPengumuman() {
       setDescription('');
       setPdfFile(null);
       fetchAnnouncements();
+      setToastMsg({ type: 'success', text: 'Surat edaran dinas berhasil dipublikasikan.' });
+      setTimeout(() => setToastMsg(null), 4000);
     } catch (err) {
       setFormError(err.response?.data?.message || err.message || 'Gagal mempublikasikan pengumuman.');
     } finally {
@@ -180,8 +184,14 @@ export default function HalamanPengumuman() {
     try {
       await api.delete(`/announcements/${id}`);
       fetchAnnouncements();
+      setToastMsg({ type: 'success', text: 'Pengumuman berhasil dihapus.' });
+      setTimeout(() => setToastMsg(null), 4000);
     } catch (err) {
-      alert(`Gagal menghapus pengumuman: ${err.response?.data?.message || err.message}`);
+      setToastMsg({
+        type: 'error',
+        text: `Gagal menghapus pengumuman: ${err.response?.data?.message || err.message}`
+      });
+      setTimeout(() => setToastMsg(null), 5000);
     }
   };
 
@@ -194,14 +204,47 @@ export default function HalamanPengumuman() {
     );
   });
 
-  const getPdfUrl = (filePath) => {
+  const getPdfUrl = (filePath, id) => {
     if (!filePath) return '';
     if (filePath.startsWith('http://') || filePath.startsWith('https://')) return filePath;
-    return `http://localhost:5000${filePath.startsWith('/') ? '' : '/'}${filePath}`;
+    if (id) {
+      const baseApi = import.meta.env.VITE_API_URL || '/api';
+      return `${baseApi}/announcements/${id}/attachment`;
+    }
+    const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
+    const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') : '';
+    return `${baseUrl}${cleanPath}`;
   };
 
   return (
     <div>
+      {/* Toast Feedback */}
+      {toastMsg && (
+        <div
+          className={`mb-4 p-3 rounded-xl border flex items-center justify-between text-xs font-semibold shadow-sm transition-all duration-150 ${
+            toastMsg.type === 'error'
+              ? 'bg-red-50 border-red-200 text-red-800'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {toastMsg.type === 'error' ? (
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            )}
+            <span>{toastMsg.text}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setToastMsg(null)}
+            className="p-1 rounded hover:bg-black/5 text-current cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Top Header Card */}
       <div className="mb-6 bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-slate-300 transition-colors duration-100">
         <div className="flex items-center gap-3.5">
@@ -388,7 +431,7 @@ export default function HalamanPengumuman() {
 
                   <div className="flex items-center gap-2 shrink-0">
                     <a
-                      href={getPdfUrl(selectedAnnouncement.file_path)}
+                      href={getPdfUrl(selectedAnnouncement.file_path, selectedAnnouncement.id)}
                       download={selectedAnnouncement.file_name || 'pengumuman.pdf'}
                       onClick={(e) => {
                         if (!selectedAnnouncement.file_path) {
@@ -407,7 +450,7 @@ export default function HalamanPengumuman() {
                     </a>
 
                     <a
-                      href={getPdfUrl(selectedAnnouncement.file_path)}
+                      href={getPdfUrl(selectedAnnouncement.file_path, selectedAnnouncement.id)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 text-xs font-bold transition-colors duration-100 shadow-xs"
@@ -434,7 +477,7 @@ export default function HalamanPengumuman() {
                 {/* In-Web Viewer Iframe */}
                 <div className="flex-1 w-full bg-slate-100 relative">
                   <iframe
-                    src={`${getPdfUrl(selectedAnnouncement.file_path)}#toolbar=1&navpanes=0`}
+                    src={`${getPdfUrl(selectedAnnouncement.file_path, selectedAnnouncement.id)}#toolbar=1&navpanes=0`}
                     title={selectedAnnouncement.title}
                     className="w-full h-full border-none"
                   />

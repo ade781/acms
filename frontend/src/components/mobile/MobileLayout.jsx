@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import MobileHeader from './MobileHeader';
 import MobileBottomNav from './MobileBottomNav';
 import MobileProfileView from './profile/MobileProfileView';
 import MobileAnnouncementsModal from './announcements/MobileAnnouncementsModal';
+import MobileLeaveModal from './dashboard/MobileLeaveModal';
 
 export default function MobileLayout({ children }) {
-  const { isChief, isAdmin, isSupervisor } = useAuth();
+  const { user, activeDate, activeShiftNumber, activeTeam, isChief, isAdmin, isSupervisor } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -15,6 +16,19 @@ export default function MobileLayout({ children }) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   // Announcements modal state
   const [isAnnounceOpen, setIsAnnounceOpen] = useState(false);
+  // Leave modal state (Global untuk seluruh antarmuka mobile)
+  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+
+  // Listener event global pembukaan modal cuti dari profil maupun ploting
+  useEffect(() => {
+    const handleOpen = () => {
+      setIsLeaveModalOpen(true);
+    };
+    window.addEventListener('arff:open-leave-modal', handleOpen);
+    return () => {
+      window.removeEventListener('arff:open-leave-modal', handleOpen);
+    };
+  }, []);
 
   // Determine active tab based on current pathname
   const path = location.pathname.toLowerCase();
@@ -39,8 +53,7 @@ export default function MobileLayout({ children }) {
   };
 
   const handleOpenLeaveModal = () => {
-    // Dispatch global custom event so MobileLeaveModal (managed by Agent 2) can listen
-    window.dispatchEvent(new CustomEvent('arff:open-leave-modal'));
+    setIsLeaveModalOpen(true);
   };
 
   return (
@@ -79,6 +92,19 @@ export default function MobileLayout({ children }) {
         <MobileAnnouncementsModal
           isOpen={isAnnounceOpen}
           onClose={() => setIsAnnounceOpen(false)}
+        />
+
+        {/* Global Mobile Leave Modal */}
+        <MobileLeaveModal
+          isOpen={isLeaveModalOpen}
+          onClose={() => setIsLeaveModalOpen(false)}
+          user={user}
+          activeDate={activeDate}
+          activeShiftNumber={activeShiftNumber}
+          activeTeam={activeTeam}
+          onSuccess={() => {
+            setIsLeaveModalOpen(false);
+          }}
         />
       </div>
     </div>

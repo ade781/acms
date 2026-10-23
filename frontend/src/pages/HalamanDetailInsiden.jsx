@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, AlertTriangle, Calendar, Clock, MapPin, Plane, CheckCircle2, Shield } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Calendar, Clock, MapPin, Plane, CheckCircle2, Shield, Check, X, AlertCircle } from 'lucide-react';
 import api from '../services/api';
 import { cleanTeam, formatTeam } from '../utils/shiftHelper';
 import StateView from '../components/common/StateView';
@@ -15,38 +15,76 @@ export default function HalamanDetailInsiden() {
   const [error, setError] = useState(null);
   const [incident, setIncident] = useState(null);
   const [updating, setUpdating] = useState(false);
+  const [toastMsg, setToastMsg] = useState(null);
+
+  const fetchDetail = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.get(`/incidents/${id}`);
+      setIncident(res.data?.incident || res.data);
+    } catch (err) {
+      console.error('Error fetching incident detail:', err);
+      setError('Gagal memuat detail laporan insiden.');
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
   useEffect(() => {
-    async function fetchDetail() {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await api.get(`/incidents/${id}`);
-        setIncident(res.data?.incident || res.data);
-      } catch (err) {
-        console.error('Error fetching incident detail:', err);
-        setError('Gagal memuat detail laporan insiden.');
-      } finally {
-        setLoading(false);
-      }
-    }
     fetchDetail();
-  }, [id]);
+  }, [fetchDetail]);
 
   const handleUpdateStatus = async (newStatus) => {
     setUpdating(true);
+    setToastMsg(null);
     try {
       await api.put(`/incidents/${id}/status`, { status: newStatus });
       setIncident((prev) => ({ ...prev, status: newStatus }));
+      setToastMsg({ type: 'success', text: `Status insiden berhasil diperbarui menjadi "${newStatus === 'selesai' ? 'Selesai' : newStatus}".` });
     } catch (err) {
-      alert(`Gagal memperbarui status: ${err.response?.data?.message || err.message}`);
+      setToastMsg({ type: 'error', text: `Gagal memperbarui status: ${err.response?.data?.message || err.message}` });
     } finally {
       setUpdating(false);
     }
   };
 
+  const getPriorityBadge = (lvl) => {
+    const l = (lvl || '').toLowerCase();
+    if (l === 'kritis' || l === 'critical') return <Badge variant="unserviceable" size="md">Prioritas Kritis (Siaga I)</Badge>;
+    if (l === 'tinggi' || l === 'high') return <Badge variant="pending" size="md">Prioritas Tinggi (Siaga II)</Badge>;
+    if (l === 'sedang' || l === 'medium') return <Badge variant="info" size="md">Prioritas Sedang</Badge>;
+    return <Badge variant="default" size="md">Prioritas Rendah</Badge>;
+  };
+
   return (
     <div>
+      {/* Toast Feedback */}
+      {toastMsg && (
+        <div className={`mb-4 p-3 rounded-xl border text-xs flex items-center justify-between shadow-xs ${
+          toastMsg.type === 'error'
+            ? 'bg-red-50 border-red-200 text-red-800'
+            : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+        }`}>
+          <div className="flex items-center gap-2">
+            {toastMsg.type === 'error' ? (
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+            ) : (
+              <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+            )}
+            <span className="font-semibold">{toastMsg.text}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setToastMsg(null)}
+            className="p-0.5 opacity-70 hover:opacity-100"
+            aria-label="Tutup Notifikasi"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       <div className="mb-6 flex items-center justify-between">
         <Button
           variant="outline"
@@ -70,7 +108,7 @@ export default function HalamanDetailInsiden() {
         )}
       </div>
 
-      <StateView loading={loading} error={error} onRetry={() => window.location.reload()}>
+      <StateView loading={loading} error={error} onRetry={fetchDetail}>
         {incident && (
           <div className="space-y-6">
             {/* Header Card */}
@@ -84,9 +122,7 @@ export default function HalamanDetailInsiden() {
                     <Badge variant={`team${cleanTeam(incident.team_group) || 'Alpha'}`} size="md">
                       {formatTeam(incident.team_group || 'Alpha')}
                     </Badge>
-                    <Badge variant="unserviceable" size="md">
-                      Prioritas {incident.priority_level || 'Sedang'}
-                    </Badge>
+                    {getPriorityBadge(incident.priority_level)}
                   </div>
                   <h2 className="text-xl font-bold text-slate-900">{incident.title}</h2>
                 </div>

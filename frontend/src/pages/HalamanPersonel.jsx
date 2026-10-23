@@ -56,6 +56,11 @@ export default function HalamanPersonel() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
   const [successNotification, setSuccessNotification] = useState(null);
+  const [errorNotification, setErrorNotification] = useState(null);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
 
   const fetchPersonnel = useCallback(async () => {
     setLoading(true);
@@ -84,6 +89,7 @@ export default function HalamanPersonel() {
 
   useEffect(() => {
     fetchPersonnel();
+    setCurrentPage(1);
   }, [fetchPersonnel]);
 
   const handleAddPersonnel = async (e) => {
@@ -151,7 +157,7 @@ export default function HalamanPersonel() {
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Error downloading personnel PDF:', err);
-      alert('Gagal mengunduh dokumen PDF akun personel.');
+      setErrorNotification('Gagal mengunduh dokumen PDF akun personel.');
     } finally {
       setDownloadingPdf(false);
     }
@@ -208,18 +214,47 @@ export default function HalamanPersonel() {
         </div>
       )}
 
-      {/* Filter Bar */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="w-full sm:max-w-md">
-          <InputField
-            id="searchPersonnel"
-            placeholder="Cari nama personel di seluruh regu..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            icon={Search}
-          />
+      {/* Error Notification Alert */}
+      {errorNotification && (
+        <div className="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-800 flex items-center justify-between gap-3 shadow-sm animate-in fade-in">
+          <span>{errorNotification}</span>
+          <button
+            type="button"
+            onClick={() => setErrorNotification(null)}
+            className="text-red-700 hover:text-red-900 font-bold px-2 py-1"
+          >
+            Tutup
+          </button>
         </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+      )}
+
+      {/* Filter Bar */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-6 flex flex-col md:flex-row items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto flex-1">
+          <div className="w-full sm:w-72">
+            <InputField
+              id="searchPersonnel"
+              placeholder="Cari nama personel di seluruh regu..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              icon={Search}
+            />
+          </div>
+          <div className="w-full sm:w-56">
+            <SelectField
+              id="filterCertLevel"
+              value={selectedCert}
+              onChange={(e) => setSelectedCert(e.target.value)}
+              options={[
+                { value: 'ALL', label: 'Semua Kualifikasi STKP' },
+                { value: 'Basic', label: 'Basic Fire Fighter' },
+                { value: 'Junior', label: 'Junior Fire Fighter' },
+                { value: 'Senior', label: 'Senior Fire Fighter' },
+              ]}
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
           <div className="text-xs text-slate-500 font-medium">
             Dinas: <span className="font-bold text-slate-800">{formatTeam(activeTeam)}</span>
             <span className="text-slate-300 mx-2">•</span>
@@ -346,19 +381,22 @@ export default function HalamanPersonel() {
 
                   {/* List Nama Anggota */}
                   <div className="space-y-1">
-                    {sortedMembers.map((person, idx) => {
-                      const isChief = isActualChief(person);
-                      const isAssistant = isChiefAssistant(person);
-                      const isMatchedSearch =
-                        !isFiltering ||
-                        (person.full_name || '')
-                          .toLowerCase()
-                          .includes(searchQuery.trim().toLowerCase());
+                    {sortedMembers
+                      .slice((currentPage - 1) * perPage, currentPage * perPage)
+                      .map((person, idx) => {
+                        const isChief = isActualChief(person);
+                        const isAssistant = isChiefAssistant(person);
+                        const isMatchedSearch =
+                          !isFiltering ||
+                          (person.full_name || '')
+                            .toLowerCase()
+                            .includes(searchQuery.trim().toLowerCase());
 
-                      // Nomor urut: Bintang ★ HANYA untuk Chief resmi
-                      const memberNumber = isChief
-                        ? '★'
-                        : String(hasChief ? idx : idx + 1).padStart(2, '0');
+                        // Nomor urut: Bintang ★ HANYA untuk Chief resmi
+                        const globalIdx = (currentPage - 1) * perPage + idx;
+                        const memberNumber = isChief
+                          ? '★'
+                          : String(hasChief ? globalIdx : globalIdx + 1).padStart(2, '0');
 
                       return (
                         <div
@@ -414,6 +452,62 @@ export default function HalamanPersonel() {
             );
           })}
         </div>
+
+        {/* Komponen Paginasi Terstandar */}
+        {(() => {
+          const maxTeamCount = Math.max(
+            ...['alpha', 'bravo', 'charlie', 'delta'].map(
+              (k) => personnelList.filter((p) => cleanTeam(p.team_group).toLowerCase() === k).length
+            ),
+            1
+          );
+          const totalPages = Math.max(1, Math.ceil(maxTeamCount / perPage));
+
+          return (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs mb-6">
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <span>Tampilkan:</span>
+                <select
+                  value={perPage}
+                  onChange={(e) => {
+                    setPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="border border-slate-300 rounded px-2 py-1 text-xs font-semibold text-slate-700 bg-slate-50 focus:outline-none"
+                >
+                  <option value={8}>8 per regu</option>
+                  <option value={10}>10 per regu</option>
+                  <option value={15}>15 per regu</option>
+                  <option value={25}>25 per regu</option>
+                </select>
+                <span className="text-slate-300">|</span>
+                <span>Total <strong>{personnelList.length}</strong> personel pada 4 regu</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage <= 1}
+                >
+                  Sebelumnya
+                </Button>
+                <span className="text-xs font-semibold px-2 text-slate-700">
+                  Halaman {currentPage} dari {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                >
+                  Selanjutnya
+                </Button>
+              </div>
+            </div>
+          );
+        })()}
       </StateView>
 
       {/* Add Personnel Modal */}

@@ -102,18 +102,41 @@ export const getShiftReportPdf = async (req, res) => {
     );
 
 
-    // Ambil ploting personel
+    // Ambil ploting personel & absensi
     let deployments = [];
+    let absents = [];
+
     if (shifts.length > 0) {
       const [deps] = await pool.query(
         `SELECT pd.*, p.full_name, p.nip, p.rank_position
          FROM personnel_deployments pd
          JOIN personnel p ON p.id = pd.personnel_id
-         WHERE pd.shift_id = ?`,
+         WHERE pd.shift_id = ?
+         ORDER BY pd.deployment_type ASC, pd.is_pic DESC, p.full_name ASC`,
         [shifts[0].id]
       );
       deployments = deps;
+      absents = deps.filter((d) => d.deployment_type === 'absent');
     }
+
+    // Ambil juga personel dari regu ini yang tercatat cuti/izin pada tanggal ini
+    const [teamAbsents] = await pool.query(
+      `SELECT pd.*, p.full_name, p.nip, p.rank_position, pd.absent_reason, pd.notes
+       FROM personnel_deployments pd
+       JOIN personnel p ON p.id = pd.personnel_id
+       JOIN personnel_shifts ps ON ps.id = pd.shift_id
+       WHERE ps.shift_date = ? AND p.team_group = ? AND pd.deployment_type = 'absent'`,
+      [shiftDate, teamGroup]
+    );
+
+    const absentMap = new Map();
+    absents.forEach((a) => absentMap.set(a.personnel_id, a));
+    teamAbsents.forEach((a) => {
+      if (!absentMap.has(a.personnel_id)) {
+        absentMap.set(a.personnel_id, a);
+      }
+    });
+    absents = Array.from(absentMap.values());
 
     // Ambil insiden (dikunci berdasarkan tanggal, shift_number, dan team_group)
     const [incidents] = await pool.query(
@@ -149,6 +172,7 @@ export const getShiftReportPdf = async (req, res) => {
       vehicles,
       watchroom: watchrooms.length > 0 ? watchrooms[0] : {},
       deployments,
+      absents,
       incidents,
       activities
     };

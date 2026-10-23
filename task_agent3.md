@@ -1,42 +1,52 @@
-# PANDUAN TUGAS AGENT 3: MOBILE PLOTING 8 UNIT ARMADA, CREW PICKER & KELOLA CUTI
+# PANDUAN EKSEKUSI AGENT 3: FASE PERBAIKAN TOTAL (PLOTING PENUGASAN SHIFT & FITUR CUTI)
 
-## Status Kinerja & Evaluasi Agent 3
-- **Skor Kinerja**: 98% (Luar Biasa — Proteksi Akses Shift, Efisiensi Server & Git Commit Tersimpan)
-- **Capaian Positif Terkini**:
-  1. Git Commit Berkala: Perubahan kode ploting dan proteksi shift tersimpan pada commit `2ae9462`.
-  2. Proteksi Hak Akses Shift ("Bukan Shift Anda"): Jika Chief/user membuka menu Ploting pada shift yang bukan jadwal dinas regunya, sistem otomatis menolak rendering form unit dan menampilkan layar santun *"Bukan Shift Dinas Anda"*.
-  3. Efisiensi Request Server: Saat bukan shift dinas user, pemanggilan API berat di-skip (`early return`), menghemat bandwidth dan kapasitas server.
-  4. Simpan Ploting Eksplisit: Seluruh pemilihan kru murni dikelola di state lokal React (`useState`). Permintaan HTTP (`POST /api/deployments/batch`) HANYA dikirimkan ketika user menekan tombol **"Simpan Ploting"** di header.
-  5. Tampilan Ploting 8 Unit Rapat (*compact flat rows* tipis 1px) bebas nested cards bloat.
+> 🚀 **MANDAT FASE 3 (EKSEKUSI PERBAIKAN KODE & PENGUJIAN):**
+> 1. **EKSEKUSI SELURUH PERBAIKAN DI BAWAH INI** pada berkas yang menjadi tanggung jawab Anda.
+> 2. **BATAS KODE EKSKLUSIF (ZERO COLLISION)**: Hanya edit berkas domain Agent 3.
+> 3. **SEMUA PENGUJIAN DI FOLDER `masak/`**: Dilarang membuat folder `tests/` di `backend/` atau `frontend/`.
+> 4. **VALIDASI SISTEM VIA CLI**: Jalankan `node -c` dan pastikan sintaks 100% valid.
+> 5. **LAPORAN HASIL KERJA MANDIRI**: Tuliskan laporan perbaikan ke `masak/temp/hasil_agent3.md`.
 
 ---
 
-## Mandat Integritas Ploting & Anti-Race Condition
-1. **Validasi Backend Anti-Tabrakan Slot (Zero Duplicate Assignment)**:
-   - Backend `saveDeploymentBatch` di `deploymentController.js` wajib memvalidasi bahwa tidak ada satu personel yang ditugaskan pada dua slot unit berbeda dalam shift yang sama.
-   - Jika dua pengguna secara bersamaan mencoba mengisi slot yang sama, transaksi database harus memvalidasi integritas state secara atomik.
-2. **Validasi Personel Berstatus Cuti**:
-   - Backend wajib menolak penugasan personel yang sedang tercatat izin/cuti aktif pada shift tersebut, kecuali status cutinya telah dibatalkan secara sah terlebih dahulu.
-3. **Sinkronisasi PIC pada `vehicle_readiness_logs`**:
-   - Setiap kali terjadi pergantian PIC pada unit armada, identitas PIC pada log kelaikan shift harus otomatis tersinkronisasi.
+## Daftar Pekerjaan Eksekusi Perbaikan Agent 3
+
+1. **Perbaiki Feedback Notifikasi Simpan Ploting di Desktop (`HalamanPenugasan.jsx`)**:
+   - Di `fetchDeploymentData()`, hapus panggilan `setSuccessMsg(null)` yang menghapus pesan sukses dalam 0 ms.
+   - Ubah styling banner notifikasi sukses menjadi fixed floating pill di viewport layar (misal pojok kanan bawah atau tengah atas) dengan timer auto-dismiss 3–4 detik, agar selalu terlihat oleh pengguna pada posisi scroll manapun.
+
+2. **Perbaiki Posisi Notifikasi Simpan Ploting di Mobile (`MobilePloting.jsx`)**:
+   - Ubah kontainer `toastMsg` (baris 520–534) dari in-flow dokumen biasa menjadi floating fixed pill di viewport: `fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm shadow-lg`.
+   - Tambahkan efek timer auto-dismiss (`setTimeout` 3000 ms) agar toast menghilang secara otomatis setelah 3 detik.
+
+3. **Perbaiki Tombol Cuti Mandiri Macet di Profil Mobile**:
+   - Di `frontend/src/components/mobile/MobileLayout.jsx`, tangani event `arff:open-leave-modal` dengan memasang listener `window.addEventListener('arff:open-leave-modal', ...)` yang mengontrol pembukaan `MobileLeaveModal` secara global, sehingga klik tombol `+ Cuti Mandiri` di Profil langsung membuka modal tanpa macet.
+
+4. **Sediakan Prop Handler `onOpenCutiModal` di `frontend/src/App.jsx`**:
+   - Di `App.jsx` baris 112, teruskan prop `onOpenCutiModal` ke rute `<MobilePloting />` agar tombol `+ Cuti Saya` pada header bagian ketidakhadiran tampil dan bisa diklik oleh pengguna.
+
+5. **Perbaiki Penolakan HTTP 400 Akun Admin & Sediakan Dropdown Personel di `MobileLeaveModal.jsx`**:
+   - Di `MobileLeaveModal.jsx`, jika pengguna adalah Admin atau Chief/Supervisor, tampilkan dropdown pilihan personel aktif agar dapat memilih anggota yang diajukan cuti.
+   - Di `backend/src/controllers/deploymentController.js` (fungsi `requestLeaveRange`), tangani kasus saat `personnel_id` tidak ada pada akun admin: pastikan `targetPersonnelId` divalidasi dengan aman dan informatif.
+
+6. **Tangani Pembatalan Cuti Lokal (Timestamp ID) di `MobilePloting.jsx`**:
+   - Di fungsi `handleConfirmCancelLeave`, jika item cuti berstatus lokal (`Date.now()`), jangan kirimkan `DELETE /api/deployments/leave/:id` ke backend (yang memicu error 404), melainkan cukup hapus dari state lokal `absentList` dan perbarui draf.
+
+7. **Render Tabel / Panel Daftar Personel Izin/Cuti di Desktop (`HalamanPenugasan.jsx`)**:
+   - Tambahkan panel "Daftar Personel Izin / Cuti Shift Ini" di bagian bawah grid armada pada `HalamanPenugasan.jsx` (lengkap dengan badge alasan dan tombol aksi), sehingga pengawas desktop memiliki visibilitas anggota yang berhalangan dinas.
+
+8. **Perbaiki Notifikasi Cuti Cepat Hilang di Desktop (`HalamanCuti.jsx`)**:
+   - Di `HalamanCuti.jsx`, hapus `setSuccessMsg(null)` pada awal fungsi `fetchLeaveData()` agar notifikasi sukses simpan cuti tidak terhapus seketika.
+
+9. **Terapkan Auto-Evict Kru Cuti dari Slot Armada di Desktop**:
+   - Di `HalamanPenugasan.jsx`, saat data cuti dimuat atau saat personel dicatat cuti, otomatis kosongkan slot armada yang sebelumnya ditempati oleh personel tersebut agar tidak memicu error tabrakan data saat simpan.
+
+10. **Lengkapi Opsi Alasan Ketidakhadiran di `MobileLeaveModal.jsx`**:
+    - Tambahkan opsi `<option value="tukar_dinas">Tukar Dinas</option>` agar konsisten dengan desktop dan lembar ploting.
 
 ---
 
-## Audit Fungsi & Endpoint Agent 3
+## Format Pelaporan Mandiri di `masak/temp/hasil_agent3.md`
 
-| Endpoint | Metode | Fungsi Backend (Controller) | Fungsi Frontend (Handler) | Status Verifikasi |
-| :--- | :---: | :--- | :--- | :---: |
-| `/api/personnel` | GET | `getPersonnel` (`personnelController.js`) | `loadPlotingData` di `MobilePloting.jsx` | ✅ Aktif (Hanya dipanggil saat shift user) |
-| `/api/vehicles` | GET | `getVehicles` (`vehicleController.js`) | `loadPlotingData` di `MobilePloting.jsx` | ✅ Aktif (8 unit operasional bandara YIA) |
-| `/api/readiness/vehicles` | GET | `getVehiclesReadiness` (`readinessController.js`) | `loadPlotingData` di `MobilePloting.jsx` | ✅ Aktif (Status kelaikan & PIC aktif) |
-| `/api/deployments/current` | GET | `getCurrentDeployments` (`deploymentController.js`) | `loadPlotingData` di `MobilePloting.jsx` | ✅ Aktif (Penugasan terdaftar saat ini) |
-| `/api/deployments/save` | POST | `saveDeployments` (`deploymentController.js`) | `handleSavePloting` di `MobilePloting.jsx` | ✅ Aktif (Hanya saat tombol Simpan ditekan) |
-| `/api/deployments/leave` | POST | `submitLeave` (`deploymentController.js`) | `handleAddAbsentCrew` di `MobilePloting.jsx` | ✅ Aktif (Pencatatan cuti anggota oleh Chief) |
-| `/api/deployments/leave/:id` | DELETE | `cancelLeave` (`deploymentController.js`) | `handleExecuteCancelLeave` di `MobilePloting.jsx` | ✅ Aktif (Kembalikan kru ke status dinas) |
-
----
-
-## Rincian Tanggung Jawab Lanjutan Agent 3
-1. **Validasi Backend Duplikasi Kru**: Tambahkan pengecekan `Set(personnel_ids).size === personnel_ids.length` pada backend `saveDeploymentBatch`.
-2. **Validasi Slot PIC Wajib**: Memastikan unit yang berpenumpang kru wajib memiliki penanggung jawab (PIC) di slot 0.
-3. **Validasi Build CLI**: Jalankan `npm run build` dan pastikan 0 error.
+Setelah seluruh kode di atas diperbaiki dan divalidasi via CLI:
+Tuliskan rincian hasil pekerjaan, berkas yang diubah, dan bukti pengujian ke dalam `masak/temp/hasil_agent3.md`.

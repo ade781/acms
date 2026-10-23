@@ -141,3 +141,31 @@ export const deleteAnnouncement = async (req, res) => {
     return errorResponse(res, 'Gagal menghapus pengumuman', 500);
   }
 };
+
+export const getAnnouncementAttachment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [rows] = await pool.query('SELECT file_path, file_name, title FROM announcements WHERE id = ?', [id]);
+    if (rows.length === 0 || !rows[0].file_path) {
+      return errorResponse(res, 'Lampiran pengumuman tidak ditemukan', 404);
+    }
+
+    const cleanFileName = path.basename(rows[0].file_path);
+    const filePath = path.resolve(__dirname, '../../uploads', cleanFileName);
+
+    if (!fs.existsSync(filePath)) {
+      return errorResponse(res, 'Berkas fisik tidak ditemukan pada server', 404);
+    }
+
+    const downloadName = rows[0].file_name || cleanFileName;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${downloadName}"`);
+
+    return res.sendFile(filePath);
+  } catch (err) {
+    console.error('Error getAnnouncementAttachment:', err);
+    return errorResponse(res, 'Gagal mengambil lampiran pengumuman: ' + err.message, 500);
+  }
+};
+

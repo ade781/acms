@@ -109,7 +109,16 @@ export default function App() {
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<MobileDashboard />} />
-            <Route path="ploting" element={<MobilePloting />} />
+            <Route
+              path="ploting"
+              element={
+                <MobilePloting
+                  onOpenCutiModal={() =>
+                    window.dispatchEvent(new CustomEvent('arff:open-leave-modal'))
+                  }
+                />
+              }
+            />
             <Route path="kegiatan" element={<MobileKegiatan />} />
             <Route path="insiden" element={<MobileInsiden />} />
             <Route path="laporan" element={<MobileLaporan />} />

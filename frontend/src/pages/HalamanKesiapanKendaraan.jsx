@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Truck, CheckCircle2, AlertTriangle, ShieldCheck, HelpCircle, Plus, Trash2 } from 'lucide-react';
+import { Truck, CheckCircle2, AlertTriangle, ShieldCheck, HelpCircle, Plus, Trash2, X, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam } from '../utils/shiftHelper';
 import api from '../services/api';
@@ -39,6 +39,7 @@ export default function HalamanKesiapanKendaraan() {
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
+  const [toastMsg, setToastMsg] = useState(null);
 
   const fetchVehicles = useCallback(async () => {
     setLoading(true);
@@ -59,6 +60,15 @@ export default function HalamanKesiapanKendaraan() {
   useEffect(() => {
     fetchVehicles();
   }, [fetchVehicles]);
+
+  const handleReadinessSuccess = (customMsg) => {
+    fetchVehicles();
+    setToastMsg({
+      type: 'success',
+      text: customMsg || 'Data kesiapan fisik armada berhasil diperbarui.'
+    });
+    setTimeout(() => setToastMsg(null), 4000);
+  };
 
   const handleOpenAddVehicle = () => {
     setEditingVehicleId(null);
@@ -113,6 +123,11 @@ export default function HalamanKesiapanKendaraan() {
       }
       setVehicleModalOpen(false);
       fetchVehicles();
+      setToastMsg({
+        type: 'success',
+        text: editingVehicleId ? 'Spesifikasi unit armada berhasil diperbarui.' : 'Unit armada baru berhasil didaftarkan.'
+      });
+      setTimeout(() => setToastMsg(null), 4000);
     } catch (err) {
       setFormError(err.response?.data?.message || err.message || 'Gagal menyimpan data armada.');
     } finally {
@@ -129,8 +144,18 @@ export default function HalamanKesiapanKendaraan() {
       await api.delete(`/vehicles/${editingVehicleId}`);
       setVehicleModalOpen(false);
       fetchVehicles();
+      setToastMsg({
+        type: 'success',
+        text: 'Unit armada berhasil dihapus dari daftar operasional.'
+      });
+      setTimeout(() => setToastMsg(null), 4000);
     } catch (err) {
       setFormError(err.response?.data?.message || err.message || 'Gagal menghapus armada.');
+      setToastMsg({
+        type: 'error',
+        text: `Gagal menghapus armada: ${err.response?.data?.message || err.message}`
+      });
+      setTimeout(() => setToastMsg(null), 5000);
     } finally {
       setSubmitting(false);
     }
@@ -150,6 +175,33 @@ export default function HalamanKesiapanKendaraan() {
         shiftDate={activeDate}
         teamGroup={activeTeam}
       />
+
+      {/* Toast Feedback */}
+      {toastMsg && (
+        <div
+          className={`mb-4 p-3 rounded-xl border flex items-center justify-between text-xs font-semibold shadow-sm transition-all duration-150 ${
+            toastMsg.type === 'error'
+              ? 'bg-red-50 border-red-200 text-red-800'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {toastMsg.type === 'error' ? (
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            )}
+            <span>{toastMsg.text}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setToastMsg(null)}
+            className="p-1 rounded hover:bg-black/5 text-current cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
@@ -220,7 +272,7 @@ export default function HalamanKesiapanKendaraan() {
             activeDate={activeDate}
             activeShiftNumber={activeShiftNumber}
             activeTeam={activeTeam}
-            onSuccess={fetchVehicles}
+            onSuccess={handleReadinessSuccess}
           />
         ) : (
           <VehicleReadinessModal
@@ -230,7 +282,7 @@ export default function HalamanKesiapanKendaraan() {
             activeDate={activeDate}
             activeShiftNumber={activeShiftNumber}
             activeTeam={activeTeam}
-            onSuccess={fetchVehicles}
+            onSuccess={handleReadinessSuccess}
           />
         )
       )}

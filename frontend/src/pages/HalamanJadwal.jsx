@@ -28,6 +28,7 @@ const DAY_SHORT_NAMES = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 
 export default function HalamanJadwal() {
   const { isAdmin, isSupervisor } = useAuth();
+  const canEdit = Boolean(isAdmin || isSupervisor);
 
   const today = new Date();
   const [selectedYear, setSelectedYear] = useState(today.getFullYear());
@@ -46,6 +47,7 @@ export default function HalamanJadwal() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
 
   const getLocalDateStr = (d = new Date()) => {
     const y = d.getFullYear();
@@ -222,21 +224,19 @@ export default function HalamanJadwal() {
   };
 
   /**
-   * Reset seluruh jadwal ke pola rotasi standar otomatis
+   * Reset seluruh jadwal ke pola rotasi standar otomatis (In-App Confirm)
    */
-  const handleResetToDefault = async () => {
-    if (!window.confirm('Kembalikan seluruh jadwal dinas ke pola rotasi standar otomatis ARFF?')) {
-      return;
-    }
-
+  const executeResetToDefault = async () => {
     setSaving(true);
+    setFormError(null);
     try {
       await api.delete('/schedules/cycle');
       setSuccessMessage('Seluruh jadwal telah dikembalikan ke pola rotasi standar otomatis.');
+      setConfirmResetOpen(false);
       setEditModalOpen(false);
       fetchMonthlySchedule();
     } catch (err) {
-      alert(`Gagal mereset: ${err.response?.data?.message || err.message}`);
+      setFormError(`Gagal mereset: ${err.response?.data?.message || err.message}`);
     } finally {
       setSaving(false);
     }
@@ -408,15 +408,15 @@ export default function HalamanJadwal() {
                       return (
                         <th
                           key={item.date}
-                          onClick={() => handleOpenEditModal(item)}
-                          className={`py-1.5 px-2.5 border-r border-slate-200 min-w-[54px] cursor-pointer transition-colors ${
+                          onClick={canEdit ? () => handleOpenEditModal(item) : undefined}
+                          className={`py-1.5 px-2.5 border-r border-slate-200 min-w-[54px] transition-colors ${
                             todayCheck
                               ? 'bg-amber-100 text-amber-950 font-extrabold'
                               : isSunday
                               ? 'text-red-600'
                               : 'text-slate-700'
-                          } hover:bg-slate-200`}
-                          title={`Tanggal ${item.day} (${item.day_name})${isAdmin || isSupervisor ? ' - Klik untuk ubah siklus mulai tanggal ini' : ''}`}
+                          } ${canEdit ? 'cursor-pointer hover:bg-slate-200' : 'cursor-default'}`}
+                          title={`Tanggal ${item.day} (${item.day_name})${canEdit ? ' - Klik untuk ubah siklus mulai tanggal ini' : ''}`}
                         >
                           <div className="text-[10px] uppercase font-normal opacity-75">{dayShort}</div>
                           <div className="text-sm font-bold leading-tight">{item.day}</div>
@@ -441,8 +441,8 @@ export default function HalamanJadwal() {
                         {daysList.map((item) => (
                           <td
                             key={`s1-${item.date}`}
-                            onClick={() => handleOpenEditModal(item)}
-                            className="py-2 px-1.5 border-r border-slate-100 cursor-pointer hover:bg-slate-100/70"
+                            onClick={canEdit ? () => handleOpenEditModal(item) : undefined}
+                            className={`py-2 px-1.5 border-r border-slate-100 ${canEdit ? 'cursor-pointer hover:bg-slate-100/70' : 'cursor-default'}`}
                           >
                             <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${getTeamPillClass(item.shift_1)}`}>
                               {item.shift_1 || '-'}
@@ -459,8 +459,8 @@ export default function HalamanJadwal() {
                         {daysList.map((item) => (
                           <td
                             key={`s2-${item.date}`}
-                            onClick={() => handleOpenEditModal(item)}
-                            className="py-2 px-1.5 border-r border-slate-100 cursor-pointer hover:bg-slate-100/70"
+                            onClick={canEdit ? () => handleOpenEditModal(item) : undefined}
+                            className={`py-2 px-1.5 border-r border-slate-100 ${canEdit ? 'cursor-pointer hover:bg-slate-100/70' : 'cursor-default'}`}
                           >
                             <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${getTeamPillClass(item.shift_2)}`}>
                               {item.shift_2 || '-'}
@@ -477,8 +477,8 @@ export default function HalamanJadwal() {
                         {daysList.map((item) => (
                           <td
                             key={`s3-${item.date}`}
-                            onClick={() => handleOpenEditModal(item)}
-                            className="py-2 px-1.5 border-r border-slate-100 cursor-pointer hover:bg-slate-100/70"
+                            onClick={canEdit ? () => handleOpenEditModal(item) : undefined}
+                            className={`py-2 px-1.5 border-r border-slate-100 ${canEdit ? 'cursor-pointer hover:bg-slate-100/70' : 'cursor-default'}`}
                           >
                             <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${getTeamPillClass(item.shift_3)}`}>
                               {item.shift_3 || '-'}
@@ -495,8 +495,8 @@ export default function HalamanJadwal() {
                         {daysList.map((item) => (
                           <td
                             key={`off-${item.date}`}
-                            onClick={() => handleOpenEditModal(item)}
-                            className="py-2 px-1.5 border-r border-slate-100 cursor-pointer hover:bg-slate-100/70"
+                            onClick={canEdit ? () => handleOpenEditModal(item) : undefined}
+                            className={`py-2 px-1.5 border-r border-slate-100 ${canEdit ? 'cursor-pointer hover:bg-slate-100/70' : 'cursor-default'}`}
                           >
                             <span className="inline-block px-2 py-0.5 rounded text-[11px] font-medium text-slate-500 bg-slate-100">
                               {item.off_team || '-'}
@@ -519,8 +519,8 @@ export default function HalamanJadwal() {
                           return (
                             <td
                               key={`team-${teamName}-${item.date}`}
-                              onClick={() => handleOpenEditModal(item)}
-                              className="py-2 px-1.5 border-r border-slate-100 cursor-pointer hover:bg-slate-100/70"
+                              onClick={canEdit ? () => handleOpenEditModal(item) : undefined}
+                              className={`py-2 px-1.5 border-r border-slate-100 ${canEdit ? 'cursor-pointer hover:bg-slate-100/70' : 'cursor-default'}`}
                             >
                               <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${getDutyBadgeClass(duty)}`}>
                                 {duty}
@@ -549,20 +549,52 @@ export default function HalamanJadwal() {
       {editModalOpen && (
         <Modal
           isOpen={editModalOpen}
-          onClose={() => setEditModalOpen(false)}
+          onClose={() => {
+            setEditModalOpen(false);
+            setConfirmResetOpen(false);
+          }}
           title="Ubah Siklus Jadwal Operasional"
           subtitle="Input 8 hari pertama mulai tanggal pergantian untuk diterapkan berulang ke depan secara keseluruhan"
           maxWidth="max-w-4xl"
           footer={
             <div className="flex flex-col sm:flex-row items-center justify-between w-full gap-3">
               <div>
-                <Button variant="danger" size="sm" onClick={handleResetToDefault} disabled={saving}>
-                  <RotateCcw className="w-3.5 h-3.5 mr-1" />
-                  Reset ke Pola Standar
-                </Button>
+                {confirmResetOpen ? (
+                  <div className="flex items-center gap-2 p-1.5 rounded-lg bg-red-50 border border-red-200 animate-in fade-in">
+                    <span className="text-[11px] text-red-700 font-semibold">Kembalikan ke rotasi standar?</span>
+                    <Button variant="danger" size="sm" onClick={executeResetToDefault} loading={saving}>
+                      Ya, Reset
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setConfirmResetOpen(false)}
+                      disabled={saving}
+                    >
+                      Batal
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => setConfirmResetOpen(true)}
+                    disabled={saving}
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                    Reset ke Pola Standar
+                  </Button>
+                )}
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={() => setEditModalOpen(false)} disabled={saving}>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setEditModalOpen(false);
+                    setConfirmResetOpen(false);
+                  }}
+                  disabled={saving}
+                >
                   Batal
                 </Button>
                 <Button variant="primary" onClick={handleSaveCycle} loading={saving}>

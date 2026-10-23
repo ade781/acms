@@ -1,9 +1,16 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import pool from '../config/db.js';
 import { successResponse, errorResponse, createdResponse } from '../utils/responseHelper.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadsDir = path.resolve(__dirname, '../../uploads');
+
 export const getActivities = async (req, res) => {
   try {
-    const { date, shift, team_group } = req.query;
+    const { date, shift, team_group, page, limit } = req.query;
 
     const shiftDate = date || new Date().toISOString().split('T')[0];
     const shiftNumber = shift ? Number(shift) : 1;
@@ -22,6 +29,14 @@ export const getActivities = async (req, res) => {
     }
 
     query += ` ORDER BY a.activity_time ASC, a.id ASC`;
+
+    if (limit) {
+      const pageNum = page ? Math.max(1, parseInt(page, 10)) : 1;
+      const limitNum = Math.max(1, parseInt(limit, 10));
+      const offset = (pageNum - 1) * limitNum;
+      query += ` LIMIT ? OFFSET ?`;
+      params.push(limitNum, offset);
+    }
 
     const [rows] = await pool.query(query, params);
     return successResponse(res, 'Daftar aktivitas berhasil diambil', rows);
@@ -113,11 +128,31 @@ export const createActivity = async (req, res) => {
 export const updateActivity = async (req, res) => {
   try {
     const { id } = req.params;
-    const { activity_type, activity_time, title, description, result_notes, actor_ids } = req.body;
+    const { activity_type, activity_time, title, description, result_notes, actor_ids, attachment_url } = req.body;
 
-    const [existing] = await pool.query('SELECT id FROM daily_shift_activities WHERE id = ?', [id]);
+    const [existing] = await pool.query('SELECT id, attachment_url FROM daily_shift_activities WHERE id = ?', [id]);
     if (existing.length === 0) {
       return errorResponse(res, 'Aktivitas tidak ditemukan', 404);
+    }
+
+    const currentActivity = existing[0];
+    let finalAttachmentUrl = currentActivity.attachment_url;
+
+    if (req.file) {
+      finalAttachmentUrl = `/uploads/${req.file.filename}`;
+      // Hapus file lama jika ada
+      if (currentActivity.attachment_url) {
+        const oldFile = path.resolve(uploadsDir, path.basename(currentActivity.attachment_url));
+        if (fs.existsSync(oldFile)) {
+          try {
+            await fs.promises.unlink(oldFile);
+          } catch (e) {
+            console.warn('Gagal menghapus file lama aktivitas:', e.message);
+          }
+        }
+      }
+    } else if (attachment_url !== undefined) {
+      finalAttachmentUrl = attachment_url || null;
     }
 
     await pool.query(
@@ -127,7 +162,8 @@ export const updateActivity = async (req, res) => {
         title = COALESCE(?, title),
         description = ?,
         result_notes = ?,
-        actor_ids = COALESCE(?, actor_ids)
+        actor_ids = COALESCE(?, actor_ids),
+        attachment_url = ?
        WHERE id = ?`,
       [
         activity_type || null,
@@ -136,6 +172,7 @@ export const updateActivity = async (req, res) => {
         description !== undefined ? description : null,
         result_notes !== undefined ? result_notes : null,
         actor_ids ? JSON.stringify(actor_ids) : null,
+        finalAttachmentUrl,
         id
       ]
     );
@@ -151,12 +188,28 @@ export const updateActivity = async (req, res) => {
 export const deleteActivity = async (req, res) => {
   try {
     const { id } = req.params;
-    const [existing] = await pool.query('SELECT id FROM daily_shift_activities WHERE id = ?', [id]);
+    const [existing] = await pool.query('SELECT id, attachment_url FROM daily_shift_activities WHERE id = ?', [id]);
     if (existing.length === 0) {
       return errorResponse(res, 'Aktivitas tidak ditemukan', 404);
     }
 
+    const activity = existing[0];
+
     await pool.query('DELETE FROM daily_shift_activities WHERE id = ?', [id]);
+
+    // Hapus file fisik dari disk jika ada
+    if (activity.attachment_url) {
+      const filename = path.basename(activity.attachment_url);
+      const filePath = path.resolve(uploadsDir, filename);
+      if (fs.existsSync(filePath)) {
+        try {
+          await fs.promises.unlink(filePath);
+        } catch (unlinkErr) {
+          console.warn('Gagal menghapus file foto aktivitas:', unlinkErr.message);
+        }
+      }
+    }
+
     return successResponse(res, 'Aktivitas berhasil dihapus dari logbook');
   } catch (error) {
     console.error('Error deleteActivity:', error);

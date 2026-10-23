@@ -55,16 +55,23 @@ export default function MobileInsiden() {
 
   // Metrics for summary
   const totalIncidents = incidents.length;
-  const criticalCount = incidents.filter(
-    (i) => (i.priority_level || '').toLowerCase() === 'kritis' || (i.priority_level || '').toLowerCase() === 'tinggi'
-  ).length;
+  const isHighPriority = (lvl) => {
+    const l = (lvl || '').toLowerCase();
+    return l === 'kritis' || l === 'critical' || l === 'tinggi' || l === 'high';
+  };
+  const criticalCount = incidents.filter((i) => isHighPriority(i.priority_level)).length;
   const inProgressCount = incidents.filter(
     (i) => (i.status || '').toLowerCase() === 'dalam_proses' || (i.status || '').toLowerCase() === 'menunggu_tindak_lanjut'
   ).length;
 
   const filteredIncidents = incidents.filter((inc) => {
     if (filterPriority === 'ALL') return true;
-    return (inc.priority_level || '').toLowerCase() === filterPriority.toLowerCase();
+    const l = (inc.priority_level || '').toLowerCase();
+    if (filterPriority === 'kritis') return l === 'kritis' || l === 'critical';
+    if (filterPriority === 'tinggi') return l === 'tinggi' || l === 'high';
+    if (filterPriority === 'sedang') return l === 'sedang' || l === 'medium';
+    if (filterPriority === 'rendah') return l === 'rendah' || l === 'low';
+    return l === filterPriority.toLowerCase();
   });
 
   return (

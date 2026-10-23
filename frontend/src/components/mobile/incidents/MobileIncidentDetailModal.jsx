@@ -27,6 +27,7 @@ export default function MobileIncidentDetailModal({
   const [loading, setLoading] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [activePhoto, setActivePhoto] = useState(null);
+  const [toastMsg, setToastMsg] = useState(null);
 
   useEffect(() => {
     if (!isOpen || !incidentId) return;
@@ -72,14 +73,22 @@ export default function MobileIncidentDetailModal({
 
   const handleUpdateStatus = async (newStatus) => {
     setUpdatingStatus(true);
+    setToastMsg(null);
     try {
       await api.put(`/incidents/${currentInc.id}/status`, {
         status: newStatus,
       });
       setIncident((prev) => ({ ...prev, status: newStatus }));
+      setToastMsg({
+        type: 'success',
+        text: `✓ Status berhasil diubah ke ${newStatus === 'selesai' ? 'Selesai' : newStatus}.`,
+      });
       onStatusUpdated?.();
     } catch (err) {
-      alert(err.response?.data?.message || 'Gagal memperbarui status insiden.');
+      setToastMsg({
+        type: 'error',
+        text: err.response?.data?.message || 'Gagal memperbarui status insiden.',
+      });
     } finally {
       setUpdatingStatus(false);
     }
@@ -121,6 +130,27 @@ export default function MobileIncidentDetailModal({
 
           {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto space-y-2 pr-0.5 text-xs">
+            {/* Toast Feedback */}
+            {toastMsg && (
+              <div
+                className={`p-2 rounded-lg border text-[11px] flex items-center justify-between shadow-xs ${
+                  toastMsg.type === 'error'
+                    ? 'bg-red-50 border-red-200 text-red-800'
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                }`}
+              >
+                <span className="font-semibold">{toastMsg.text}</span>
+                <button
+                  type="button"
+                  onClick={() => setToastMsg(null)}
+                  className="p-0.5 text-slate-400 hover:text-slate-700"
+                  aria-label="Tutup"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
             {/* Priority & Status Banner */}
             <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200/80">
               <div className="space-y-0.5">

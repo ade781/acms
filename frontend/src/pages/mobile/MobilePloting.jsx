@@ -21,6 +21,21 @@ export default function MobilePloting({ onOpenCutiModal, onOpenAuditModal }) {
   const [toastMsg, setToastMsg] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
 
+  // Auto-dismiss feedback toast setelah 3 detik
+  useEffect(() => {
+    if (toastMsg) {
+      const timer = setTimeout(() => setToastMsg(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMsg]);
+
+  useEffect(() => {
+    if (errorMsg) {
+      const timer = setTimeout(() => setErrorMsg(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMsg]);
+
   const [vehicles, setVehicles] = useState([]);
   const [personnelList, setPersonnelList] = useState([]);
   const [vehicleSlots, setVehicleSlots] = useState({});
@@ -360,12 +375,24 @@ export default function MobilePloting({ onOpenCutiModal, onOpenAuditModal }) {
     setCancelModalOpen(true);
   };
 
-  // Confirm and execute Cancel Leave
+  // Confirm and execute Cancel Leave (Kembalikan kru ke status dinas)
   const handleConfirmCancelLeave = async () => {
     if (!targetCancelLeave) return;
     setCancelingLeave(true);
     try {
       const pId = Number(targetCancelLeave.personnel_id);
+      const leaveId = targetCancelLeave.id;
+      const isLocalEntry = Boolean(targetCancelLeave.isLocal || (typeof leaveId === 'number' && leaveId > 1000000000000));
+
+      // Coba panggil DELETE /api/deployments/leave/:id hanya jika ID riil database
+      if (!isLocalEntry && leaveId && typeof leaveId === 'number') {
+        try {
+          await api.delete(`/deployments/leave/${leaveId}`);
+        } catch (delErr) {
+          console.warn('DELETE /deployments/leave/:id fallback to batch sync:', delErr.message);
+        }
+      }
+
       const updatedAbsentList = absentList.filter((a) => Number(a.personnel_id) !== pId);
       setAbsentList(updatedAbsentList);
 
@@ -423,6 +450,7 @@ export default function MobilePloting({ onOpenCutiModal, onOpenAuditModal }) {
       setCancelingLeave(false);
     }
   };
+  const handleExecuteCancelLeave = handleConfirmCancelLeave;
 
   // Add Absent Member manually
   const handleSaveNewAbsent = () => {
@@ -452,6 +480,7 @@ export default function MobilePloting({ onOpenCutiModal, onOpenAuditModal }) {
         name: person?.full_name || person?.name || `Personel #${pId}`,
         reason: absentReason,
         notes: absentNotes,
+        isLocal: true,
       },
     ]);
 
@@ -460,6 +489,7 @@ export default function MobilePloting({ onOpenCutiModal, onOpenAuditModal }) {
     setAbsentNotes('');
     setToastMsg(`Personel ${person?.full_name || ''} dicatat izin/cuti.`);
   };
+  const handleAddAbsentCrew = handleSaveNewAbsent;
 
   // Available personnel for manual absent modal (not already absent)
   const availableForAbsent = useMemo(() => {
@@ -503,36 +533,36 @@ export default function MobilePloting({ onOpenCutiModal, onOpenAuditModal }) {
 
   return (
     <div className="space-y-1.5 pb-20">
-      {/* Toast Feedback */}
+      {/* Floating Viewport Toast Feedback */}
       {toastMsg && (
-        <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-1.5">
-            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span className="font-semibold text-[11px]">{toastMsg}</span>
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm p-2.5 rounded-xl bg-emerald-600 text-white text-xs flex items-center justify-between shadow-lg animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-white shrink-0" />
+            <span className="font-bold text-[11.5px] leading-tight">{toastMsg}</span>
           </div>
           <button
             type="button"
             onClick={() => setToastMsg(null)}
-            className="text-emerald-500 hover:text-emerald-700 p-0.5"
+            className="text-emerald-100 hover:text-white p-1"
           >
-            <X className="w-3 h-3" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
 
-      {/* Error Message */}
+      {/* Floating Viewport Error Message */}
       {errorMsg && (
-        <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-1.5">
-            <AlertCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
-            <span className="font-semibold text-[11px]">{errorMsg}</span>
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm p-2.5 rounded-xl bg-red-600 text-white text-xs flex items-center justify-between shadow-lg animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-white shrink-0" />
+            <span className="font-bold text-[11.5px] leading-tight">{errorMsg}</span>
           </div>
           <button
             type="button"
             onClick={() => setErrorMsg(null)}
-            className="text-red-500 hover:text-red-700 p-0.5"
+            className="text-red-100 hover:text-white p-1"
           >
-            <X className="w-3 h-3" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}

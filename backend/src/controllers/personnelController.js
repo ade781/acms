@@ -746,19 +746,32 @@ export const deletePersonnelDocument = async (req, res) => {
 
 export const getOfficials = async (req, res) => {
   try {
-    // Dept Head
+    // 1. Dept Head (Airport Technology & ARFF Dept. Head)
     const [deptHeads] = await pool.query(
       `SELECT p.*, u.username, u.email as user_email, u.role as user_role,
               COALESCE(u.signature_url, p.signature_url) as signature_url
        FROM personnel p
        LEFT JOIN users u ON u.id = p.user_id
-       WHERE p.rank_position LIKE '%Dept%Head%' OR p.rank_position LIKE '%Department Head%' OR u.role = 'dept_head'
+       WHERE (p.rank_position LIKE '%Dept%Head%' OR p.rank_position LIKE '%Department Head%' OR u.role = 'dept_head')
+         AND p.rank_position NOT LIKE '%Section%'
        ORDER BY p.id ASC
        LIMIT 1`
     );
     const deptHead = deptHeads.length > 0 ? deptHeads[0] : null;
 
-    // 4 Chiefs for Alpha, Bravo, Charlie, Delta
+    // 2. Section Head (Airport Technology & ARFF Section Head)
+    const [sectionHeads] = await pool.query(
+      `SELECT p.*, u.username, u.email as user_email, u.role as user_role,
+              COALESCE(u.signature_url, p.signature_url) as signature_url
+       FROM personnel p
+       LEFT JOIN users u ON u.id = p.user_id
+       WHERE p.rank_position LIKE '%Section%Head%' OR p.rank_position LIKE '%Seksi%'
+       ORDER BY p.id ASC
+       LIMIT 1`
+    );
+    const sectionHead = sectionHeads.length > 0 ? sectionHeads[0] : null;
+
+    // 3. 4 Chiefs for Alpha, Bravo, Charlie, Delta (Case-Insensitive Normalization)
     const [chiefs] = await pool.query(
       `SELECT p.*, u.username, u.email as user_email, u.role as user_role,
               COALESCE(u.signature_url, p.signature_url) as signature_url
@@ -773,14 +786,15 @@ export const getOfficials = async (req, res) => {
     );
 
     const chiefsByTeam = {
-      Alpha: chiefs.find((c) => c.team_group === 'Alpha') || null,
-      Bravo: chiefs.find((c) => c.team_group === 'Bravo') || null,
-      Charlie: chiefs.find((c) => c.team_group === 'Charlie') || null,
-      Delta: chiefs.find((c) => c.team_group === 'Delta') || null,
+      Alpha: chiefs.find((c) => (c.team_group || '').toLowerCase().trim() === 'alpha') || null,
+      Bravo: chiefs.find((c) => (c.team_group || '').toLowerCase().trim() === 'bravo') || null,
+      Charlie: chiefs.find((c) => (c.team_group || '').toLowerCase().trim() === 'charlie') || null,
+      Delta: chiefs.find((c) => (c.team_group || '').toLowerCase().trim() === 'delta') || null,
     };
 
     return successResponse(res, 'Data pejabat berhasil diambil', {
       dept_head: deptHead,
+      section_head: sectionHead,
       chiefs: chiefsByTeam,
       raw_chiefs: chiefs,
     });
@@ -978,6 +992,103 @@ export const replaceChief = async (req, res) => {
     return errorResponse(res, 'Gagal mengganti Ketua Regu: ' + error.message, 500);
   } finally {
     connection.release();
+  }
+};
+
+export const replaceSectionHead = async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    const { new_personnel_id } = req.body;
+    if (!new_personnel_id) {
+      return errorResponse(res, 'Personel Section Head baru wajib dipilih', 400);
+    }
+
+    await connection.beginTransaction();
+
+    // 1. Ambil data Section Head lama
+    const [currentSectionHeads] = await connection.query(
+      `SELECT p.*, u.id as u_id
+       FROM personnel p
+       LEFT JOIN users u ON u.id = p.user_id
+       WHERE p.rank_position LIKE '%Section%Head%' OR p.rank_position LIKE '%Seksi%'`
+    );
+
+    for (const oldSh of currentSectionHeads) {
+      if (oldSh.id === Number(new_personnel_id)) continue;
+
+      // Hapus file tanda tangan lama jika ada
+      if (oldSh.signature_url) {
+        const sigPath = path.resolve(__dirname, '../../', oldSh.signature_url.replace(/^\//, ''));
+        if (fs.existsSync(sigPath)) {
+          try {
+            fs.unlinkSync(sigPath);
+          } catch (e) {}
+        }
+      }
+
+      await connection.query(
+        `UPDATE personnel 
+         SET rank_position = 'Staf Non-Operasional', team_group = 'Non-Shift', signature_url = NULL 
+         WHERE id = ?`,
+        [oldSh.id]
+      );
+    }
+
+    // 2. Angkat Section Head baru
+    const [newCandidate] = await connection.query(
+      `SELECT p.*, u.id as u_id FROM personnel p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?`,
+      [new_personnel_id]
+    );
+
+    if (newCandidate.length === 0) {
+      await connection.rollback();
+      return errorResponse(res, 'Personel baru tidak ditemukan', 404);
+    }
+
+    const candidate = newCandidate[0];
+    await connection.query(
+      `UPDATE personnel 
+       SET rank_position = 'Airport Technology & ARFF Section Head', team_group = 'Non-Shift' 
+       WHERE id = ?`,
+      [candidate.id]
+    );
+
+    await connection.commit();
+    return successResponse(res, `Section Head berhasil diperbarui menjadi ${candidate.full_name}.`);
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error replaceSectionHead:', error);
+    return errorResponse(res, 'Gagal memperbarui Section Head: ' + error.message, 500);
+  } finally {
+    connection.release();
+  }
+};
+
+export const resetPersonnelPassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [personnel] = await pool.query('SELECT id, user_id, full_name FROM personnel WHERE id = ?', [id]);
+    if (personnel.length === 0) {
+      return errorResponse(res, 'Personel tidak ditemukan', 404);
+    }
+
+    const { user_id, full_name } = personnel[0];
+    if (!user_id) {
+      return errorResponse(res, 'Personel ini belum memiliki akun pengguna yang terhubung', 400);
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const defaultHash = await bcrypt.hash('123456', salt);
+
+    await pool.query(
+      'UPDATE users SET password_hash = ?, must_change_password = 1 WHERE id = ?',
+      [defaultHash, user_id]
+    );
+
+    return successResponse(res, `Kata sandi untuk ${full_name} berhasil direset ke bawaan (123456).`);
+  } catch (error) {
+    console.error('Error resetPersonnelPassword:', error);
+    return errorResponse(res, 'Gagal mereset kata sandi: ' + error.message, 500);
   }
 };
 

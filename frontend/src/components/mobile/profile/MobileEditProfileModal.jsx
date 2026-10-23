@@ -7,7 +7,7 @@ export default function MobileEditProfileModal({ isOpen, onClose, personnel, onS
     nip: '',
     birth_date: '',
     formal_education: '',
-    cert_level: 'Junior Fire Fighter',
+    cert_level: 'Junior',
     cert_number: '',
     cert_expiry_date: '',
   });
@@ -16,11 +16,16 @@ export default function MobileEditProfileModal({ isOpen, onClose, personnel, onS
 
   useEffect(() => {
     if (personnel && isOpen) {
+      let rawCert = personnel.cert_level || 'Junior';
+      if (rawCert.includes('Senior')) rawCert = 'Senior';
+      else if (rawCert.includes('Junior')) rawCert = 'Junior';
+      else if (rawCert.includes('Basic')) rawCert = 'Basic';
+
       setFormData({
         nip: personnel.nip || '',
         birth_date: personnel.birth_date ? personnel.birth_date.split('T')[0] : '',
         formal_education: personnel.formal_education || '',
-        cert_level: personnel.cert_level || 'Junior Fire Fighter',
+        cert_level: rawCert,
         cert_number: personnel.cert_number || '',
         cert_expiry_date: personnel.cert_expiry_date ? personnel.cert_expiry_date.split('T')[0] : '',
       });
@@ -40,15 +45,25 @@ export default function MobileEditProfileModal({ isOpen, onClose, personnel, onS
     setLoading(true);
     setError(null);
 
+    const payload = {
+      nip: formData.nip,
+      birth_date: formData.birth_date || null,
+      formal_education: formData.formal_education,
+      cert_level: formData.cert_level,
+      cert_number: formData.cert_number,
+      cert_expiry_date: formData.cert_expiry_date || null,
+    };
+
     try {
-      await api.put(`/personnel/${personnel.id}`, {
-        nip: formData.nip,
-        birth_date: formData.birth_date || null,
-        formal_education: formData.formal_education,
-        cert_level: formData.cert_level,
-        cert_number: formData.cert_number,
-        cert_expiry_date: formData.cert_expiry_date || null,
-      });
+      try {
+        await api.put('/auth/profile', payload);
+      } catch (errAuth) {
+        if (personnel?.id) {
+          await api.put(`/personnel/${personnel.id}`, payload);
+        } else {
+          throw errAuth;
+        }
+      }
 
       if (onSuccess) onSuccess();
       onClose();
@@ -59,6 +74,7 @@ export default function MobileEditProfileModal({ isOpen, onClose, personnel, onS
       setLoading(false);
     }
   };
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -137,9 +153,9 @@ export default function MobileEditProfileModal({ isOpen, onClose, personnel, onS
               onChange={handleChange}
               className="w-full p-1.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 text-xs outline-none focus:border-red-500 transition-colors duration-100"
             >
-              <option value="Basic Fire Fighter">Basic Fire Fighter</option>
-              <option value="Junior Fire Fighter">Junior Fire Fighter</option>
-              <option value="Senior Fire Fighter">Senior Fire Fighter</option>
+              <option value="Basic">Basic Fire Fighter</option>
+              <option value="Junior">Junior Fire Fighter</option>
+              <option value="Senior">Senior Fire Fighter</option>
             </select>
           </div>
 

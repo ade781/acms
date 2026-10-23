@@ -38,14 +38,24 @@
      1. Card 1: **PROFIL & KREDENSIAL** (Nama Lengkap, NIP, Tempat/Tanggal Lahir, Pendidikan Terakhir, Golongan Darah, Kualifikasi STKP, Nomor Lisensi STKP, Masa Berlaku STKP, tombol Edit Data, dan tombol Kunci Ubah Password).
      2. Card 2: **DOKUMEN & SERTIFIKAT SAYA** (Arsip ijazah/STKP/diklat, tombol `+ Upload Dokumen`, dan list berkas PDF terunduh).
    - Profil dibuka sebagai tampilan layar/halaman penuh (*sub-view*) yang nyaman dan bersih, bukan sekadar pop-up modal sempit yang terpotong.
+10. **Wajib Umpan Balik Visual Instan (Feedback Toast / Notification) pada Setiap Aksi Pengguna**:
+    - Setiap aksi interaktif pengguna (seperti Simpan Ploting, Ajukan Cuti, Batalkan Cuti, Simpan Kesiapan PIC, Catat Kegiatan, Lapor Insiden, Edit Profil, dll.) WAJIB memunculkan notifikasi/toast visual yang jelas dan seketika (indikator Berhasil hijau atau Gagal merah beserta pesan error spesifik jika ditolak server).
+    - Dilarang keras membiarkan aksi selesai hening (*silent action*) tanpa umpan balik, sehingga pengguna bingung apakah datanya sudah tersimpan atau gagal.
+11. **Integritas Interaktivitas Fitur Cuti (Anti-Macet / Must Be Clickable)**:
+    - Seluruh tombol dan alur pengajuan/pembatalan cuti (di Dashboard, Ploting, maupun modal kru) WAJIB berfungsi responsif dan dapat diklik (*clickable*).
+    - Modal cuti wajib terbuka mulus, pilihan personel dan alasan cuti harus terisi dinamis, serta status perubahan cuti langsung terrefleksi di UI seketika.
+12. **Katalog Personel Fokus pada 4 Regu Dinas**:
+    - Katalog data personel operasional (baik di desktop maupun mobile) sengaja difokuskan 100% pada 4 regu dinas operasional (Alpha, Bravo, Charlie, Delta).
+    - Tidak perlu menambahkan tab, filter, atau kartu khusus untuk personel non-shift atau Dept. Head di dalam katalog regu operasional.
 
 ## Aturan Pengelolaan Database & Folder Kerja Khusus (`masak/`)
-- **Fungsi Folder `masak/` (Sandbox / Workroom Database):**
-  - Folder `masak/` adalah area kerja khusus untuk mengolah dan mengedit database, menjalankan skrip coba-coba, manipulasi data, testing ad-hoc, maupun pengujian query.
+- **Fungsi Folder `masak/` (Sandbox / Workroom Database & Testing):**
+  - Folder `masak/` adalah area kerja khusus untuk mengolah dan mengedit database, menjalankan skrip coba-coba, manipulasi data, testing ad-hoc, maupun pengujian query dan skrip tes integrasi.
   - Folder `masak/` telah didaftarkan ke dalam `.gitignore` sehingga bebas digunakan tanpa mengotori repositori git.
-  - Setiap kali membutuhkan skrip pemrosesan sementara atau pengujian data, tempatkan seluruh berkas tersebut di dalam folder `masak/`.
-- **Integritas Berkas Produksi:**
+  - Setiap kali membutuhkan skrip pemrosesan sementara atau pengujian data/integrasi, tempatkan seluruh berkas tersebut di dalam folder `masak/`.
+- **Integritas Berkas Produksi & Larangan Folder Test di Root/Produksi:**
   - Dilarang membuat skrip pemrosesan sementara atau seeder sekali jalan di dalam folder produksi `backend/src/` atau `frontend/src/`.
+  - **DILARANG KERAS membuat folder `tests/` atau skrip pengujian di dalam `backend/` atau `frontend/` atau root proyek.** Seluruh skrip uji coba dan testing WAJIB ditempatkan di dalam folder `masak/`.
   - Definisi struktur tabel dan skema baku sistem tetap dicatat secara permanen di [`backend/src/config/schema.sql`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/config/schema.sql).
   - Jika membutuhkan dump SQL atau data dari pengguna, mintakan langsung kepada pengguna dan olah di dalam folder `masak/`.
 
@@ -73,8 +83,30 @@ Berdasarkan feedback eksplisit pengguna:
 - **Kewenangan Penuh Orkestrator**:
   - Setiap kali pengguna memberikan instruksi atau daftar koreksi/kesalahan, orkestrator berwenang penuh membagi dan menugaskan butir-butir pekerjaan kepada Agent 1 sampai 5 sesuai domain dan batas berkas eksklusif masing-masing.
   - Pembagian dilakukan secara terisolasi agar kelima agen dapat bekerja secara simultan/paralel tanpa tabrakan berkas (*zero file collision*).
+- **Protokol 4 Fase Siklus Orkestrasi**:
+  1. **Fase 1 (Audit & Inventarisasi)**: Seluruh agen menyisir domain untuk menemukan kesalahan tanpa modifikasi kode produksi, dan mencatatnya ke `masak/temp/hasil_agent*.md`.
+  2. **Fase 2 (Persetujuan / ACC Pengguna)**: Pengawas merekap dan mempresentasikan seluruh temuan kepada pengguna untuk disetujui / diselaraskan.
+  3. **Fase 3 (Eksekusi Perbaikan Terisolasi)**: Pengawas memperbarui `taskagent.md` dan `task_agent1.md` s.d. `task_agent5.md` dengan daftar aksi perbaikan konkret, mengosongkan `masak/temp/hasil_agent*.md`, lalu mengarahkan agen mengeksekusi perbaikan.
+  4. **Fase 4 (Verifikasi & Laporan Akhir)**: Setiap agen mengisi `masak/temp/hasil_agent*.md` secara mandiri dengan hasil eksekusi dan bukti pengujian CLI (`npm run build`, `node -c`).
 - **Kewajiban Sinkronisasi Berkas Tugas (`task_agent1.md` s.d. `task_agent5.md`)**:
   - Pada setiap instruksi pengguna, seluruh isi berkas tugas `task_agent1.md` sampai `task_agent5.md` serta `taskagent.md` WAJIB diperbarui secara berkala dan terdokumentasi rapi.
+
+## Peran & Standar Kerja Agent Tipe Pengawas (Supervisor / Orchestrator Agent)
+Sesi percakapan utama ini bertindak khusus sebagai **Pengawas / Orkestrator (Supervisor Agent)** yang memimpin jalannya operasional 5 agen pelaksana:
+
+1. **Fungsi Utama Pengawas**:
+   - **Komandan & Koordinator Pusat**: Berfungsi sebagai satu-satunya pintu penghubung langsung antara Pengguna (*User*) dan kelima agen pelaksana (*Agent 1 s.d. 5*).
+   - **Delegasi Tugas Presisi (*Task Delegation*)**: Mengurai setiap perintah atau koreksi dari pengguna menjadi butir-butir tugas terisolasi, lalu menuliskannya ke berkas `task_agent1.md` s.d. `task_agent5.md` serta `taskagent.md` tanpa tumpang tindih berkas (*zero file collision*).
+   - **Pemantauan Latar Belakang (*Live Background Monitoring*)**: Memantau aktivitas kerja kelima agen secara non-intrusif melalui transkrip percakapan mereka (`C:\Users\ad\.gemini\antigravity-ide\brain\<id>\...`), mengecek apakah ada agen yang macet, butuh input, atau sudah selesai.
+   - **Konsolidasi Laporan (*Consolidated Reporting*)**: Membaca, menyaring, dan menyajikan laporan temuan atau hasil perbaikan dari `masak/temp/hasil_agent*.md` kepada pengguna secara terstruktur, ringkas, dan jelas.
+   - **Penjaga Aturan Baku (*Rule Enforcement*)**: Mengawal agar seluruh agen patuh 100% pada aturan `GEMINI.md` (Zero Dummy Data, proteksi shift dinas, feedback toast instan, anti-lag form, seluruh pengujian di `masak/`).
+   - **Penanganan Kebuntuan / Bug Kritis (*Emergency Intervention*)**: Hanya turun tangan langsung menyentuh kode jika ada error fatal lintas domain yang memblokir alur aplikasi (seperti `ReferenceError` yang memicu HTTP 500) atau bila ada perintah eksplisit dari pengguna.
+
+2. **Larangan & Batasan Ketat Pengawas (Anti-Pola)**:
+   - **DILARANG Mengambil Alih Eksekusi Domain Agen Secara Sepihak**: Pada alur normal, biarkan kelima agen spesialis yang mengeksekusi perbaikan kode di jendela/sesinya masing-masing.
+   - **DILARANG Mengisi Berkas `masak/temp/hasil_agent*.md`**: Berkas laporan di `masak/temp/` dikhususkan untuk diisi secara mandiri oleh masing-masing agen pelaksana (Agent 1 s.d. 5) setelah selesai mengeksekusi tugas.
+   - **DILARANG Git Commit / Push Otomatis**: Commit hanya dijalankan atas instruksi eksplisit pengguna.
+   - **DILARANG Menjalankan Browser Automation (`browser_subagent`)**: Seluruh verifikasi kode wajib melalui CLI terminal (`node -c`, `npm run build`).
 
 ## Aturan Hak Akses Ploting Shift & Efisiensi Request Server
 1. **Proteksi Hak Akses Ploting Berdasarkan Shift Dinas ("Bukan Shift Anda")**:

@@ -153,23 +153,28 @@ export const saveDeploymentBatch = async (req, res) => {
       return errorResponse(res, 'Regu dinas harus salah satu dari: Alpha, Bravo, Charlie, Delta', 400);
     }
 
-    // Sanitasi: Jika personel ditandai 'absent', lepaskan dari penugasan kendaraan operasional
+    // Validasi Integritas: Kumpulkan personel yang berstatus absent dalam shift ini
     const absentIds = new Set(
       deployments
         .filter(d => d.deployment_type === 'absent' && d.personnel_id)
         .map(d => Number(d.personnel_id))
     );
 
-    const rawDeployments = deployments.filter(d => {
-      if (d.deployment_type !== 'absent' && absentIds.has(Number(d.personnel_id))) {
-        return false;
+    // Cek apakah ada personel yang berstatus absent namun juga ditugaskan pada unit kendaraan/posko
+    for (const d of deployments) {
+      if (d.deployment_type !== 'absent' && d.personnel_id && absentIds.has(Number(d.personnel_id))) {
+        connection.release();
+        return errorResponse(
+          res,
+          `Personel (ID: ${d.personnel_id}) tercatat berstatus izin/cuti aktif pada shift ini. Batalkan pengajuan cuti terlebih dahulu sebelum menugaskan pada unit operasional.`,
+          400
+        );
       }
-      return true;
-    });
+    }
 
-    // Validasi: Cegah duplikasi penugasan (satu personel tidak boleh bertugas di >1 unit atau bertugas sekaligus cuti)
+    // Validasi Anti-Tabrakan Slot: Cegah duplikasi penugasan (satu personel tidak boleh bertugas di >1 unit atau bertugas ganda)
     const assignedPersonnelIds = new Set();
-    for (const d of rawDeployments) {
+    for (const d of deployments) {
       if (!d.personnel_id) continue;
       const pId = Number(d.personnel_id);
       if (assignedPersonnelIds.has(pId)) {
@@ -187,7 +192,7 @@ export const saveDeploymentBatch = async (req, res) => {
     const unitCrewCount = {};
     const unitPicCount = {};
 
-    for (const d of rawDeployments) {
+    for (const d of deployments) {
       if (d.deployment_type === 'vehicle_utama' || d.deployment_type === 'vehicle_pendukung' || d.deployment_type === 'watchroom') {
         if (d.vehicle_id) {
           unitCrewCount[d.vehicle_id] = (unitCrewCount[d.vehicle_id] || 0) + 1;
@@ -294,12 +299,25 @@ export const saveDeploymentBatch = async (req, res) => {
       shiftId = insertShift.insertId;
     }
 
-    // 2. Hapus ploting lama pada shift ini dan masukkan yang baru
+    // 2. Validasi Integritas Backend: Cegah satu personel bertugas ganda pada lebih dari satu armada
+    const activeAssignedSet = new Set();
+    for (const d of deployments) {
+      if (d.deployment_type !== 'absent' && d.personnel_id) {
+        const pId = Number(d.personnel_id);
+        if (activeAssignedSet.has(pId)) {
+          await connection.rollback();
+          return errorResponse(res, `Pelanggaran Integritas: Personel ID #${pId} terdeteksi ditugaskan ganda pada lebih dari satu armada operasional.`, 400);
+        }
+        activeAssignedSet.add(pId);
+      }
+    }
+
+    // 3. Hapus ploting lama pada shift ini dan masukkan yang baru
     await connection.query('DELETE FROM personnel_deployments WHERE shift_id = ?', [shiftId]);
 
     const vehiclePics = {};
 
-    for (const d of rawDeployments) {
+    for (const d of deployments) {
       const isPicVal = d.is_pic ? 1 : 0;
       await connection.query(
         `INSERT INTO personnel_deployments (
@@ -313,7 +331,7 @@ export const saveDeploymentBatch = async (req, res) => {
           d.vehicle_id || null,
           isPicVal,
           d.absent_reason || null,
-          req.user.id,
+          req.user?.id || null,
           d.notes || null
         ]
       );
@@ -323,7 +341,7 @@ export const saveDeploymentBatch = async (req, res) => {
       }
     }
 
-    // 3. Sinkronisasikan baris vehicle_readiness_logs agar PIC tercatat
+    // 4. Sinkronisasikan baris vehicle_readiness_logs agar PIC tercatat secara presisi
     for (const [vId, picPersonnelId] of Object.entries(vehiclePics)) {
       const [existingVLog] = await connection.query(
         `SELECT id FROM vehicle_readiness_logs
@@ -348,6 +366,24 @@ export const saveDeploymentBatch = async (req, res) => {
           [vId, shift_date, shift_number, team_group, picPersonnelId]
         );
       }
+    }
+
+    // Lepaskan PIC pada unit yang tidak lagi memiliki PIC di shift ini
+    const assignedVehicleIds = Object.keys(vehiclePics);
+    if (assignedVehicleIds.length > 0) {
+      await connection.query(
+        `UPDATE vehicle_readiness_logs SET
+          pic_personnel_id = NULL
+         WHERE shift_date = ? AND shift_number = ? AND vehicle_id NOT IN (?)`,
+        [shift_date, shift_number, assignedVehicleIds]
+      );
+    } else {
+      await connection.query(
+        `UPDATE vehicle_readiness_logs SET
+          pic_personnel_id = NULL
+         WHERE shift_date = ? AND shift_number = ?`,
+        [shift_date, shift_number]
+      );
     }
 
     await connection.commit();
@@ -385,14 +421,14 @@ export const requestLeaveRange = async (req, res) => {
       }
       targetPersonnelId = Number(req.user.personnel_id);
     } else {
-      if (!targetPersonnelId) {
-        targetPersonnelId = Number(req.user.personnel_id);
+      if (!targetPersonnelId || isNaN(targetPersonnelId)) {
+        targetPersonnelId = req.user.personnel_id ? Number(req.user.personnel_id) : null;
       }
     }
 
-    if (!targetPersonnelId) {
+    if (!targetPersonnelId || isNaN(targetPersonnelId)) {
       connection.release();
-      return errorResponse(res, 'ID Personel tidak valid', 400);
+      return errorResponse(res, 'ID Personel tidak valid atau belum ditentukan. Harap tentukan nama personel.', 400);
     }
 
     const [pRows] = await connection.query('SELECT * FROM personnel WHERE id = ?', [targetPersonnelId]);
@@ -466,6 +502,21 @@ export const requestLeaveRange = async (req, res) => {
           [curDateStr, shiftNum, teamGroup]
         );
         shiftId = ins.insertId;
+      }
+
+      // Cek apakah personel sedang terploting di unit atau sebagai PIC pada shift ini
+      const [oldDeployments] = await connection.query(
+        'SELECT vehicle_id, is_pic FROM personnel_deployments WHERE shift_id = ? AND personnel_id = ?',
+        [shiftId, targetPersonnelId]
+      );
+      for (const od of oldDeployments) {
+        if (od.is_pic && od.vehicle_id) {
+          await connection.query(
+            `UPDATE vehicle_readiness_logs SET pic_personnel_id = NULL
+             WHERE vehicle_id = ? AND shift_date = ? AND shift_number = ? AND pic_personnel_id = ?`,
+            [od.vehicle_id, curDateStr, shiftNum, targetPersonnelId]
+          );
+        }
       }
 
       // Hapus ploting lama personel pada shift ini (jika sebelumnya sudah terploting di unit)
@@ -565,3 +616,8 @@ export const cancelLeave = async (req, res) => {
     return errorResponse(res, 'Gagal membatalkan cuti: ' + error.message, 500);
   }
 };
+
+export const submitLeave = requestLeaveRange;
+export const getCurrentDeployments = getCurrentDeployment;
+export const saveDeployments = saveDeploymentBatch;
+

@@ -193,6 +193,14 @@ export const getScheduleCyclePreview = async (req, res) => {
       req.query.start_date ||
       `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
+    let anchorDate = '2026-10-19';
+    const [settings] = await pool.query(
+      "SELECT setting_value FROM system_settings WHERE setting_key = 'schedule_anchor_date'"
+    );
+    if (settings.length > 0 && settings[0].setting_value) {
+      anchorDate = settings[0].setting_value;
+    }
+
     const storedCycles = await getStoredCycles();
     const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
@@ -207,7 +215,7 @@ export const getScheduleCyclePreview = async (req, res) => {
       const dateStr = `${curY}-${curM}-${curD}`;
       const dayName = dayNames[curDate.getDay()];
 
-      const roster = resolveRosterForDate(dateStr, storedCycles);
+      const roster = resolveRosterForDate(dateStr, storedCycles, anchorDate);
       daysPreview.push({
         day_index: i + 1,
         date: dateStr,

@@ -14,6 +14,7 @@ router.use(requireAuth);
 
 router.get('/vehicles', getVehicleReadiness);
 router.post('/vehicles', uploadSingleImage('photo'), submitVehicleReadiness);
+router.post('/submit', uploadSingleImage('photo'), submitVehicleReadiness);
 
 router.get('/watchroom', getWatchroomReadiness);
 router.post('/watchroom', submitWatchroomReadiness);

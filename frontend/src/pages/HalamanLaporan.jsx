@@ -1,46 +1,122 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Download, AlertCircle } from 'lucide-react';
+import {
+  Download,
+  AlertCircle,
+  RefreshCw,
+  CheckCircle,
+  Truck,
+  Radio,
+  Users,
+  Calendar,
+  Clock,
+  AlertTriangle,
+  FileText,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { SHIFT_DEFINITIONS, formatIndoDate, cleanTeam, formatTeam } from '../utils/shiftHelper';
+import {
+  SHIFT_DEFINITIONS,
+  formatIndoDate,
+  cleanTeam,
+  formatTeam,
+} from '../utils/shiftHelper';
 import api from '../services/api';
 import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import Button from '../components/common/Button';
 
 export default function HalamanLaporan() {
-  const {
-    activeDate,
-    activeShiftNumber,
-    activeTeam,
-  } = useAuth();
+  const { activeDate, activeShiftNumber, activeTeam } = useAuth();
 
+  const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState(null);
+  const [downloadSuccess, setDownloadSuccess] = useState(null);
+  const [fetchError, setFetchError] = useState(null);
+
+  // Data State Sesuai Standar Operasional Resmi ARFF YIA
   const [shiftData, setShiftData] = useState(null);
   const [deptHeadData, setDeptHeadData] = useState(null);
-  const [vehicleIssues, setVehicleIssues] = useState({ current_issues: [], backlog_issues: [], resolved_this_shift: [] });
+  const [vehicles, setVehicles] = useState([]);
+  const [watchroomData, setWatchroomData] = useState({});
+  const [deployments, setDeployments] = useState([]);
+  const [absents, setAbsents] = useState([]);
+  const [vehicleIssues, setVehicleIssues] = useState({
+    current_issues: [],
+    backlog_issues: [],
+    resolved_this_shift: [],
+  });
+  const [activities, setActivities] = useState([]);
+  const [incidents, setIncidents] = useState([]);
 
-  const currentDef = SHIFT_DEFINITIONS.find((s) => s.number === Number(activeShiftNumber)) || SHIFT_DEFINITIONS[0];
+  const currentDef =
+    SHIFT_DEFINITIONS.find((s) => s.number === Number(activeShiftNumber)) ||
+    SHIFT_DEFINITIONS[0];
 
   const fetchShiftData = useCallback(async () => {
     try {
-      const [deployRes, issueRes] = await Promise.all([
-        api.get(`/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${cleanTeam(activeTeam)}`),
-        api.get(`/reports/vehicle-issues?date=${activeDate}&shift=${activeShiftNumber}&team_group=${cleanTeam(activeTeam)}`)
+      setLoading(true);
+      setFetchError(null);
+
+      const params = `date=${activeDate}&shift=${activeShiftNumber}&team_group=${cleanTeam(
+        activeTeam
+      )}`;
+
+      const [
+        deployRes,
+        vehicleRes,
+        watchroomRes,
+        issueRes,
+        actRes,
+        incRes,
+      ] = await Promise.allSettled([
+        api.get(`/deployments/current?${params}`),
+        api.get(`/readiness/vehicles?${params}`),
+        api.get(`/readiness/watchroom?${params}`),
+        api.get(`/reports/vehicle-issues?${params}`),
+        api.get(`/activities?${params}`),
+        api.get(`/incidents?${params}`),
       ]);
 
-      if (deployRes.data?.data) {
-        const s = deployRes.data.data.shift;
-        setShiftData(s);
-        if (deployRes.data.data.dept_head) {
-          setDeptHeadData(deployRes.data.data.dept_head);
-        }
+      // 1. Data Ploting & Sesi Shift
+      if (deployRes.status === 'fulfilled' && deployRes.value?.data?.data) {
+        const dData = deployRes.value.data.data;
+        setShiftData(dData.shift || null);
+        setDeptHeadData(dData.dept_head || null);
+        setDeployments(dData.deployments || []);
+        setAbsents(dData.absents || []);
       }
 
-      if (issueRes.data?.data) {
-        setVehicleIssues(issueRes.data.data);
+      // 2. Data Kesiapan 8 Unit Armada
+      if (vehicleRes.status === 'fulfilled' && vehicleRes.value?.data?.data) {
+        const vData = vehicleRes.value.data.data;
+        setVehicles(Array.isArray(vData) ? vData : vData.vehicles || []);
+      }
+
+      // 3. Data Watchroom Posko
+      if (watchroomRes.status === 'fulfilled' && watchroomRes.value?.data?.data) {
+        setWatchroomData(watchroomRes.value.data.data || {});
+      }
+
+      // 4. Data Issue & Handover Lintas Shift
+      if (issueRes.status === 'fulfilled' && issueRes.value?.data?.data) {
+        setVehicleIssues(issueRes.value.data.data);
+      }
+
+      // 5. Data Logbook Kegiatan
+      if (actRes.status === 'fulfilled' && actRes.value?.data?.data) {
+        setActivities(actRes.value.data.data || []);
+      }
+
+      // 6. Data Insiden Operasional
+      if (incRes.status === 'fulfilled' && incRes.value?.data?.data) {
+        setIncidents(incRes.value.data.data || []);
       }
     } catch (err) {
       console.error('Fetch shift report preview error:', err);
+      setFetchError(
+        'Gagal memuat pratinjau data operasional shift. Silakan periksa koneksi server atau coba lagi.'
+      );
+    } finally {
+      setLoading(false);
     }
   }, [activeDate, activeShiftNumber, activeTeam]);
 
@@ -52,8 +128,12 @@ export default function HalamanLaporan() {
     try {
       setDownloading(true);
       setDownloadError(null);
+      setDownloadSuccess(null);
+
       const res = await api.get(
-        `/reports/pdf?date=${activeDate}&shift=${activeShiftNumber}&team_group=${cleanTeam(activeTeam)}`,
+        `/reports/pdf?date=${activeDate}&shift=${activeShiftNumber}&team_group=${cleanTeam(
+          activeTeam
+        )}`,
         { responseType: 'blob' }
       );
 
@@ -61,18 +141,28 @@ export default function HalamanLaporan() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `Laporan-Shift-${activeShiftNumber}-${cleanTeam(activeTeam)}-${activeDate}.pdf`);
+      link.setAttribute(
+        'download',
+        `Laporan-Shift-${activeShiftNumber}-${cleanTeam(activeTeam)}-${activeDate}.pdf`
+      );
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+
+      setDownloadSuccess('Berkas PDF dokumen dinas resmi berhasil diunduh.');
+      setTimeout(() => setDownloadSuccess(null), 4000);
     } catch (err) {
       console.error('Download PDF error:', err);
-      setDownloadError('Gagal mengunduh berkas PDF laporan dinas. Pastikan data shift valid.');
+      setDownloadError(
+        'Gagal mengunduh berkas PDF laporan dinas. Pastikan data shift valid.'
+      );
     } finally {
       setDownloading(false);
     }
   };
+
+  const presentDeployments = deployments.filter((d) => d.deployment_type !== 'absent');
 
   return (
     <div>
@@ -85,22 +175,51 @@ export default function HalamanLaporan() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="text-xl font-bold tracking-tight text-slate-900">
-            Laporan Dinas
+            Laporan Operasional Dinas
           </h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Rekapitulasi dinas shift resmi, kelaikan armada, logbook kegiatan, dan arsip dokumen cetak A4.
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            icon={RefreshCw}
+            onClick={fetchShiftData}
+            disabled={loading || downloading}
+          >
+            {loading ? 'Menyinkron...' : 'Segarkan Data'}
+          </Button>
           <Button
             variant="primary"
             icon={Download}
             onClick={handleExportPDF}
             disabled={downloading}
           >
-            {downloading ? 'Membuat PDF...' : 'Unduh PDF'}
+            {downloading ? 'Membuat PDF...' : 'Unduh PDF Resmi'}
           </Button>
         </div>
       </div>
 
+      {/* Banner Error Pemuatan Data */}
+      {fetchError && (
+        <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-4 shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+            <span>{fetchError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={fetchShiftData}
+            className="px-3 py-1.5 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700 text-xs transition-colors"
+          >
+            Muat Ulang Data
+          </button>
+        </div>
+      )}
+
+      {/* Banner Error Unduh PDF */}
       {downloadError && (
         <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-4 shadow-sm animate-in fade-in">
           <div className="flex items-center gap-2.5">
@@ -117,37 +236,168 @@ export default function HalamanLaporan() {
         </div>
       )}
 
-      {/* Document Preview Mockup */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 sm:p-8 max-w-4xl mx-auto">
-        {/* Document Header */}
-        <div className="text-center pb-6 border-b-2 border-slate-900 mb-6">
-          <h3 className="text-base font-bold uppercase tracking-wider text-slate-900">
-            Laporan Kesiapsiagaan Operasional ARFF (Airport Rescue & Fire Fighting)
-          </h3>
-          <p className="text-xs text-slate-600 mt-1">
-            BANDARA INTERNASIONAL | KEMENTERIAN PERHUBUNGAN REPUBLIK INDONESIA
-          </p>
-          <div className="mt-4 flex items-center justify-center gap-6 text-xs text-slate-700 font-medium">
-            <span>Tanggal: <strong>{formatIndoDate(activeDate)}</strong></span>
-            <span>|</span>
-            <span>Shift: <strong>{currentDef.name} ({currentDef.startTime} s.d. {currentDef.endTime})</strong></span>
-            <span>|</span>
-            <span>Regu Dinas: <strong>{formatTeam(activeTeam)}</strong></span>
+      {/* Banner Sukses Unduh PDF */}
+      {downloadSuccess && (
+        <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between gap-4 shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+            <span>{downloadSuccess}</span>
           </div>
+          <button
+            type="button"
+            onClick={() => setDownloadSuccess(null)}
+            className="text-emerald-600 hover:text-emerald-800 font-bold px-2 py-1"
+          >
+            Tutup
+          </button>
         </div>
+      )}
 
-        {/* Sections Overview */}
-        <div className="space-y-6 text-xs text-slate-700">
-          <div>
-            <h4 className="font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-1 mb-2">
-              1. Ringkasan Status Kesiapan Armada
+      {/* Lembar Pratinjau Dokumen Cetak Standar A4 Resmi */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 sm:p-8 max-w-4xl mx-auto">
+        {/* Kop Dokumen Resmi PT Angkasa Pura Indonesia YIA */}
+        <div className="text-center pb-6 border-b-2 border-slate-900 mb-6">
+          <h3 className="text-sm sm:text-base font-black uppercase tracking-wider text-slate-900 leading-tight">
+            PT ANGKASA PURA INDONESIA
+          </h3>
+          <p className="text-xs font-bold text-slate-800 leading-tight mt-0.5">
+            KANTOR CABANG BANDARA INTERNASIONAL YOGYAKARTA (YIA)
+          </p>
+          <p className="text-[11px] text-slate-600 font-medium leading-tight mt-0.5">
+            AIRPORT RESCUE & FIRE FIGHTING (ARFF) SECTION • KODE WAHI • KATEGORI 8
+          </p>
+
+          <div className="mt-4 pt-2 border-t border-slate-200">
+            <h4 className="text-xs sm:text-sm font-black uppercase text-slate-900 tracking-wide underline">
+              LAPORAN OPERASIONAL DINAS SHIFT
             </h4>
-            <p className="text-slate-600">
-              Pemeriksaan armada dilaksanakan oleh masing-masing Penanggung Jawab (PIC) kendaraan yang ditugaskan pada shift aktif. Data justifikasi kerusakan dan dokumentasi WebP tercatat di sistem monitoring.
+            <p className="text-[10px] font-mono text-slate-500 mt-0.5">
+              NOMOR: DSR/ARFF-YIA/{activeDate.replace(/-/g, '')}/S{activeShiftNumber}
             </p>
           </div>
 
-          {/* Tabel Pelacakan Kendala Kendaraan Lintas Shift */}
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-slate-700 font-medium bg-slate-50 py-2 px-4 rounded-lg border border-slate-200">
+            <span>
+              Tanggal: <strong>{formatIndoDate(activeDate)}</strong>
+            </span>
+            <span>|</span>
+            <span>
+              Shift:{' '}
+              <strong>
+                {currentDef.name} ({currentDef.startTime} s.d. {currentDef.endTime} WIB)
+              </strong>
+            </span>
+            <span>|</span>
+            <span>
+              Regu Dinas: <strong>{formatTeam(activeTeam)}</strong>
+            </span>
+            <span>|</span>
+            <span>
+              Ketua Regu:{' '}
+              <strong>
+                {shiftData?.supervisor_name || `Chief ${formatTeam(activeTeam)}`}
+              </strong>
+            </span>
+          </div>
+        </div>
+
+        {/* Isi Bagian Dokumen Resmi */}
+        <div className="space-y-6 text-xs text-slate-700">
+          {/* BAGIAN 1: Kesiapan Fasilitas Posko & 8 Unit Armada Operasional */}
+          <div>
+            <h4 className="font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-1 mb-2.5 flex items-center justify-between">
+              <span>1. Kesiapan Fasilitas Posko & 8 Unit Armada Operasional</span>
+              <span className="text-[10px] font-normal text-slate-500 normal-case">
+                Audit Kelaikan Unit
+              </span>
+            </h4>
+
+            {/* Status Watchroom */}
+            <div className="mb-3 p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px]">
+              <div className="flex items-center gap-2">
+                <Radio className="w-4 h-4 text-slate-600 flex-shrink-0" />
+                <span className="font-bold text-slate-900">Watch Room Posko ARFF:</span>
+                <span
+                  className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    watchroomData?.status === 'serviceable'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : watchroomData?.status === 'unserviceable'
+                      ? 'bg-red-100 text-red-800'
+                      : 'bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  {watchroomData?.status ? watchroomData.status.toUpperCase() : 'BELUM CEK'}
+                </span>
+              </div>
+              <div className="text-slate-600 text-[10.5px]">
+                Catatan: {watchroomData?.notes || 'Nihil / Operasional normal'}
+              </div>
+            </div>
+
+            {/* Tabel 8 Armada */}
+            <div className="overflow-x-auto border border-slate-200 rounded-lg">
+              <table className="w-full text-left text-[11px] divide-y divide-slate-200">
+                <thead className="bg-slate-100 font-bold text-slate-800">
+                  <tr>
+                    <th className="p-2 w-10 text-center">No</th>
+                    <th className="p-2">Kode & Nama Unit Armada</th>
+                    <th className="p-2">Kategori</th>
+                    <th className="p-2">Penanggung Jawab (PIC)</th>
+                    <th className="p-2 text-center">Kondisi Fisik</th>
+                    <th className="p-2">Justifikasi / Catatan Kelaikan</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {vehicles.length > 0 ? (
+                    vehicles.map((v, idx) => (
+                      <tr key={v.id || v.code_name} className="hover:bg-slate-50/60">
+                        <td className="p-2 text-center font-medium text-slate-500">
+                          {idx + 1}
+                        </td>
+                        <td className="p-2 font-bold text-slate-900">
+                          {v.code_name} - {v.vehicle_name}
+                        </td>
+                        <td className="p-2 text-slate-600 capitalize">
+                          {v.category || 'Utama'}
+                        </td>
+                        <td className="p-2 font-medium text-slate-800">
+                          {v.pic_name || <span className="text-slate-400 italic">Belum Ditunjuk</span>}
+                        </td>
+                        <td className="p-2 text-center">
+                          <span
+                            className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                              v.status === 'serviceable'
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                : v.status === 'unserviceable'
+                                ? 'bg-red-100 text-red-800 border border-red-200'
+                                : 'bg-slate-100 text-slate-600 border border-slate-200'
+                            }`}
+                          >
+                            {v.status === 'serviceable'
+                              ? 'Serviceable'
+                              : v.status === 'unserviceable'
+                              ? 'Unserviceable'
+                              : 'Belum Cek'}
+                          </span>
+                        </td>
+                        <td className="p-2 text-slate-600">
+                          {v.justification || v.notes || '-'}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="p-3 text-center text-slate-400 italic">
+                        Data kelaikan 8 armada terangkum otomatis setelah inspeksi shift aktif.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* BAGIAN 2: Pelacakan Kendala & Pemulihan Armada Lintas Shift */}
           <div>
             <h4 className="font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-1 mb-2 flex items-center justify-between">
               <span>2. Pelacakan Kendala & Pemulihan Armada Lintas Shift</span>
@@ -156,7 +406,9 @@ export default function HalamanLaporan() {
               </span>
             </h4>
 
-            {(!vehicleIssues.current_issues?.length && !vehicleIssues.backlog_issues?.length && !vehicleIssues.resolved_this_shift?.length) ? (
+            {!vehicleIssues.current_issues?.length &&
+            !vehicleIssues.backlog_issues?.length &&
+            !vehicleIssues.resolved_this_shift?.length ? (
               <div className="p-3 rounded-lg bg-emerald-50/70 border border-emerald-200 text-emerald-800 text-xs">
                 ✓ Seluruh armada operasional dalam kondisi prima (Serviceable). Tidak ada kendala unit aktif maupun backlog kerusakan.
               </div>
@@ -180,10 +432,13 @@ export default function HalamanLaporan() {
                           {iss.code_name} - {iss.vehicle_name}
                         </td>
                         <td className="p-2 text-slate-700">
-                          {formatIndoDate(iss.shift_date)} (Shift {iss.shift_number} {iss.team_group})<br />
+                          {formatIndoDate(iss.shift_date)} (Shift {iss.shift_number} {iss.team_group})
+                          <br />
                           <span className="text-slate-500">PIC: {iss.reported_by_name || '-'}</span>
                         </td>
-                        <td className="p-2 text-red-700 font-medium">{iss.justification || '-'}</td>
+                        <td className="p-2 text-red-700 font-medium">
+                          {iss.justification || '-'}
+                        </td>
                         <td className="p-2 text-slate-400 italic">Belum dipulihkan</td>
                         <td className="p-2">
                           <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-200 font-bold text-[10px]">
@@ -200,10 +455,13 @@ export default function HalamanLaporan() {
                           {iss.code_name} - {iss.vehicle_name}
                         </td>
                         <td className="p-2 text-slate-700">
-                          {formatIndoDate(iss.shift_date)} (Shift {iss.shift_number} {iss.team_group})<br />
+                          {formatIndoDate(iss.shift_date)} (Shift {iss.shift_number} {iss.team_group})
+                          <br />
                           <span className="text-slate-500">PIC: {iss.reported_by_name || '-'}</span>
                         </td>
-                        <td className="p-2 text-amber-800 font-medium">{iss.justification || '-'}</td>
+                        <td className="p-2 text-amber-800 font-medium">
+                          {iss.justification || '-'}
+                        </td>
                         <td className="p-2 text-slate-400 italic">Dalam penanganan teknisi</td>
                         <td className="p-2">
                           <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 font-bold text-[10px]">
@@ -222,10 +480,20 @@ export default function HalamanLaporan() {
                         <td className="p-2 text-slate-500">
                           Sebelumnya dilaporkan unserviceable
                         </td>
-                        <td className="p-2 text-slate-600">{iss.justification || 'Perbaikan selesai'}</td>
+                        <td className="p-2 text-slate-600">
+                          {iss.justification || 'Perbaikan selesai'}
+                        </td>
                         <td className="p-2 text-emerald-800 font-medium">
-                          {iss.resolved_at ? new Date(iss.resolved_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-'}<br />
-                          <span className="text-slate-500">Oleh: {iss.resolved_by_name || '-'}</span>
+                          {iss.resolved_at
+                            ? new Date(iss.resolved_at).toLocaleTimeString('id-ID', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : '-'}
+                          <br />
+                          <span className="text-slate-500">
+                            Oleh: {iss.resolved_by_name || '-'}
+                          </span>
                         </td>
                         <td className="p-2">
                           <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-[10px]">
@@ -240,20 +508,156 @@ export default function HalamanLaporan() {
             )}
           </div>
 
+          {/* BAGIAN 3: Kekuatan & Distribusi Personel Dinas (Ploting & Presensi) */}
           <div>
             <h4 className="font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-1 mb-2">
-              3. Matriks Penempatan Personel (Ploting Kru)
+              3. Kekuatan & Distribusi Personel Dinas (Ploting Kru & Presensi)
             </h4>
-            <p className="text-slate-600">
-              Formulir penugasan kru armada dimulai dari kondisi kosong dan diisi oleh Ketua Regu dengan batas alokasi 3 s.d. 4 personel per kendaraan, termasuk penetapan 1 PIC resmi.
-            </p>
+            <div className="space-y-2">
+              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1">
+                <p className="font-semibold text-slate-900">
+                  Total Personel Hadir Bertugas: <strong>{presentDeployments.length} Orang</strong>
+                  {' | '}
+                  Personel Berhalangan / Cuti: <strong>{absents.length} Orang</strong>
+                </p>
+                {absents.length > 0 ? (
+                  <p className="text-red-700 font-medium">
+                    Keterangan Berhalangan:{' '}
+                    {absents
+                      .map(
+                        (a) =>
+                          `${a.full_name || a.name || 'Personel'} (${(
+                            a.absent_reason || a.notes || 'Cuti/Izin'
+                          ).toUpperCase()})`
+                      )
+                      .join(', ')}
+                  </p>
+                ) : (
+                  <p className="text-emerald-700 font-medium">
+                    ✓ Seluruh personel terdata hadir dinas lengkap tanpa keterangan izin/cuti.
+                  </p>
+                )}
+              </div>
+
+              {/* Rincian Ploting Kru */}
+              {presentDeployments.length > 0 && (
+                <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                  <table className="w-full text-left text-[11px] divide-y divide-slate-200">
+                    <thead className="bg-slate-100 font-bold text-slate-800">
+                      <tr>
+                        <th className="p-2">Nama Personel</th>
+                        <th className="p-2">NIP</th>
+                        <th className="p-2">Penugasan Operasional</th>
+                        <th className="p-2 text-center">Peran Shift</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {presentDeployments.map((d) => (
+                        <tr key={d.id} className="hover:bg-slate-50/60">
+                          <td className="p-2 font-bold text-slate-900">
+                            {d.full_name || d.name}
+                          </td>
+                          <td className="p-2 font-mono text-slate-500">
+                            {d.nip && d.nip !== '-' ? d.nip : '-'}
+                          </td>
+                          <td className="p-2 text-slate-700">
+                            {d.vehicle_name || d.vehicle_code ? (
+                              <span>
+                                {d.vehicle_code} - {d.vehicle_name}
+                              </span>
+                            ) : d.deployment_type === 'watchroom' ? (
+                              'Watch Room Posko ARFF'
+                            ) : (
+                              'Petugas Pendukung'
+                            )}
+                          </td>
+                          <td className="p-2 text-center">
+                            {d.is_pic === 1 ? (
+                              <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 font-bold text-[10px]">
+                                PIC Unit
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px]">
+                                Anggota Kru
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
 
+          {/* BAGIAN 4: Rangkaian Kegiatan Dinas Shift (Logbook) */}
           <div>
             <h4 className="font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-1 mb-2">
-              4. Pengesahan & Validasi Serah Terima Dinas
+              4. Rangkaian Kegiatan Dinas Shift (Logbook)
             </h4>
-            <div className="pt-8 flex justify-between items-end">
+            {activities.length > 0 ? (
+              <div className="space-y-1.5 border border-slate-200 rounded-lg p-2.5 bg-slate-50/50">
+                {activities.map((act) => (
+                  <div
+                    key={act.id}
+                    className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 text-xs border-b border-slate-100 pb-1 last:border-0 last:pb-0"
+                  >
+                    <span className="font-mono font-bold text-arff-primary min-w-[70px]">
+                      [{act.activity_time ? act.activity_time.substring(0, 5) : '-'} WIB]
+                    </span>
+                    <span className="font-bold text-slate-900">{act.title}:</span>
+                    <span className="text-slate-600">{act.description || '-'}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 italic text-xs">
+                Belum ada kegiatan dinas rutin yang tercatat pada sesi shift ini.
+              </div>
+            )}
+          </div>
+
+          {/* BAGIAN 5: Rekapitulasi Kejadian & Insiden Operasional */}
+          <div>
+            <h4 className="font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-1 mb-2">
+              5. Rekapitulasi Kejadian & Insiden Operasional (Airside)
+            </h4>
+            {incidents.length > 0 ? (
+              <div className="space-y-2">
+                {incidents.map((inc) => (
+                  <div
+                    key={inc.id}
+                    className="p-3 rounded-lg bg-red-50/60 border border-red-200 text-xs space-y-1"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-red-900">
+                        [{inc.report_number || 'INC'}] {inc.title}
+                      </span>
+                      <span className="text-[10px] font-mono text-red-700">
+                        Waktu: {inc.incident_time || '-'} WIB
+                      </span>
+                    </div>
+                    <p className="text-slate-700">
+                      <strong>Lokasi:</strong> {inc.location || 'Airside'} |{' '}
+                      <strong>Tindakan:</strong> {inc.action_taken || '-'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-3 rounded-lg bg-emerald-50/70 border border-emerald-200 text-emerald-800 text-xs font-medium">
+                NIHIL — Seluruh operasional penerbangan dan pergerakan sisi udara berlangsung aman, tertib, dan lancar.
+              </div>
+            )}
+          </div>
+
+          {/* BAGIAN 6: Pengesahan & Validasi Serah Terima Dinas */}
+          <div>
+            <h4 className="font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-1 mb-2">
+              6. Pengesahan & Validasi Serah Terima Dinas
+            </h4>
+            <div className="pt-6 flex justify-between items-end">
               {/* Dept Head / Section Head */}
               <div className="text-center min-w-[200px]">
                 <p className="text-slate-500 mb-2">Mengetahui, Section Head ARFF</p>
@@ -266,7 +670,11 @@ export default function HalamanLaporan() {
                     />
                   </div>
                 ) : (
-                  <div className="h-14" />
+                  <div className="h-14 flex items-center justify-center">
+                    <span className="text-[10px] font-mono text-slate-400 italic">
+                      [ Tanda Tangan Digital ]
+                    </span>
+                  </div>
                 )}
                 <p className="font-bold text-slate-900 underline">
                   {deptHeadData?.name || 'Section Head ARFF'}
@@ -274,7 +682,9 @@ export default function HalamanLaporan() {
                 {deptHeadData?.nip && deptHeadData.nip !== '-' && (
                   <p className="text-[10px] text-slate-500 font-mono">NIP. {deptHeadData.nip}</p>
                 )}
-                <p className="text-[10px] text-slate-500">Airport Rescue & Fire Fighting Section Head</p>
+                <p className="text-[10px] text-slate-500">
+                  Airport Rescue & Fire Fighting Section Head
+                </p>
               </div>
 
               {/* Ketua Regu Dinas */}
@@ -289,7 +699,11 @@ export default function HalamanLaporan() {
                     />
                   </div>
                 ) : (
-                  <div className="h-14" />
+                  <div className="h-14 flex items-center justify-center">
+                    <span className="text-[10px] font-mono text-slate-400 italic">
+                      [ Tanda Tangan Digital ]
+                    </span>
+                  </div>
                 )}
                 <p className="font-bold text-slate-900 underline">
                   {shiftData?.supervisor_name || `Chief ${formatTeam(activeTeam)}`}

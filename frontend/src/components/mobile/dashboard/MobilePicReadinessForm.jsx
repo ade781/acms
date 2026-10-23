@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Check, X, Camera, AlertCircle, RefreshCw } from 'lucide-react';
 import api from '../../../services/api';
+import { compressImageToWebP } from '../../../utils/imageCompressor';
 
 export default function MobilePicReadinessForm({
   user,
@@ -28,6 +29,7 @@ export default function MobilePicReadinessForm({
   const [notes, setNotes] = useState(vehicleReadiness?.notes || '');
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(vehicleReadiness?.photo_webp_url || null);
+  const [compressing, setCompressing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
@@ -54,13 +56,25 @@ export default function MobilePicReadinessForm({
     }
   }, [vehicleReadiness]);
 
-  const handlePhotoChange = (e) => {
+  const handlePhotoChange = async (e) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setPhotoFile(file);
-      const objectUrl = URL.createObjectURL(file);
+    if (!file) return;
+
+    setErrorMsg(null);
+    setCompressing(true);
+    try {
+      const compressedWebP = await compressImageToWebP(file, {
+        maxWidth: 1280,
+        maxHeight: 1280,
+        quality: 0.8,
+      });
+      setPhotoFile(compressedWebP);
+      const objectUrl = URL.createObjectURL(compressedWebP);
       setPhotoPreview(objectUrl);
-      setErrorMsg(null);
+    } catch (err) {
+      setErrorMsg(`Gagal memproses gambar: ${err.message}`);
+    } finally {
+      setCompressing(false);
     }
   };
 
@@ -114,7 +128,7 @@ export default function MobilePicReadinessForm({
         formData.append('photo', photoFile);
       }
 
-      const res = await api.post('/readiness/vehicles', formData, {
+      const res = await api.post('/readiness/submit', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
@@ -276,12 +290,15 @@ export default function MobilePicReadinessForm({
             <label className="flex-1 cursor-pointer flex items-center justify-center gap-1.5 p-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-semibold transition-colors duration-100">
               <Camera className="w-4 h-4 text-slate-500" />
               <span className="truncate text-[11px]">
-                {photoFile ? photoFile.name : 'Ambil / Unggah Foto Bukti'}
+                {compressing
+                  ? 'Mengompres WebP...'
+                  : (photoFile ? `WebP: ${photoFile.name}` : 'Ambil / Unggah Foto Bukti')}
               </span>
               <input
                 type="file"
                 accept="image/*"
                 capture="environment"
+                disabled={compressing || submitting}
                 className="hidden"
                 onChange={handlePhotoChange}
               />
@@ -301,13 +318,13 @@ export default function MobilePicReadinessForm({
         {/* Tombol Simpan Kesiapan Unit */}
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || compressing}
           className="w-full py-2 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white font-bold text-xs tracking-wide shadow-xs flex items-center justify-center gap-1.5 transition-colors duration-100 cursor-pointer"
         >
-          {submitting ? (
+          {submitting || compressing ? (
             <>
               <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-300" />
-              <span>Menyimpan Laporan...</span>
+              <span>{compressing ? 'Mengompres Foto WebP...' : 'Menyimpan Laporan...'}</span>
             </>
           ) : (
             <>

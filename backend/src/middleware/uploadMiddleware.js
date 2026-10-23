@@ -46,7 +46,9 @@ export const imageFileFilter = (req, file, cb) => {
   if (allowedMimes.includes(file.mimetype) && allowedExts.includes(rawExt)) {
     cb(null, true);
   } else {
-    cb(new Error('Format berkas gambar tidak didukung. Harap unggah berkas gambar sah (WebP/JPEG/PNG).'), false);
+    const err = new Error('Format berkas gambar tidak didukung. Harap unggah berkas gambar sah (WebP/JPEG/PNG).');
+    err.status = 400;
+    cb(err, false);
   }
 };
 
@@ -65,7 +67,9 @@ export const documentFileFilter = (req, file, cb) => {
   if (allowedMimes.includes(file.mimetype) && allowedExts.includes(rawExt)) {
     cb(null, true);
   } else {
-    cb(new Error('Format dokumen tidak didukung. Harap unggah dokumen PDF atau gambar sah (JPEG/PNG/WebP).'), false);
+    const err = new Error('Format dokumen tidak didukung. Harap unggah dokumen PDF atau gambar sah (JPEG/PNG/WebP).');
+    err.status = 400;
+    cb(err, false);
   }
 };
 

@@ -51,6 +51,7 @@ export const generateShiftReportPdf = (reportData) => {
     vehicles = [],
     watchroom = {},
     deployments = [],
+    absents = [],
     activities = [],
     incidents = []
   } = reportData;
@@ -212,13 +213,15 @@ export const generateShiftReportPdf = (reportData) => {
   doc.moveDown(0.3);
 
   const present = deployments.filter(d => d.deployment_type !== 'absent');
-  const absent = deployments.filter(d => d.deployment_type === 'absent');
+  const absentList = (absents && absents.length > 0) ? absents : deployments.filter(d => d.deployment_type === 'absent');
 
   doc.fontSize(8.5).font('Helvetica').fillColor('#0f172a');
-  doc.text(`Total Personel Hadir Dinas: ${present.length} Orang   |   Personel Tidak Hadir / Cuti / Sakit: ${absent.length} Orang`);
-  if (absent.length > 0) {
-    const absText = absent.map(a => `${a.full_name} (${a.absent_reason || 'Izin'})`).join(', ');
+  doc.text(`Total Personel Hadir Dinas: ${present.length} Orang   |   Personel Tidak Hadir / Cuti / Sakit: ${absentList.length} Orang`);
+  if (absentList.length > 0) {
+    const absText = absentList.map(a => `${a.full_name || a.name || 'Personel'} (${(a.absent_reason || 'Izin/Cuti').toUpperCase()}${a.notes ? ` - ${a.notes}` : ''})`).join(', ');
     doc.fontSize(8).font('Helvetica-Oblique').fillColor('#b91c1c').text(`Keterangan Berhalangan: ${absText}`);
+  } else {
+    doc.fontSize(8).font('Helvetica').fillColor('#15803d').text('✓ Seluruh personel terdata hadir dinas lengkap tanpa keterangan izin/cuti.');
   }
   doc.moveDown(0.8);
 

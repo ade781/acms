@@ -320,7 +320,7 @@ export default function HalamanDashboard() {
 
                 <button
                   type="button"
-                  onClick={() => navigate('/deployments')}
+                  onClick={() => navigate('/deployment')}
                   className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-semibold transition-colors duration-100"
                 >
                   <span>Daftar Ploting</span>
@@ -332,44 +332,9 @@ export default function HalamanDashboard() {
         </div>
       )}
 
-      {/* Dashboard Utama: Layout 3 Kolom */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-8 items-stretch">
-        {/* Kolom 1 (Kiri): Container 1 & Container 2 */}
-        <div className="flex flex-col gap-4 h-full">
-          {/* Container 1 */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex-1 flex items-center justify-center text-center min-h-[220px]">
-            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">
-              Coming Soon
-            </span>
-          </div>
-
-          {/* Container 2 */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex-1 flex items-center justify-center text-center min-h-[220px]">
-            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">
-              Coming Soon
-            </span>
-          </div>
-        </div>
-
-        {/* Kolom 2 (Tengah): Container 3 & Container 4 */}
-        <div className="flex flex-col gap-4 h-full">
-          {/* Container 3 */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex-1 flex items-center justify-center text-center min-h-[220px]">
-            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">
-              Coming Soon
-            </span>
-          </div>
-
-          {/* Container 4 */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex-1 flex items-center justify-center text-center min-h-[220px]">
-            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">
-              Coming Soon
-            </span>
-          </div>
-        </div>
-
-        {/* Kolom 3 (Kanan): Kesiapan Fisik (Minimalis: Icon, Nama, dan Penanggung Jawab Saja) */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between hover:border-slate-300 transition-colors duration-100">
+      {/* Dashboard Utama: Kesiapan Fisik Armada & Posko */}
+      <div className="mb-8">
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:border-slate-300 transition-colors duration-100">
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
@@ -377,7 +342,7 @@ export default function HalamanDashboard() {
                   <Truck className="w-3.5 h-3.5" />
                 </div>
                 <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                  Kesiapan Fisik
+                  Kesiapan Fisik Armada & Posko
                 </span>
               </div>
               <span className="text-xs font-semibold text-slate-500">
@@ -385,7 +350,7 @@ export default function HalamanDashboard() {
               </span>
             </div>
 
-            {/* List Armada & Posko Ringkas (Tanpa tombol kelola, tanpa lihat seluruh armada, tanpa input pemeriksaan, tanpa plat) */}
+            {/* List Armada & Posko Ringkas */}
             <div className="divide-y divide-slate-100 mt-1 max-h-[440px] overflow-y-auto pr-1">
               {vehicles.length === 0 ? (
                 <div className="py-8 text-center text-xs text-slate-400 italic">
@@ -456,7 +421,7 @@ export default function HalamanDashboard() {
 
           <div className="mt-3 pt-2.5 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
             <span>Status Armada & Posko</span>
-            <span className="font-medium text-slate-700">8 Unit Operasional</span>
+            <span className="font-medium text-slate-700">{metrics.totalVehicles || 0} Unit Operasional</span>
           </div>
         </div>
       </div>

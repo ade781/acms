@@ -54,7 +54,7 @@ export default function WatchroomReadinessModal({
         notes: checkSummary,
       });
 
-      if (onSuccess) onSuccess();
+      if (onSuccess) onSuccess('Hasil pemeriksaan fasilitas Posko Watchroom berhasil disimpan.');
       onClose();
     } catch (err) {
       const msg = err.response?.data?.message || err.message || 'Gagal menyimpan status watchroom.';
