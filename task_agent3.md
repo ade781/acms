@@ -1,13 +1,13 @@
 # PANDUAN TUGAS AGENT 3: MOBILE PLOTING 8 UNIT ARMADA, CREW PICKER & KELOLA CUTI
 
 ## Status Kinerja & Evaluasi Agent 3
-- **Skor Kinerja**: 98% (Luar Biasa — Proteksi Akses Shift, Efisiensi Server & Penyelarasan Baku)
+- **Skor Kinerja**: 98% (Luar Biasa — Proteksi Akses Shift, Efisiensi Server & Git Commit Tersimpan)
 - **Capaian Positif Terkini**:
-  1. Proteksi Hak Akses Shift ("Bukan Shift Anda"): Jika Chief/user membuka menu Ploting pada shift yang bukan jadwal dinas regunya, sistem otomatis menolak rendering form unit dan menampilkan layar santun *"Bukan Shift Dinas Anda"*.
-  2. Efisiensi Request Server: Saat bukan shift dinas user, pemanggilan API berat di-skip (`early return`), menghemat bandwidth dan kapasitas server.
-  3. Simpan Ploting Eksplisit: Seluruh pemilihan kru murni dikelola di state lokal React (`useState`). Permintaan HTTP (`POST /api/deployments/batch`) HANYA dikirimkan ketika user menekan tombol **"Simpan Ploting"** di header.
-  4. Tampilan Ploting 8 Unit Rapat (*compact flat rows* tipis 1px) bebas nested cards bloat.
-  5. Penyelarasan Dokumen: Berkas acuan `plan.md` telah resmi dihapus dan panduan aturan terpusat pada `GEMINI.md`.
+  1. Git Commit Berkala: Perubahan kode ploting dan proteksi shift tersimpan pada commit `2ae9462`.
+  2. Proteksi Hak Akses Shift ("Bukan Shift Anda"): Jika Chief/user membuka menu Ploting pada shift yang bukan jadwal dinas regunya, sistem otomatis menolak rendering form unit dan menampilkan layar santun *"Bukan Shift Dinas Anda"*.
+  3. Efisiensi Request Server: Saat bukan shift dinas user, pemanggilan API berat di-skip (`early return`), menghemat bandwidth dan kapasitas server.
+  4. Simpan Ploting Eksplisit: Seluruh pemilihan kru murni dikelola di state lokal React (`useState`). Permintaan HTTP (`POST /api/deployments/batch`) HANYA dikirimkan ketika user menekan tombol **"Simpan Ploting"** di header.
+  5. Tampilan Ploting 8 Unit Rapat (*compact flat rows* tipis 1px) bebas nested cards bloat.
 
 ---
 

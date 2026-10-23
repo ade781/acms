@@ -3,12 +3,12 @@
 ## Status Kinerja & Evaluasi Agent 2
 - **Skor Kinerja**: 96% (Sangat Baik — Integritas Data & Form Kesiapan PIC)
 - **Capaian Positif Terkini**:
-  1. Kartu Tugas Saya dinamis mendeteksi unit dinas, peran (Driver/Nozzleman), dan status PIC.
-  2. Banner status Lepas Piket (Off Duty) otomatis aktif jika user tidak bertugas dan regu yang berdinas bukan regunya.
-  3. Form Kesiapan PIC kondisional: Hanya muncul jika user = PIC aktif. Pilihan murni Serviceable vs Unserviceable + Estafet kendala bawaan + Wajib upload foto bukti fisik.
-  4. Widget Kendala Armada otomatis muncul hanya ketika ada unit unserviceable.
-  5. Seluruh angka magic (seperti fallback 15 personel atau 8 armada) telah dibersihkan total dari kode!
-  6. Penyelarasan Dokumen: Berkas `plan.md` telah resmi dihapus dan panduan aturan terpusat pada `GEMINI.md`.
+  1. Git Commit Berkala: Perubahan kode operasional tersimpan rapi pada commit `2ae9462`.
+  2. Kartu Tugas Saya dinamis mendeteksi unit dinas, peran (Driver/Nozzleman), dan status PIC.
+  3. Banner status Lepas Piket (Off Duty) otomatis aktif jika user tidak bertugas dan regu yang berdinas bukan regunya.
+  4. Form Kesiapan PIC kondisional: Hanya muncul jika user = PIC aktif. Pilihan murni Serviceable vs Unserviceable + Estafet kendala bawaan + Wajib upload foto bukti fisik.
+  5. Widget Kendala Armada otomatis muncul hanya ketika ada unit unserviceable.
+  6. Seluruh angka magic (seperti fallback 15 personel atau 8 armada) telah dibersihkan total dari kode!
 
 ---
 
