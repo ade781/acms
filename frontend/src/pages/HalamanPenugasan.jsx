@@ -6,8 +6,6 @@ import {
   Save,
   ShieldAlert,
   UserX,
-  PlusCircle,
-  Trash2,
   X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -242,45 +240,6 @@ export default function HalamanPenugasan() {
     });
   };
 
-  // Tambah baris cuti/absen baru
-  const handleAddAbsent = () => {
-    setAbsentList((prev) => [
-      ...prev,
-      { personnel_id: '', reason: 'cuti', notes: '' },
-    ]);
-  };
-
-  // Ubah personel cuti & auto-evict dari slot kendaraan
-  const handleAbsentPersonnelChange = (index, personnelId) => {
-    const pId = personnelId ? Number(personnelId) : '';
-    setAbsentList((prev) => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], personnel_id: pId };
-      return updated;
-    });
-
-    // Auto-evict: Jika personel dipilih izin/cuti, otomatis kosongkan dari slot kendaraan yang pernah ditempatinya
-    if (pId) {
-      setVehicleSlots((prev) => {
-        const nextSlots = { ...prev };
-        Object.keys(nextSlots).forEach((vId) => {
-          nextSlots[vId] = nextSlots[vId].map((s) => {
-            if (Number(s.personnel_id) === pId) {
-              return { ...s, personnel_id: '', personnel_name: '' };
-            }
-            return s;
-          });
-        });
-        return nextSlots;
-      });
-    }
-  };
-
-  // Hapus baris cuti
-  const handleRemoveAbsent = (index) => {
-    setAbsentList((prev) => prev.filter((_, idx) => idx !== index));
-  };
-
   // Save all deployments
   const handleSaveDeployments = async () => {
     setError(null);
@@ -462,7 +421,7 @@ export default function HalamanPenugasan() {
           </div>
         </div>
 
-        {/* Panel Daftar Personel Izin / Cuti Shift Ini */}
+        {/* Panel Daftar Personel Izin / Cuti Shift Ini (Read-Only Transparan) */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mb-8">
           <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4 flex-wrap gap-2">
             <div className="flex items-center gap-2.5">
@@ -474,20 +433,13 @@ export default function HalamanPenugasan() {
                   Daftar Personel Izin / Cuti Shift Ini
                 </h4>
                 <p className="text-xs text-slate-500">
-                  Personel regu yang berhalangan dinas aktif pada shift berjalan ({absentList.length} orang)
+                  Informasi absensi mandiri personel regu yang berhalangan dinas aktif ({absentList.length} orang)
                 </p>
               </div>
             </div>
-            {canEditPlot && (
-              <button
-                type="button"
-                onClick={handleAddAbsent}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors duration-100"
-              >
-                <PlusCircle className="w-3.5 h-3.5 text-slate-500" />
-                <span>+ Catat Personel Cuti</span>
-              </button>
-            )}
+            <span className="text-[11px] font-medium text-slate-400 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-md">
+              Kelola di Menu Cuti / Izin
+            </span>
           </div>
 
           {absentList.length === 0 ? (
@@ -499,98 +451,38 @@ export default function HalamanPenugasan() {
               </p>
             </div>
           ) : (
-            <div className="space-y-2.5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {absentList.map((abs, idx) => {
                 const person = teamPersonnel.find((p) => Number(p.id) === Number(abs.personnel_id));
+                const reasonLabels = {
+                  cuti: 'Cuti Tahunan',
+                  sakit: 'Sakit',
+                  dinas: 'Dinas Luar',
+                  tukar_dinas: 'Tukar Dinas',
+                };
                 return (
                   <div
                     key={idx}
-                    className="p-3 rounded-lg border border-slate-200 bg-slate-50 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 text-xs"
+                    className="p-3 rounded-lg border border-slate-200 bg-slate-50/70 flex flex-col justify-between text-xs space-y-1.5"
                   >
-                    <div className="flex-1">
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        Nama Personel:
-                      </label>
-                      {canEditPlot ? (
-                        <select
-                          value={abs.personnel_id || ''}
-                          onChange={(e) => handleAbsentPersonnelChange(idx, e.target.value)}
-                          className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-500"
-                        >
-                          <option value="">(Pilih Personel)</option>
-                          {teamPersonnel.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.full_name} ({p.nip || '-'})
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <div className="font-bold text-slate-800">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-bold text-slate-900">
                           {person?.full_name || `Personel #${abs.personnel_id}`}
                         </div>
-                      )}
-                    </div>
-
-                    <div className="w-full sm:w-44">
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        Kategori Keterangan:
-                      </label>
-                      {canEditPlot ? (
-                        <select
-                          value={abs.reason || 'cuti'}
-                          onChange={(e) => {
-                            const updated = [...absentList];
-                            updated[idx].reason = e.target.value;
-                            setAbsentList(updated);
-                          }}
-                          className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-500"
-                        >
-                          <option value="cuti">Cuti Tahunan</option>
-                          <option value="sakit">Sakit</option>
-                          <option value="dinas">Dinas Luar</option>
-                          <option value="tukar_dinas">Tukar Dinas</option>
-                        </select>
-                      ) : (
-                        <span className="inline-block px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold text-[10px] uppercase">
-                          {abs.reason || 'Cuti'}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex-1">
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        Catatan / Keterangan:
-                      </label>
-                      {canEditPlot ? (
-                        <input
-                          type="text"
-                          value={abs.notes || ''}
-                          placeholder="Alasan cuti / keterangan..."
-                          onChange={(e) => {
-                            const updated = [...absentList];
-                            updated[idx].notes = e.target.value;
-                            setAbsentList(updated);
-                          }}
-                          className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-500"
-                        />
-                      ) : (
-                        <span className="text-slate-600 italic">
-                          {abs.notes || '-'}
-                        </span>
-                      )}
-                    </div>
-
-                    {canEditPlot && (
-                      <div className="sm:pt-5">
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveAbsent(idx)}
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-100"
-                          title="Hapus baris cuti ini"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="text-[11px] text-slate-500">
+                          NIP: {person?.nip || '-'}
+                        </div>
                       </div>
+                      <span className="inline-block px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold text-[10px] uppercase">
+                        {reasonLabels[abs.reason] || abs.reason || 'Cuti'}
+                      </span>
+                    </div>
+
+                    {abs.notes && (
+                      <p className="text-[11px] text-slate-600 italic bg-white p-2 rounded border border-slate-100">
+                        "{abs.notes}"
+                      </p>
                     )}
                   </div>
                 );

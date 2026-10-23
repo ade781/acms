@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   UserX,
-  PlusCircle,
   Save,
   CheckCircle,
   AlertCircle,
@@ -41,9 +40,8 @@ export default function HalamanCuti() {
   const [supervisorName, setSupervisorName] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // State Pengajuan Cuti Rentang Tanggal
+  // State Pengajuan Cuti Mandiri Rentang Tanggal
   const [leaveModalOpen, setLeaveModalOpen] = useState(false);
-  const [leavePersonnelId, setLeavePersonnelId] = useState('');
   const [leaveStartDate, setLeaveStartDate] = useState(activeDate || '');
   const [leaveEndDate, setLeaveEndDate] = useState(activeDate || '');
   const [leaveReason, setLeaveReason] = useState('cuti');
@@ -51,6 +49,11 @@ export default function HalamanCuti() {
   const [leaveFile, setLeaveFile] = useState(null);
   const [submittingLeave, setSubmittingLeave] = useState(false);
   const [leaveModalError, setLeaveModalError] = useState(null);
+
+  // State Konfirmasi Pembatalan Cuti Instan
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [targetCancelLeave, setTargetCancelLeave] = useState(null);
+  const [cancelingLeave, setCancelingLeave] = useState(false);
 
   // Auto-dismiss timer untuk pesan sukses
   useEffect(() => {
@@ -93,6 +96,7 @@ export default function HalamanCuti() {
       if (existingAbsent.length > 0) {
         setAbsentList(
           existingAbsent.map((d) => ({
+            id: d.id,
             personnel_id: d.personnel_id,
             reason: d.absent_reason || 'cuti',
             notes: d.notes || '',
@@ -120,11 +124,6 @@ export default function HalamanCuti() {
     setLeaveReason('cuti');
     setLeaveNotes('');
     setLeaveFile(null);
-    if (!isAdmin && !isSupervisor && user?.personnel_id) {
-      setLeavePersonnelId(String(user.personnel_id));
-    } else {
-      setLeavePersonnelId(teamPersonnel[0]?.id ? String(teamPersonnel[0].id) : '');
-    }
     setLeaveModalOpen(true);
   };
 
@@ -132,9 +131,9 @@ export default function HalamanCuti() {
     e.preventDefault();
     setLeaveModalError(null);
 
-    const targetPId = (!isAdmin && !isSupervisor) ? user?.personnel_id : leavePersonnelId;
+    const targetPId = user?.personnel_id;
     if (!targetPId) {
-      setLeaveModalError('Harap tentukan nama personel.');
+      setLeaveModalError('Akun Anda tidak terhubung dengan data personel operasional untuk mengajukan cuti mandiri.');
       return;
     }
     if (!leaveStartDate || !leaveEndDate) {
@@ -171,31 +170,59 @@ export default function HalamanCuti() {
     }
   };
 
-  const handleAddAbsent = () => {
-    setAbsentList((prev) => [
-      ...prev,
-      { personnel_id: '', reason: 'cuti', notes: '' },
-    ]);
+  // Buka modal konfirmasi pembatalan cuti
+  const handleRequestCancelLeave = (abs) => {
+    const person = teamPersonnel.find((p) => Number(p.id) === Number(abs.personnel_id));
+    setTargetCancelLeave({
+      id: abs.id,
+      personnel_id: abs.personnel_id,
+      personName: person?.full_name || `Personel #${abs.personnel_id}`,
+      reason: abs.reason,
+      notes: abs.notes,
+    });
+    setCancelModalOpen(true);
   };
 
-  const handleRemoveAbsent = (index) => {
-    setAbsentList((prev) => prev.filter((_, idx) => idx !== index));
+  // Eksekusi pembatalan cuti instan ke backend
+  const handleConfirmCancelLeave = async () => {
+    if (!targetCancelLeave) return;
+    setCancelingLeave(true);
+    setError(null);
+    try {
+      if (targetCancelLeave.id) {
+        await api.delete(`/deployments/leave/${targetCancelLeave.id}`);
+      } else {
+        await api.post('/deployments/leave/cancel', {
+          personnel_id: targetCancelLeave.personnel_id,
+          shift_date: activeDate,
+          shift_number: activeShiftNumber,
+        });
+      }
+      setSuccessMsg(`Izin / Cuti untuk ${targetCancelLeave.personName} berhasil dibatalkan. Personel dikembalikan ke status aktif berdinas.`);
+      setCancelModalOpen(false);
+      setTargetCancelLeave(null);
+      fetchLeaveData({ keepSuccessMsg: true });
+    } catch (err) {
+      console.error('Error canceling leave:', err);
+      setError(err.response?.data?.message || err.message || 'Gagal membatalkan cuti.');
+    } finally {
+      setCancelingLeave(false);
+    }
   };
 
+  // Simpan penyesuaian keterangan cuti (Edit oleh Admin/Supervisor)
   const handleSaveLeave = async () => {
     setError(null);
     setSuccessMsg(null);
     setSaving(true);
 
     try {
-      // Kumpulkan ID personel yang dicatat cuti
       const absentPersonnelIds = new Set(
         absentList
           .filter((abs) => abs.personnel_id)
           .map((abs) => Number(abs.personnel_id))
       );
 
-      // Pertahankan ploting operasional yang sudah ada (selain absent dan selain yang dicatat cuti)
       const nonAbsentDeployments = existingDeployments
         .filter((d) => d.deployment_type !== 'absent' && !absentPersonnelIds.has(Number(d.personnel_id)))
         .map((d) => ({
@@ -206,7 +233,6 @@ export default function HalamanCuti() {
           notes: d.notes || '',
         }));
 
-      // Tambahkan absent yang baru diinput
       const newAbsentDeployments = absentList
         .filter((abs) => abs.personnel_id)
         .map((abs) => ({
@@ -227,7 +253,7 @@ export default function HalamanCuti() {
         deployments: payloadDeployments,
       });
 
-      setSuccessMsg('Pencatatan cuti dan izin personel berhasil disimpan.');
+      setSuccessMsg('Penyesuaian keterangan izin / cuti personel berhasil disimpan.');
       fetchLeaveData({ keepSuccessMsg: true });
     } catch (err) {
       console.error('Error saving leave data:', err);
@@ -300,23 +326,14 @@ export default function HalamanCuti() {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              <Button
-                variant="primary"
-                size="sm"
-                icon={Calendar}
-                onClick={handleOpenLeaveModal}
-              >
-                {!isAdmin && !isSupervisor ? 'Ajukan Izin / Cuti Saya' : 'Ajukan Cuti (Rentang Tanggal)'}
-              </Button>
-
-              {(isAdmin || isSupervisor) && (
+              {user?.personnel_id && (
                 <Button
-                  variant="outline"
+                  variant="primary"
                   size="sm"
-                  icon={PlusCircle}
-                  onClick={handleAddAbsent}
+                  icon={Calendar}
+                  onClick={handleOpenLeaveModal}
                 >
-                  Tambah Cuti Shift Ini
+                  + Ajukan Izin / Cuti Mandiri
                 </Button>
               )}
             </div>
@@ -333,6 +350,7 @@ export default function HalamanCuti() {
           ) : (
             <div className="space-y-3">
               {absentList.map((abs, idx) => {
+                const person = teamPersonnel.find((p) => Number(p.id) === Number(abs.personnel_id));
                 const isMyOwnLeave = user?.personnel_id && Number(user.personnel_id) === Number(abs.personnel_id);
                 const canModifyThis = isAdmin || isSupervisor;
                 const canDeleteThis = isAdmin || isSupervisor || isMyOwnLeave;
@@ -342,28 +360,15 @@ export default function HalamanCuti() {
                     key={idx}
                     className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 flex flex-col sm:flex-row items-stretch sm:items-center gap-3"
                   >
-                    {/* Pilihan Personel */}
+                    {/* Nama Personel (Read-Only) */}
                     <div className="flex-1">
                       <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                         Nama Personel:
                       </label>
-                      <select
-                        value={abs.personnel_id || ''}
-                        disabled={!canModifyThis}
-                        onChange={(e) => {
-                          const updated = [...absentList];
-                          updated[idx].personnel_id = e.target.value ? Number(e.target.value) : '';
-                          setAbsentList(updated);
-                        }}
-                        className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 min-h-[38px] transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-slate-100 disabled:text-slate-600"
-                      >
-                        <option value="">(Pilih Personel)</option>
-                        {teamPersonnel.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.full_name}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-900 font-semibold min-h-[38px] flex items-center justify-between">
+                        <span>{person?.full_name || `Personel #${abs.personnel_id}`}</span>
+                        <span className="text-[10px] text-slate-400 font-normal">NIP: {person?.nip || '-'}</span>
+                      </div>
                     </div>
 
                     {/* Kategori Izin/Cuti */}
@@ -407,14 +412,14 @@ export default function HalamanCuti() {
                       />
                     </div>
 
-                    {/* Tombol Hapus */}
+                    {/* Tombol Hapus / Batal Cuti Instan */}
                     {canDeleteThis && (
                       <div className="sm:pt-5">
                         <button
                           type="button"
-                          onClick={() => handleRemoveAbsent(idx)}
+                          onClick={() => handleRequestCancelLeave(abs)}
                           className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg min-h-[38px] min-w-[38px] flex items-center justify-center transition-colors duration-100"
-                          title="Hapus baris cuti ini"
+                          title="Batalkan cuti ini dan kembalikan personel ke dinas aktif"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -426,7 +431,7 @@ export default function HalamanCuti() {
             </div>
           )}
 
-          {/* Action Footer (Khusus Supervisor / Admin) */}
+          {/* Action Footer (Khusus Supervisor / Admin untuk Menyimpan Penyesuaian Keterangan) */}
           {(isAdmin || isSupervisor) && absentList.length > 0 && (
             <div className="mt-5 pt-3 border-t border-slate-100 flex justify-end">
               <Button
@@ -435,21 +440,21 @@ export default function HalamanCuti() {
                 loading={saving}
                 onClick={handleSaveLeave}
               >
-                Simpan Pencatatan Cuti
+                Simpan Penyesuaian Keterangan
               </Button>
             </div>
           )}
         </div>
       </StateView>
 
-      {/* Modal Pengajuan Cuti / Izin Rentang Tanggal */}
+      {/* Modal Pengajuan Cuti / Izin Mandiri Rentang Tanggal */}
       {leaveModalOpen && (
         <Modal
           isOpen={leaveModalOpen}
           onClose={() => {
             if (!submittingLeave) setLeaveModalOpen(false);
           }}
-          title={!isAdmin && !isSupervisor ? 'Ajukan Izin / Cuti Mandiri' : 'Catat Izin / Cuti (Rentang Tanggal)'}
+          title="Ajukan Izin / Cuti Mandiri"
           subtitle="Pilih rentang tanggal kalender dan lampirkan bukti pendukung jika ada"
           footer={
             <>
@@ -477,30 +482,17 @@ export default function HalamanCuti() {
               </div>
             )}
 
-            {/* Nama Personel */}
+            {/* Identitas Pemohon Cuti (Self-Service) */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Nama Personel
+                Nama Pemohon Cuti
               </label>
-              {isAdmin || isSupervisor ? (
-                <select
-                  value={leavePersonnelId}
-                  onChange={(e) => setLeavePersonnelId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-500"
-                  required
-                >
-                  <option value="">(Pilih Personel)</option>
-                  {teamPersonnel.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.full_name} ({p.nip || '-'})
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <div className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-xs text-slate-700 font-semibold">
-                  {user?.name || 'Saya (Akun yang sedang login)'}
-                </div>
-              )}
+              <div className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-xs text-slate-700 font-semibold flex items-center justify-between">
+                <span>{user?.name || 'Personel Mandiri'}</span>
+                <span className="text-[10px] text-slate-500 font-normal uppercase bg-white px-2 py-0.5 rounded border border-slate-200">
+                  Mandiri (Self-Service)
+                </span>
+              </div>
             </div>
 
             {/* Rentang Tanggal */}
@@ -569,6 +561,60 @@ export default function HalamanCuti() {
               </span>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* Modal Konfirmasi Pembatalan Cuti Instan */}
+      {cancelModalOpen && targetCancelLeave && (
+        <Modal
+          isOpen={cancelModalOpen}
+          onClose={() => {
+            if (!cancelingLeave) {
+              setCancelModalOpen(false);
+              setTargetCancelLeave(null);
+            }
+          }}
+          title="Batalkan Izin / Cuti Personel?"
+          subtitle="Personel akan dikembalikan ke status aktif berdinas pada shift ini"
+          footer={
+            <>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setCancelModalOpen(false);
+                  setTargetCancelLeave(null);
+                }}
+                disabled={cancelingLeave}
+              >
+                Tutup
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleConfirmCancelLeave}
+                loading={cancelingLeave}
+              >
+                Ya, Batalkan Cuti
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-3 text-xs text-slate-700">
+            <p>
+              Apakah Anda yakin ingin membatalkan status izin/cuti untuk:
+            </p>
+            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+              <div className="font-bold text-slate-900 text-sm">
+                {targetCancelLeave.personName}
+              </div>
+              <div className="text-slate-600 text-[11px] mt-0.5">
+                Kategori: <span className="font-semibold uppercase">{targetCancelLeave.reason}</span>
+                {targetCancelLeave.notes && ` — "${targetCancelLeave.notes}"`}
+              </div>
+            </div>
+            <p className="text-slate-500 text-[11px] leading-relaxed">
+              Setelah dibatalkan di server, personel ini otomatis tersedia kembali pada daftar kru untuk ditugaskan pada armada shift berjalan.
+            </p>
+          </div>
         </Modal>
       )}
     </div>

@@ -153,6 +153,29 @@ export const saveDeploymentBatch = async (req, res) => {
       return errorResponse(res, 'Regu dinas harus salah satu dari: Alpha, Bravo, Charlie, Delta', 400);
     }
 
+    // Validasi Otorisasi Shift: Jika bukan admin atau dept_head, pastikan hanya regu berdinas yang boleh memploting
+    const isSuperRole = ['admin', 'dept_head'].includes(req.user?.role);
+    if (!isSuperRole) {
+      const roster = calculateDefaultRoster(shift_date);
+      const scheduledTeam = shift_number == 1 ? roster.shift_1 : (shift_number == 2 ? roster.shift_2 : roster.shift_3);
+      if (scheduledTeam && team_group.toLowerCase() !== scheduledTeam.toLowerCase()) {
+        connection.release();
+        return errorResponse(
+          res,
+          `Akses ditolak: Regu ${team_group} sedang tidak bertugas aktif (libur/off) pada tanggal ${shift_date} Shift ${shift_number}. Operasional shift ini dipimpin oleh Regu ${scheduledTeam}.`,
+          403
+        );
+      }
+      if (req.user?.team_group && req.user.team_group.toLowerCase() !== team_group.toLowerCase()) {
+        connection.release();
+        return errorResponse(
+          res,
+          `Akses ditolak: Anda terdaftar di Regu ${req.user.team_group} dan tidak berwenang memploting Regu ${team_group}.`,
+          403
+        );
+      }
+    }
+
     // Validasi Integritas: Kumpulkan personel yang berstatus absent dalam shift ini
     const absentIds = new Set(
       deployments
