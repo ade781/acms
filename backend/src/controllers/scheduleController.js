@@ -57,26 +57,16 @@ export function calculateDefaultRoster(targetDateStr, anchorDateStr = '2026-10-1
 async function getStoredCycles() {
   try {
     const [rows] = await pool.query(
-      `SELECT id, DATE_FORMAT(start_date, '%Y-%m-%d') as start_date, pattern_json, notes, created_at
-       FROM schedule_cycles
-       ORDER BY start_date DESC, id DESC`
+      `SELECT setting_value FROM system_settings WHERE setting_key = 'schedule_custom_cycle'`
     );
-    return rows.map((r) => {
-      let parsed = [];
-      try {
-        parsed = JSON.parse(r.pattern_json);
-      } catch {
-        parsed = DEFAULT_ROTATION_8_DAYS;
-      }
-      return {
-        id: r.id,
-        start_date: r.start_date,
-        pattern: parsed,
-        notes: r.notes,
-      };
-    });
+    if (rows.length > 0 && rows[0].setting_value) {
+      const parsed = JSON.parse(rows[0].setting_value);
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed && parsed.start_date && parsed.pattern) return [parsed];
+    }
+    return [];
   } catch (err) {
-    console.warn('Gagal membaca schedule_cycles, menggunakan default:', err.message);
+    console.warn('Gagal membaca schedule_custom_cycle dari system_settings:', err.message);
     return [];
   }
 }
@@ -283,19 +273,18 @@ export const saveScheduleCycle = async (req, res) => {
 
     const patternJson = JSON.stringify(formattedPattern);
 
-    // Periksa apakah sudah ada siklus di tanggal mulai yang sama
-    const [existing] = await pool.query('SELECT id FROM schedule_cycles WHERE start_date = ?', [start_date]);
-    if (existing.length > 0) {
-      await pool.query(
-        'UPDATE schedule_cycles SET pattern_json = ?, notes = ?, created_by = ? WHERE start_date = ?',
-        [patternJson, notes || null, req.user?.id || null, start_date]
-      );
-    } else {
-      await pool.query(
-        'INSERT INTO schedule_cycles (start_date, pattern_json, notes, created_by) VALUES (?, ?, ?, ?)',
-        [start_date, patternJson, notes || null, req.user?.id || null]
-      );
-    }
+    const cycleData = {
+      start_date,
+      pattern: formattedPattern,
+      notes: notes || null
+    };
+
+    await pool.query(
+      `INSERT INTO system_settings (setting_key, setting_value)
+       VALUES ('schedule_custom_cycle', ?)
+       ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
+      [JSON.stringify(cycleData)]
+    );
 
     // Bersihkan override manual dari start_date ke depan agar pola baru langsung efektif tanpa terhalang override usang
     await pool.query('DELETE FROM schedule_rosters WHERE roster_date >= ?', [start_date]);
@@ -315,7 +304,7 @@ export const saveScheduleCycle = async (req, res) => {
  */
 export const resetScheduleCycles = async (req, res) => {
   try {
-    await pool.query('DELETE FROM schedule_cycles');
+    await pool.query("DELETE FROM system_settings WHERE setting_key = 'schedule_custom_cycle'");
     await pool.query('DELETE FROM schedule_rosters');
     return successResponse(res, 'Seluruh jadwal telah dikembalikan ke pola rotasi standar otomatis.');
   } catch (error) {

@@ -23,15 +23,14 @@ async function generateNextReportNumber(connection) {
 
 export const getIncidents = async (req, res) => {
   try {
-    const { date, shift, team_group, status, priority } = req.query;
+    const { date, shift, team_group, status, priority, category } = req.query;
 
     let query = `
       SELECT i.*,
-             ic.name as category_name, ic.code as category_code,
+             i.category as category_name, i.category as category_code,
              u.name as reporter_name,
              (SELECT COUNT(*) FROM incident_attachments WHERE incident_id = i.id) as attachment_count
       FROM incidents i
-      LEFT JOIN incident_categories ic ON ic.id = i.category_id
       LEFT JOIN users u ON u.id = i.reporter_id
       WHERE 1=1
     `;
@@ -48,6 +47,10 @@ export const getIncidents = async (req, res) => {
     if (team_group) {
       query += ` AND i.team_group = ?`;
       params.push(team_group);
+    }
+    if (category) {
+      query += ` AND i.category = ?`;
+      params.push(category);
     }
     if (status) {
       query += ` AND i.status = ?`;
@@ -74,11 +77,10 @@ export const getIncidentById = async (req, res) => {
 
     const [rows] = await pool.query(
       `SELECT i.*,
-              ic.name as category_name, ic.code as category_code,
+              i.category as category_name, i.category as category_code,
               u.name as reporter_name,
               s.name as supervisor_name
        FROM incidents i
-       LEFT JOIN incident_categories ic ON ic.id = i.category_id
        LEFT JOIN users u ON u.id = i.reporter_id
        LEFT JOIN users s ON s.id = i.supervisor_id
        WHERE i.id = ?`,
@@ -116,6 +118,7 @@ export const createIncident = async (req, res) => {
       report_time,
       team_group,
       shift_number,
+      category = 'other',
       category_id,
       title,
       location,
@@ -138,11 +141,12 @@ export const createIncident = async (req, res) => {
 
     const reportNumber = await generateNextReportNumber(connection);
     const nowTime = new Date().toTimeString().split(' ')[0];
+    const selectedCategory = category || 'other';
 
     const [result] = await connection.query(
       `INSERT INTO incidents (
         report_number, incident_date, incident_time, report_time,
-        team_group, shift_number, reporter_id, category_id,
+        team_group, shift_number, reporter_id, category,
         title, location, chronology, source_info, aircraft_info,
         priority_level, activation_time, action_taken, last_condition,
         coordinated_parties, status
@@ -155,7 +159,7 @@ export const createIncident = async (req, res) => {
         team_group || req.user.team_group || 'Alpha',
         shift_number ? Number(shift_number) : 1,
         req.user.id,
-        category_id || null,
+        selectedCategory,
         title,
         location,
         chronology,
@@ -234,31 +238,17 @@ export const updateIncidentStatus = async (req, res) => {
 };
 
 export const getIncidentCategories = async (req, res) => {
-  try {
-    const [rows] = await pool.query('SELECT * FROM incident_categories WHERE is_active = 1 ORDER BY name ASC');
-    return successResponse(res, 'Daftar kategori insiden berhasil diambil', rows);
-  } catch (error) {
-    console.error('Error getIncidentCategories:', error);
-    return errorResponse(res, 'Gagal mengambil kategori insiden', 500);
-  }
+  const defaultCategories = [
+    { id: 1, name: 'Aircraft Accident', code: 'aircraft_accident' },
+    { id: 2, name: 'Aircraft Incident', code: 'aircraft_incident' },
+    { id: 3, name: 'Fire / Kebakaran', code: 'fire' },
+    { id: 4, name: 'Medical Emergency', code: 'medical_emergency' },
+    { id: 5, name: 'Hazmat Incident', code: 'hazmat' },
+    { id: 6, name: 'Lainnya / Non-Aircraft', code: 'other' }
+  ];
+  return successResponse(res, 'Daftar kategori insiden berhasil diambil', defaultCategories);
 };
 
 export const createIncidentCategory = async (req, res) => {
-  try {
-    const { name, code, description } = req.body;
-    if (!name || !code) {
-      return errorResponse(res, 'Nama kategori dan kode wajib diisi', 400);
-    }
-
-    const [result] = await pool.query(
-      'INSERT INTO incident_categories (name, code, description, is_active) VALUES (?, ?, ?, 1)',
-      [name, code, description || null]
-    );
-
-    const [created] = await pool.query('SELECT * FROM incident_categories WHERE id = ?', [result.insertId]);
-    return createdResponse(res, 'Kategori insiden berhasil ditambahkan', created[0]);
-  } catch (error) {
-    console.error('Error createIncidentCategory:', error);
-    return errorResponse(res, 'Gagal menambahkan kategori insiden', 500);
-  }
+  return successResponse(res, 'Kategori insiden bersifat ENUM baku operasional');
 };

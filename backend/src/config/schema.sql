@@ -100,15 +100,6 @@ CREATE TABLE IF NOT EXISTS `personnel_deployments` (
   CONSTRAINT `fk_pd_assigned_by` FOREIGN KEY (`assigned_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS `incident_categories` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `name` VARCHAR(100) NOT NULL,
-  `code` VARCHAR(30) NOT NULL UNIQUE,
-  `description` TEXT NULL,
-  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE IF NOT EXISTS `incidents` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `report_number` VARCHAR(50) NOT NULL UNIQUE,
@@ -119,7 +110,7 @@ CREATE TABLE IF NOT EXISTS `incidents` (
   `shift_number` TINYINT NOT NULL,
   `reporter_id` INT NULL,
   `supervisor_id` INT NULL,
-  `category_id` INT NULL,
+  `category` ENUM('aircraft_accident', 'aircraft_incident', 'fire', 'medical_emergency', 'hazmat', 'other') NOT NULL DEFAULT 'other',
   `title` VARCHAR(200) NOT NULL,
   `location` VARCHAR(200) NOT NULL,
   `chronology` TEXT NOT NULL,
@@ -134,8 +125,7 @@ CREATE TABLE IF NOT EXISTS `incidents` (
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT `fk_inc_reporter` FOREIGN KEY (`reporter_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `fk_inc_supervisor` FOREIGN KEY (`supervisor_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `fk_inc_category` FOREIGN KEY (`category_id`) REFERENCES `incident_categories` (`id`) ON DELETE SET NULL
+  CONSTRAINT `fk_inc_supervisor` FOREIGN KEY (`supervisor_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `incident_attachments` (
@@ -192,30 +182,6 @@ CREATE TABLE IF NOT EXISTS `announcements` (
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX `idx_pub_date` (`published_date`),
   CONSTRAINT `fk_announcement_creator` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `announcement_reads` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `announcement_id` INT NOT NULL,
-  `user_id` INT NOT NULL,
-  `read_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY `uniq_announcement_user` (`announcement_id`, `user_id`),
-  INDEX `idx_user` (`user_id`),
-  INDEX `idx_announcement` (`announcement_id`),
-  CONSTRAINT `fk_aread_announcement` FOREIGN KEY (`announcement_id`) REFERENCES `announcements` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_aread_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `schedule_cycles` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `start_date` DATE NOT NULL,
-  `pattern_json` TEXT NOT NULL,
-  `notes` TEXT NULL,
-  `created_by` INT NULL,
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX `idx_sc_start_date` (`start_date`),
-  CONSTRAINT `fk_sc_creator` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `schedule_rosters` (

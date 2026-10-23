@@ -29,9 +29,16 @@ function validateSecurityConfig() {
     'password'
   ];
 
-  if (insecureDefaults.includes(jwtSecret.trim().toLowerCase()) || jwtSecret.trim().length < 16) {
-    console.warn('\x1b[33m[PERINGATAN KEAMANAN] JWT_SECRET menggunakan kata sandi default atau kurang dari 16 karakter!\x1b[0m');
-    console.warn('Disarankan menggunakan secret string acak minimal 32 karakter untuk keandalan produksi.');
+  const isProduction = process.env.NODE_ENV === 'production';
+  const isWeakSecret = insecureDefaults.includes(jwtSecret.trim().toLowerCase()) || jwtSecret.trim().length < 32;
+
+  if (isProduction && isWeakSecret) {
+    console.error('\x1b[31m[FATAL SECURITY ERROR] Pada mode PRODUKSI, JWT_SECRET dilarang menggunakan default/kata sandi lemah dan wajib minimal 32 karakter!\x1b[0m');
+    console.error('Server dihentikan demi integritas keamanan. Perbarui JWT_SECRET dengan string acak berkekuatan tinggi (e.g. openssl rand -base64 32).');
+    process.exit(1);
+  } else if (isWeakSecret) {
+    console.warn('\x1b[33m[PERINGATAN KEAMANAN] JWT_SECRET menggunakan kata sandi default atau kurang dari 32 karakter!\x1b[0m');
+    console.warn('Untuk lingkungan produksi, wajib menggunakan secret string acak minimal 32 karakter.');
   }
 }
 

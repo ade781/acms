@@ -508,3 +508,60 @@ export const requestLeaveRange = async (req, res) => {
     connection.release();
   }
 };
+
+export const cancelLeave = async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    const deploymentId = req.params.id || req.body.deployment_id;
+    const { personnel_id, shift_id, shift_date, shift_number } = req.body;
+
+    const isPrivileged = ['admin', 'supervisor', 'chief', 'chief_assistant', 'dept_head'].includes(req.user.role);
+    const targetPersonnelId = (isPrivileged && personnel_id) ? Number(personnel_id) : (req.user.personnel_id ? Number(req.user.personnel_id) : null);
+
+    let query = '';
+    let params = [];
+
+    if (deploymentId) {
+      if (isPrivileged) {
+        query = 'DELETE FROM personnel_deployments WHERE id = ? AND deployment_type = "absent"';
+        params = [deploymentId];
+      } else {
+        query = 'DELETE FROM personnel_deployments WHERE id = ? AND personnel_id = ? AND deployment_type = "absent"';
+        params = [deploymentId, req.user.personnel_id];
+      }
+    } else if (targetPersonnelId && shift_id) {
+      query = 'DELETE FROM personnel_deployments WHERE shift_id = ? AND personnel_id = ? AND deployment_type = "absent"';
+      params = [shift_id, targetPersonnelId];
+    } else if (targetPersonnelId && shift_date) {
+      const shiftNum = shift_number ? Number(shift_number) : 1;
+      const [shifts] = await connection.query(
+        'SELECT id FROM personnel_shifts WHERE shift_date = ? AND shift_number = ?',
+        [shift_date, shiftNum]
+      );
+      if (shifts.length === 0) {
+        connection.release();
+        return errorResponse(res, 'Sesi shift tidak ditemukan', 404);
+      }
+      query = 'DELETE FROM personnel_deployments WHERE shift_id = ? AND personnel_id = ? AND deployment_type = "absent"';
+      params = [shifts[0].id, targetPersonnelId];
+    } else {
+      connection.release();
+      return errorResponse(res, 'Data identitas cuti yang akan dibatalkan tidak lengkap', 400);
+    }
+
+    const [result] = await connection.query(query, params);
+    connection.release();
+
+    if (result.affectedRows === 0) {
+      return errorResponse(res, 'Data izin/cuti tidak ditemukan atau Anda tidak memiliki akses untuk membatalkannya', 404);
+    }
+
+    return successResponse(res, 'Pengajuan cuti berhasil dibatalkan. Personel dikembalikan ke status aktif berdinas.', {
+      affectedRows: result.affectedRows
+    });
+  } catch (error) {
+    connection.release();
+    console.error('Error cancelLeave:', error);
+    return errorResponse(res, 'Gagal membatalkan cuti: ' + error.message, 500);
+  }
+};

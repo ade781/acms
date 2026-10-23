@@ -69,3 +69,20 @@ Berdasarkan feedback eksplisit pengguna:
    - Dilarang membungkus setiap baris personel ke dalam kartu kotak tebal berulang-ulang (*nested cards bloat*).
    - Gunakan layout daftar baris kompak (*compact flat rows*) dengan divider halus 1px agar 3–4 unit armada dapat termonitor sekaligus dalam 1 layar pandang tanpa scrolling melelahkan.
 
+## Protokol Orkestrasi & Pembagian Tugas 5 Agent (Agent 1 - 5)
+- **Kewenangan Penuh Orkestrator**:
+  - Setiap kali pengguna memberikan instruksi atau daftar koreksi/kesalahan, orkestrator berwenang penuh membagi dan menugaskan butir-butir pekerjaan kepada Agent 1 sampai 5 sesuai domain dan batas berkas eksklusif masing-masing.
+  - Pembagian dilakukan secara terisolasi agar kelima agen dapat bekerja secara simultan/paralel tanpa tabrakan berkas (*zero file collision*).
+- **Kewajiban Sinkronisasi Berkas Tugas (`task_agent1.md` s.d. `task_agent5.md`)**:
+  - Pada setiap instruksi pengguna, seluruh isi berkas tugas `task_agent1.md` sampai `task_agent5.md` serta `taskagent.md` WAJIB diperbarui secara berkala dan terdokumentasi rapi.
+
+## Aturan Hak Akses Ploting Shift & Efisiensi Request Server
+1. **Proteksi Hak Akses Ploting Berdasarkan Shift Dinas ("Bukan Shift Anda")**:
+   - Halaman Ploting hanya dapat diakses dan diubah oleh Chief / Asisten Chief / Personel yang regunya bertugas aktif pada shift tersebut (atau Admin/Dept Head).
+   - Jika user sedang tidak berdinas atau shift yang aktif bukan shift regunya, halaman Ploting WAJIB menolak rendering form armada dan menampilkan layar: *"Bukan Shift Dinas Anda"* (disertai penjelasan bahwa operasional sedang dipimpin oleh regu yang bertugas aktif).
+   - Dalam kondisi bukan shift user, sistem DILARANG melakukan request fetch data ploting berat ke server demi menghemat bandwidth dan sumber daya server.
+2. **Simpan Ploting Bersifat Eksplisit (Anti-Spam Request / No Auto-Save)**:
+   - Seluruh perubahan penempatan kru di halaman Ploting wajib dikelola murni pada state lokal frontend.
+   - Perubahan HANYA disimpan ke database server ketika pengguna secara sadar menekan tombol "Simpan Ploting".
+   - Dilarang keras membuat fungsi auto-save per pemilihan slot kru karena membebani jaringan dan database.
+

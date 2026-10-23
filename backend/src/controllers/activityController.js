@@ -74,7 +74,16 @@ export const createActivity = async (req, res) => {
       }
     }
 
-    const formattedActorIds = actor_ids ? JSON.stringify(actor_ids) : null;
+    let formattedActorIds = null;
+    if (actor_ids) {
+      if (typeof actor_ids === 'string') {
+        formattedActorIds = actor_ids;
+      } else {
+        formattedActorIds = JSON.stringify(actor_ids);
+      }
+    }
+
+    const finalAttachmentUrl = req.file ? `/uploads/${req.file.filename}` : (attachment_url || null);
 
     const [result] = await pool.query(
       `INSERT INTO daily_shift_activities (
@@ -89,7 +98,7 @@ export const createActivity = async (req, res) => {
         description || null,
         result_notes || null,
         formattedActorIds,
-        attachment_url || null
+        finalAttachmentUrl
       ]
     );
 

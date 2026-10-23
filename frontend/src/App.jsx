@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AppLayout from './components/layout/AppLayout';
 
-// Halaman / Pages
+// Halaman / Pages Desktop
 import HalamanLogin from './pages/HalamanLogin';
 import HalamanDashboard from './pages/HalamanDashboard';
 import HalamanPersonel from './pages/HalamanPersonel';
@@ -19,7 +19,13 @@ import HalamanJadwal from './pages/HalamanJadwal';
 import HalamanPengumuman from './pages/HalamanPengumuman';
 import HalamanKelolaPejabat from './pages/HalamanKelolaPejabat';
 
-
+// Mobile Layout & Halaman Mobile (Operasional Lapangan)
+import MobileLayout from './components/mobile/MobileLayout';
+import MobileDashboard from './pages/mobile/MobileDashboard';
+import MobilePloting from './pages/mobile/MobilePloting';
+import MobileKegiatan from './pages/mobile/MobileKegiatan';
+import MobileInsiden from './pages/mobile/MobileInsiden';
+import MobileLaporan from './pages/mobile/MobileLaporan';
 
 // Protected Route Component
 function ProtectedRoute({ children, adminOnly = false }) {
@@ -45,11 +51,40 @@ function ProtectedRoute({ children, adminOnly = false }) {
   return children;
 }
 
-// Redirect root to dashboard or login
+// Redirect root to dashboard or login according to user role
 function RootRedirect() {
-  const { user, loading } = useAuth();
+  const { user, loading, isRole } = useAuth();
   if (loading) return null;
-  return user ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/login" replace />;
+
+  const isFieldRole = isRole(
+    'chief',
+    'chief_assistant',
+    'operation_chief',
+    'senior_firefighter',
+    'junior_firefighter'
+  );
+
+  return isFieldRole ? <Navigate to="/m/dashboard" replace /> : <Navigate to="/dashboard" replace />;
+}
+
+// Guard untuk rute portal desktop: role lapangan dialihkan ke antarmuka mobile secara default
+function DesktopRoute({ children }) {
+  const { isRole } = useAuth();
+  const isFieldRole = isRole(
+    'chief',
+    'chief_assistant',
+    'operation_chief',
+    'senior_firefighter',
+    'junior_firefighter'
+  );
+
+  const search = window.location.search;
+  if (isFieldRole && !search.includes('view=desktop')) {
+    return <Navigate to="/m/dashboard" replace />;
+  }
+
+  return children;
 }
 
 export default function App() {
@@ -63,11 +98,30 @@ export default function App() {
           {/* Root redirect */}
           <Route path="/" element={<RootRedirect />} />
 
-          {/* Authenticated Layout Routes */}
+          {/* Mobile Shell Routes (Role Lapangan & Mobile First) */}
+          <Route
+            path="/m"
+            element={
+              <ProtectedRoute>
+                <MobileLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<MobileDashboard />} />
+            <Route path="ploting" element={<MobilePloting />} />
+            <Route path="kegiatan" element={<MobileKegiatan />} />
+            <Route path="insiden" element={<MobileInsiden />} />
+            <Route path="laporan" element={<MobileLaporan />} />
+          </Route>
+
+          {/* Authenticated Desktop Layout Routes */}
           <Route
             element={
               <ProtectedRoute>
-                <AppLayout />
+                <DesktopRoute>
+                  <AppLayout />
+                </DesktopRoute>
               </ProtectedRoute>
             }
           >
@@ -86,8 +140,6 @@ export default function App() {
             <Route path="/activities" element={<HalamanKegiatan />} />
             <Route path="/reports" element={<HalamanLaporan />} />
             <Route path="/settings" element={<Navigate to="/readiness/vehicles" replace />} />
-
-
           </Route>
 
           {/* Catch-all fallback */}
@@ -97,3 +149,4 @@ export default function App() {
     </AuthProvider>
   );
 }
+

@@ -7,6 +7,7 @@ const router = Router();
 router.use(requireAuth);
 
 router.get('/pdf', getShiftReportPdf);
+router.get('/export/pdf', getShiftReportPdf);
 router.get('/vehicle-issues', getVehicleIssuesAudit);
 
 export default router;

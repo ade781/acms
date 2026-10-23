@@ -2,7 +2,8 @@ import { Router } from 'express';
 import {
   getCurrentDeployment,
   saveDeploymentBatch,
-  requestLeaveRange
+  requestLeaveRange,
+  cancelLeave
 } from '../controllers/deploymentController.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
 import { requireRole } from '../middleware/roleMiddleware.js';
@@ -16,5 +17,9 @@ router.get('/', getCurrentDeployment);
 router.get('/current', getCurrentDeployment);
 router.post('/batch', requireRole(['admin', 'supervisor', 'chief', 'chief_assistant', 'dept_head']), saveDeploymentBatch);
 router.post('/leave-range', uploadSingleDocument('document'), requestLeaveRange);
+router.delete('/leave/:id', cancelLeave);
+router.post('/leave/cancel', cancelLeave);
+router.post('/cancel-leave', cancelLeave);
 
 export default router;
+
