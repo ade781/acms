@@ -20,8 +20,10 @@ import {
   formatTeam,
 } from '../utils/shiftHelper';
 import api from '../services/api';
+import { fetchShiftReportData } from '../services/reportService';
 import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import Button from '../components/common/Button';
+import MobileUnitAuditModal from '../components/mobile/reports/MobileUnitAuditModal';
 
 export default function HalamanLaporan() {
   const { activeDate, activeShiftNumber, activeTeam } = useAuth();
@@ -47,69 +49,35 @@ export default function HalamanLaporan() {
   const [activities, setActivities] = useState([]);
   const [incidents, setIncidents] = useState([]);
 
+  // State Modal Audit Trail Kendala Unit Armada
+  const [selectedAuditUnit, setSelectedAuditUnit] = useState(null);
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+
   const currentDef =
     SHIFT_DEFINITIONS.find((s) => s.number === Number(activeShiftNumber)) ||
     SHIFT_DEFINITIONS[0];
 
+  // Fetch data laporan operasional terpadu (Single Source of Truth)
   const fetchShiftData = useCallback(async () => {
     try {
       setLoading(true);
       setFetchError(null);
 
-      const params = `date=${activeDate}&shift=${activeShiftNumber}&team_group=${cleanTeam(
-        activeTeam
-      )}`;
+      const data = await fetchShiftReportData({
+        date: activeDate,
+        shift: activeShiftNumber,
+        team: activeTeam,
+      });
 
-      const [
-        deployRes,
-        vehicleRes,
-        watchroomRes,
-        issueRes,
-        actRes,
-        incRes,
-      ] = await Promise.allSettled([
-        api.get(`/deployments/current?${params}`),
-        api.get(`/readiness/vehicles?${params}`),
-        api.get(`/readiness/watchroom?${params}`),
-        api.get(`/reports/vehicle-issues?${params}`),
-        api.get(`/activities?${params}`),
-        api.get(`/incidents?${params}`),
-      ]);
-
-      // 1. Data Ploting & Sesi Shift
-      if (deployRes.status === 'fulfilled' && deployRes.value?.data?.data) {
-        const dData = deployRes.value.data.data;
-        setShiftData(dData.shift || null);
-        setDeptHeadData(dData.dept_head || null);
-        setDeployments(dData.deployments || []);
-        setAbsents(dData.absents || []);
-      }
-
-      // 2. Data Kesiapan 8 Unit Armada
-      if (vehicleRes.status === 'fulfilled' && vehicleRes.value?.data?.data) {
-        const vData = vehicleRes.value.data.data;
-        setVehicles(Array.isArray(vData) ? vData : vData.vehicles || []);
-      }
-
-      // 3. Data Watchroom Posko
-      if (watchroomRes.status === 'fulfilled' && watchroomRes.value?.data?.data) {
-        setWatchroomData(watchroomRes.value.data.data || {});
-      }
-
-      // 4. Data Issue & Handover Lintas Shift
-      if (issueRes.status === 'fulfilled' && issueRes.value?.data?.data) {
-        setVehicleIssues(issueRes.value.data.data);
-      }
-
-      // 5. Data Logbook Kegiatan
-      if (actRes.status === 'fulfilled' && actRes.value?.data?.data) {
-        setActivities(actRes.value.data.data || []);
-      }
-
-      // 6. Data Insiden Operasional
-      if (incRes.status === 'fulfilled' && incRes.value?.data?.data) {
-        setIncidents(incRes.value.data.data || []);
-      }
+      setShiftData(data.shiftData);
+      setDeptHeadData(data.deptHeadData);
+      setDeployments(data.deployments);
+      setAbsents(data.absents);
+      setVehicles(data.vehicles);
+      setWatchroomData(data.watchroomData);
+      setVehicleIssues(data.vehicleIssues);
+      setActivities(data.activities);
+      setIncidents(data.incidents);
     } catch (err) {
       console.error('Fetch shift report preview error:', err);
       setFetchError(
@@ -253,6 +221,91 @@ export default function HalamanLaporan() {
         </div>
       )}
 
+      {/* KPI Eksekutif Rekapitulasi Operasional Shift */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-4xl mx-auto mb-6">
+        {/* Kesiapan Armada */}
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs space-y-1">
+          <div className="flex items-center justify-between text-slate-500">
+            <span className="text-[10px] font-bold uppercase tracking-wider">Kesiapan Armada</span>
+            <Truck className="w-4 h-4 text-slate-400" />
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-xl font-black text-slate-900">
+              {vehicles.filter((v) => v.status === 'serviceable').length}
+            </span>
+            <span className="text-xs text-slate-500 font-medium">
+              / {Math.max(vehicles.length, 8)} Siap
+            </span>
+          </div>
+          <p className="text-[10px] font-medium text-slate-600">
+            {vehicles.filter((v) => v.status === 'unserviceable').length > 0 ? (
+              <span className="text-red-600 font-bold">
+                {vehicles.filter((v) => v.status === 'unserviceable').length} Unit Kendala
+              </span>
+            ) : (
+              <span className="text-emerald-700 font-bold">100% Siap Operasi</span>
+            )}
+          </p>
+        </div>
+
+        {/* Presensi Personel */}
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs space-y-1">
+          <div className="flex items-center justify-between text-slate-500">
+            <span className="text-[10px] font-bold uppercase tracking-wider">Personel Dinas</span>
+            <Users className="w-4 h-4 text-slate-400" />
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-xl font-black text-slate-900">{deployments.length}</span>
+            <span className="text-xs text-slate-500 font-medium">Hadir Terploting</span>
+          </div>
+          <p className="text-[10px] font-medium text-slate-600">
+            {absents.length > 0 ? (
+              <span className="text-amber-700 font-bold">{absents.length} Izin / Cuti</span>
+            ) : (
+              <span className="text-emerald-700 font-bold">Nihil Izin / Lengkap</span>
+            )}
+          </p>
+        </div>
+
+        {/* Posko Watchroom */}
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs space-y-1">
+          <div className="flex items-center justify-between text-slate-500">
+            <span className="text-[10px] font-bold uppercase tracking-wider">Watch Room</span>
+            <Radio className="w-4 h-4 text-slate-400" />
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-base font-bold text-slate-900 uppercase">
+              {watchroomData?.status === 'serviceable' ? 'Normal Siap' : (watchroomData?.status || 'Siap')}
+            </span>
+          </div>
+          <p className="text-[10px] font-medium text-slate-600 truncate">
+            {watchroomData?.notes || 'Fasilitas komunikasi aktif'}
+          </p>
+        </div>
+
+        {/* Logbook & Insiden */}
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs space-y-1">
+          <div className="flex items-center justify-between text-slate-500">
+            <span className="text-[10px] font-bold uppercase tracking-wider">Aktivitas & Insiden</span>
+            <FileText className="w-4 h-4 text-slate-400" />
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-xl font-black text-slate-900">{activities.length}</span>
+            <span className="text-xs text-slate-500 font-medium">Giat</span>
+            <span className="text-slate-300">|</span>
+            <span className="text-xl font-black text-slate-900">{incidents.length}</span>
+            <span className="text-xs text-slate-500 font-medium">Insiden</span>
+          </div>
+          <p className="text-[10px] font-medium text-slate-600">
+            {incidents.length > 0 ? (
+              <span className="text-red-600 font-bold">{incidents.length} Kejadian Ditangani</span>
+            ) : (
+              <span className="text-emerald-700 font-bold">Operasional Nihil Insiden</span>
+            )}
+          </p>
+        </div>
+      </div>
+
       {/* Lembar Pratinjau Dokumen Cetak Standar A4 Resmi */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 sm:p-8 max-w-4xl mx-auto">
         {/* Kop Dokumen Resmi PT Angkasa Pura Indonesia YIA */}
@@ -364,21 +417,27 @@ export default function HalamanLaporan() {
                           {v.pic_name || <span className="text-slate-400 italic">Belum Ditunjuk</span>}
                         </td>
                         <td className="p-2 text-center">
-                          <span
-                            className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedAuditUnit(v);
+                              setIsAuditModalOpen(true);
+                            }}
+                            className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] transition-colors duration-100 cursor-pointer shadow-xs ${
                               v.status === 'serviceable'
-                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
                                 : v.status === 'unserviceable'
-                                ? 'bg-red-100 text-red-800 border border-red-200'
-                                : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                ? 'bg-red-100 text-red-800 border border-red-300 hover:bg-red-200'
+                                : 'bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200'
                             }`}
+                            title="Klik untuk memeriksa audit trail kendala & riwayat pemulihan unit"
                           >
                             {v.status === 'serviceable'
                               ? 'Serviceable'
                               : v.status === 'unserviceable'
-                              ? 'Unserviceable'
+                              ? 'Unserviceable (Audit)'
                               : 'Belum Cek'}
-                          </span>
+                          </button>
                         </td>
                         <td className="p-2 text-slate-600">
                           {v.justification || v.notes || '-'}
@@ -721,6 +780,14 @@ export default function HalamanLaporan() {
           </div>
         </div>
       </div>
+
+      {/* Modal Audit Trail Pelacakan Status Kendala Unit Armada */}
+      <MobileUnitAuditModal
+        isOpen={isAuditModalOpen}
+        onClose={() => setIsAuditModalOpen(false)}
+        unit={selectedAuditUnit}
+        vehicleIssues={vehicleIssues}
+      />
     </div>
   );
 }

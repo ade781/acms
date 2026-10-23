@@ -22,6 +22,7 @@ import {
   SHIFT_DEFINITIONS,
 } from '../../utils/shiftHelper';
 import api from '../../services/api';
+import { fetchShiftReportData } from '../../services/reportService';
 import MobileReportSummaryCard from '../../components/mobile/reports/MobileReportSummaryCard';
 import MobileUnitAuditModal from '../../components/mobile/reports/MobileUnitAuditModal';
 import MobilePdfViewerModal from '../../components/mobile/reports/MobilePdfViewerModal';
@@ -67,7 +68,7 @@ export default function MobileLaporan() {
     SHIFT_DEFINITIONS.find((s) => s.number === currentShiftNum) ||
     SHIFT_DEFINITIONS[0];
 
-  // Fetch seluruh data operasional shift secara agregat
+  // Fetch seluruh data operasional shift secara agregat via modul service terpadu (Single Source of Truth)
   const fetchReportData = useCallback(
     async (isManualRefresh = false) => {
       try {
@@ -75,60 +76,21 @@ export default function MobileLaporan() {
         else setLoading(true);
         setErrorMessage(null);
 
-        const params = `date=${activeDate}&shift=${activeShiftNumber}&team_group=${cleanTeam(
-          activeTeam
-        )}`;
+        const data = await fetchShiftReportData({
+          date: activeDate,
+          shift: activeShiftNumber,
+          team: activeTeam,
+        });
 
-        const [
-          deployRes,
-          vehicleRes,
-          watchroomRes,
-          issueRes,
-          actRes,
-          incRes,
-        ] = await Promise.allSettled([
-          api.get(`/deployments/current?${params}`),
-          api.get(`/readiness/vehicles?${params}`),
-          api.get(`/readiness/watchroom?${params}`),
-          api.get(`/reports/vehicle-issues?${params}`),
-          api.get(`/activities?${params}`),
-          api.get(`/incidents?${params}`),
-        ]);
-
-        // 1. Data Sesi Shift & Dept Head
-        if (deployRes.status === 'fulfilled' && deployRes.value?.data?.data) {
-          const dData = deployRes.value.data.data;
-          setShiftData(dData.shift || null);
-          setDeptHeadData(dData.dept_head || null);
-          setDeployments(dData.deployments || []);
-          setAbsents(dData.absents || []);
-        }
-
-        // 2. Data Kesiapan 8 Unit Armada
-        if (vehicleRes.status === 'fulfilled' && vehicleRes.value?.data?.data) {
-          const vData = vehicleRes.value.data.data;
-          setVehicles(Array.isArray(vData) ? vData : vData.vehicles || []);
-        }
-
-        // 3. Data Watchroom Posko
-        if (watchroomRes.status === 'fulfilled' && watchroomRes.value?.data?.data) {
-          setWatchroomData(watchroomRes.value.data.data || {});
-        }
-
-        // 4. Data Issue & Audit Trail
-        if (issueRes.status === 'fulfilled' && issueRes.value?.data?.data) {
-          setVehicleIssues(issueRes.value.data.data);
-        }
-
-        // 5. Data Logbook Kegiatan
-        if (actRes.status === 'fulfilled' && actRes.value?.data?.data) {
-          setActivities(actRes.value.data.data || []);
-        }
-
-        // 6. Data Insiden Kejadian
-        if (incRes.status === 'fulfilled' && incRes.value?.data?.data) {
-          setIncidents(incRes.value.data.data || []);
-        }
+        setShiftData(data.shiftData);
+        setDeptHeadData(data.deptHeadData);
+        setDeployments(data.deployments);
+        setAbsents(data.absents);
+        setVehicles(data.vehicles);
+        setWatchroomData(data.watchroomData);
+        setVehicleIssues(data.vehicleIssues);
+        setActivities(data.activities);
+        setIncidents(data.incidents);
       } catch (err) {
         console.error('Error fetching mobile report data:', err);
         setErrorMessage(

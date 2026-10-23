@@ -8,7 +8,8 @@ export const getShiftReportPdf = async (req, res) => {
 
     const shiftDate = date || new Date().toISOString().split('T')[0];
     const shiftNumber = shift ? Number(shift) : 1;
-    const teamGroup = team_group || 'Alpha';
+    const rawTeam = team_group || 'Alpha';
+    const teamGroup = rawTeam.replace(/^(Regu\s+|Team\s+)/i, '').trim();
 
     // Eksekusi generator PDF resmi laporan dinas A4
     const [shifts] = await pool.query(
@@ -55,13 +56,30 @@ export const getShiftReportPdf = async (req, res) => {
         supervisorNip = teamChiefs[0].nip;
         supervisorSignatureUrl = teamChiefs[0].signature_url;
       } else {
-        supervisorName = `Ketua Regu ${teamGroup}`;
+        // Fallback dinamis: Cari personil paling senior di regu tersebut dari database (bukan hardcoded)
+        const [seniorMembers] = await pool.query(
+          `SELECT p.full_name, p.nip, COALESCE(u.signature_url, p.signature_url) as signature_url
+           FROM personnel p
+           LEFT JOIN users u ON u.id = p.user_id
+           WHERE p.team_group = ? AND p.is_active = 1
+           ORDER BY FIELD(p.cert_level, 'Senior', 'Junior', 'Basic'), p.id ASC
+           LIMIT 1`,
+          [teamGroup]
+        );
+        if (seniorMembers.length > 0) {
+          supervisorName = seniorMembers[0].full_name;
+          supervisorNip = seniorMembers[0].nip;
+          supervisorSignatureUrl = seniorMembers[0].signature_url;
+        } else {
+          supervisorName = `Ketua Regu ${teamGroup}`;
+        }
       }
     }
 
     // Ambil data pejabat Dept Head / Section Head secara dinamis dari database
     const [deptHeads] = await pool.query(
-      `SELECT u.name, p.nip, p.rank_position, COALESCE(u.signature_url, p.signature_url) as signature_url
+      `SELECT COALESCE(p.full_name, u.name) as name, p.nip, p.rank_position,
+              COALESCE(u.signature_url, p.signature_url) as signature_url
        FROM users u
        LEFT JOIN personnel p ON p.user_id = u.id
        WHERE u.role IN ('dept_head', 'admin')
@@ -101,7 +119,6 @@ export const getShiftReportPdf = async (req, res) => {
       [shiftDate, shiftNumber, teamGroup]
     );
 
-
     // Ambil ploting personel & absensi
     let deployments = [];
     let absents = [];
@@ -120,13 +137,15 @@ export const getShiftReportPdf = async (req, res) => {
     }
 
     // Ambil juga personel dari regu ini yang tercatat cuti/izin pada tanggal ini
+    // Query langsung ke seluruh record absent pada shift_date ini untuk regu terkait
+    // bahkan jika shift posko spesifik belum dibuka
     const [teamAbsents] = await pool.query(
       `SELECT pd.*, p.full_name, p.nip, p.rank_position, pd.absent_reason, pd.notes
        FROM personnel_deployments pd
        JOIN personnel p ON p.id = pd.personnel_id
        JOIN personnel_shifts ps ON ps.id = pd.shift_id
-       WHERE ps.shift_date = ? AND p.team_group = ? AND pd.deployment_type = 'absent'`,
-      [shiftDate, teamGroup]
+       WHERE ps.shift_date = ? AND (p.team_group = ? OR ps.team_group = ?) AND pd.deployment_type = 'absent'`,
+      [shiftDate, teamGroup, teamGroup]
     );
 
     const absentMap = new Map();

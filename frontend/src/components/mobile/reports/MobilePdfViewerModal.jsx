@@ -45,9 +45,16 @@ export default function MobilePdfViewerModal({
 
   // Buat URL endpoint PDF resmi ber-token agar aman saat dibuka di tab baru (native PDF viewer)
   const authToken = token || localStorage.getItem('arff_token') || '';
-  const pdfApiUrl = `/api/reports/pdf?date=${currentDate}&shift=${currentShiftNum}&team_group=${currentTeam}${authToken ? `&token=${authToken}` : ''}`;
+  const apiBase = import.meta.env.VITE_API_URL || '/api';
+  const cleanBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
+  const encodedToken = authToken ? encodeURIComponent(authToken) : '';
+  const pdfApiUrl = `${cleanBase}/reports/pdf?date=${currentDate}&shift=${currentShiftNum}&team_group=${currentTeam}${encodedToken ? `&token=${encodedToken}` : ''}`;
 
   const handleOpenNativePdf = () => {
+    if (!authToken) {
+      setDownloadError('Sesi autentikasi tidak ditemukan. Harap masuk kembali.');
+      return;
+    }
     // Buka di tab baru (native PDF viewer smartphone)
     window.open(pdfApiUrl, '_blank');
   };
