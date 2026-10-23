@@ -126,8 +126,9 @@ export default function HalamanPengumuman() {
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.type !== 'application/pdf') {
-        setFormError('Berkas harus berupa dokumen format PDF.');
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      if (!isPdf) {
+        setFormError('Berkas harus berupa dokumen format PDF (.pdf).');
         setPdfFile(null);
         return;
       }
@@ -207,13 +208,15 @@ export default function HalamanPengumuman() {
   const getPdfUrl = (filePath, id) => {
     if (!filePath) return '';
     if (filePath.startsWith('http://') || filePath.startsWith('https://')) return filePath;
+    const token = localStorage.getItem('arff_token') || '';
+    const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : '';
     if (id) {
       const baseApi = import.meta.env.VITE_API_URL || '/api';
-      return `${baseApi}/announcements/${id}/attachment`;
+      return `${baseApi}/announcements/${id}/attachment${tokenQuery}`;
     }
     const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
     const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') : '';
-    return `${baseUrl}${cleanPath}`;
+    return `${baseUrl}${cleanPath}${tokenQuery}`;
   };
 
   return (

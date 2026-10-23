@@ -181,10 +181,10 @@ export default function VehicleReadinessModal({
 
         {/* General notes */}
         <TextareaField
-          label="Catatan Tambahan Pemeriksaan (Opsional)"
+          label="Catatan Tambahan Kondisi Kendaraan (Opsional)"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Catatan level bahan bakar, tekanan pompa, kelengkapan APD di kabin, dll..."
+          placeholder="Catatan kondisi fisik kendaraan, kelengkapan peralatan kabin, dll..."
           rows={2}
         />
 

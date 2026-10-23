@@ -14,7 +14,7 @@ import MobileLeaveModal from '../../components/mobile/dashboard/MobileLeaveModal
 import { RefreshCw, AlertTriangle, FileText, Download, ExternalLink, X, ShieldAlert } from 'lucide-react';
 
 export default function MobileDashboard({ onNavigateToAnnouncements }) {
-  const { user, activeDate, activeShiftNumber, activeTeam } = useAuth();
+  const { user, token, activeDate, activeShiftNumber, activeTeam } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -383,7 +383,7 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
                   href={
                     previewPdfDoc.file_path.startsWith('http')
                       ? previewPdfDoc.file_path
-                      : `${import.meta.env.VITE_API_URL || '/api'}/announcements/${previewPdfDoc.id}/attachment`
+                      : `${import.meta.env.VITE_API_URL || '/api'}/announcements/${previewPdfDoc.id}/attachment?token=${encodeURIComponent(token || localStorage.getItem('arff_token') || '')}`
                   }
                   target="_blank"
                   rel="noopener noreferrer"

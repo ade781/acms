@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, FileText, ChevronLeft, ChevronRight, AlertCircle, ExternalLink } from 'lucide-react';
+import { X, FileText, ChevronLeft, ChevronRight, AlertCircle, ExternalLink, Download } from 'lucide-react';
 import api from '../../../services/api';
 
 const ITEMS_PER_PAGE = 10;
@@ -24,6 +24,7 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [previewDoc, setPreviewDoc] = useState(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -60,12 +61,7 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
   const paginatedItems = announcements.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   const handleOpenDoc = (item) => {
-    if (item.file_path) {
-      const url = item.file_path.startsWith('http') || item.file_path.startsWith('/')
-        ? item.file_path
-        : `/${item.file_path}`;
-      window.open(url, '_blank', 'noopener,noreferrer');
-    }
+    setPreviewDoc(item);
   };
 
   return (
@@ -182,6 +178,93 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
           </div>
         )}
       </div>
+
+      {/* Sub-modal Pratinjau Lembar Edaran In-App */}
+      {previewDoc && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 p-3.5 space-y-2.5 shadow-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+              <div className="flex items-center gap-1.5 truncate">
+                <FileText className="w-4 h-4 text-red-600 shrink-0" />
+                <div className="truncate">
+                  <h4 className="text-xs font-bold text-slate-900 truncate">
+                    {previewDoc.title}
+                  </h4>
+                  <p className="text-[9px] text-slate-500 font-mono">
+                    {previewDoc.circular_number || 'EDARAN-ARFF'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewDoc(null)}
+                className="text-slate-400 hover:text-slate-700 text-sm font-bold p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* In-app Document Sheet Preview */}
+            <div className="overflow-y-auto border border-slate-200 rounded-lg bg-slate-50 p-3 text-xs space-y-2">
+              <div className="text-center border-b border-slate-300 pb-1.5">
+                <p className="text-[10px] font-black uppercase text-slate-900">
+                  PT ANGKASA PURA INDONESIA
+                </p>
+                <p className="text-[8.5px] font-bold text-slate-700">
+                  AIRPORT RESCUE & FIRE FIGHTING (ARFF) - YIA
+                </p>
+                <p className="text-[8px] font-mono text-slate-500 mt-0.5">
+                  Ref: {previewDoc.circular_number || 'ARFF/EDARAN/2026'}
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <h5 className="font-bold text-slate-900 text-xs">
+                  {previewDoc.title}
+                </h5>
+                <p className="text-[10px] text-slate-700 whitespace-pre-wrap leading-relaxed">
+                  {previewDoc.description || 'Surat edaran resmi dinas operasional ARFF Bandara Internasional Yogyakarta.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Aksi Unduh / Buka Dokumen */}
+            <div className="grid grid-cols-2 gap-1.5">
+              {previewDoc.file_path ? (
+                <a
+                  href={
+                    previewDoc.file_path.startsWith('http')
+                      ? previewDoc.file_path
+                      : `${import.meta.env.VITE_API_URL || '/api'}/announcements/${previewDoc.id}/attachment?token=${encodeURIComponent(localStorage.getItem('arff_token') || '')}`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] flex items-center justify-center gap-1 transition-colors duration-100"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  <span>Buka Berkas</span>
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-[10px] flex items-center justify-center gap-1 transition-colors duration-100"
+                >
+                  <Download className="w-3 h-3" />
+                  <span>Cetak / Simpan</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setPreviewDoc(null)}
+                className="py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-[10px] transition-colors duration-100"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -104,6 +104,13 @@ export const createAnnouncement = async (req, res) => {
       published_date: pubDate
     });
   } catch (err) {
+    if (req.file?.path && fs.existsSync(req.file.path)) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (e) {
+        console.warn('Gagal membersihkan orphan file:', e.message);
+      }
+    }
     console.error('Error createAnnouncement:', err);
     return errorResponse(res, 'Gagal membuat pengumuman', 500);
   }
@@ -122,6 +129,8 @@ export const deleteAnnouncement = async (req, res) => {
       return errorResponse(res, 'Pengumuman tidak ditemukan', 404);
     }
 
+    await pool.query(`DELETE FROM announcements WHERE id = ?`, [id]);
+
     const filePath = rows[0].file_path;
     if (filePath) {
       const fullPath = path.resolve(__dirname, '../../', filePath.replace(/^\//, ''));
@@ -134,7 +143,6 @@ export const deleteAnnouncement = async (req, res) => {
       }
     }
 
-    await pool.query(`DELETE FROM announcements WHERE id = ?`, [id]);
     return successResponse(res, 'Pengumuman berhasil dihapus');
   } catch (err) {
     console.error('Error deleteAnnouncement:', err);
@@ -159,7 +167,17 @@ export const getAnnouncementAttachment = async (req, res) => {
     }
 
     const downloadName = rows[0].file_name || cleanFileName;
-    res.setHeader('Content-Type', 'application/pdf');
+    const ext = path.extname(cleanFileName).toLowerCase();
+    const mimeTypes = {
+      '.pdf': 'application/pdf',
+      '.webp': 'image/webp',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg'
+    };
+    const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+    res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `inline; filename="${downloadName}"`);
 
     return res.sendFile(filePath);

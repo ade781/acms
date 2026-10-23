@@ -327,6 +327,39 @@ export const getWatchroomReadiness = async (req, res) => {
     );
 
     if (rows.length === 0) {
+      // Carry-over kendala: jika belum dilaporkan, cek apakah shift sebelumnya unserviceable
+      const [prevLogs] = await pool.query(
+        `SELECT vrl.*, v.code_name, v.vehicle_name, p.full_name as inspector_name
+         FROM vehicle_readiness_logs vrl
+         JOIN vehicles v ON v.id = vrl.vehicle_id
+         LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
+         WHERE (v.category = 'posko' OR v.code_name = 'WATCHROOM')
+           AND (vrl.shift_date < ? OR (vrl.shift_date = ? AND vrl.shift_number < ?))
+           AND vrl.status = 'unserviceable'
+           AND vrl.follow_up_status != 'resolved'
+         ORDER BY vrl.shift_date DESC, vrl.shift_number DESC
+         LIMIT 1`,
+        [shiftDate, shiftDate, shiftNumber]
+      );
+
+      if (prevLogs.length > 0) {
+        const prev = prevLogs[0];
+        return successResponse(res, 'Data kesiapan watchroom (carry-over kendala)', {
+          ...prev,
+          shift_date: shiftDate,
+          shift_number: shiftNumber,
+          team_group: targetTeam,
+          status: 'unserviceable',
+          is_carried_over: true,
+          carried_from: {
+            shift_date: prev.shift_date,
+            shift_number: prev.shift_number,
+            team_group: prev.team_group,
+            reported_by: prev.inspector_name
+          }
+        });
+      }
+
       return successResponse(res, 'Kesiapan watchroom belum dilaporkan pada shift ini', {
         shift_date: shiftDate,
         shift_number: shiftNumber,
@@ -379,6 +412,9 @@ export const submitWatchroomReadiness = async (req, res) => {
       wrId = newWr.insertId;
     }
 
+    const followUpStatus = status === 'unserviceable' ? 'pending' : 'resolved';
+    const resolvedAt = status === 'serviceable' ? new Date() : null;
+
     const [existing] = await pool.query(
       `SELECT id FROM vehicle_readiness_logs
        WHERE vehicle_id = ? AND shift_date = ? AND shift_number = ? AND team_group = ?`,
@@ -390,16 +426,29 @@ export const submitWatchroomReadiness = async (req, res) => {
         `UPDATE vehicle_readiness_logs SET
           status = ?,
           pic_personnel_id = COALESCE(?, pic_personnel_id),
-          notes = ?
+          notes = ?,
+          follow_up_status = ?,
+          resolved_at = ?
          WHERE id = ?`,
-        [status, inspectorPersonnelId, notes || null, existing[0].id]
+        [status, inspectorPersonnelId, notes || null, followUpStatus, resolvedAt, existing[0].id]
       );
     } else {
       await pool.query(
         `INSERT INTO vehicle_readiness_logs (
-          vehicle_id, shift_date, shift_number, team_group, status, pic_personnel_id, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [wrId, shift_date, shift_number, targetTeam, status, inspectorPersonnelId, notes || null]
+          vehicle_id, shift_date, shift_number, team_group, status, pic_personnel_id, notes, follow_up_status, resolved_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [wrId, shift_date, shift_number, targetTeam, status, inspectorPersonnelId, notes || null, followUpStatus, resolvedAt]
+      );
+    }
+
+    // Jika watchroom dinyatakan serviceable, tandai backlog unserviceable sebelumnya sebagai resolved
+    if (status === 'serviceable') {
+      await pool.query(
+        `UPDATE vehicle_readiness_logs SET
+           follow_up_status = 'resolved',
+           resolved_at = CURRENT_TIMESTAMP
+         WHERE vehicle_id = ? AND status = 'unserviceable' AND follow_up_status != 'resolved'`,
+        [wrId]
       );
     }
 
