@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertCircle, Camera, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, Camera, CheckCircle2, X } from 'lucide-react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import InputField from '../common/InputField';
@@ -38,34 +38,63 @@ export default function IncidentModal({
   const [location, setLocation] = useState('');
   const [priorityLevel, setPriorityLevel] = useState('sedang');
   const [aircraftInfo, setAircraftInfo] = useState('');
+  const [sourceInfo, setSourceInfo] = useState('');
+  const [coordinatedParties, setCoordinatedParties] = useState('');
   const [chronology, setChronology] = useState('');
   const [actionTaken, setActionTaken] = useState('');
   const [lastCondition, setLastCondition] = useState('');
-  const [photoFile, setPhotoFile] = useState(null);
-  const [photoPreview, setPhotoPreview] = useState(null);
+  const [photoFiles, setPhotoFiles] = useState([]);
+  const [photoPreviews, setPhotoPreviews] = useState([]);
   const [compressing, setCompressing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
   const handlePhotoSelect = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const remainingSlots = 5 - photoFiles.length;
+    if (remainingSlots <= 0) {
+      setError('Maksimal 5 foto bukti dokumentasi kejadian.');
+      return;
+    }
+
+    const validFiles = files.slice(0, remainingSlots).filter((f) => f.type.startsWith('image/'));
+    if (validFiles.length === 0) {
+      setError('Harap pilih berkas gambar yang sah (JPEG, PNG, WebP).');
+      return;
+    }
 
     setError(null);
     setCompressing(true);
     try {
-      const compressedWebP = await compressImageToWebP(file, {
-        maxWidth: 1280,
-        maxHeight: 1280,
-        quality: 0.8,
-      });
-      setPhotoFile(compressedWebP);
-      setPhotoPreview(URL.createObjectURL(compressedWebP));
+      const newFiles = [];
+      const newPreviews = [];
+      for (const file of validFiles) {
+        const compressedWebP = await compressImageToWebP(file, {
+          maxWidth: 1280,
+          maxHeight: 1280,
+          quality: 0.8,
+        });
+        newFiles.push(compressedWebP);
+        newPreviews.push({
+          name: file.name,
+          url: URL.createObjectURL(compressedWebP),
+          size: Math.round(compressedWebP.size / 1024),
+        });
+      }
+      setPhotoFiles((prev) => [...prev, ...newFiles]);
+      setPhotoPreviews((prev) => [...prev, ...newPreviews]);
     } catch (err) {
       setError(`Gagal mengompres gambar insiden: ${err.message}`);
     } finally {
       setCompressing(false);
     }
+  };
+
+  const handleRemovePhoto = (index) => {
+    setPhotoFiles((prev) => prev.filter((_, i) => i !== index));
+    setPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e) => {
@@ -105,10 +134,12 @@ export default function IncidentModal({
       formData.append('action_taken', actionTaken);
       formData.append('last_condition', lastCondition);
 
-      if (photoFile) {
-        formData.append('photos', photoFile);
-        formData.append('attachment', photoFile);
-      }
+      if (sourceInfo.trim()) formData.append('source_info', sourceInfo.trim());
+      if (coordinatedParties.trim()) formData.append('coordinated_parties', coordinatedParties.trim());
+
+      photoFiles.forEach((file) => {
+        formData.append('photos', file);
+      });
 
       await api.post('/incidents', formData, {
         headers: {
@@ -217,6 +248,21 @@ export default function IncidentModal({
           />
         </div>
 
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <InputField
+            label="Asal Informasi Kejadian (Opsional)"
+            value={sourceInfo}
+            onChange={(e) => setSourceInfo(e.target.value)}
+            placeholder="Contoh: Tower ATC (121.9 MHz) / AMC / Ground Handling"
+          />
+          <InputField
+            label="Pihak yang Dikoordinasikan (Opsional)"
+            value={coordinatedParties}
+            onChange={(e) => setCoordinatedParties(e.target.value)}
+            placeholder="Contoh: Avsec, AMC, KKP, Polsek Bandara"
+          />
+        </div>
+
         <InputField
           label="Informasi Pesawat / Tipe Armada Terkait (Opsional)"
           value={aircraftInfo}
@@ -249,40 +295,63 @@ export default function IncidentModal({
           rows={2}
         />
 
-        {/* Photo Upload with Client-Side WebP Compression */}
+        {/* Photo Upload with Client-Side WebP Compression (Max 5 photos) */}
         <div className="space-y-2">
-          <label className="text-xs font-semibold text-slate-700 block">
-            Dokumentasi Foto TKP (Otomatis Kompresi WebP di Klien)
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-slate-700 block">
+              Dokumentasi Foto TKP (Kompresi WebP Otomatis, Maks. 5 Foto)
+            </label>
+            <span className="text-[11px] text-slate-500 font-medium">
+              {photoFiles.length} / 5 Foto Terpilih
+            </span>
+          </div>
 
           <div className="flex items-center gap-4">
             <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-colors duration-100 min-h-[44px]">
               <Camera className="w-4 h-4 text-slate-500" />
-              <span>{compressing ? 'Mengompres WebP...' : 'Pilih Foto TKP'}</span>
+              <span>{compressing ? 'Mengompres WebP...' : (photoFiles.length > 0 ? 'Tambah Foto TKP' : 'Pilih Foto TKP')}</span>
               <input
                 type="file"
                 accept="image/*"
+                multiple
                 onChange={handlePhotoSelect}
-                disabled={compressing || submitting}
+                disabled={compressing || submitting || photoFiles.length >= 5}
                 className="hidden"
               />
             </label>
 
-            {photoFile && (
+            {photoFiles.length > 0 && (
               <span className="text-xs text-emerald-700 font-medium flex items-center gap-1">
                 <CheckCircle2 className="w-4 h-4" />
-                Format WebP ({Math.round(photoFile.size / 1024)} KB)
+                Siap Diunggah ({photoFiles.length} file WebP)
               </span>
             )}
           </div>
 
-          {photoPreview && (
-            <div className="mt-2 relative w-full h-44 rounded-lg overflow-hidden border border-slate-200 bg-slate-100">
-              <img
-                src={photoPreview}
-                alt="Preview Foto Insiden"
-                className="w-full h-full object-cover"
-              />
+          {photoPreviews.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mt-2">
+              {photoPreviews.map((p, idx) => (
+                <div key={idx} className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-100 aspect-video group">
+                  <img
+                    src={p.url}
+                    alt={p.name || `Foto ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity duration-100 flex items-center justify-center">
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePhoto(idx)}
+                      className="p-1 rounded-full bg-red-600 text-white hover:bg-red-700"
+                      title="Hapus foto ini"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/60 text-[9px] text-white font-mono">
+                    {p.size} KB
+                  </span>
+                </div>
+              ))}
             </div>
           )}
         </div>

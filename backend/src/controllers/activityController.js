@@ -152,7 +152,18 @@ export const updateActivity = async (req, res) => {
         }
       }
     } else if (attachment_url !== undefined) {
-      finalAttachmentUrl = attachment_url || null;
+      finalAttachmentUrl = attachment_url ? attachment_url : null;
+      // Jika foto lama dikosongkan/dihapus, hapus file lama dari disk
+      if (!finalAttachmentUrl && currentActivity.attachment_url) {
+        const oldFile = path.resolve(uploadsDir, path.basename(currentActivity.attachment_url));
+        if (fs.existsSync(oldFile)) {
+          try {
+            await fs.promises.unlink(oldFile);
+          } catch (e) {
+            console.warn('Gagal menghapus file lama aktivitas saat dikosongkan:', e.message);
+          }
+        }
+      }
     }
 
     await pool.query(

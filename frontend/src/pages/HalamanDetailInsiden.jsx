@@ -3,19 +3,29 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, AlertTriangle, Calendar, Clock, MapPin, Plane, CheckCircle2, Shield, Check, X, AlertCircle } from 'lucide-react';
 import api from '../services/api';
 import { cleanTeam, formatTeam } from '../utils/shiftHelper';
+import { useAuth } from '../context/AuthContext';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
+import Modal from '../components/common/Modal';
+import TextareaField from '../components/common/TextareaField';
 
 export default function HalamanDetailInsiden() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user, isChief, isAdmin, isSupervisor } = useAuth();
+  const canManage = isChief || isAdmin || isSupervisor || ['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor'].includes(user?.role);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [incident, setIncident] = useState(null);
   const [updating, setUpdating] = useState(false);
   const [toastMsg, setToastMsg] = useState(null);
+
+  // Modal Penutupan / Selesai Insiden
+  const [resolveModalOpen, setResolveModalOpen] = useState(false);
+  const [finalActionTaken, setFinalActionTaken] = useState('');
+  const [finalLastCondition, setFinalLastCondition] = useState('');
 
   const fetchDetail = useCallback(async () => {
     setLoading(true);
@@ -35,13 +45,29 @@ export default function HalamanDetailInsiden() {
     fetchDetail();
   }, [fetchDetail]);
 
-  const handleUpdateStatus = async (newStatus) => {
+  const handleOpenResolveModal = () => {
+    setFinalActionTaken(incident?.action_taken || '');
+    setFinalLastCondition(incident?.last_condition || 'Area telah dinyatakan aman terkendali.');
+    setResolveModalOpen(true);
+  };
+
+  const handleConfirmResolve = async () => {
     setUpdating(true);
     setToastMsg(null);
     try {
-      await api.put(`/incidents/${id}/status`, { status: newStatus });
-      setIncident((prev) => ({ ...prev, status: newStatus }));
-      setToastMsg({ type: 'success', text: `Status insiden berhasil diperbarui menjadi "${newStatus === 'selesai' ? 'Selesai' : newStatus}".` });
+      await api.put(`/incidents/${id}/status`, {
+        status: 'selesai',
+        action_taken: finalActionTaken.trim() || undefined,
+        last_condition: finalLastCondition.trim() || undefined,
+      });
+      setIncident((prev) => ({
+        ...prev,
+        status: 'selesai',
+        action_taken: finalActionTaken.trim() || prev?.action_taken,
+        last_condition: finalLastCondition.trim() || prev?.last_condition,
+      }));
+      setResolveModalOpen(false);
+      setToastMsg({ type: 'success', text: '✓ Status insiden berhasil diperbarui menjadi Selesai.' });
     } catch (err) {
       setToastMsg({ type: 'error', text: `Gagal memperbarui status: ${err.response?.data?.message || err.message}` });
     } finally {
@@ -95,13 +121,13 @@ export default function HalamanDetailInsiden() {
           Kembali ke Daftar Insiden
         </Button>
 
-        {incident && incident.status !== 'selesai' && (
+        {canManage && incident && incident.status !== 'selesai' && (
           <Button
             variant="success"
             size="sm"
             icon={CheckCircle2}
             loading={updating}
-            onClick={() => handleUpdateStatus('selesai')}
+            onClick={handleOpenResolveModal}
           >
             Tandai Selesai Ditangani
           </Button>
@@ -172,6 +198,24 @@ export default function HalamanDetailInsiden() {
                   </div>
                 </div>
               </div>
+
+              {/* Info Asal Informasi & Koordinasi Terkait (Jika Ada) */}
+              {(incident.source_info || incident.coordinated_parties) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-100 text-xs">
+                  <div>
+                    <span className="text-slate-500 block mb-0.5">Asal Informasi (ATC / Sisi Udara)</span>
+                    <div className="font-semibold text-slate-800">
+                      {incident.source_info || '-'}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block mb-0.5">Pihak yang Dikoordinasikan</span>
+                    <div className="font-semibold text-slate-800">
+                      {incident.coordinated_parties || '-'}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Narrative & Chronology Card */}
@@ -226,6 +270,58 @@ export default function HalamanDetailInsiden() {
           </div>
         )}
       </StateView>
+
+      {/* Modal Konfirmasi Selesai Insiden */}
+      {resolveModalOpen && (
+        <Modal
+          isOpen={resolveModalOpen}
+          onClose={() => setResolveModalOpen(false)}
+          title="Konfirmasi Penutupan Laporan Insiden"
+          subtitle={`Nomor Laporan: ${incident?.report_number || `INC-${incident?.id}`}`}
+          footer={
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setResolveModalOpen(false)}
+                disabled={updating}
+              >
+                Batal
+              </Button>
+              <Button
+                variant="success"
+                onClick={handleConfirmResolve}
+                loading={updating}
+              >
+                Konfirmasi Selesai Ditangani
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <p className="text-xs text-slate-600">
+              Pastikan seluruh aksi penanggulangan darurat telah tuntas dan area kejadian telah dinyatakan aman (All Clear). Lengkapi catatan penanganan akhir berikut:
+            </p>
+
+            <TextareaField
+              label="Tindakan Akhir Penanganan Operasional (Firefighting & Rescue)"
+              value={finalActionTaken}
+              onChange={(e) => setFinalActionTaken(e.target.value)}
+              placeholder="Jelaskan tindakan pemadaman akhir, evakuasi korban, proteksi bahan bakar..."
+              rows={3}
+              required
+            />
+
+            <TextareaField
+              label="Kondisi Terakhir TKP / Runway / Apron"
+              value={finalLastCondition}
+              onChange={(e) => setFinalLastCondition(e.target.value)}
+              placeholder="Contoh: Area telah dibersihkan dari FOD/ceceran bahan bakar, operasi penerbangan normal kembali."
+              rows={2}
+              required
+            />
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

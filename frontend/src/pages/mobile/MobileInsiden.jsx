@@ -18,18 +18,20 @@ export default function MobileInsiden() {
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [filterPriority, setFilterPriority] = useState('ALL');
+  const [filterScope, setFilterScope] = useState('shift'); // 'shift' | 'all'
 
   const fetchIncidents = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get('/incidents', {
-        params: {
-          date: activeDate,
-          shift: activeShiftNumber,
-          team_group: cleanTeam(activeTeam),
-        },
-      });
+      const params = filterScope === 'shift'
+        ? {
+            date: activeDate,
+            shift: activeShiftNumber,
+            team_group: cleanTeam(activeTeam),
+          }
+        : {};
+      const res = await api.get('/incidents', { params });
       const list = Array.isArray(res.data?.incidents)
         ? res.data.incidents
         : Array.isArray(res.data)
@@ -42,7 +44,7 @@ export default function MobileInsiden() {
     } finally {
       setLoading(false);
     }
-  }, [activeDate, activeShiftNumber, activeTeam]);
+  }, [filterScope, activeDate, activeShiftNumber, activeTeam]);
 
   useEffect(() => {
     fetchIncidents();
@@ -112,6 +114,32 @@ export default function MobileInsiden() {
         </div>
       </div>
 
+      {/* Toggle Filter Scope: Shift Ini vs Semua Riwayat */}
+      <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-100 text-[10px] font-semibold">
+        <button
+          type="button"
+          onClick={() => setFilterScope('shift')}
+          className={`flex-1 py-1 rounded-md text-center transition-colors duration-100 ${
+            filterScope === 'shift'
+              ? 'bg-white text-slate-900 shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          Shift Ini ({activeTeam})
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilterScope('all')}
+          className={`flex-1 py-1 rounded-md text-center transition-colors duration-100 ${
+            filterScope === 'all'
+              ? 'bg-white text-slate-900 shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          Semua Riwayat
+        </button>
+      </div>
+
       {/* Ringkasan Situasi Insiden Card */}
       <div className="grid grid-cols-3 gap-1.5 text-xs">
         <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-xs space-y-0.5">
@@ -119,7 +147,9 @@ export default function MobileInsiden() {
           <span className="text-base font-black text-slate-900 block leading-tight">
             {totalIncidents}
           </span>
-          <span className="text-[8.5px] text-slate-500 font-medium block">Shift Ini</span>
+          <span className="text-[8.5px] text-slate-500 font-medium block">
+            {filterScope === 'shift' ? 'Shift Ini' : 'Semua'}
+          </span>
         </div>
 
         <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-xs space-y-0.5">

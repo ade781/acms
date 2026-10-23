@@ -26,6 +26,7 @@ import InputField from '../components/common/InputField';
 import SelectField from '../components/common/SelectField';
 import TextareaField from '../components/common/TextareaField';
 import Badge from '../components/common/Badge';
+import { compressImageToWebP } from '../utils/imageCompressor';
 
 export const OFFICIAL_ACTIVITY_CATEGORIES = [
   { value: 'serah_terima', label: 'Serah Terima Shift (Handover)' },
@@ -63,6 +64,8 @@ export default function HalamanKegiatan() {
   const [resultNotes, setResultNotes] = useState('');
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [photoRemoved, setPhotoRemoved] = useState(false);
+  const [compressing, setCompressing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
 
@@ -108,6 +111,7 @@ export default function HalamanKegiatan() {
     setResultNotes('');
     setPhotoFile(null);
     setPhotoPreview(null);
+    setPhotoRemoved(false);
     setFormError(null);
     setModalOpen(true);
   };
@@ -121,20 +125,34 @@ export default function HalamanKegiatan() {
     setResultNotes(act.result_notes || '');
     setPhotoFile(null);
     setPhotoPreview(act.attachment_url || null);
+    setPhotoRemoved(false);
     setFormError(null);
     setModalOpen(true);
   };
 
-  const handlePhotoSelect = (e) => {
+  const handlePhotoSelect = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
         setFormError('Berkas harus berupa gambar (JPEG, PNG, WebP).');
         return;
       }
-      setPhotoFile(file);
-      setPhotoPreview(URL.createObjectURL(file));
       setFormError(null);
+      setCompressing(true);
+      try {
+        const compressedWebP = await compressImageToWebP(file, {
+          maxWidth: 1280,
+          maxHeight: 1280,
+          quality: 0.8,
+        });
+        setPhotoFile(compressedWebP);
+        setPhotoPreview(URL.createObjectURL(compressedWebP));
+        setPhotoRemoved(false);
+      } catch (err) {
+        setFormError(`Gagal memproses gambar: ${err.message}`);
+      } finally {
+        setCompressing(false);
+      }
     }
   };
 
@@ -162,6 +180,8 @@ export default function HalamanKegiatan() {
       }
       if (photoFile) {
         formData.append('photo', photoFile);
+      } else if (editingId && photoRemoved) {
+        formData.append('attachment_url', '');
       }
 
       if (editingId) {
@@ -456,10 +476,10 @@ export default function HalamanKegiatan() {
           subtitle={`Shift ${activeShiftNumber} | ${formatTeam(activeTeam)} | ${activeDate}`}
           footer={
             <>
-              <Button variant="outline" onClick={() => setModalOpen(false)} disabled={submitting}>
+              <Button variant="outline" onClick={() => setModalOpen(false)} disabled={submitting || compressing}>
                 Batal
               </Button>
-              <Button variant="primary" onClick={handleSaveActivity} loading={submitting}>
+              <Button variant="primary" onClick={handleSaveActivity} loading={submitting || compressing}>
                 {editingId ? 'Simpan Perubahan' : 'Simpan Logbook'}
               </Button>
             </>
@@ -540,6 +560,7 @@ export default function HalamanKegiatan() {
                     onClick={() => {
                       setPhotoFile(null);
                       setPhotoPreview(null);
+                      setPhotoRemoved(true);
                     }}
                     className="text-xs text-red-600 hover:text-red-800 font-semibold flex items-center gap-1"
                   >

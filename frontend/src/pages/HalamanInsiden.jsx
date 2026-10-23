@@ -12,7 +12,8 @@ import IncidentModal from '../components/forms/IncidentModal';
 
 export default function HalamanInsiden() {
   const navigate = useNavigate();
-  const { activeDate, activeShiftNumber, activeTeam } = useAuth();
+  const { activeDate, activeShiftNumber, activeTeam, user, isChief, isAdmin, isSupervisor } = useAuth();
+  const canReport = isChief || isAdmin || isSupervisor || ['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor'].includes(user?.role);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -20,6 +21,7 @@ export default function HalamanInsiden() {
   const [modalOpen, setModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMsg, setToastMsg] = useState(null);
+  const [filterScope, setFilterScope] = useState('shift'); // 'shift' | 'all'
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -29,7 +31,10 @@ export default function HalamanInsiden() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get('/incidents');
+      const params = filterScope === 'shift'
+        ? { date: activeDate, shift: activeShiftNumber, team_group: cleanTeam(activeTeam) }
+        : {};
+      const res = await api.get('/incidents', { params });
       const list = Array.isArray(res.data?.incidents) ? res.data.incidents : (Array.isArray(res.data) ? res.data : []);
       setIncidents(list);
     } catch (err) {
@@ -38,7 +43,7 @@ export default function HalamanInsiden() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filterScope, activeDate, activeShiftNumber, activeTeam]);
 
   useEffect(() => {
     fetchIncidents();
@@ -74,13 +79,15 @@ export default function HalamanInsiden() {
           </h2>
         </div>
 
-        <Button
-          variant="danger"
-          icon={Plus}
-          onClick={() => setModalOpen(true)}
-        >
-          Tambah Insiden
-        </Button>
+        {canReport && (
+          <Button
+            variant="danger"
+            icon={Plus}
+            onClick={() => setModalOpen(true)}
+          >
+            Tambah Insiden
+          </Button>
+        )}
       </div>
 
       {/* Toast Feedback */}
@@ -101,8 +108,41 @@ export default function HalamanInsiden() {
         </div>
       )}
 
-      {/* Search Bar */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-6">
+      {/* Filter Scope & Search Bar */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-6 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-100 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => {
+                setFilterScope('shift');
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-1.5 rounded-md transition-colors duration-100 ${
+                filterScope === 'shift'
+                  ? 'bg-white text-slate-900 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Shift Berjalan (#{activeShiftNumber} - {formatTeam(activeTeam)})
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFilterScope('all');
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-1.5 rounded-md transition-colors duration-100 ${
+                filterScope === 'all'
+                  ? 'bg-white text-slate-900 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Semua Riwayat
+            </button>
+          </div>
+        </div>
+
         <InputField
           id="searchIncident"
           placeholder="Cari nomor laporan (contoh: INC-0001), judul, atau lokasi kejadian..."
@@ -122,9 +162,11 @@ export default function HalamanInsiden() {
         emptyTitle="Belum Ada Laporan Insiden"
         emptyDescription="Seluruh pergerakan dan situasi operasional bandara berada dalam kondisi aman terkendali."
         emptyAction={
-          <Button variant="danger" size="sm" onClick={() => setModalOpen(true)}>
-            Catat Laporan Kejadian
-          </Button>
+          canReport ? (
+            <Button variant="danger" size="sm" onClick={() => setModalOpen(true)}>
+              Catat Laporan Kejadian
+            </Button>
+          ) : null
         }
         onRetry={fetchIncidents}
       >
