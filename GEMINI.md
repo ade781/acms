@@ -47,6 +47,24 @@
 12. **Katalog Personel Fokus pada 4 Regu Dinas**:
     - Katalog data personel operasional (baik di desktop maupun mobile) sengaja difokuskan 100% pada 4 regu dinas operasional (Alpha, Bravo, Charlie, Delta).
     - Tidak perlu menambahkan tab, filter, atau kartu khusus untuk personel non-shift atau Dept. Head di dalam katalog regu operasional.
+13. **Halaman Dashboard Dikosongkan (Status Coming Soon)**:
+    - Halaman dashboard (`frontend/src/pages/HalamanDashboard.jsx`) dikosongkan dan HANYA menampilkan tulisan 'Coming Soon'.
+    - DILARANG KERAS mengubah, mengisi kembali, atau menambahkan widget/komponen pada halaman dashboard kecuali ada instruksi eksplisit dari pengguna.
+14. **Konsistensi Laporan Mobile vs Desktop & Larangan Duplikasi Fungsi Mirip (Single Source of Truth / DRY)**:
+    - Dilarang membuat 2 fungsi/logika terpisah untuk hal yang tujuannya sama antara desktop dan mobile (seperti penarikan data laporan atau generator dokumen).
+    - Seluruh fungsi bisnis yang serupa wajib disatukan ke dalam satu modul helper/service terpadu agar hemat kode, mudah dirawat, dan menjamin konsistensi output data.
+15. **Logika Hak Kelola Cuti (Pemisahan Pengajuan Mandiri vs Kelola Admin)**:
+    - Pengajuan cuti adalah hak prerogatif personel (*self-service*).
+    - Admin DILARANG memiliki tombol untuk mengajukan cuti anggotanya ("Tambah Cuti Shift Ini" di admin dinilai tidak logis).
+    - Peran Admin pada modul cuti murni sebagai pengawas & pengelola: **Read (Melihat daftar cuti), Edit (Menyesuaikan status), dan Delete / Batal (Membatalkan/Menghapus)**.
+16. **Autentikasi Pengunduhan / Pratinjau Berkas Lampiran**:
+    - Seluruh endpoint file/attachment di backend wajib mendukung autentikasi fleksibel: baik melalui header `Authorization: Bearer <token>` maupun fallback query parameter `?token=...` agar pembukaan berkas via tab baru/link browser tidak menghasilkan error HTTP 401 Unauthorized.
+17. **Default Status Kelaikan Kendaraan Tetap Serviceable**:
+    - Default status kesiapan kendaraan operasional pada shift berjalan MEMANG berstatus `serviceable` (siap operasi penuh).
+    - Status hanya berubah jika ada carry-over kerusakan (*unserviceable*) dari shift sebelumnya yang belum terselesaikan, atau PIC armada secara sadar mengubahnya menjadi `unserviceable` disertai catatan kendala.
+18. **Input Struktural Pejabat Department Head (Bukan Memilih dari Regu Operasional)**:
+    - Jabatan Department Head (Dept. Head) adalah pimpinan struktural unit di atas 4 regu dinas operasional.
+    - Data Department Head wajib DIINPUT mandiri (Nama Lengkap, NIP, Jabatan, dan Tanda Tangan), BUKAN dipilih dari daftar anggota regu operasional.
 
 ## Aturan Pengelolaan Database & Folder Kerja Khusus (`masak/`)
 - **Fungsi Folder `masak/` (Sandbox / Workroom Database & Testing):**

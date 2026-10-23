@@ -1,61 +1,30 @@
-# PANDUAN EKSEKUSI AGENT 1: FASE PERBAIKAN TOTAL (AUTH, SHELL, PERSONEL, STKP & PEJABAT)
+# TUGAS AGENT 1: EKSEKUSI PERBAIKAN AUTENTIKASI, PROFIL & PEJABAT
 
-> 🚀 **MANDAT FASE 3 (EKSEKUSI PERBAIKAN KODE & PENGUJIAN):**
-> 1. **EKSEKUSI SELURUH PERBAIKAN DI BAWAH INI** pada berkas yang menjadi tanggung jawab Anda.
-> 2. **BATAS KODE EKSKLUSIF (ZERO COLLISION)**: Hanya edit berkas domain Agent 1.
-> 3. **SEMUA PENGUJIAN DI FOLDER `masak/`**: Dilarang membuat folder `tests/` di `backend/` atau `frontend/`.
-> 4. **VALIDASI SISTEM VIA CLI**: Jalankan `node -c` dan pastikan sintaks 100% valid.
-> 5. **LAPORAN HASIL KERJA MANDIRI**: Tuliskan laporan perbaikan ke `masak/temp/hasil_agent1.md`.
+**Peran**: Spesialis Autentikasi, Shell/Layout, Master Personel, Kredensial STKP & Kelola Pejabat  
+**Status**: 🚀 **FASE EKSEKUSI PERBAIKAN TERISOLASI (FIX & VERIFY PHASE)**  
 
----
+## 1. Berkas Tanggung Jawab Eksklusif (Zero Collision)
+- `backend/src/controllers/authController.js`
+- `backend/src/controllers/personnelController.js`
+- `frontend/src/pages/HalamanKelolaPejabat.jsx`
+- `frontend/src/components/mobile/MobileLayout.jsx`
+- `frontend/src/components/mobile/reports/MobileSignaturesSection.jsx`
 
-## Daftar Pekerjaan Eksekusi Perbaikan Agent 1
+## 2. Butir Tindakan Perbaikan
+1. **Sinkronisasi Role Section Head**:
+   - Di `personnelController.js` (`replaceSectionHead`), perbarui kolom `users.role = 'section_head'` untuk pejabat baru dan kembalikan role pejabat lama ke role awalnya agar wewenang login sinkron.
+2. **Aturan Khusus Pengguna: Dept Head Diinput Mandiri**:
+   - Di `HalamanKelolaPejabat.jsx` dan `personnelController.js`, ubah alur penunjukan Dept Head menjadi **form input data mandiri** (Nama Lengkap, NIP, Jabatan, Unggah Tanda Tangan), **BUKAN memilih dari anggota regu operasional**.
+3. **Cegah Login Akun Nonaktif**:
+   - Di `authController.js` (`login`), tambahkan pengecekan kondisi status keaktifan personel (`p.is_active = 1`). Tolak login dengan pesan error jika akun telah dinonaktifkan.
+4. **Perbaikan Update Profil Mandiri**:
+   - Di `authController.js` (`updateProfile`), perbaiki query agar nilai `null` yang dikirim pengguna untuk field opsional dapat menghapus data lama (jangan gunakan `COALESCE` yang mengunci nilai lama).
+5. **Evaluasi Must Change Password di Mobile**:
+   - Di `MobileLayout.jsx`, evaluasi flag `user?.must_change_password` dan tampilkan modal wajib ganti sandi jika bernilai true.
+6. **Perbaikan Tanda Tangan 401 Unauthorized**:
+   - Di `MobileSignaturesSection.jsx`, tambahkan query token `?token=...` pada URL tanda tangan agar gambar tidak terblokir HTTP 401 saat dimuat tag `<img>`.
 
-1. **Perbaiki Mismatch ENUM `cert_level` di `MobileEditProfileModal.jsx`**:
-   - Di baris 151–153, ubah nilai `<option value="...">`:
-     * Dari `"Basic Fire Fighter"` -> ubah ke value `"Basic"` (label tetap "Basic Fire Fighter").
-     * Dari `"Junior Fire Fighter"` -> ubah ke value `"Junior"` (label tetap "Junior Fire Fighter").
-     * Dari `"Senior Fire Fighter"` -> ubah ke value `"Senior"` (label tetap "Senior Fire Fighter").
-   - Ini mencegah MySQL menolak data dengan error *Data truncated for column 'cert_level'*.
-
-2. **Hilangkan Double Redirect / Layar Berkedip di `HalamanLogin.jsx`**:
-   - Di baris 30, periksa role pengguna yang dikembalikan dari fungsi `login`.
-   - Jika role tergolong lapangan (`chief`, `chief_assistant`, `senior_firefighter`, `junior_firefighter`, `firefighter`), langsung arahkan ke `/m/dashboard`.
-   - Jika role adalah `admin` atau `dept_head`, arahkan ke `/dashboard`.
-
-3. **Ganti Fallback Strip `"-"` Menjadi `null` di `HalamanDetailPersonel.jsx`**:
-   - Di baris 149–160 pada fungsi `handleUpdatePersonnel`, ubah fallback atribut opsional (`nip`, `cert_number`, `formal_education`, `birth_date`) dari `|| '-'` menjadi `|| null` agar database tersimpan bersih.
-
-4. **Tambahkan Fitur Reset Kata Sandi Personel ke 123456**:
-   - Di `HalamanDetailPersonel.jsx`, tambahkan tombol *"Reset Password"* (khusus role `admin`) pada kartu kedinasan lengkap dengan modal/konfirmasi.
-   - Di `backend/src/controllers/personnelController.js` & `personnelRoutes.js`, sediakan endpoint `POST /api/personnel/:id/reset-password` yang mengenkripsi ulang password menjadi hash `123456` dan mengatur flag `must_change_password = 1`.
-
-5. **Hubungkan Avatar Header Desktop ke Profil Akun Mandiri di `Navbar.jsx`**:
-   - Di baris 91–93, bungkus avatar inisial pengguna dengan tombol/link interaktif yang mengarahkan pengguna ke halaman profil akun miliknya (`/personnel/${user.personnel_id}`) sesuai mandat Rule 9 `GEMINI.md`.
-
-6. **Tambahkan Pengelolaan Section Head di `HalamanKelolaPejabat.jsx` & `getOfficials`**:
-   - Perluas query dan respon `getOfficials` di `personnelController.js` untuk menyertakan `section_head`.
-   - Tambahkan kartu dan modal pergantian Section Head di `HalamanKelolaPejabat.jsx` (serupa dengan Dept. Head).
-
-7. **Normalisasi Case-Insensitive Perbandingan Nama Regu di `getOfficials`**:
-   - Di `personnelController.js` baris 775–780, gunakan `(c.team_group || '').toLowerCase().trim() === 'alpha'` dst., agar tidak gagal mencocokkan regu jika ada variasi huruf kecil/besar di database.
-
-8. **Ganti Seluruh `window.alert()` dengan Toast Notifikasi Visual**:
-   - Di `HalamanDetailPersonel.jsx` dan `MobileProfileView.jsx`, ganti seluruh alert blocking dengan toast notifikasi visual instan (hijau untuk sukses, merah untuk error) sesuai Rule 10 `GEMINI.md`.
-
-9. **Tambahkan Dropdown Filter Lisensi STKP di `HalamanPersonel.jsx`**:
-   - Pasang elemen dropdown pilihan tingkat lisensi STKP (`Semua Kualifikasi`, `Basic`, `Junior`, `Senior`) di samping input pencarian nama agar state `selectedCert` berfungsi nyata.
-
-10. **Tambahkan Pagination Terstandar di `HalamanPersonel.jsx`**:
-    - Pasang navigasi halaman dan batasan baris per halaman pada tabel katalog personel desktop.
-    - *Catatan Penting*: Katalog personel tetap fokus 100% pada 4 regu dinas operasional (Alpha, Bravo, Charlie, Delta), tidak perlu menambah tab non-shift/Dept Head.
-
-11. **Sanitasi `username.trim()` & Fallback `JWT_EXPIRES_IN` di Backend**:
-    - Di `authController.js`, tambahkan `.trim()` pada username sebelum query database, dan tambahkan fallback `process.env.JWT_EXPIRES_IN || '24h'`.
-
----
-
-## Format Pelaporan Mandiri di `masak/temp/hasil_agent1.md`
-
-Setelah seluruh kode di atas diperbaiki dan divalidasi via CLI:
-Tuliskan rincian hasil pekerjaan, berkas yang diubah, dan bukti pengujian ke dalam `masak/temp/hasil_agent1.md`.
+## 3. Kewajiban Laporan (Ide & Saran)
+Setelah pengujian lolos via CLI:
+- Tuliskan bukti pengujian dan penyelesaian masalah ke: [`masak/temp/hasil_agent1.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/temp/hasil_agent1.md).
+- **Wajib cantumkan ide, saran arsitektur, dan rekomendasi perbaikan lanjutan** untuk modul Anda di bagian akhir laporan!
