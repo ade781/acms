@@ -141,8 +141,11 @@ export const getPersonnelById = async (req, res) => {
 export function mapRankPositionToRole(rank) {
   if (!rank) return 'junior_firefighter';
   const r = rank.trim().toLowerCase();
-  if (r.includes('dept. head') || r.includes('dept head') || r.includes('department head') || r.includes('section head')) {
+  if (r.includes('dept. head') || r.includes('dept head') || r.includes('department head')) {
     return 'dept_head';
+  }
+  if (r.includes('section head') || r.includes('seksi')) {
+    return 'section_head';
   }
   if (r.includes('chief assistant') || r.includes('asisten chief') || r.includes('wakil')) {
     return 'chief_assistant';
@@ -765,7 +768,7 @@ export const getOfficials = async (req, res) => {
               COALESCE(u.signature_url, p.signature_url) as signature_url
        FROM personnel p
        LEFT JOIN users u ON u.id = p.user_id
-       WHERE p.rank_position LIKE '%Section%Head%' OR p.rank_position LIKE '%Seksi%'
+       WHERE p.rank_position LIKE '%Section%Head%' OR p.rank_position LIKE '%Seksi%' OR u.role = 'section_head'
        ORDER BY p.id ASC
        LIMIT 1`
     );
@@ -807,10 +810,7 @@ export const getOfficials = async (req, res) => {
 export const replaceDeptHead = async (req, res) => {
   const connection = await pool.getConnection();
   try {
-    const { new_personnel_id } = req.body;
-    if (!new_personnel_id) {
-      return errorResponse(res, 'Personel Dept Head baru wajib dipilih', 400);
-    }
+    const { full_name, nip, rank_position, new_personnel_id } = req.body;
 
     await connection.beginTransaction();
 
@@ -822,64 +822,110 @@ export const replaceDeptHead = async (req, res) => {
        WHERE p.rank_position LIKE '%Dept%Head%' OR p.rank_position LIKE '%Department Head%' OR u.role = 'dept_head'`
     );
 
-    for (const oldDh of currentDeptHeads) {
-      if (oldDh.id === Number(new_personnel_id)) continue;
+    // KASUS A: Input Data Mandiri (Sesuai Aturan GEMINI.md Rule 18 & task_agent1.md)
+    if (full_name && full_name.trim()) {
+      const cleanName = full_name.trim();
+      const cleanNip = nip && nip.trim() && nip.trim() !== '-' ? nip.trim() : null;
+      const cleanRank = rank_position && rank_position.trim() ? rank_position.trim() : 'Airport Technology & ARFF Dept. Head';
 
-      // Hapus file tanda tangan lama jika ada
-      if (oldDh.signature_url) {
-        const sigPath = path.resolve(__dirname, '../../', oldDh.signature_url.replace(/^\//, ''));
-        if (fs.existsSync(sigPath)) {
-          try {
-            fs.unlinkSync(sigPath);
-          } catch (e) {}
+      let deptHeadId;
+      if (currentDeptHeads.length > 0) {
+        const existingDh = currentDeptHeads[0];
+        deptHeadId = existingDh.id;
+        await connection.query(
+          `UPDATE personnel 
+           SET full_name = ?, nip = ?, rank_position = ?, team_group = 'Non-Shift' 
+           WHERE id = ?`,
+          [cleanName, cleanNip, cleanRank, deptHeadId]
+        );
+        if (existingDh.u_id) {
+          await connection.query(
+            `UPDATE users SET name = ?, role = 'dept_head' WHERE id = ? AND role != 'admin'`,
+            [cleanName, existingDh.u_id]
+          );
+        }
+      } else {
+        const accountUsername = await generateUniqueUsername(cleanNip, cleanName);
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash('123456', salt);
+
+        const [uRes] = await connection.query(
+          'INSERT INTO users (username, name, password_hash, role, must_change_password) VALUES (?, ?, ?, ?, 1)',
+          [accountUsername, cleanName, passwordHash, 'dept_head']
+        );
+        const [pRes] = await connection.query(
+          `INSERT INTO personnel (
+            user_id, nip, full_name, rank_position,
+            employment_status, team_group, cert_level, is_active
+          ) VALUES (?, ?, ?, ?, 'organik', 'Non-Shift', 'Senior', 1)`,
+          [uRes.insertId, cleanNip, cleanName, cleanRank]
+        );
+        deptHeadId = pRes.insertId;
+      }
+
+      await connection.commit();
+      return successResponse(res, `Data Dept. Head berhasil disimpan atas nama ${cleanName}.`, { id: deptHeadId });
+    }
+
+    // KASUS B: Penunjukan via ID Personel (Fallback kompatibilitas)
+    if (new_personnel_id) {
+      for (const oldDh of currentDeptHeads) {
+        if (oldDh.id === Number(new_personnel_id)) continue;
+
+        if (oldDh.signature_url) {
+          const sigPath = path.resolve(__dirname, '../../', oldDh.signature_url.replace(/^\//, ''));
+          if (fs.existsSync(sigPath)) {
+            try { fs.unlinkSync(sigPath); } catch (e) {}
+          }
+        }
+
+        await connection.query(
+          `UPDATE personnel 
+           SET rank_position = 'Staf Non-Operasional', team_group = 'Non-Shift', signature_url = NULL 
+           WHERE id = ?`,
+          [oldDh.id]
+        );
+        if (oldDh.u_id) {
+          await connection.query(
+            `UPDATE users 
+             SET role = 'junior_firefighter', signature_url = NULL 
+             WHERE id = ? AND role = 'dept_head'`,
+            [oldDh.u_id]
+          );
         }
       }
 
-      // Demote Dept Head lama: tidak masuk regu manapun (Non-Shift), tanda tangan dihapus otomatis
+      const [newCandidate] = await connection.query(
+        `SELECT p.*, u.id as u_id FROM personnel p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?`,
+        [new_personnel_id]
+      );
+
+      if (newCandidate.length === 0) {
+        await connection.rollback();
+        return errorResponse(res, 'Personel baru tidak ditemukan', 404);
+      }
+
+      const candidate = newCandidate[0];
       await connection.query(
         `UPDATE personnel 
-         SET rank_position = 'Staf Non-Operasional', team_group = 'Non-Shift', signature_url = NULL 
+         SET rank_position = 'Airport Technology & ARFF Dept. Head', team_group = 'Non-Shift' 
          WHERE id = ?`,
-        [oldDh.id]
+        [candidate.id]
       );
-      if (oldDh.u_id) {
+
+      if (candidate.u_id) {
         await connection.query(
-          `UPDATE users 
-           SET role = 'junior_firefighter', signature_url = NULL 
-           WHERE id = ? AND role = 'dept_head'`,
-          [oldDh.u_id]
+          `UPDATE users SET role = 'dept_head' WHERE id = ? AND role != 'admin'`,
+          [candidate.u_id]
         );
       }
+
+      await connection.commit();
+      return successResponse(res, `Dept. Head berhasil diperbarui menjadi ${candidate.full_name}.`, { id: candidate.id });
     }
 
-    // 2. Angkat Dept Head baru
-    const [newCandidate] = await connection.query(
-      `SELECT p.*, u.id as u_id FROM personnel p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?`,
-      [new_personnel_id]
-    );
-
-    if (newCandidate.length === 0) {
-      await connection.rollback();
-      return errorResponse(res, 'Personel baru tidak ditemukan', 404);
-    }
-
-    const candidate = newCandidate[0];
-    await connection.query(
-      `UPDATE personnel 
-       SET rank_position = 'Airport Technology & ARFF Dept. Head', team_group = 'Non-Shift' 
-       WHERE id = ?`,
-      [candidate.id]
-    );
-
-    if (candidate.u_id) {
-      await connection.query(
-        `UPDATE users SET role = 'dept_head' WHERE id = ? AND role != 'admin'`,
-        [candidate.u_id]
-      );
-    }
-
-    await connection.commit();
-    return successResponse(res, `Dept. Head berhasil diperbarui menjadi ${candidate.full_name}. Tanda tangan lama telah dibersihkan.`);
+    await connection.rollback();
+    return errorResponse(res, 'Nama lengkap Dept. Head wajib diisi', 400);
   } catch (error) {
     await connection.rollback();
     console.error('Error replaceDeptHead:', error);
@@ -1010,7 +1056,7 @@ export const replaceSectionHead = async (req, res) => {
       `SELECT p.*, u.id as u_id
        FROM personnel p
        LEFT JOIN users u ON u.id = p.user_id
-       WHERE p.rank_position LIKE '%Section%Head%' OR p.rank_position LIKE '%Seksi%'`
+       WHERE p.rank_position LIKE '%Section%Head%' OR p.rank_position LIKE '%Seksi%' OR u.role = 'section_head'`
     );
 
     for (const oldSh of currentSectionHeads) {
@@ -1032,6 +1078,15 @@ export const replaceSectionHead = async (req, res) => {
          WHERE id = ?`,
         [oldSh.id]
       );
+
+      if (oldSh.u_id) {
+        await connection.query(
+          `UPDATE users 
+           SET role = 'junior_firefighter', signature_url = NULL 
+           WHERE id = ? AND role = 'section_head'`,
+          [oldSh.u_id]
+        );
+      }
     }
 
     // 2. Angkat Section Head baru
@@ -1052,6 +1107,13 @@ export const replaceSectionHead = async (req, res) => {
        WHERE id = ?`,
       [candidate.id]
     );
+
+    if (candidate.u_id) {
+      await connection.query(
+        `UPDATE users SET role = 'section_head' WHERE id = ? AND role != 'admin'`,
+        [candidate.u_id]
+      );
+    }
 
     await connection.commit();
     return successResponse(res, `Section Head berhasil diperbarui menjadi ${candidate.full_name}.`);

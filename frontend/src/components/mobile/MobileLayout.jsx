@@ -6,6 +6,7 @@ import MobileBottomNav from './MobileBottomNav';
 import MobileProfileView from './profile/MobileProfileView';
 import MobileAnnouncementsModal from './announcements/MobileAnnouncementsModal';
 import MobileLeaveModal from './dashboard/MobileLeaveModal';
+import MandatoryPasswordChangeModal from '../forms/MandatoryPasswordChangeModal';
 
 export default function MobileLayout({ children }) {
   const { user, activeDate, activeShiftNumber, activeTeam, isChief, isAdmin, isSupervisor } = useAuth();
@@ -40,6 +41,7 @@ export default function MobileLayout({ children }) {
 
   // Chief role check (chief, chief_assistant, operation_chief, supervisor, admin)
   const isChiefRole = Boolean(isChief || isAdmin || isSupervisor);
+  const mustChangePassword = Boolean(user?.must_change_password);
 
   const handleTabChange = (tab) => {
     // If profile is open, close it when switching tabs
@@ -106,6 +108,9 @@ export default function MobileLayout({ children }) {
             setIsLeaveModalOpen(false);
           }}
         />
+
+        {/* Mandatory Password Change Modal for new accounts */}
+        <MandatoryPasswordChangeModal isOpen={mustChangePassword} />
       </div>
     </div>
   );

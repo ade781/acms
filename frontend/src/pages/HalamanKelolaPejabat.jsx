@@ -16,6 +16,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
+import InputField from '../components/common/InputField';
 import SelectField from '../components/common/SelectField';
 import StateView from '../components/common/StateView';
 
@@ -35,9 +36,12 @@ export default function HalamanKelolaPejabat() {
 
   const [allPersonnel, setAllPersonnel] = useState([]);
 
-  // Modal Ganti Dept Head
+  // Modal Kelola Dept Head Mandiri (Aturan GEMINI.md Rule 18 & task_agent1.md)
   const [dhModalOpen, setDhModalOpen] = useState(false);
-  const [newDhPersonnelId, setNewDhPersonnelId] = useState('');
+  const [dhFullName, setDhFullName] = useState('');
+  const [dhNip, setDhNip] = useState('');
+  const [dhRankPosition, setDhRankPosition] = useState('Airport Technology & ARFF Dept. Head');
+  const [dhSignatureFile, setDhSignatureFile] = useState(null);
   const [savingDh, setSavingDh] = useState(false);
   const [dhError, setDhError] = useState(null);
 
@@ -87,10 +91,13 @@ export default function HalamanKelolaPejabat() {
     fetchData();
   }, [fetchData]);
 
-  // Open Ganti Dept Head Modal
+  // Open Kelola Dept Head Modal (Input Data Mandiri)
   const openReplaceDeptHeadModal = () => {
     setDhError(null);
-    setNewDhPersonnelId('');
+    setDhFullName(officials.dept_head?.full_name || '');
+    setDhNip(officials.dept_head?.nip || '');
+    setDhRankPosition(officials.dept_head?.rank_position || 'Airport Technology & ARFF Dept. Head');
+    setDhSignatureFile(null);
     setDhModalOpen(true);
   };
 
@@ -126,11 +133,11 @@ export default function HalamanKelolaPejabat() {
     }
   };
 
-  // Submit Ganti Dept Head
+  // Submit Kelola Dept Head (Input Data Mandiri)
   const handleSaveDeptHead = async (e) => {
-    e.preventDefault();
-    if (!newDhPersonnelId) {
-      setDhError('Silakan pilih personel yang akan diangkat sebagai Dept. Head.');
+    if (e && e.preventDefault) e.preventDefault();
+    if (!dhFullName.trim()) {
+      setDhError('Nama lengkap Dept. Head wajib diisi.');
       return;
     }
 
@@ -138,14 +145,27 @@ export default function HalamanKelolaPejabat() {
     setDhError(null);
     try {
       const res = await api.post('/personnel/officials/dept-head', {
-        new_personnel_id: Number(newDhPersonnelId),
+        full_name: dhFullName.trim(),
+        nip: dhNip.trim() || null,
+        rank_position: dhRankPosition.trim() || 'Airport Technology & ARFF Dept. Head',
       });
 
-      setSuccessMsg(res.data?.message || 'Dept. Head berhasil diperbarui.');
+      const deptHeadId = res.data?.data?.id || officials.dept_head?.id;
+
+      // Unggah tanda tangan digital jika ada berkas yang dipilih
+      if (dhSignatureFile && deptHeadId) {
+        const formData = new FormData();
+        formData.append('signature', dhSignatureFile);
+        await api.post(`/personnel/${deptHeadId}/signature`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      }
+
+      setSuccessMsg(res.data?.message || 'Data Dept. Head berhasil disimpan.');
       setDhModalOpen(false);
       fetchData();
     } catch (err) {
-      setDhError(err.response?.data?.message || err.message || 'Gagal memperbarui Dept. Head.');
+      setDhError(err.response?.data?.message || err.message || 'Gagal menyimpan data Dept. Head.');
     } finally {
       setSavingDh(false);
     }
@@ -498,20 +518,20 @@ export default function HalamanKelolaPejabat() {
         </div>
       </StateView>
 
-      {/* Modal 1: Ganti Dept Head */}
+      {/* Modal 1: Kelola Dept Head (Input Data Mandiri Sesuai Aturan GEMINI.md Rule 18) */}
       {dhModalOpen && (
         <Modal
           isOpen={dhModalOpen}
           onClose={() => setDhModalOpen(false)}
-          title="Pergantian Airport Technology & ARFF Dept. Head"
-          subtitle="Pilih personel yang akan diangkat sebagai kepala departemen baru"
+          title="Pengaturan Airport Technology & ARFF Dept. Head"
+          subtitle="Input data mandiri pejabat struktural pimpinan unit (bukan memilih dari anggota regu operasional)"
           footer={
             <>
               <Button variant="outline" onClick={() => setDhModalOpen(false)} disabled={savingDh}>
                 Batal
               </Button>
               <Button variant="primary" onClick={handleSaveDeptHead} loading={savingDh}>
-                Simpan & Sahkan Pejabat Baru
+                Simpan & Tetapkan Dept. Head
               </Button>
             </>
           }
@@ -523,33 +543,44 @@ export default function HalamanKelolaPejabat() {
               </div>
             )}
 
-            {officials.dept_head && (
-              <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
-                <span className="font-bold block">Pejabat Saat Ini:</span>
-                <p>
-                  <strong>{officials.dept_head.full_name}</strong> (NIP: {officials.dept_head.nip || '-'})
-                </p>
-                <p className="text-[11px] text-amber-800 leading-relaxed pt-1">
-                  * Catatan Keamanan: Tanda tangan digital milik pejabat lama akan otomatis dihapus dari database untuk mencegah penyalahgunaan pengesahan dokumen baru.
-                </p>
-              </div>
-            )}
-
-            <SelectField
-              label="Pilih Personel Pengganti (Dept. Head Baru)"
-              value={newDhPersonnelId}
-              onChange={(e) => setNewDhPersonnelId(e.target.value)}
-              options={[
-                { value: '', label: '-- Pilih Personel --' },
-                ...allPersonnel
-                  .filter((p) => !officials.dept_head || p.id !== officials.dept_head.id)
-                  .map((p) => ({
-                    value: p.id,
-                    label: `${p.full_name} (${p.rank_position || '-'} | Regu: ${p.team_group || 'Non-Regu'})`,
-                  })),
-              ]}
+            <InputField
+              label="Nama Lengkap Pejabat"
+              value={dhFullName}
+              onChange={(e) => setDhFullName(e.target.value)}
+              placeholder="Contoh: Tamsul Sadikin"
               required
             />
+
+            <InputField
+              label="Nomor Induk Pegawai (NIP)"
+              value={dhNip}
+              onChange={(e) => setDhNip(e.target.value)}
+              placeholder="Contoh: 198001012005011001"
+              helperText="Kosongkan jika belum memiliki NIP resmi"
+            />
+
+            <InputField
+              label="Jabatan Resmi Struktural"
+              value={dhRankPosition}
+              onChange={(e) => setDhRankPosition(e.target.value)}
+              placeholder="Airport Technology & ARFF Dept. Head"
+              required
+            />
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate-700">
+                Unggah Tanda Tangan Digital Resmi (Opsional)
+              </label>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={(e) => setDhSignatureFile(e.target.files?.[0] || null)}
+                className="text-xs text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 border border-slate-300 rounded-lg p-1.5 bg-white"
+              />
+              <p className="text-[11px] text-slate-500">
+                Format: PNG transparan disarankan, maks 2MB. Tanda tangan ini akan tercetak otomatis pada berkas dokumen dinas resmi.
+              </p>
+            </div>
           </form>
         </Modal>
       )}

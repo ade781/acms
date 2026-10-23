@@ -15,7 +15,7 @@ export const login = async (req, res) => {
 
     const [users] = await pool.query(
       `SELECT u.id, u.username, u.name, u.email, u.password_hash, u.role, u.must_change_password,
-              p.id as personnel_id, p.team_group, p.rank_position
+              p.id as personnel_id, p.team_group, p.rank_position, p.is_active
        FROM users u
        LEFT JOIN personnel p ON p.user_id = u.id
        WHERE u.username = ?`,
@@ -27,6 +27,11 @@ export const login = async (req, res) => {
     }
 
     const user = users[0];
+
+    // Cegah login akun personel yang telah dinonaktifkan
+    if (user.personnel_id && user.is_active === 0) {
+      return errorResponse(res, 'Akses ditolak: Akun personel Anda telah dinonaktifkan dari sistem dinas', 403);
+    }
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return errorResponse(res, 'Kredensial tidak valid: Username atau password salah', 401);
@@ -158,20 +163,20 @@ export const updateProfile = async (req, res) => {
 
     await pool.query(
       `UPDATE personnel SET
-        nip = COALESCE(?, nip),
-        birth_date = COALESCE(?, birth_date),
-        formal_education = COALESCE(?, formal_education),
-        cert_level = COALESCE(?, cert_level),
-        cert_number = COALESCE(?, cert_number),
-        cert_expiry_date = COALESCE(?, cert_expiry_date)
+        nip = ?,
+        birth_date = ?,
+        formal_education = ?,
+        cert_level = ?,
+        cert_number = ?,
+        cert_expiry_date = ?
       WHERE id = ?`,
       [
-        nip !== undefined ? nip : pers.nip,
-        birth_date !== undefined ? birth_date : pers.birth_date,
-        formal_education !== undefined ? formal_education : pers.formal_education,
+        nip !== undefined ? (nip ? String(nip).trim() : null) : pers.nip,
+        birth_date !== undefined ? (birth_date || null) : pers.birth_date,
+        formal_education !== undefined ? (formal_education ? String(formal_education).trim() : null) : pers.formal_education,
         cert_level !== undefined ? cert_level : pers.cert_level,
-        cert_number !== undefined ? cert_number : pers.cert_number,
-        cert_expiry_date !== undefined ? cert_expiry_date : pers.cert_expiry_date,
+        cert_number !== undefined ? (cert_number ? String(cert_number).trim() : null) : pers.cert_number,
+        cert_expiry_date !== undefined ? (cert_expiry_date || null) : pers.cert_expiry_date,
         pers.id
       ]
     );

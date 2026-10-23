@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAuth } from '../../../context/AuthContext';
 import { cleanTeam, formatTeam, formatIndoDate } from '../../../utils/shiftHelper';
 
 /**
@@ -13,6 +14,16 @@ export default function MobileSignaturesSection({
   teamGroup,
   isSheet = false,
 }) {
+  const { token } = useAuth();
+  const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arff_token') : '') || '';
+
+  const getAuthorizedUrl = (url) => {
+    if (!url) return '';
+    if (!authToken || url.includes('token=')) return url;
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}token=${encodeURIComponent(authToken)}`;
+  };
+
   const teamClean = cleanTeam(teamGroup || supervisor?.team_group || 'Alpha');
   const formattedDate = formatIndoDate(shiftDate || new Date());
 
@@ -29,7 +40,7 @@ export default function MobileSignaturesSection({
             <div className="h-12 w-full flex items-center justify-center my-1">
               {deptHead?.signature_url ? (
                 <img
-                  src={deptHead.signature_url}
+                  src={getAuthorizedUrl(deptHead.signature_url)}
                   alt={`Tanda Tangan ${deptHead.name || 'Section Head'}`}
                   className="max-h-11 max-w-[120px] object-contain"
                   loading="lazy"
@@ -64,7 +75,7 @@ export default function MobileSignaturesSection({
             <div className="h-12 w-full flex items-center justify-center my-1">
               {supervisor?.signature_url ? (
                 <img
-                  src={supervisor.signature_url}
+                  src={getAuthorizedUrl(supervisor.signature_url)}
                   alt={`Tanda Tangan ${supervisor.name || 'Ketua Regu'}`}
                   className="max-h-11 max-w-[120px] object-contain"
                   loading="lazy"
@@ -115,7 +126,7 @@ export default function MobileSignaturesSection({
           <div className="h-14 w-full flex items-center justify-center my-1 bg-white/70 rounded border border-slate-100">
             {deptHead?.signature_url ? (
               <img
-                src={deptHead.signature_url}
+                src={getAuthorizedUrl(deptHead.signature_url)}
                 alt="Tanda Tangan Section Head"
                 className="max-h-12 max-w-[110px] object-contain"
                 loading="lazy"
@@ -148,7 +159,7 @@ export default function MobileSignaturesSection({
           <div className="h-14 w-full flex items-center justify-center my-1 bg-white/70 rounded border border-slate-100">
             {supervisor?.signature_url ? (
               <img
-                src={supervisor.signature_url}
+                src={getAuthorizedUrl(supervisor.signature_url)}
                 alt="Tanda Tangan Ketua Regu"
                 className="max-h-12 max-w-[110px] object-contain"
                 loading="lazy"
