@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bell } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import api from '../../services/api';
 
 function getInitials(name) {
   if (!name) return 'AR';
@@ -9,8 +10,36 @@ function getInitials(name) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-export default function MobileHeader({ onOpenAnnouncements, onOpenProfile, isProfileActive = false }) {
+export default function MobileHeader({ onOpenAnnouncements, onOpenProfile, isProfileActive = false, unreadCount: propUnreadCount }) {
   const { user, activeTeam, activeShiftNumber, isAdmin, isDeptHead } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(propUnreadCount || 0);
+
+  useEffect(() => {
+    if (propUnreadCount !== undefined) {
+      setUnreadCount(Number(propUnreadCount));
+    }
+  }, [propUnreadCount]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchUnread = async () => {
+      try {
+        const res = await api.get('/announcements');
+        const count = res.data?.data?.unread_count ?? res.data?.unread_count ?? 0;
+        if (isMounted) setUnreadCount(Number(count));
+      } catch {
+        // Abaikan error jaringan berkala
+      }
+    };
+
+    fetchUnread();
+    const handleUpdate = () => fetchUnread();
+    window.addEventListener('arff:announcements-updated', handleUpdate);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('arff:announcements-updated', handleUpdate);
+    };
+  }, []);
 
   const userName = user?.full_name || user?.name || user?.username || 'Petugas ARFF';
   const initials = getInitials(userName);
@@ -37,7 +66,7 @@ export default function MobileHeader({ onOpenAnnouncements, onOpenProfile, isPro
 
       {/* Sisi Kanan: Lonceng Pengumuman & Avatar Profil */}
       <div className="flex items-center gap-1.5">
-        {/* Lonceng Pengumuman dengan Badge Merah */}
+        {/* Lonceng Pengumuman dengan Badge Merah jika ada yang belum dibaca */}
         <button
           type="button"
           onClick={onOpenAnnouncements}
@@ -46,7 +75,9 @@ export default function MobileHeader({ onOpenAnnouncements, onOpenProfile, isPro
           title="Buka Pengumuman Dinas"
         >
           <Bell className="w-4 h-4 text-slate-600" />
-          <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full ring-2 ring-white"></span>
+          {unreadCount > 0 && (
+            <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full ring-2 ring-white"></span>
+          )}
         </button>
 
         {/* Avatar Profil Inisial */}

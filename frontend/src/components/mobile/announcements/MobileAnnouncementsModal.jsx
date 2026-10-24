@@ -60,8 +60,20 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const paginatedItems = announcements.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
-  const handleOpenDoc = (item) => {
+  const handleOpenDoc = async (item) => {
     setPreviewDoc(item);
+    const isUnread = Boolean(!item.is_read || item.is_read === 0);
+    if (isUnread) {
+      try {
+        await api.post(`/announcements/${item.id}/read`);
+        setAnnouncements((prev) =>
+          prev.map((a) => (a.id === item.id ? { ...a, is_read: 1 } : a))
+        );
+        window.dispatchEvent(new CustomEvent('arff:announcements-updated'));
+      } catch (e) {
+        console.warn('Gagal menandai status baca di mobile:', e);
+      }
+    }
   };
 
   return (

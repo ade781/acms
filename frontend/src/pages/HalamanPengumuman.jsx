@@ -109,14 +109,17 @@ export default function HalamanPengumuman() {
     setSelectedAnnouncement(ann);
 
     // Jika belum dibaca, kirim sinyal read
-    if (!ann.is_read) {
+    const isUnread = Boolean(!ann.is_read || ann.is_read === 0);
+    if (isUnread) {
       try {
         await api.post(`/announcements/${ann.id}/read`);
-        // Update lokal state
+        // Update lokal state seketika
         setAnnouncements((prev) =>
           prev.map((item) => (item.id === ann.id ? { ...item, is_read: 1 } : item))
         );
+        setSelectedAnnouncement((prev) => (prev && prev.id === ann.id ? { ...prev, is_read: 1 } : prev));
         setUnreadCount((c) => Math.max(0, c - 1));
+        window.dispatchEvent(new CustomEvent('arff:announcements-updated'));
       } catch (e) {
         console.warn('Gagal menandai status baca:', e);
       }
@@ -325,7 +328,7 @@ export default function HalamanPengumuman() {
               ) : (
                 filteredAnnouncements.map((ann) => {
                   const isSelected = selectedAnnouncement?.id === ann.id;
-                  const isUnread = !ann.is_read;
+                  const isUnread = Boolean(!ann.is_read || ann.is_read === 0);
 
                   return (
                     <div

@@ -184,6 +184,15 @@ CREATE TABLE IF NOT EXISTS `announcements` (
   CONSTRAINT `fk_announcement_creator` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `announcement_reads` (
+  `announcement_id` INT NOT NULL,
+  `user_id` INT NOT NULL,
+  `read_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`announcement_id`, `user_id`),
+  CONSTRAINT `fk_ar_announcement` FOREIGN KEY (`announcement_id`) REFERENCES `announcements` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_ar_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `schedule_rosters` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `roster_date` DATE NOT NULL UNIQUE,

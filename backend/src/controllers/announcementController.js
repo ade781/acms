@@ -9,6 +9,8 @@ const __dirname = path.dirname(__filename);
 
 export const getAnnouncements = async (req, res) => {
   try {
+    const userId = req.user?.id || 0;
+
     const [announcements] = await pool.query(
       `SELECT 
         a.id,
@@ -21,15 +23,28 @@ export const getAnnouncements = async (req, res) => {
         a.created_by,
         a.created_at,
         a.updated_at,
-        u.name as creator_name
+        u.name as creator_name,
+        IF(ar.read_at IS NOT NULL, 1, 0) AS is_read
       FROM announcements a
       LEFT JOIN users u ON u.id = a.created_by
-      ORDER BY a.published_date DESC, a.created_at DESC`
+      LEFT JOIN announcement_reads ar ON ar.announcement_id = a.id AND ar.user_id = ?
+      ORDER BY a.published_date DESC, a.created_at DESC`,
+      [userId]
     );
+
+    const [unreadRows] = await pool.query(
+      `SELECT COUNT(*) as unread_count
+       FROM announcements a
+       LEFT JOIN announcement_reads ar ON ar.announcement_id = a.id AND ar.user_id = ?
+       WHERE ar.read_at IS NULL`,
+      [userId]
+    );
+
+    const unreadCount = Number(unreadRows[0]?.unread_count || 0);
 
     return successResponse(res, 'Daftar pengumuman berhasil dimuat', {
       announcements,
-      unread_count: 0
+      unread_count: unreadCount
     });
   } catch (err) {
     console.error('Error getAnnouncements:', err);
@@ -40,15 +55,18 @@ export const getAnnouncements = async (req, res) => {
 export const getAnnouncementById = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user?.id || 0;
 
     const [rows] = await pool.query(
       `SELECT 
         a.*,
-        u.name as creator_name
+        u.name as creator_name,
+        IF(ar.read_at IS NOT NULL, 1, 0) AS is_read
       FROM announcements a
       LEFT JOIN users u ON u.id = a.created_by
+      LEFT JOIN announcement_reads ar ON ar.announcement_id = a.id AND ar.user_id = ?
       WHERE a.id = ?`,
-      [id]
+      [userId, id]
     );
 
     if (rows.length === 0) {
@@ -117,7 +135,39 @@ export const createAnnouncement = async (req, res) => {
 };
 
 export const markAsRead = async (req, res) => {
-  return successResponse(res, 'Pengumuman ditandai telah dibaca');
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return errorResponse(res, 'Pengguna tidak terotentikasi', 401);
+    }
+
+    if (!id) {
+      return errorResponse(res, 'ID pengumuman tidak valid', 400);
+    }
+
+    const [existing] = await pool.query('SELECT id FROM announcements WHERE id = ?', [id]);
+    if (existing.length === 0) {
+      return errorResponse(res, 'Pengumuman tidak ditemukan', 404);
+    }
+
+    await pool.query(
+      `INSERT INTO announcement_reads (announcement_id, user_id, read_at)
+       VALUES (?, ?, NOW())
+       ON DUPLICATE KEY UPDATE read_at = NOW()`,
+      [id, userId]
+    );
+
+    return successResponse(res, 'Pengumuman ditandai telah dibaca', {
+      announcement_id: Number(id),
+      user_id: userId,
+      is_read: 1
+    });
+  } catch (err) {
+    console.error('Error markAsRead:', err);
+    return errorResponse(res, 'Gagal menandai pengumuman telah dibaca', 500);
+  }
 };
 
 export const deleteAnnouncement = async (req, res) => {

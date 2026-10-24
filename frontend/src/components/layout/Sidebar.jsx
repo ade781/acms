@@ -40,9 +40,12 @@ export default function Sidebar({ isOpen, onClose }) {
     };
     checkUnread();
     const interval = setInterval(checkUnread, 45000);
+    const handleUpdate = () => checkUnread();
+    window.addEventListener('arff:announcements-updated', handleUpdate);
     return () => {
       isMounted = false;
       clearInterval(interval);
+      window.removeEventListener('arff:announcements-updated', handleUpdate);
     };
   }, []);
 
