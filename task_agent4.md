@@ -1,48 +1,58 @@
-# LEMBAR TUGAS AGENT 4: LOG KEGIATAN & MODULARITAS LAPORAN INSIDEN
+# LEMBAR TUGAS AGENT 4: AUDIT UI/UX, LAYOUT, ERROR HANDLING & BEBAN LOAD (KEGIATAN, INSIDEN & PENGUMUMAN)
 
-**Domain:** Log Kegiatan Operasional & Manajemen Laporan Insiden  
-**Fase:** FASE 3 (Eksekusi Perbaikan & Validasi CLI)  
-**Tujuan Utama:** Memperbaiki bug mobile bounce tombol rekap insiden, modularitas halaman laporan insiden, dan integritas data kegiatan operasional.
-
----
-
-## 🎯 DAFTAR BERKAS EKSKLUSIF ANDA:
-- `backend/src/controllers/activityController.js`
-- `backend/src/controllers/incidentController.js`
-- `frontend/src/pages/HalamanKegiatan.jsx`
-- `frontend/src/pages/HalamanInsiden.jsx`
-- `frontend/src/pages/HalamanLaporanInsiden.jsx`
-- `frontend/src/pages/mobile/MobileInsiden.jsx`
+**Domain Audit:** Kegiatan Rutin Harian, Pelaporan Insiden & Pengumuman Dinas (Desktop)  
+**Catatan:** **HALAMAN DASHBOARD DIHIRARKAN/DI-SKIP**.  
+**Fase:** **FASE 1 (Audit & Inventarisasi Masalah - DILARANG MENGUBAH KODE PRODUKSI)**  
+**Batasan:** Hanya sebatas inventarisasi temuan masalah, bug visual, kelemahan error handling, analisis beban loading, dan saran perbaikan konkret.
 
 ---
 
-## 🛠️ INSTRUKSI AKSI PERBAIKAN KONKRET:
+## 🎯 BERKAS TARGET AUDIT ANDA:
+1. [`frontend/src/pages/HalamanKegiatan.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/HalamanKegiatan.jsx) (Pencatatan kegiatan harian shift, log timeline, filter kategori & tanggal)
+2. [`frontend/src/pages/HalamanInsiden.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/HalamanInsiden.jsx) (Daftar laporan insiden/emergency bandara, filter status, severity badge)
+3. [`frontend/src/pages/HalamanDetailInsiden.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/HalamanDetailInsiden.jsx) (Detail investigasi insiden, kronologi, armada & personel terlibat, foto dokumentasi)
+4. [`frontend/src/components/forms/IncidentModal.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/forms/IncidentModal.jsx) (Modal form pelaporan insiden darurat, upload foto TKP, multi-input armada)
+5. [`frontend/src/pages/HalamanPengumuman.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/HalamanPengumuman.jsx) (Pusat pengumuman kedinasan, broadcast admin, prioritas banner)
 
-### 1. Perbaikan Mobile Bounce / Redirect Loop Tombol Rekap Insiden
-- Di `MobileInsiden.jsx`:
-  - Tombol Rekap di header saat ini menjalankan `navigate('/insiden/laporan')`, yang dialihkan oleh router desktop kembali ke dashboard mobile.
-  - Sediakan sub-view modal/halaman laporan ringkas di mobile atau arahkan ke komponen laporan responsif yang dapat diakses oleh role mobile tanpa terlempar ke dashboard.
+---
 
-### 2. Modularitas Halaman Laporan Insiden Penuh (`HalamanLaporanInsiden.jsx`)
-- Bangun/sempurnakan `frontend/src/pages/HalamanLaporanInsiden.jsx` sebagai halaman laporan rekapitulasi penuh:
-  - Header dengan tombol kembali (*Back* ke Halaman Insiden).
-  - Filter preset: **1 Bulan (Default)**, **3 Bulan**, **1 Tahun**, dan **Rentang Tanggal Kustom**.
-  - Tampilan 2 layer: Layer 1 (Ringkasan list kejadian: tanggal, kategori, lokasi, status), diklik untuk membuka Layer 2 (Detail kronologi penanganan, koordinasi ATC/Avsec).
-  - Tombol cetak PDF Rekap Insiden.
+## 🔍 FOKUS AREA AUDIT:
 
-### 3. Perbaiki Bug Update Parsial Kegiatan (`activityController.js`)
-- Di `updateActivity`:
-  - Gunakan `COALESCE` atau pertahankan data lama agar jika klien hanya mengupdate status atau foto, kolom `description` yang sudah ada tidak ter-overwrite menjadi `NULL`.
-  - Tangani `actor_ids`: pastikan jika sudah berupa string JSON tidak di-`JSON.stringify` dua kali.
+### 1. UI/UX & Layout:
+- **Kegiatan Harian (`HalamanKegiatan.jsx`):**
+  - Tampilan timeline kegiatan: apakah rapi, mudah dibaca, dan badge waktu dinas jelas?
+  - Form pencatatan kegiatan: apakah field input durasi/kategori jelas dan intuitif?
+- **Pelaporan Insiden (`HalamanInsiden.jsx` & `IncidentModal.jsx`):**
+  - Severity level (Low, Medium, High, Critical): kontras badge warna, kejelasan label.
+  - Multi-select personel/kendaraan yang terlibat dalam insiden: apakah mudah digunakan atau membingungkan?
+  - Upload foto dokumentasi insiden: preview thumbnail foto, penanganan foto berukuran besar.
+- **Detail Insiden (`HalamanDetailInsiden.jsx`):**
+  - Layout informasi investigasi, koordinat/lokasi kejadian (Runway/Taxiway/Apron), dan kronologi.
+  - Apakah foto dokumentasi dapat dilihat dalam resolusi penuh (*lightbox/modal view*)?
+- **Pengumuman Dinas (`HalamanPengumuman.jsx`):**
+  - Hirarki visual pengumuman penting (urgent/pinned) vs reguler.
+  - Kerapian tampilan pembaca teks pengumuman panjang.
 
-### 4. Validasi Komparasi Waktu Tanggap Insiden
-- Di `IncidentModal.jsx` / `incidentController.js`:
-  - Pastikan `activation_time` (waktu tiba di TKP) tidak boleh lebih awal dari `incident_time` (waktu alarm kejadian). Berikan peringatan validasi jika terbalik.
+### 2. Error Handling & State Feedback:
+- Feedback toast instan saat catat kegiatan, lapor insiden baru, update status insiden, atau publikasi pengumuman (GEMINI.md butir 10).
+- Penanganan saat upload foto dokumentasi gagal atau format tidak didukung (harus ada pesan error jelas).
+- Handling parsing data insiden: backend terkadang mengirimkan `{ total_open, recent: [...] }` atau array langsung — pastikan kode tidak crash dengan `TypeError: incidents.map is not a function`.
+- Empty state: bagaimana tampilan saat belum ada insiden/kegiatan pada shift berjalan?
 
-### 5. Validasi CLI & Laporan
-- Jalankan pengecekan sintaksis:
-  `node -c backend/src/controllers/activityController.js`
-  `node -c backend/src/controllers/incidentController.js`
-  `npm --prefix frontend run build` (atau cek via terminal).
-- Tuliskan bukti eksekusi dan laporan lengkap di:
-  👉 [`masak/temp/hasil_agent4.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/temp/hasil_agent4.md)
+### 3. Analisis Beban & Optimasi Loading (Overload & Anti-Lag):
+- **Terlalu banyak load dalam satu halaman:**
+  - Apakah `HalamanKegiatan.jsx` memuat seluruh riwayat kegiatan masa lalu tanpa pagination/infinite scroll?
+  - Pada `IncidentModal.jsx`, apakah memuat seluruh daftar personel unit sekaligus tanpa memoized selector?
+  - Apakah gambar dokumentasi di-load sekaligus dalam ukuran asli (*uncompressed*) sehingga membebani bandwidth dan memperlambat LCP?
+- **Performa Input Form:**
+  - Periksa `IncidentModal.jsx` dan form modal kegiatan: apakah ada CSS `transition-all` pada textarea kronologi atau input nama insiden?
+  - Pastikan tidak ada re-fetch network request di saat pengguna sedang mengetik uraian kejadian.
+
+---
+
+## 📝 OUTPUT:
+Tuliskan seluruh temuan masalah (kategori: Kritis/Sedang/Minor), analisis beban load, dan saran perbaikan Anda secara terstruktur di:
+👉 [`masak/temp/hasil_agent4.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/temp/hasil_agent4.md)
+
+⚠️ **ATURAN FORMAT PENULISAN (DARI PENGGUNA):**
+- **DILARANG MENGGUNAKAN TABEL ATAU MATRIKS.** Tuliskan dalam format **daftar poin/bullet points hierarkis bernomor** agar nyaman dibaca.

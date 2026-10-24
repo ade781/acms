@@ -1,60 +1,52 @@
-# LEMBAR TUGAS AGENT 1: PERBAIKAN PENGUMUMAN & NOTIFIKASI
+# LEMBAR TUGAS AGENT 1: AUDIT UI/UX, LAYOUT, ERROR HANDLING & BEBAN LOAD (SHELL, LOGIN & PROFIL MANDIRI)
 
-**Domain:** Autentikasi, Notifikasi/Pengumuman, Shell Layout & Profil  
-**Fase:** FASE 3 (Eksekusi Perbaikan & Validasi CLI)  
-**Tujuan Utama:** Menghilangkan tuntas bug indikator merah unread pengumuman yang selalu muncul kembali setiap kali halaman dibuka.
-
----
-
-## 🎯 DAFTAR BERKAS EKSKLUSIF ANDA:
-- `backend/src/controllers/announcementController.js`
-- `backend/src/routes/announcementRoutes.js`
-- `frontend/src/pages/HalamanPengumuman.jsx`
-- `frontend/src/components/mobile/MobileHeader.jsx`
-- `frontend/src/components/layout/Navbar.jsx`
+**Domain Audit:** Shell Navigasi, Autentikasi Login & Profil Mandiri (STKP & Dokumen Saya)  
+**Catatan:** **HALAMAN DASHBOARD DIHIRARKAN/DI-SKIP**. Jangan audit dashboard!  
+**Fase:** **FASE 1 (Audit & Inventarisasi Masalah - DILARANG MENGUBAH KODE PRODUKSI)**  
+**Batasan:** Hanya sebatas inventarisasi temuan masalah, bug visual, kelemahan error handling, analisis beban loading, dan saran perbaikan konkret.
 
 ---
 
-## 🛠️ INSTRUKSI AKSI PERBAIKAN KONKRET:
+## 🎯 BERKAS TARGET AUDIT ANDA:
+1. [`frontend/src/components/layout/AppLayout.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/layout/AppLayout.jsx) (Shell utama desktop & pembungkus rute)
+2. [`frontend/src/components/layout/Navbar.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/layout/Navbar.jsx) (Header atas, info shift aktif, notifikasi/indikator koneksi, avatar user & dropdown)
+3. [`frontend/src/components/layout/Sidebar.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/layout/Sidebar.jsx) (Navigasi samping, ikon menu, badge counter, collapse/expand)
+4. [`frontend/src/pages/HalamanLogin.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/HalamanLogin.jsx) (Tampilan login, card centered, kredensial, form input)
+5. [`frontend/src/components/forms/MandatoryPasswordChangeModal.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/forms/MandatoryPasswordChangeModal.jsx) (Modal ganti password wajib saat pertama login)
+6. **Sub-view / Modal Profil Mandiri:** Card 1 Profil & Kredensial STKP, Card 2 Dokumen & Sertifikat Saya, upload berkas, ganti password mandiri (periksa implementasi pemanggilannya dari header).
 
-### 1. Buat Tabel `announcement_reads` & Perbaiki Backend Controller
-1. **Di Database:**
-   Pastikan tabel `announcement_reads` dibuat secara aman (jalankan migrasi/query di controller jika belum ada):
-   ```sql
-   CREATE TABLE IF NOT EXISTS announcement_reads (
-     announcement_id INT NOT NULL,
-     user_id INT NOT NULL,
-     read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     PRIMARY KEY (announcement_id, user_id),
-     FOREIGN KEY (announcement_id) REFERENCES announcements(id) ON DELETE CASCADE,
-     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-   ```
-2. **Di `announcementController.js`:**
-   - Pada `getAnnouncements`:
-     - Lakukan `LEFT JOIN announcement_reads ar ON ar.announcement_id = a.id AND ar.user_id = ?` dengan parameter `req.user.id`.
-     - Kembalikan properti terhitung: `IF(ar.read_at IS NOT NULL, 1, 0) AS is_read`.
-     - Hitung jumlah pengumuman yang belum dibaca (`unread_count`) secara riil per user, bukan di-hardcode 0.
-   - Pada `markAsRead`:
-     - Hapus kode stub dummy! Ganti dengan operasi riil:
-       ```sql
-       INSERT INTO announcement_reads (announcement_id, user_id, read_at)
-       VALUES (?, ?, NOW())
-       ON DUPLICATE KEY UPDATE read_at = NOW();
-       ```
+---
 
-### 2. Perbaiki Frontend `HalamanPengumuman.jsx` & `MobileHeader.jsx`
-1. Di `HalamanPengumuman.jsx`:
-   - Pastikan `isUnread = Boolean(!ann.is_read || ann.is_read === 0)`.
-   - Ketika pengumuman diklik/dibaca (`handleSelectAnnouncement`), tandai `is_read: 1` di state lokal dan perbarui counter unread agar badge merah langsung hilang seketika.
-2. Di `MobileHeader.jsx`:
-   - Hapus hardcoded titik merah permanen pada lonceng:
-     `<span className="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full ..."></span>`
-   - Hanya render titik merah jika `unreadCount > 0`.
+## 🔍 FOKUS AREA AUDIT:
 
-### 3. Validasi CLI & Laporan
-- Jalankan pengecekan sintaksis:
-  `node -c backend/src/controllers/announcementController.js`
-  `npm --prefix frontend run build` (atau cek via terminal tanpa browser automation).
-- Tuliskan bukti eksekusi dan laporan lengkap di:
-  👉 [`masak/temp/hasil_agent1.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/temp/hasil_agent1.md)
+### 1. UI/UX & Tampilan Visual:
+- **Halaman Login:** 
+  - Pastikan TIDAK ADA footer di halaman login (aturan baku pengguna).
+  - Pastikan TIDAK ADA role selector (Admin/Chief/Kru) di login form.
+  - Pastikan TIDAK ADA teks filler/slogan demo atau ambient glow neon berlebih.
+  - Pastikan kredensial awal `aaa`/`aaaaaa` TIDAK ditampilkan secara terbuka di UI login.
+- **Header & Sidebar:**
+  - Kerapian alignment nama user, info shift dinas, dan status live.
+  - Kepatuhan Aturan GEMINI.md butir 9: Akses Profil Mandiri wajib seragam di Header Atas (Top App Bar via avatar).
+- **Profil Mandiri & Dokumen:**
+  - Apakah sub-view profil menampilkan 2 Card baku (Card 1: Profil & Kredensial STKP; Card 2: Dokumen & Sertifikat Saya)?
+  - Apakah dialog/modal pop-up sempit terpotong atau sudah menjadi sub-view yang lega?
+
+### 2. Error Handling & State Feedback:
+- Perilaku saat login gagal (password salah, akun dinonaktifkan, atau server backend mati): Apakah ada alert/toast error informatif atau silent/stuck?
+- Validasi form ganti password: pesan error kecocokan password, syarat minimal karakter.
+- Upload dokumen sertifikat: penanganan jika ukuran file terlalu besar (> 5MB) atau format salah.
+
+### 3. Analisis Beban & Optimasi Loading (Overload & Anti-Lag):
+- **Terlalu banyak load:** Apakah `Navbar.jsx` atau `AppLayout.jsx` melakukan polling data/fetch berulang yang tidak perlu?
+- **Performa Input Form:** Apakah ada CSS `transition-all` pada input username/password atau form profil? (Wajib `transition-colors duration-100`).
+- **Modal Backdrop:** Apakah modal ganti password atau popup memakai `backdrop-filter: blur(...)` yang membebani GPU saat input teks aktif?
+
+---
+
+## 📝 OUTPUT:
+Tuliskan seluruh temuan masalah (kategori: Kritis/Sedang/Minor), analisis beban load, dan saran perbaikan Anda secara terstruktur di:
+👉 [`masak/temp/hasil_agent1.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/temp/hasil_agent1.md)
+
+⚠️ **ATURAN FORMAT PENULISAN (DARI PENGGUNA):**
+- **DILARANG MENGGUNAKAN TABEL ATAU MATRIKS.** Tuliskan dalam format **daftar poin/bullet points hierarkis bernomor** agar nyaman dibaca.

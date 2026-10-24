@@ -96,6 +96,19 @@ Berdasarkan feedback eksplisit pengguna:
 6. **Desain Padat & Anti-Card Bersarang (Dense Ops Layout - Anti Cards Inside Cards)**:
    - Dilarang membungkus setiap baris personel ke dalam kartu kotak tebal berulang-ulang (*nested cards bloat*).
    - Gunakan layout daftar baris kompak (*compact flat rows*) dengan divider halus 1px agar 3–4 unit armada dapat termonitor sekaligus dalam 1 layar pandang tanpa scrolling melelahkan.
+7. **Anti-Redundansi Metrik & Minimalisme Keterangan Armada (Karakteristik Baku Dashboard)**:
+   - Dilarang membuat container/card KPI ringkasan yang mengulang informasi yang sudah ada di tabel matriks bawahnya (misal: jangan buat kartu KPI kesiapan armada terpisah jika di bawah sudah ada tabel kesiapan armada operasional yang lengkap).
+   - Label keterangan armada wajib ringkas: Cukup nama kendaraannya saja (misal: "Foam Tender 1", "Rapid Intervention Vehicle", "Ambulance"). DILARANG menambahkan detail berlebihan yang tidak esensial seperti kategori "utama/pendukung" atau nomor plat jika nama kendaraan sudah jelas.
+   - Posisi PIC Armada: Nama PIC diletakkan tepat di bawah nama kendaraan (sub-teks kecil), tanpa kolom keterangan panjang dan tanpa kolom jumlah kru, sehingga container armada menjadi ramping/kompak.
+   - DILARANG KERAS menyelipkan teks slogan, asumsi, atau jargon filler seperti: *"Formasi regu dinas memenuhi SOP ICAO"*, *"Standar kesiapsiagaan area movement aman"*, *"Target Response: ≤ 180 detik"*, *"Kategori Bandara: CAT IX (ICAO)"*, atau yang sejenis. Fokus murni pada data UI dan fungsionalitas nyata.
+   - ZERO DUMMY DATA secara mutlak untuk SELURUH AGENT (1 s.d. 5): Seluruh angka dan metrik wajib bersumber nyata dari API / database riil.
+   - Halaman Dashboard TIDAK BOLEH dipasangi seksi/banner pengumuman dinas kecuali ada perintah eksplisit.
+8. **Struktur Scorecard, Container Fix Ber-scroll, & Ragam Konsep Dashboard**:
+   - **Scorecard Atas Tetap 4 Card**: Slot atas tetap menggunakan formasi 4 kartu metrik (misal: Regu Berdinas, Total Personel Aktif Unit / Dinas Shift Sekarang, Personel Izin/Cuti, dan Agenda/Insiden Shift).
+   - **Penyajian Data Personel**: Menggunakan format gabungan seluruh regu (Total Seluruh Personel Aktif Unit / yang berdinas di shift aktif saat ini).
+   - **Entitas Kesiapan Dinamis Termasuk Posko**: Menampilkan seluruh data operasional riil dari API (termasuk Watch Room / Posko Komunikasi). Data bersifat dinamis mengikuti array database (DILARANG hardcode jumlah kendaraan).
+   - **Pemanfaatan Sisa Ruang (Container Ukuran Fix dengan Scroll)**: Sisa ruang kosong dari container armada yang ramping diisi dengan container/panel lain yang berukuran fix (pasti). Jika data di dalamnya panjang, wajib menggunakan container bervolume tetap dengan fitur scroll vertikal (`overflow-y-auto max-h-[...]`).
+   - **Keanekaragaman Konsep Antar-Agent (Desain Variatif)**: Konsep Dashboard Agent 1, 2, 4, dan 5 TIDAK HARUS SAMA isinya. Setiap agen wajib menghadirkan keunikan tata letak (*layout*) dan variasi komponen pendukung operasional (misal: quick dispatch, timeline kegiatan, status radio posko, atau visualisasi rasio personel dinamis).
 
 ## Protokol Orkestrasi & Pembagian Tugas 5 Agent (Agent 1 - 5)
 - **Kewenangan Penuh Orkestrator**:
@@ -137,3 +150,6 @@ Sesi percakapan utama ini bertindak khusus sebagai **Pengawas / Orkestrator (Sup
    - Perubahan HANYA disimpan ke database server ketika pengguna secara sadar menekan tombol "Simpan Ploting".
    - Dilarang keras membuat fungsi auto-save per pemilihan slot kru karena membebani jaringan dan database.
 
+## Standar Format Laporan Temuan & Komunikasi (Anti-Tabel / Anti-Matriks)
+- **DILARANG Menggunakan Tabel atau Matriks Markdown:** Pengguna tidak menyukai dan kesulitan membaca format tabel markdown atau matriks lebar di layar.
+- **Wajib Format Poin Hierarkis Vertikal:** Seluruh inventarisasi temuan di `masak/temp/hasil_agent*.md` maupun respon rangkuman pengawas WAJIB disajikan menggunakan format poin-poin bernomor / bullet points bertingkat dengan judul tebal yang jelas, terpisah rapi per poin masalah, dampak risiko, dan rekomendasi solusi konkret.
