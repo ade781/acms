@@ -92,7 +92,18 @@ export default function HalamanLaporanArmada() {
   };
 
   const handlePrint = () => {
-    window.print();
+    const token = localStorage.getItem('arff_token') || '';
+    const queryParams = new URLSearchParams();
+    if (isCustomMode && startDate && endDate) {
+      queryParams.set('period', 'custom');
+      queryParams.set('start_date', startDate);
+      queryParams.set('end_date', endDate);
+    } else {
+      queryParams.set('period', selectedPeriod);
+    }
+    if (token) queryParams.set('token', token);
+    const pdfUrl = `/api/reports/vehicles/pdf?${queryParams.toString()}`;
+    window.open(pdfUrl, '_blank');
   };
 
   const vehicles = reportData?.vehicles || [];
@@ -259,11 +270,11 @@ export default function HalamanLaporanArmada() {
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-1">
           <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
-            <span>Total Transisi Status</span>
+            <span>Total Periode Kendala</span>
             <RefreshCw className="w-4 h-4 text-amber-500" />
           </div>
           <p className="text-2xl font-black text-amber-600">{summary.total_transitions}</p>
-          <p className="text-[11px] text-slate-400">Pergantian kondisi fisik</p>
+          <p className="text-[11px] text-slate-400">Siklus kendala tercatat</p>
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-1">
@@ -321,7 +332,7 @@ export default function HalamanLaporanArmada() {
                   <th className="py-3 px-4">Nama Armada & Spesifikasi</th>
                   <th className="py-3 px-4">Kategori</th>
                   <th className="py-3 px-4 text-center">Status Saat Ini</th>
-                  <th className="py-3 px-4 text-center">Frekuensi Transisi</th>
+                  <th className="py-3 px-4 text-center">Periode Kendala</th>
                   <th className="py-3 px-4">Riwayat Kerusakan (Unserviceable)</th>
                   <th className="py-3 px-4 text-right print:hidden">Aksi</th>
                 </tr>
@@ -330,6 +341,8 @@ export default function HalamanLaporanArmada() {
                 {vehicles.map((v) => {
                   const isPosko = v.category === 'posko' || v.code_name === 'WATCHROOM';
                   const isCurrentUnserviceable = v.current_status === 'unserviceable';
+                  const periodCount = Number(v.period_count ?? v.transition_count ?? 0);
+                  const ongoingCount = Number(v.ongoing_issues_count ?? (isCurrentUnserviceable ? 1 : 0));
 
                   return (
                     <tr
@@ -378,20 +391,26 @@ export default function HalamanLaporanArmada() {
                         </span>
                       </td>
 
-                      {/* Frekuensi Transisi */}
+                      {/* Periode Kendala */}
                       <td className="py-3 px-4 text-center">
-                        {v.transition_count > 0 ? (
+                        {periodCount > 0 ? (
                           <div className="inline-flex flex-col items-center">
-                            <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-50 text-amber-800 border border-amber-200">
-                              {v.transition_count}x Berganti
+                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                              {periodCount} Periode Kendala
                             </span>
-                            <span className="text-[10px] text-slate-400 mt-0.5">
-                              {v.unserviceable_count}x Rusak
-                            </span>
+                            {ongoingCount > 0 ? (
+                              <span className="text-[10px] text-red-600 font-medium mt-0.5">
+                                {ongoingCount} Belum Pulih
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-emerald-600 font-medium mt-0.5">
+                                Seluruhnya Selesai
+                              </span>
+                            )}
                           </div>
                         ) : (
-                          <span className="text-slate-400 font-medium text-[11px] italic">
-                            Stabil (0x)
+                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-50 text-slate-500 border border-slate-200">
+                            Nihil Kendala
                           </span>
                         )}
                       </td>
@@ -441,8 +460,8 @@ export default function HalamanLaporanArmada() {
         <Modal
           isOpen={Boolean(selectedVehicleDetail)}
           onClose={() => setSelectedVehicleDetail(null)}
-          title={`Riwayat Transisi: ${selectedVehicleDetail.code_name} - ${selectedVehicleDetail.vehicle_name}`}
-          subtitle={`Detail log pergeseran kelaikan fisik pada periode ${formatDateIndo(periodInfo?.start_date)} s.d. ${formatDateIndo(periodInfo?.end_date)}`}
+          title={`Riwayat Periode Kendala: ${selectedVehicleDetail.code_name} - ${selectedVehicleDetail.vehicle_name}`}
+          subtitle={`Detail log periode kendala fisik pada periode ${formatDateIndo(periodInfo?.start_date)} s.d. ${formatDateIndo(periodInfo?.end_date)}`}
           footer={
             <div className="flex justify-end w-full">
               <Button
@@ -464,76 +483,104 @@ export default function HalamanLaporanArmada() {
                 <p className="text-[11px] text-slate-500">{selectedVehicleDetail.vehicle_name}</p>
               </div>
               <div className="text-right">
-                <span className="text-[10px] text-slate-400 block">Total Pergantian:</span>
+                <span className="text-[10px] text-slate-400 block">Total Periode Kendala:</span>
                 <span className="font-bold text-amber-600 text-sm">
-                  {selectedVehicleDetail.transition_count} Kali
+                  {selectedVehicleDetail.period_count ?? selectedVehicleDetail.transition_count ?? 0} Periode
                 </span>
               </div>
             </div>
 
-            {/* List Kronologi Transisi */}
+            {/* List Kronologi Periode Kendala: 1 Periode = 1 Card */}
             <div className="space-y-2">
               <h5 className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
-                Kronologi Kejadian & Perubahan Status:
+                Daftar Periode Kendala (Siklus Kerusakan & Pemulihan):
               </h5>
 
-              {selectedVehicleDetail.transitions && selectedVehicleDetail.transitions.length > 0 ? (
-                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                  {selectedVehicleDetail.transitions.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="p-3 rounded-lg border border-slate-200 bg-white space-y-1.5"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono text-[11px] text-slate-500">
-                          {formatDateIndo(item.shift_date)} | Shift {item.shift_number} ({item.team_group})
-                        </span>
-                        <div className="flex items-center gap-1.5">
+              {(selectedVehicleDetail.issue_periods || selectedVehicleDetail.transitions) && (selectedVehicleDetail.issue_periods || selectedVehicleDetail.transitions).length > 0 ? (
+                <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                  {(selectedVehicleDetail.issue_periods || selectedVehicleDetail.transitions).map((item, idx) => {
+                    const isOngoing = item.status === 'ongoing' || !item.is_resolved;
+                    return (
+                      <div
+                        key={idx}
+                        className={`p-3.5 rounded-xl border bg-white space-y-2 shadow-xs ${
+                          isOngoing ? 'border-red-200 bg-red-50/20' : 'border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-800">
+                              Periode #{item.period_number || idx + 1}
+                            </span>
+                            <span className="text-slate-400 text-xs">•</span>
+                            <span className="text-slate-600 font-medium text-[11px]">
+                              {item.unserviceable_shifts_count || 1} Shift Dinas Unserviceable
+                            </span>
+                          </div>
                           <span
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                              item.from_status === 'serviceable'
-                                ? 'bg-emerald-50 text-emerald-700'
-                                : 'bg-red-50 text-red-700'
+                            className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold ${
+                              isOngoing
+                                ? 'bg-red-100 text-red-800 border border-red-200'
+                                : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                             }`}
                           >
-                            {item.from_status}
-                          </span>
-                          <span className="text-slate-400">→</span>
-                          <span
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                              item.to_status === 'serviceable'
-                                ? 'bg-emerald-50 text-emerald-700'
-                                : 'bg-red-50 text-red-700'
-                            }`}
-                          >
-                            {item.to_status}
+                            {isOngoing ? 'Masih Dalam Penanganan' : 'Pulih (Serviceable)'}
                           </span>
                         </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                          <div className="p-2 rounded bg-slate-50 border border-slate-100">
+                            <p className="text-[10px] text-slate-400 font-bold uppercase">Mulai Kendala (Unserviceable):</p>
+                            <p className="font-semibold text-slate-800">
+                              {formatDateIndo(item.start_date || item.shift_date)} | Shift {item.start_shift_number || item.shift_number} ({item.start_team_group || item.team_group})
+                            </p>
+                            <p className="text-slate-500 text-[10px] mt-0.5">
+                              Pelapor: {item.reported_by || '-'}
+                            </p>
+                          </div>
+
+                          <div className={`p-2 rounded border ${
+                            isOngoing
+                              ? 'bg-amber-50/40 border-amber-200 text-amber-900'
+                              : 'bg-emerald-50/40 border-emerald-100 text-emerald-900'
+                          }`}>
+                            <p className="text-[10px] font-bold uppercase opacity-75">Status Pemulihan:</p>
+                            {!isOngoing && item.resolved_date ? (
+                              <>
+                                <p className="font-semibold">
+                                  {formatDateIndo(item.resolved_date)} | Shift {item.resolved_shift_number} ({item.resolved_team_group})
+                                </p>
+                                <p className="text-[10px] opacity-80 mt-0.5">
+                                  Dipulihkan oleh: {item.resolved_by || '-'}
+                                </p>
+                              </>
+                            ) : (
+                              <p className="font-semibold text-red-700">
+                                Belum pulih hingga akhir periode ini
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {item.justification && item.justification !== '-' && (
+                          <div className="text-[11px] text-slate-700 bg-slate-50 p-2 rounded border border-slate-100">
+                            <strong className="text-slate-900 font-semibold block text-[10px] uppercase text-slate-500 mb-0.5">Justifikasi Kerusakan:</strong>
+                            {item.justification}
+                          </div>
+                        )}
+
+                        {item.notes && (
+                          <p className="text-[10px] text-slate-500 italic">
+                            <strong>Catatan Tambahan:</strong> {item.notes}
+                          </p>
+                        )}
                       </div>
-
-                      {item.justification && (
-                        <p className="text-[11px] text-slate-700 bg-slate-50 p-2 rounded border border-slate-100">
-                          <strong className="text-slate-900 font-semibold">Justifikasi:</strong> {item.justification}
-                        </p>
-                      )}
-
-                      {item.notes && (
-                        <p className="text-[10px] text-slate-500">
-                          <strong>Catatan:</strong> {item.notes}
-                        </p>
-                      )}
-
-                      {item.reported_by && (
-                        <p className="text-[10px] text-slate-400 text-right">
-                          Dilaporkan oleh: {item.reported_by}
-                        </p>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
-                <div className="p-4 text-center text-slate-400 italic bg-slate-50 rounded-lg border border-dashed border-slate-200">
-                  Tidak ada rekaman transisi status pada periode ini. Armada berada dalam status konsisten.
+                <div className="p-6 text-center text-slate-400 italic bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                  Tidak ada catatan periode kendala pada rentang waktu ini. Armada beroperasi stabil dan prima.
                 </div>
               )}
             </div>

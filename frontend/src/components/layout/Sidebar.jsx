@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users2,
@@ -101,20 +101,30 @@ export default function Sidebar({ isOpen, onClose }) {
     },
   ];
 
-  const linkClasses = ({ isActive }) =>
+  const location = useLocation();
 
-    `flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium min-h-[44px] transition-colors duration-100 select-none ${
-      isActive
+  const isItemActive = (itemTo) => {
+    if (location.pathname === itemTo) return true;
+    if (itemTo === '/readiness/vehicles' && location.pathname.startsWith('/armada/laporan')) return true;
+    if (itemTo === '/incidents' && (location.pathname.startsWith('/incidents') || location.pathname.startsWith('/insiden/laporan'))) return true;
+    return false;
+  };
+
+  const linkClasses = (itemTo) => ({ isActive }) => {
+    const active = isActive || isItemActive(itemTo);
+    return `flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium min-h-[44px] transition-colors duration-100 select-none ${
+      active
         ? 'bg-red-50 text-arff-primary font-semibold border-l-4 border-arff-primary pl-2.5'
         : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
     }`;
+  };
 
   return (
     <>
       {/* Mobile Backdrop without blur */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-slate-900/60 md:hidden transition-opacity"
+          className="fixed inset-0 z-40 bg-slate-900/60 md:hidden transition-opacity print:hidden"
           onClick={onClose}
           aria-hidden="true"
         />
@@ -122,7 +132,7 @@ export default function Sidebar({ isOpen, onClose }) {
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200 flex flex-col transition-transform duration-200 ease-in-out md:translate-x-0 md:static md:z-auto ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200 flex flex-col transition-transform duration-200 ease-in-out md:translate-x-0 md:static md:z-auto print:hidden ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -155,7 +165,7 @@ export default function Sidebar({ isOpen, onClose }) {
                     onClose();
                   }
                 }}
-                className={linkClasses}
+                className={linkClasses(item.to)}
               >
                 <div className="flex items-center gap-3">
                   <Icon className="w-4 h-4 flex-shrink-0" />

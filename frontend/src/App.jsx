@@ -19,8 +19,8 @@ import HalamanJadwal from './pages/HalamanJadwal';
 import HalamanPengumuman from './pages/HalamanPengumuman';
 import HalamanKelolaPejabat from './pages/HalamanKelolaPejabat';
 
-// Dynamic Loaders untuk Halaman Laporan Khusus Baru (Zero Collision dengan Agent 2 & Agent 4)
-const pageModules = import.meta.glob(['./pages/HalamanLaporanArmada.jsx', './pages/HalamanLaporanInsiden.jsx']);
+// Dynamic Loaders untuk Halaman Laporan Khusus
+const pageModules = import.meta.glob(['./pages/HalamanLaporanArmada.jsx']);
 
 const HalamanLaporanArmada = React.lazy(
   pageModules['./pages/HalamanLaporanArmada.jsx'] ||
@@ -30,19 +30,6 @@ const HalamanLaporanArmada = React.lazy(
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
             <h3 className="text-base font-bold text-slate-800 mb-1">Laporan Kesiapan Armada</h3>
             <p className="text-xs text-slate-500">Memuat komponen laporan kelaikan armada...</p>
-          </div>
-        ),
-      }))
-);
-
-const HalamanLaporanInsiden = React.lazy(
-  pageModules['./pages/HalamanLaporanInsiden.jsx'] ||
-    (() =>
-      Promise.resolve({
-        default: () => (
-          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
-            <h3 className="text-base font-bold text-slate-800 mb-1">Laporan Rekap Insiden</h3>
-            <p className="text-xs text-slate-500">Memuat komponen laporan rekap insiden...</p>
           </div>
         ),
       }))
@@ -160,28 +147,6 @@ export default function App() {
             <Route path="laporan" element={<MobileLaporan />} />
           </Route>
 
-          {/* Halaman Rute Baru Penuh: Laporan Kesiapan Armada & Rekap Insiden (Akses Terbuka Semua Role Operasional) */}
-          <Route
-            path="/armada/laporan"
-            element={
-              <ProtectedRoute allowedRoles={['admin', 'dept_head', 'section_head', 'chief', 'chief_assistant', 'supervisor', 'senior_firefighter', 'junior_firefighter']}>
-                <React.Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 text-xs font-semibold text-slate-600">Memuat Laporan Kesiapan Armada...</div>}>
-                  <HalamanLaporanArmada />
-                </React.Suspense>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/insiden/laporan"
-            element={
-              <ProtectedRoute allowedRoles={['admin', 'dept_head', 'section_head', 'chief', 'chief_assistant', 'supervisor', 'senior_firefighter', 'junior_firefighter']}>
-                <React.Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 text-xs font-semibold text-slate-600">Memuat Laporan Rekap Insiden...</div>}>
-                  <HalamanLaporanInsiden />
-                </React.Suspense>
-              </ProtectedRoute>
-            }
-          />
-
           {/* Authenticated Desktop Layout Routes */}
           <Route
             element={
@@ -198,6 +163,15 @@ export default function App() {
             <Route path="/deployment" element={<HalamanPenugasan />} />
             <Route path="/readiness/vehicles" element={<HalamanKesiapanKendaraan />} />
             <Route path="/readiness/watchroom" element={<Navigate to="/readiness/vehicles" replace />} />
+            <Route
+              path="/armada/laporan"
+              element={
+                <React.Suspense fallback={<div className="p-8 text-center text-xs font-semibold text-slate-600">Memuat Laporan Kesiapan Armada...</div>}>
+                  <HalamanLaporanArmada />
+                </React.Suspense>
+              }
+            />
+            <Route path="/insiden/laporan" element={<Navigate to="/incidents" replace />} />
             <Route path="/personnel" element={<HalamanPersonel />} />
             <Route path="/personnel/officials" element={<HalamanKelolaPejabat />} />
             <Route path="/personnel/:id" element={<HalamanDetailPersonel />} />

@@ -526,10 +526,10 @@ export const getVehicleTransitionsReport = async (req, res) => {
     const vehiclesReport = vehicles.map(v => {
       const vLogs = logsByVehicle.get(v.id) || [];
       
-      let transitionCount = 0;
-      let lastKnownStatus = 'serviceable';
       const incidentLogs = [];
-      const transitions = [];
+      const issuePeriods = [];
+      let currentPeriod = null;
+      let lastKnownStatus = 'serviceable';
 
       for (let i = 0; i < vLogs.length; i++) {
         const item = vLogs[i];
@@ -550,24 +550,57 @@ export const getVehicleTransitionsReport = async (req, res) => {
         }
 
         if (item.status && item.status !== 'belum_dilaporkan') {
-          if (item.status !== lastKnownStatus) {
-            transitionCount++;
-            transitions.push({
-              shift_date: item.shift_date,
-              shift_number: item.shift_number,
-              team_group: item.team_group,
-              from_status: lastKnownStatus,
-              to_status: item.status,
-              justification: item.justification,
-              notes: item.notes,
-              reported_by: item.pic_name
-            });
-            lastKnownStatus = item.status;
+          if (item.status === 'unserviceable') {
+            if (!currentPeriod) {
+              // Mulai 1 periode kendala baru
+              currentPeriod = {
+                period_number: issuePeriods.length + 1,
+                start_date: item.shift_date,
+                start_shift_number: item.shift_number,
+                start_team_group: item.team_group,
+                justification: item.justification || '-',
+                notes: item.notes || '',
+                reported_by: item.pic_name || '-',
+                photo_webp_url: item.photo_webp_url || null,
+                unserviceable_shifts_count: 1,
+                is_resolved: false,
+                resolved_date: null,
+                resolved_shift_number: null,
+                resolved_team_group: null,
+                resolved_by: null,
+                status: 'ongoing'
+              };
+            } else {
+              currentPeriod.unserviceable_shifts_count++;
+              if (item.notes && !currentPeriod.notes.includes(item.notes)) {
+                currentPeriod.notes += (currentPeriod.notes ? ' • ' : '') + item.notes;
+              }
+            }
+            lastKnownStatus = 'unserviceable';
+          } else if (item.status === 'serviceable') {
+            if (currentPeriod) {
+              // Pulih kembali: siklus 1 periode kendala ditutup
+              currentPeriod.is_resolved = true;
+              currentPeriod.resolved_date = item.shift_date;
+              currentPeriod.resolved_shift_number = item.shift_number;
+              currentPeriod.resolved_team_group = item.team_group;
+              currentPeriod.resolved_by = item.pic_name || '-';
+              currentPeriod.status = 'resolved';
+              issuePeriods.push(currentPeriod);
+              currentPeriod = null;
+            }
+            lastKnownStatus = 'serviceable';
           }
         }
       }
 
-      grandTotalTransitions += transitionCount;
+      // Jika ada periode kendala yang belum sembuh hingga akhir filter periode
+      if (currentPeriod) {
+        issuePeriods.push(currentPeriod);
+      }
+
+      const periodCount = issuePeriods.length;
+      grandTotalTransitions += periodCount;
 
       const latestLog = vLogs.length > 0 ? vLogs[vLogs.length - 1] : null;
       const currentStatus = (latestLog && latestLog.status !== 'belum_dilaporkan') ? latestLog.status : 'serviceable';
@@ -590,12 +623,16 @@ export const getVehicleTransitionsReport = async (req, res) => {
         license_plate: v.license_plate,
         description: v.description,
         current_status: currentStatus,
-        transition_count: transitionCount,
+        transition_count: periodCount,
+        period_count: periodCount,
+        issue_periods: issuePeriods,
+        ongoing_issues_count: issuePeriods.filter(p => !p.is_resolved).length,
+        resolved_issues_count: issuePeriods.filter(p => p.is_resolved).length,
         unserviceable_count: totalUnserviceableShifts,
         serviceable_count: totalServiceableShifts,
         total_logs: vLogs.length,
         incident_logs: incidentLogs,
-        transitions: transitions
+        transitions: issuePeriods
       };
     });
 

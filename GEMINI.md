@@ -99,15 +99,16 @@ Berdasarkan feedback eksplisit pengguna:
 
 ## Protokol Orkestrasi & Pembagian Tugas 5 Agent (Agent 1 - 5)
 - **Kewenangan Penuh Orkestrator**:
-  - Setiap kali pengguna memberikan instruksi atau daftar koreksi/kesalahan, orkestrator berwenang penuh membagi dan menugaskan butir-butir pekerjaan kepada Agent 1 sampai 5 sesuai domain dan batas berkas eksklusif masing-masing.
-  - Pembagian dilakukan secara terisolasi agar kelima agen dapat bekerja secara simultan/paralel tanpa tabrakan berkas (*zero file collision*).
+  - Orkestrator bebas membagi butir pekerjaan apa pun kepada Agent 1 s.d. 5, dengan syarat mutlak: pembagian tugas tidak boleh bertabrakan dan berkas terisolasi (*zero file collision*).
+- **Prosedur Wajib Setiap Penugasan Agent**:
+  Setiap kali pengguna menyuruh untuk menugaskan agent, Pengawas WAJIB menjalankan 2 langkah ini:
+  1. **Ganti total isi berkas `task_agent1.md` s.d. `task_agent5.md` (dan `taskagent.md`) dengan instruksi baru**: Semua instruksi lama WAJIB dihapus bersih, jangan ditumpuk dengan riwayat lama agar agen fokus 100% hanya pada tugas baru saat ini.
+  2. **Kosongkan berkas `hasil_agent` di folder temp (`masak/temp/hasil_agent1.md` s.d. `masak/temp/hasil_agent5.md`)**: Berkas lama dikosongkan bersih, dan agen diinstruksikan untuk menuliskan hasil kerjanya secara mandiri di berkas tersebut.
 - **Protokol 4 Fase Siklus Orkestrasi**:
   1. **Fase 1 (Audit & Inventarisasi)**: Seluruh agen menyisir domain untuk menemukan kesalahan tanpa modifikasi kode produksi, dan mencatatnya ke `masak/temp/hasil_agent*.md`.
   2. **Fase 2 (Persetujuan / ACC Pengguna)**: Pengawas merekap dan mempresentasikan seluruh temuan kepada pengguna untuk disetujui / diselaraskan.
-  3. **Fase 3 (Eksekusi Perbaikan Terisolasi)**: Pengawas memperbarui `taskagent.md` dan `task_agent1.md` s.d. `task_agent5.md` dengan daftar aksi perbaikan konkret, mengosongkan `masak/temp/hasil_agent*.md`, lalu mengarahkan agen mengeksekusi perbaikan.
+  3. **Fase 3 (Eksekusi Perbaikan Terisolasi)**: Pengawas memperbarui `taskagent.md` dan `task_agent1.md` s.d. `task_agent5.md` dengan daftar aksi perbaikan konkret baru (menghapus instruksi lama), mengosongkan `masak/temp/hasil_agent*.md`, lalu mengarahkan agen mengeksekusi perbaikan.
   4. **Fase 4 (Verifikasi & Laporan Akhir)**: Setiap agen mengisi `masak/temp/hasil_agent*.md` secara mandiri dengan hasil eksekusi dan bukti pengujian CLI (`npm run build`, `node -c`).
-- **Kewajiban Sinkronisasi Berkas Tugas (`task_agent1.md` s.d. `task_agent5.md`)**:
-  - Pada setiap instruksi pengguna, seluruh isi berkas tugas `task_agent1.md` sampai `task_agent5.md` serta `taskagent.md` WAJIB diperbarui secara berkala dan terdokumentasi rapi.
 
 ## Peran & Standar Kerja Agent Tipe Pengawas (Supervisor / Orchestrator Agent)
 Sesi percakapan utama ini bertindak khusus sebagai **Pengawas / Orkestrator (Supervisor Agent)** yang memimpin jalannya operasional 5 agen pelaksana:

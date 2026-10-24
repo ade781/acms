@@ -220,14 +220,6 @@ export default function HalamanKesiapanKendaraan() {
 
         {/* Action & Counter Summary */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            icon={FileBarChart2}
-            onClick={() => navigate('/armada/laporan')}
-          >
-            Laporan Kesiapan
-          </Button>
           {isAdmin && (
             <Button
               variant="primary"
@@ -238,6 +230,14 @@ export default function HalamanKesiapanKendaraan() {
               Tambah Armada
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            icon={FileBarChart2}
+            onClick={() => navigate('/armada/laporan')}
+          >
+            Laporan Kesiapan
+          </Button>
           <span className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold">
             {serviceableCount} Serviceable
           </span>
