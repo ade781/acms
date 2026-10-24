@@ -153,6 +153,14 @@ export const createIncident = async (req, res) => {
       return errorResponse(res, 'Tanggal, waktu kejadian, judul, lokasi, dan kronologi wajib diisi', 400);
     }
 
+    if (activation_time && incident_time) {
+      const cleanIncTime = incident_time.slice(0, 5);
+      const cleanActTime = activation_time.slice(0, 5);
+      if (cleanActTime < cleanIncTime) {
+        return errorResponse(res, 'Waktu tiba unit di TKP tidak boleh lebih awal dari waktu alarm kejadian.', 400);
+      }
+    }
+
     await connection.beginTransaction();
 
     const reportNumber = await generateNextReportNumber(connection);

@@ -130,7 +130,7 @@ export const updateActivity = async (req, res) => {
     const { id } = req.params;
     const { activity_type, activity_time, title, description, result_notes, actor_ids, attachment_url } = req.body;
 
-    const [existing] = await pool.query('SELECT id, attachment_url FROM daily_shift_activities WHERE id = ?', [id]);
+    const [existing] = await pool.query('SELECT * FROM daily_shift_activities WHERE id = ?', [id]);
     if (existing.length === 0) {
       return errorResponse(res, 'Aktivitas tidak ditemukan', 404);
     }
@@ -166,6 +166,20 @@ export const updateActivity = async (req, res) => {
       }
     }
 
+    let finalActorIds = currentActivity.actor_ids;
+    if (actor_ids !== undefined) {
+      if (actor_ids === null) {
+        finalActorIds = null;
+      } else if (typeof actor_ids === 'string') {
+        finalActorIds = actor_ids;
+      } else {
+        finalActorIds = JSON.stringify(actor_ids);
+      }
+    }
+
+    const finalDescription = description !== undefined ? description : currentActivity.description;
+    const finalResultNotes = result_notes !== undefined ? result_notes : currentActivity.result_notes;
+
     await pool.query(
       `UPDATE daily_shift_activities SET
         activity_type = COALESCE(?, activity_type),
@@ -173,16 +187,16 @@ export const updateActivity = async (req, res) => {
         title = COALESCE(?, title),
         description = ?,
         result_notes = ?,
-        actor_ids = COALESCE(?, actor_ids),
+        actor_ids = ?,
         attachment_url = ?
        WHERE id = ?`,
       [
         activity_type || null,
         activity_time || null,
         title || null,
-        description !== undefined ? description : null,
-        result_notes !== undefined ? result_notes : null,
-        actor_ids ? JSON.stringify(actor_ids) : null,
+        finalDescription,
+        finalResultNotes,
+        finalActorIds,
         finalAttachmentUrl,
         id
       ]

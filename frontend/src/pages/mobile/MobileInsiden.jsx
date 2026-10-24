@@ -7,6 +7,7 @@ import { cleanTeam } from '../../utils/shiftHelper';
 import MobileIncidentTimelineItem from '../../components/mobile/incidents/MobileIncidentTimelineItem';
 import MobileIncidentModal from '../../components/mobile/incidents/MobileIncidentModal';
 import MobileIncidentDetailModal from '../../components/mobile/incidents/MobileIncidentDetailModal';
+import MobileIncidentReportModal from '../../components/mobile/incidents/MobileIncidentReportModal';
 
 export default function MobileInsiden() {
   const navigate = useNavigate();
@@ -19,6 +20,7 @@ export default function MobileInsiden() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [filterPriority, setFilterPriority] = useState('ALL');
   const [filterScope, setFilterScope] = useState('shift'); // 'shift' | 'all'
 
@@ -94,7 +96,7 @@ export default function MobileInsiden() {
         <div className="flex items-center gap-1.5">
           <button
             type="button"
-            onClick={() => navigate('/insiden/laporan')}
+            onClick={() => setIsReportModalOpen(true)}
             className="p-1 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-100 flex items-center gap-1 text-[10px] font-bold border border-slate-200 px-2 py-0.5"
             title="Rekap Laporan Insiden"
             aria-label="Rekap Laporan Insiden"
@@ -300,6 +302,12 @@ export default function MobileInsiden() {
         initialIncident={selectedIncident}
         canManage={canManage}
         onStatusUpdated={fetchIncidents}
+      />
+
+      {/* Modal Rekapitulasi Insiden Mobile */}
+      <MobileIncidentReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
       />
     </div>
   );
