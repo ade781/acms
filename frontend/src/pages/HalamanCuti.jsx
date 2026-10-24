@@ -1,24 +1,72 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   UserX,
-  Save,
   CheckCircle,
   AlertCircle,
   Trash2,
   Calendar,
-  Upload,
-  FileText,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { cleanTeam, formatTeam } from '../utils/shiftHelper';
+import { cleanTeam } from '../utils/shiftHelper';
 import api from '../services/api';
 import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
-import Badge from '../components/common/Badge';
 import Modal from '../components/common/Modal';
-import InputField from '../components/common/InputField';
-import SelectField from '../components/common/SelectField';
+import CutiModal from '../components/forms/CutiModal';
+
+// Helper ekstrak rentang tanggal dari catatan cuti
+const extractDateRange = (notes, activeDate) => {
+  if (!notes) return activeDate || '-';
+  const match = notes.match(/\((?:Rentang:\s*)?([0-9]{4}-[0-9]{2}-[0-9]{2})\s*s\/?d\s*([0-9]{4}-[0-9]{2}-[0-9]{2})\)/i);
+  if (match) {
+    return `${match[1]} s/d ${match[2]}`;
+  }
+  return activeDate || '-';
+};
+
+// Helper membersihkan catatan dari string format tanggal agar tidak redundan
+const cleanNotes = (notes) => {
+  if (!notes) return '-';
+  const cleaned = notes.replace(/\((?:Rentang:\s*)?[0-9]{4}-[0-9]{2}-[0-9]{2}\s*s\/?d\s*[0-9]{4}-[0-9]{2}-[0-9]{2}\)/gi, '').trim();
+  return cleaned || '-';
+};
+
+// Helper badge kategori izin / cuti
+const getReasonBadge = (reason) => {
+  switch (reason) {
+    case 'cuti':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+          Cuti Tahunan
+        </span>
+      );
+    case 'sakit':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-50 text-rose-800 border border-rose-200">
+          Sakit
+        </span>
+      );
+    case 'dinas':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+          Dinas Luar
+        </span>
+      );
+    case 'tukar_dinas':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+          Tukar Dinas
+        </span>
+      );
+    default:
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-800 border border-slate-200 uppercase">
+          {reason || 'Cuti'}
+        </span>
+      );
+  }
+};
 
 export default function HalamanCuti() {
   const {
@@ -35,20 +83,11 @@ export default function HalamanCuti() {
   const [successMsg, setSuccessMsg] = useState(null);
 
   const [teamPersonnel, setTeamPersonnel] = useState([]);
-  const [existingDeployments, setExistingDeployments] = useState([]);
   const [absentList, setAbsentList] = useState([]);
   const [supervisorName, setSupervisorName] = useState('');
-  const [saving, setSaving] = useState(false);
 
-  // State Pengajuan Cuti Mandiri Rentang Tanggal
+  // State Modal Pengajuan Cuti Mandiri
   const [leaveModalOpen, setLeaveModalOpen] = useState(false);
-  const [leaveStartDate, setLeaveStartDate] = useState(activeDate || '');
-  const [leaveEndDate, setLeaveEndDate] = useState(activeDate || '');
-  const [leaveReason, setLeaveReason] = useState('cuti');
-  const [leaveNotes, setLeaveNotes] = useState('');
-  const [leaveFile, setLeaveFile] = useState(null);
-  const [submittingLeave, setSubmittingLeave] = useState(false);
-  const [leaveModalError, setLeaveModalError] = useState(null);
 
   // State Konfirmasi Pembatalan Cuti Instan
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
@@ -85,9 +124,8 @@ export default function HalamanCuti() {
         : (Array.isArray(pRes.data) ? pRes.data : []));
       setTeamPersonnel(personnel);
 
-      const depData = depRes.data;
-      setSupervisorName(depData?.supervisor_name || '');
-      setExistingDeployments(depData?.deployments || []);
+      const depData = depRes.data?.data || depRes.data;
+      setSupervisorName(depData?.shift?.supervisor_name || depData?.supervisor_name || '');
 
       const existingAbsent = (depData?.deployments || []).filter(
         (d) => d.deployment_type === 'absent'
@@ -98,6 +136,9 @@ export default function HalamanCuti() {
           existingAbsent.map((d) => ({
             id: d.id,
             personnel_id: d.personnel_id,
+            full_name: d.full_name,
+            nip: d.nip,
+            personnel_team: d.personnel_team,
             reason: d.absent_reason || 'cuti',
             notes: d.notes || '',
           }))
@@ -117,66 +158,13 @@ export default function HalamanCuti() {
     fetchLeaveData();
   }, [fetchLeaveData]);
 
-  const handleOpenLeaveModal = () => {
-    setLeaveModalError(null);
-    setLeaveStartDate(activeDate || new Date().toISOString().split('T')[0]);
-    setLeaveEndDate(activeDate || new Date().toISOString().split('T')[0]);
-    setLeaveReason('cuti');
-    setLeaveNotes('');
-    setLeaveFile(null);
-    setLeaveModalOpen(true);
-  };
-
-  const handleSubmitLeaveRange = async (e) => {
-    e.preventDefault();
-    setLeaveModalError(null);
-
-    const targetPId = user?.personnel_id;
-    if (!targetPId) {
-      setLeaveModalError('Akun Anda tidak terhubung dengan data personel operasional untuk mengajukan cuti mandiri.');
-      return;
-    }
-    if (!leaveStartDate || !leaveEndDate) {
-      setLeaveModalError('Tanggal mulai dan tanggal selesai wajib diisi.');
-      return;
-    }
-    if (new Date(leaveStartDate) > new Date(leaveEndDate)) {
-      setLeaveModalError('Tanggal selesai tidak boleh lebih awal dari tanggal mulai.');
-      return;
-    }
-
-    setSubmittingLeave(true);
-    try {
-      const formData = new FormData();
-      formData.append('personnel_id', targetPId);
-      formData.append('start_date', leaveStartDate);
-      formData.append('end_date', leaveEndDate);
-      formData.append('absent_reason', leaveReason);
-      if (leaveNotes.trim()) formData.append('notes', leaveNotes.trim());
-      if (leaveFile) formData.append('document', leaveFile);
-
-      const res = await api.post('/deployments/leave-range', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-
-      setSuccessMsg(res.data?.message || 'Pengajuan cuti berhasil dicatat.');
-      setLeaveModalOpen(false);
-      fetchLeaveData({ keepSuccessMsg: true });
-    } catch (err) {
-      console.error('Error submitting leave range:', err);
-      setLeaveModalError(err.response?.data?.message || err.message || 'Gagal mengajukan cuti.');
-    } finally {
-      setSubmittingLeave(false);
-    }
-  };
-
   // Buka modal konfirmasi pembatalan cuti
   const handleRequestCancelLeave = (abs) => {
     const person = teamPersonnel.find((p) => Number(p.id) === Number(abs.personnel_id));
     setTargetCancelLeave({
       id: abs.id,
       personnel_id: abs.personnel_id,
-      personName: person?.full_name || `Personel #${abs.personnel_id}`,
+      personName: person?.full_name || abs.full_name || `Personel #${abs.personnel_id}`,
       reason: abs.reason,
       notes: abs.notes,
     });
@@ -207,59 +195,6 @@ export default function HalamanCuti() {
       setError(err.response?.data?.message || err.message || 'Gagal membatalkan cuti.');
     } finally {
       setCancelingLeave(false);
-    }
-  };
-
-  // Simpan penyesuaian keterangan cuti (Edit oleh Admin/Supervisor)
-  const handleSaveLeave = async () => {
-    setError(null);
-    setSuccessMsg(null);
-    setSaving(true);
-
-    try {
-      const absentPersonnelIds = new Set(
-        absentList
-          .filter((abs) => abs.personnel_id)
-          .map((abs) => Number(abs.personnel_id))
-      );
-
-      const nonAbsentDeployments = existingDeployments
-        .filter((d) => d.deployment_type !== 'absent' && !absentPersonnelIds.has(Number(d.personnel_id)))
-        .map((d) => ({
-          personnel_id: Number(d.personnel_id),
-          deployment_type: d.deployment_type,
-          vehicle_id: d.vehicle_id ? Number(d.vehicle_id) : null,
-          is_pic: Boolean(d.is_pic),
-          notes: d.notes || '',
-        }));
-
-      const newAbsentDeployments = absentList
-        .filter((abs) => abs.personnel_id)
-        .map((abs) => ({
-          personnel_id: Number(abs.personnel_id),
-          deployment_type: 'absent',
-          vehicle_id: null,
-          is_pic: false,
-          absent_reason: abs.reason,
-          notes: abs.notes || '',
-        }));
-
-      const payloadDeployments = [...nonAbsentDeployments, ...newAbsentDeployments];
-
-      await api.post('/deployments/batch', {
-        shift_date: activeDate,
-        shift_number: activeShiftNumber,
-        team_group: cleanTeam(activeTeam),
-        deployments: payloadDeployments,
-      });
-
-      setSuccessMsg('Penyesuaian keterangan izin / cuti personel berhasil disimpan.');
-      fetchLeaveData({ keepSuccessMsg: true });
-    } catch (err) {
-      console.error('Error saving leave data:', err);
-      setError(`Gagal menyimpan data cuti: ${err.response?.data?.message || err.message}`);
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -310,17 +245,17 @@ export default function HalamanCuti() {
 
       <StateView loading={loading} onRetry={fetchLeaveData}>
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mb-6">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
+          <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-4 flex-wrap gap-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-red-50 text-arff-primary flex items-center justify-center">
+              <div className="w-9 h-9 rounded-lg bg-red-50 text-arff-primary flex items-center justify-center flex-shrink-0">
                 <UserX className="w-5 h-5" />
               </div>
               <div>
                 <h4 className="text-sm font-bold text-slate-900">
-                  Pencatatan Cuti & Izin
+                  Daftar Personel Izin / Cuti Dinas
                 </h4>
                 <p className="text-xs text-slate-500">
-                  Personel yang tidak berdinas pada shift aktif
+                  Rekapitulasi personel yang berhalangan dinas aktif pada shift berjalan ({absentList.length} orang)
                 </p>
               </div>
             </div>
@@ -331,7 +266,7 @@ export default function HalamanCuti() {
                   variant="primary"
                   size="sm"
                   icon={Calendar}
-                  onClick={handleOpenLeaveModal}
+                  onClick={() => setLeaveModalOpen(true)}
                 >
                   + Ajukan Izin / Cuti Mandiri
                 </Button>
@@ -339,6 +274,7 @@ export default function HalamanCuti() {
             </div>
           </div>
 
+          {/* TABEL KOMPAK DAFTAR CUTI & IZIN PERSONEL */}
           {absentList.length === 0 ? (
             <div className="py-12 text-center text-xs text-slate-500">
               <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-2 opacity-80" />
@@ -348,221 +284,88 @@ export default function HalamanCuti() {
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {absentList.map((abs, idx) => {
-                const person = teamPersonnel.find((p) => Number(p.id) === Number(abs.personnel_id));
-                const isMyOwnLeave = user?.personnel_id && Number(user.personnel_id) === Number(abs.personnel_id);
-                const canModifyThis = isAdmin || isSupervisor;
-                const canDeleteThis = isAdmin || isSupervisor || isMyOwnLeave;
+            <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-semibold uppercase text-[10px] tracking-wider">
+                  <tr>
+                    <th className="py-3 px-3 text-center w-12">No</th>
+                    <th className="py-3 px-4">Nama Personel & NIP</th>
+                    <th className="py-3 px-4 w-28">Regu</th>
+                    <th className="py-3 px-4 w-36">Kategori Izin</th>
+                    <th className="py-3 px-4 w-44">Rentang Tanggal</th>
+                    <th className="py-3 px-4">Keterangan / Alasan</th>
+                    <th className="py-3 px-4 text-center w-20">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {absentList.map((abs, idx) => {
+                    const person = teamPersonnel.find((p) => Number(p.id) === Number(abs.personnel_id));
+                    const isMyOwnLeave = user?.personnel_id && Number(user.personnel_id) === Number(abs.personnel_id);
+                    const canDeleteThis = isAdmin || isSupervisor || isMyOwnLeave;
+                    const pTeam = person?.team_group || abs.personnel_team || activeTeam;
 
-                return (
-                  <div
-                    key={idx}
-                    className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 flex flex-col sm:flex-row items-stretch sm:items-center gap-3"
-                  >
-                    {/* Nama Personel (Read-Only) */}
-                    <div className="flex-1">
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        Nama Personel:
-                      </label>
-                      <div className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-900 font-semibold min-h-[38px] flex items-center justify-between">
-                        <span>{person?.full_name || `Personel #${abs.personnel_id}`}</span>
-                        <span className="text-[10px] text-slate-400 font-normal">NIP: {person?.nip || '-'}</span>
-                      </div>
-                    </div>
-
-                    {/* Kategori Izin/Cuti */}
-                    <div className="w-full sm:w-44">
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        Kategori Keterangan:
-                      </label>
-                      <select
-                        value={abs.reason}
-                        disabled={!canModifyThis}
-                        onChange={(e) => {
-                          const updated = [...absentList];
-                          updated[idx].reason = e.target.value;
-                          setAbsentList(updated);
-                        }}
-                        className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 min-h-[38px] transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-slate-100 disabled:text-slate-600"
-                      >
-                        <option value="cuti">Cuti Tahunan</option>
-                        <option value="sakit">Sakit</option>
-                        <option value="dinas">Dinas Luar</option>
-                        <option value="tukar_dinas">Tukar Dinas</option>
-                      </select>
-                    </div>
-
-                    {/* Catatan / Alasan */}
-                    <div className="flex-1">
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        Keterangan / Alasan Tambahan:
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Contoh: Izin keperluan keluarga, surat dokter..."
-                        value={abs.notes || ''}
-                        disabled={!canModifyThis}
-                        onChange={(e) => {
-                          const updated = [...absentList];
-                          updated[idx].notes = e.target.value;
-                          setAbsentList(updated);
-                        }}
-                        className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 min-h-[38px] transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-slate-100 disabled:text-slate-600"
-                      />
-                    </div>
-
-                    {/* Tombol Hapus / Batal Cuti Instan */}
-                    {canDeleteThis && (
-                      <div className="sm:pt-5">
-                        <button
-                          type="button"
-                          onClick={() => handleRequestCancelLeave(abs)}
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg min-h-[38px] min-w-[38px] flex items-center justify-center transition-colors duration-100"
-                          title="Batalkan cuti ini dan kembalikan personel ke dinas aktif"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Action Footer (Khusus Supervisor / Admin untuk Menyimpan Penyesuaian Keterangan) */}
-          {(isAdmin || isSupervisor) && absentList.length > 0 && (
-            <div className="mt-5 pt-3 border-t border-slate-100 flex justify-end">
-              <Button
-                variant="primary"
-                icon={Save}
-                loading={saving}
-                onClick={handleSaveLeave}
-              >
-                Simpan Penyesuaian Keterangan
-              </Button>
+                    return (
+                      <tr key={abs.id || idx} className="hover:bg-slate-50/70 transition-colors duration-100">
+                        <td className="py-3 px-3 text-center text-slate-400 font-mono text-[11px]">
+                          {idx + 1}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-slate-900">
+                            {person?.full_name || abs.full_name || `Personel #${abs.personnel_id}`}
+                          </div>
+                          <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                            NIP: {person?.nip || abs.nip || '-'}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                            Regu {pTeam}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          {getReasonBadge(abs.reason)}
+                        </td>
+                        <td className="py-3 px-4 font-mono text-slate-700 text-[11px]">
+                          {extractDateRange(abs.notes, activeDate)}
+                        </td>
+                        <td className="py-3 px-4 text-slate-600 max-w-xs">
+                          {cleanNotes(abs.notes)}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          {canDeleteThis ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRequestCancelLeave(abs)}
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors duration-100 inline-flex items-center justify-center"
+                              title="Batalkan cuti ini dan kembalikan personel ke dinas aktif"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          ) : (
+                            <span className="text-slate-300">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
       </StateView>
 
-      {/* Modal Pengajuan Cuti / Izin Mandiri Rentang Tanggal */}
-      {leaveModalOpen && (
-        <Modal
-          isOpen={leaveModalOpen}
-          onClose={() => {
-            if (!submittingLeave) setLeaveModalOpen(false);
-          }}
-          title="Ajukan Izin / Cuti Mandiri"
-          subtitle="Pilih rentang tanggal kalender dan lampirkan bukti pendukung jika ada"
-          footer={
-            <>
-              <Button
-                variant="outline"
-                onClick={() => setLeaveModalOpen(false)}
-                disabled={submittingLeave}
-              >
-                Batal
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleSubmitLeaveRange}
-                loading={submittingLeave}
-              >
-                Simpan Pengajuan Cuti
-              </Button>
-            </>
-          }
-        >
-          <form onSubmit={handleSubmitLeaveRange} className="space-y-4">
-            {leaveModalError && (
-              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
-                {leaveModalError}
-              </div>
-            )}
-
-            {/* Identitas Pemohon Cuti (Self-Service) */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Nama Pemohon Cuti
-              </label>
-              <div className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-xs text-slate-700 font-semibold flex items-center justify-between">
-                <span>{user?.name || 'Personel Mandiri'}</span>
-                <span className="text-[10px] text-slate-500 font-normal uppercase bg-white px-2 py-0.5 rounded border border-slate-200">
-                  Mandiri (Self-Service)
-                </span>
-              </div>
-            </div>
-
-            {/* Rentang Tanggal */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <InputField
-                label="Tanggal Mulai Cuti"
-                type="date"
-                value={leaveStartDate}
-                onChange={(e) => setLeaveStartDate(e.target.value)}
-                required
-              />
-              <InputField
-                label="Tanggal Selesai Cuti"
-                type="date"
-                value={leaveEndDate}
-                onChange={(e) => setLeaveEndDate(e.target.value)}
-                required
-              />
-            </div>
-
-            {/* Kategori Keterangan */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Kategori Keterangan
-              </label>
-              <select
-                value={leaveReason}
-                onChange={(e) => setLeaveReason(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-500"
-                required
-              >
-                <option value="cuti">Cuti Tahunan</option>
-                <option value="sakit">Sakit</option>
-                <option value="dinas">Dinas Luar</option>
-                <option value="tukar_dinas">Tukar Dinas</option>
-              </select>
-            </div>
-
-            {/* Catatan / Keterangan Tambahan */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Keterangan Tambahan / Alasan
-              </label>
-              <textarea
-                rows={2}
-                placeholder="Contoh: Keperluan keluarga mendesak / Istirahat rawat jalan"
-                value={leaveNotes}
-                onChange={(e) => setLeaveNotes(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
-            </div>
-
-            {/* Unggah Berkas Dokumen Pendukung (Opsional) */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Unggah Surat / Dokumen Bukti (Opsional)
-              </label>
-              <input
-                type="file"
-                accept=".pdf,image/png,image/jpeg,image/webp"
-                onChange={(e) => setLeaveFile(e.target.files?.[0] || null)}
-                className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
-              />
-              <span className="text-[11px] text-slate-400 mt-1 block">
-                Format didukung: PDF, WebP, JPEG, atau PNG (Maks. 5 MB)
-              </span>
-            </div>
-          </form>
-        </Modal>
-      )}
+      {/* Modal Pengajuan Cuti / Izin Mandiri Rentang Tanggal (Self-Service Murni) */}
+      <CutiModal
+        isOpen={leaveModalOpen}
+        onClose={() => setLeaveModalOpen(false)}
+        user={user}
+        activeDate={activeDate}
+        onSuccess={(msg) => {
+          setSuccessMsg(msg);
+          fetchLeaveData({ keepSuccessMsg: true });
+        }}
+      />
 
       {/* Modal Konfirmasi Pembatalan Cuti Instan */}
       {cancelModalOpen && targetCancelLeave && (
@@ -608,7 +411,7 @@ export default function HalamanCuti() {
               </div>
               <div className="text-slate-600 text-[11px] mt-0.5">
                 Kategori: <span className="font-semibold uppercase">{targetCancelLeave.reason}</span>
-                {targetCancelLeave.notes && ` — "${targetCancelLeave.notes}"`}
+                {targetCancelLeave.notes && ` — "${cleanNotes(targetCancelLeave.notes)}"`}
               </div>
             </div>
             <p className="text-slate-500 text-[11px] leading-relaxed">

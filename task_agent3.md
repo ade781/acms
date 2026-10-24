@@ -1,30 +1,53 @@
-# TUGAS AGENT 3: VISUALISASI KESIAPAN SLOT KRU & TATA KELOLA CUTI
+# LEMBAR TUGAS AGENT 3: CUTI (SELF-SERVICE MURNI & TABEL), PLOTING & ANTI-DATA-LOSS
 
-**Peran**: Spesialis Ploting Penugasan Shift & Manajemen Cuti / Izin Dinas  
-**Status**: ✅ **SELESAI & TERVERIFIKASI PENUH (100% PASS)**  
+**Domain:** Ploting Penugasan Shift & Manajemen Cuti / Izin Personel  
+**Fase:** FASE 3 (Eksekusi Perbaikan & Validasi CLI)  
+**Status:** ✅ **SELESAI & TERVERIFIKASI PENUH (100% PASS)**  
+**Tujuan Utama:** Menghilangkan race condition penghapusan cuti saat simpan ploting, memblokir request regu libur, mengunci input cuti murni untuk diri sendiri, dan MENGUBAH TAMPILAN LIST CUTI MENJADI TABEL KOMPAK.
 
-## 1. Berkas Tanggung Jawab Eksklusif (Zero Collision)
+---
+
+## 🎯 DAFTAR BERKAS EKSKLUSIF ANDA:
 - `backend/src/controllers/deploymentController.js`
-- `frontend/src/pages/HalamanPenugasan.jsx`
 - `frontend/src/pages/HalamanCuti.jsx`
-- `frontend/src/components/forms/DeploymentSlotCard.jsx`
+- `frontend/src/pages/HalamanPenugasan.jsx`
+- `frontend/src/components/forms/CutiModal.jsx`
 
-## 2. Butir Tindakan & Mandat
-1. [x] **Saran 2 (Penyelarasan Warna Visual Kesiapan Slot Kru)**:
-   - Di `HalamanPenugasan.jsx` dan `DeploymentSlotCard.jsx`, selaraskan indikator warna visual:
-     - Slot kru terisi penuh & armada serviceable -> emerald lembut / solid indicator (`bg-emerald-50/15 border-emerald-300`).
-     - Slot kru belum lengkap atau armada unserviceable -> amber / red warning border yang jelas dan mudah dipindai mata Chief.
-     - Slot PIC yang kosong memiliki border putus-putus merah berkedip (*animate-pulse*) bertuliskan *"Wajib PIC"*.
-     - Bar Ringkasan Kesiapan Formasi Kru di atas grid armada untuk *glanceable overview* dalam 1 detik.
-2. [x] **Audit Integritas Data Penugasan & Shift Off**:
-   - Proteksi shift off konsisten (HTTP 403 Forbidden di backend, layar proteksi "Bukan Shift Dinas Anda" di frontend).
-3. [x] **Cari List Kesalahan / Celah Baru**:
-   - Ditemukan audit finding terkait pembersihan data cuti saat batch deploy dan mitigasi di frontend telah tervalidasi.
-4. [x] **Berikan Saran / Ide Pengembangan Lanjutan**:
-   - Smart Crew Placement (berbasis STKP), Fairness Rotation Tracker, dan Leave Quota Heatmap.
+---
 
-## 3. Kewajiban Laporan & Hasil Pengujian
-- Laporan lengkap terisi di: [`masak/temp/hasil_agent3.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/temp/hasil_agent3.md).
-- Sintaks Backend (`node -c`): PASS (Exit Code 0).
-- Build Frontend (`npm run build`): PASS (Exit Code 0).
+## 🛠️ INSTRUKSI AKSI PERBAIKAN KONKRET:
 
+### 1. [x] (KRITIS) Cegah Penghapusan Cuti saat Simpan Ploting Armada
+- Di `backend/src/controllers/deploymentController.js:339` (`saveDeploymentBatch`):
+  - Telah diubah menjadi `DELETE FROM personnel_deployments WHERE shift_id = ? AND deployment_type IN ('vehicle_utama', 'vehicle_pendukung', 'watchroom')`.
+  - Entri cuti mandiri aman dan tidak akan terhapus saat simpan formasi kendaraan operasional.
+
+### 2. [x] Cegah Kebocoran Request Fetch pada Regu Libur (Off-Shift)
+- Di `frontend/src/pages/HalamanPenugasan.jsx`:
+  - Jika user bukan Admin dan bukan regu yang aktif (`!isScheduledTeam && !isAdmin`), sistem early-return tanpa fetch request berat.
+  - Merender tampilan layar penuh *"Bukan Shift Dinas Anda"* lengkap dengan penjelasan regu yang bertugas aktif.
+
+### 3. [x] Perbaiki Target Ambigu pada Pembatalan Cuti via `shift_date`
+- Di `backend/src/controllers/deploymentController.js:630` (`cancelLeave`):
+  - Menyertakan filter `team_group` personel terkait saat query pencarian shift sehingga pembatalan cuti selalu tepat sasaran.
+
+### 4. [x] INSTRUKSI KHUSUS PENGGUNA: Input Cuti Murni Diri Sendiri (Self-Service)
+- Dibuat komponen modal mandiri `frontend/src/components/forms/CutiModal.jsx`.
+- Baik Kru, Chief, maupun Asisten Chief hanya bisa mengajukan cuti untuk diri mereka sendiri. Form otomatis terkunci pada identitas pemohon (*read-only*) dan tanpa dropdown personel lain.
+
+### 5. [x] INSTRUKSI KHUSUS PENGGUNA: Ubah Tampilan List Cuti Menjadi TABEL
+- Di `frontend/src/pages/HalamanCuti.jsx`:
+  - List kartu bersarang yang berulang-ulang telah diganti dengan **Tabel Kompak 7 Kolom** berstandar operasional:
+    1. `No`
+    2. `Nama Personel & NIP`
+    3. `Regu`
+    4. `Kategori Izin / Cuti` (Badge warna tematik)
+    5. `Rentang Tanggal` (Tgl Mulai - Tgl Selesai yang diekstrak rapi)
+    6. `Keterangan / Alasan`
+    7. `Aksi` (Tombol Batal Izin untuk Admin / Supervisor / Pemilik cuti)
+  - Desain elegan dengan border halus 1px (`border-slate-200`) dan padding sel rapat (`py-3 px-4`).
+
+### 6. [x] Validasi CLI & Laporan
+- `node -c backend/src/controllers/deploymentController.js` $\rightarrow$ PASS (Exit Code 0).
+- `npm run build` frontend $\rightarrow$ PASS (Exit Code 0).
+- Laporan lengkap terisi di: 👉 [`masak/temp/hasil_agent3.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/temp/hasil_agent3.md).

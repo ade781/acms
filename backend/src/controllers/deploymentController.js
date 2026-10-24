@@ -335,12 +335,33 @@ export const saveDeploymentBatch = async (req, res) => {
       }
     }
 
-    // 3. Hapus ploting lama pada shift ini dan masukkan yang baru
-    await connection.query('DELETE FROM personnel_deployments WHERE shift_id = ?', [shiftId]);
+    // 3. Hapus HANYA ploting armada dan watchroom lama pada shift ini (JANGAN sentuh entri cuti/absent)
+    await connection.query(
+      "DELETE FROM personnel_deployments WHERE shift_id = ? AND deployment_type IN ('vehicle_utama', 'vehicle_pendukung', 'watchroom')",
+      [shiftId]
+    );
 
     const vehiclePics = {};
 
     for (const d of deployments) {
+      if (d.deployment_type === 'absent') {
+        // Jangan duplikasi entri absent yang sudah tercatat
+        const [existingAbsent] = await connection.query(
+          'SELECT id FROM personnel_deployments WHERE shift_id = ? AND personnel_id = ? AND deployment_type = "absent"',
+          [shiftId, d.personnel_id]
+        );
+        if (existingAbsent.length === 0) {
+          await connection.query(
+            `INSERT INTO personnel_deployments (
+              shift_id, personnel_id, deployment_type, vehicle_id,
+              is_pic, absent_reason, assigned_by, notes
+            ) VALUES (?, ?, 'absent', NULL, 0, ?, ?, ?)`,
+            [shiftId, d.personnel_id, d.absent_reason || 'cuti', req.user?.id || null, d.notes || null]
+          );
+        }
+        continue;
+      }
+
       const isPicVal = d.is_pic ? 1 : 0;
       await connection.query(
         `INSERT INTO personnel_deployments (
@@ -608,10 +629,18 @@ export const cancelLeave = async (req, res) => {
       params = [shift_id, targetPersonnelId];
     } else if (targetPersonnelId && shift_date) {
       const shiftNum = shift_number ? Number(shift_number) : 1;
-      const [shifts] = await connection.query(
-        'SELECT id FROM personnel_shifts WHERE shift_date = ? AND shift_number = ?',
-        [shift_date, shiftNum]
-      );
+      // Ambil regu personel agar pencarian shift id tepat sasaran dan tidak ambigu
+      const [pRows] = await connection.query('SELECT team_group FROM personnel WHERE id = ?', [targetPersonnelId]);
+      const pTeam = pRows.length > 0 ? pRows[0].team_group : null;
+
+      let shiftQuery = 'SELECT id FROM personnel_shifts WHERE shift_date = ? AND shift_number = ?';
+      let shiftParams = [shift_date, shiftNum];
+      if (pTeam) {
+        shiftQuery += ' AND team_group = ?';
+        shiftParams.push(pTeam);
+      }
+
+      const [shifts] = await connection.query(shiftQuery, shiftParams);
       if (shifts.length === 0) {
         connection.release();
         return errorResponse(res, 'Sesi shift tidak ditemukan', 404);

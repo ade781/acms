@@ -114,6 +114,13 @@ export default function HalamanPenugasan() {
 
   // Fetch current deployment & master data concurrently
   const fetchDeploymentData = useCallback(async (options = {}) => {
+    // Proteksi Penghematan Bandwidth & Aturan GEMINI.md:
+    // Jika user bukan Admin dan bukan regu yang terjadwal aktif dinas, DILARANG request fetch data berat
+    if (!isScheduledTeam && !isAdmin) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     if (!options?.keepSuccessMsg) {
@@ -221,7 +228,7 @@ export default function HalamanPenugasan() {
     } finally {
       setLoading(false);
     }
-  }, [activeDate, activeShiftNumber, activeTeam]);
+  }, [activeDate, activeShiftNumber, activeTeam, isScheduledTeam, isAdmin]);
 
   useEffect(() => {
     fetchDeploymentData();
@@ -370,31 +377,51 @@ export default function HalamanPenugasan() {
         supervisorName={supervisorName}
       />
 
-      {/* Peringatan jika regu yang aktif di header sedang OFF / Libur */}
-      {!isScheduledTeam && (
-        <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2.5 shadow-sm">
-          <ShieldAlert className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <span className="font-bold text-sm text-amber-950 block">
-              Regu {cleanTeam(activeTeam)} Sedang OFF / Libur
-            </span>
-            <span className="text-xs text-amber-800 leading-relaxed block">
-              Sesuai rotasi siklus dinas operasional, regu yang bertugas aktif pada shift ini adalah <strong>Regu {cleanTeam(scheduledTeam)}</strong>.
-              {canEditPlot
-                ? ' Anda memiliki wewenang administratif untuk meninjau data.'
-                : ' Ploting kru armada dikunci untuk regu yang sedang siaga cadangan / libur.'}
-            </span>
+      {/* Proteksi Hak Akses Ploting Berdasarkan Shift Dinas (Aturan GEMINI.md) */}
+      {!isScheduledTeam && !isAdmin ? (
+        <div className="bg-white rounded-2xl border border-slate-200 p-8 sm:p-12 text-center max-w-2xl mx-auto shadow-sm my-6">
+          <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto mb-4">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-900 mb-2">
+            Bukan Shift Dinas Anda
+          </h3>
+          <p className="text-sm text-slate-600 leading-relaxed mb-6">
+            Regu <strong>{cleanTeam(activeTeam)}</strong> sedang tidak bertugas aktif (libur/off) pada tanggal <strong>{activeDate}</strong> Shift <strong>{activeShiftNumber}</strong>.
+            Operasional dan ploting penugasan shift ini dipimpin oleh <strong>Regu {cleanTeam(scheduledTeam)}</strong>.
+          </p>
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 inline-block text-left space-y-1">
+            <div className="font-semibold text-slate-800 mb-1">Status Roster Operasional:</div>
+            <div>• Shift Berjalan: <strong>Shift {activeShiftNumber}</strong></div>
+            <div>• Regu Terjadwal Aktif: <strong className="text-emerald-700">Regu {cleanTeam(scheduledTeam)}</strong></div>
+            <div>• Status Regu Anda ({cleanTeam(activeTeam)}): <span className="text-amber-700 font-semibold">Siaga Cadangan / Libur</span></div>
           </div>
         </div>
-      )}
+      ) : (
+        <>
+          {/* Peringatan jika admin meninjau regu yang sedang OFF / Libur */}
+          {!isScheduledTeam && isAdmin && (
+            <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2.5 shadow-sm">
+              <ShieldAlert className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <span className="font-bold text-sm text-amber-950 block">
+                  Regu {cleanTeam(activeTeam)} Sedang OFF / Libur (Mode Tinjau Admin)
+                </span>
+                <span className="text-xs text-amber-800 leading-relaxed block">
+                  Sesuai rotasi dinas, regu aktif shift ini adalah <strong>Regu {cleanTeam(scheduledTeam)}</strong>.
+                  Sebagai Administrator, Anda memiliki akses peninjauan dan perubahan operasional.
+                </span>
+              </div>
+            </div>
+          )}
 
-      <StateView
-        loading={loading}
-        isEmpty={vehicles.length === 0}
-        emptyTitle="Belum Ada Armada Terdaftar"
-        emptyDescription="Daftarkan kendaraan operasional terlebih dahulu pada menu Pengaturan Master untuk memulai ploting kru."
-        onRetry={fetchDeploymentData}
-      >
+          <StateView
+            loading={loading}
+            isEmpty={vehicles.length === 0}
+            emptyTitle="Belum Ada Armada Terdaftar"
+            emptyDescription="Daftarkan kendaraan operasional terlebih dahulu pada menu Pengaturan Master untuk memulai ploting kru."
+            onRetry={fetchDeploymentData}
+          >
         {/* Vehicles Deployment Grid */}
         <div className="mb-8">
           <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
@@ -560,6 +587,8 @@ export default function HalamanPenugasan() {
           )}
         </div>
       </StateView>
+      </>
+      )}
 
       {/* Modal Pemeriksaan Kesiapan Fisik Armada Langsung dari Ploting */}
       {inspectionModalOpen && selectedVehicleForInspection && (
