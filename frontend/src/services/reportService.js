@@ -42,11 +42,14 @@ export async function fetchShiftReportData({ date, shift, team }) {
     absents = dData.absents || [];
   }
 
-  // Ekstrak data kesiapan 8 armada
+  // Ekstrak data kesiapan 7 armada operasional murni (Watchroom dipisahkan khusus)
   let vehicles = [];
   if (vehicleRes.status === 'fulfilled' && vehicleRes.value?.data?.data) {
     const vData = vehicleRes.value.data.data;
-    vehicles = Array.isArray(vData) ? vData : vData.vehicles || [];
+    const rawVehicles = Array.isArray(vData) ? vData : vData.vehicles || [];
+    vehicles = rawVehicles.filter(
+      (v) => v.category !== 'posko' && v.code_name !== 'WATCHROOM'
+    );
   }
 
   // Ekstrak data kesiapan watchroom

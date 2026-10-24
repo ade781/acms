@@ -1,38 +1,54 @@
-# TUGAS AGENT 5: REKAP LAPORAN SHIFT, FILTER KENDALA, ABSTRAKSI A4 & PDF GENERATOR
+# LEMBAR TUGAS AGENT 5: ELIMINASI WATCH ROOM GANDA & PEJABAT PDF
 
-**Peran**: Spesialis Jadwal Dinas, Rekap Laporan Shift & Dokumen PDF A4  
-**Status**: 🚀 **FASE EKSEKUSI FITUR BARU, AUDIT TAHAP 2 & REKOMENDASI**  
+**Domain:** Laporan Dinas Shift, Eliminasi Duplikasi Data & Dokumen Resmi PDF  
+**Fase:** FASE 3 (Eksekusi Perbaikan & Validasi CLI)  
+**Tujuan Utama:** Menghilangkan tuntas kemunculan ganda Watch Room pada halaman laporan dinas, menyelaraskan penandatangan Section Head / Dept Head, dan menangani format tanda tangan PDF.
 
-## 1. Berkas Tanggung Jawab Eksklusif (Zero Collision)
+---
+
+## 🎯 DAFTAR BERKAS EKSKLUSIF ANDA:
 - `backend/src/controllers/reportController.js`
 - `backend/src/services/pdfService.js`
 - `frontend/src/services/reportService.js`
 - `frontend/src/pages/HalamanLaporan.jsx`
-- `frontend/src/pages/mobile/MobileLaporan.jsx`
-- `frontend/src/components/reports/A4DocumentLayout.jsx` (komponen bersama baru)
+- `frontend/src/components/mobile/reports/MobileReportSummaryCard.jsx`
 
-## 2. Butir Tindakan & Mandat
-1. **Instruksi 1 Pengguna (Hapus Watchroom Ganda di Halaman Report)**:
-   - Di `HalamanLaporan.jsx` dan `MobileLaporan.jsx`: Hapus box status terpisah "Watch Room Posko ARFF" yang redundan jika di dalam tabel kesiapan armada/fasilitas sudah tercantum Watch Room. Satukan penampilan data agar tidak ada elemen yang tertulis 2 kali.
-2. **Instruksi 2 Pengguna (Pelacakan Kendala Hanya Saat Ada Perpindahan Status / Masih Unserviceable)**:
-   - Di `HalamanLaporan.jsx` dan `reportController.js`: Sesuaikan filter audit trail / pelacakan kendala armada:
-     - HANYA tampilkan kendaraan yang statusnya **masih `unserviceable`**, ATAU
-     - Kendaraan yang mengalami **perpindahan status** (misal dari `serviceable` ke `unserviceable`, atau pemulihan dari `unserviceable` ke `serviceable`) pada shift tersebut.
-     - Jika armada stabil serviceable sejak awal dan tidak ada transisi, tidak perlu dimasukkan ke tabel kendala.
-3. **Saran 4 (Abstraksi Generator Dokumen A4 ke Komponen Bersama)**:
-   - Buat komponen `frontend/src/components/reports/A4DocumentLayout.jsx` sebagai kerangka baku pratinjau lembar A4 (kop dinas, metadata shift, batas margin, footer pengesahan) yang digunakan bersama oleh `HalamanLaporan.jsx` dan `MobileLaporan.jsx`.
-4. **Saran 5 (Cache & Watermark PDF Generator)**:
-   - Di `backend/src/services/pdfService.js`:
-     - Tambahkan watermark dinamis resmi ("ARFF YIA - OFFICIAL OPS REPORT") pada background dokumen PDF.
-     - Terapkan mekanisme in-memory caching untuk PDF yang sudah di-generate jika data shift belum berubah.
-     - Bangun fungsi generator PDF khusus:
-       a) `generateVehicleReadinessReportPdf(data)` (mendukung Laporan Kesiapan Armada Agent 2 dengan filter periode 1 bulan/3 bulan/1 tahun/kustom).
-       b) `generateIncidentSummaryReportPdf(data)` (mendukung Laporan Rekap Insiden Agent 4 dengan filter periode 1 bulan/3 bulan/1 tahun/kustom).
-5. **Cari List Kesalahan / Celah Baru**:
-   - Sisir keabsahan data tanda tangan pejabat, kalkulasi total jam kerja regu, dan format cetak A4.
-6. **Berikan Saran / Ide Pengembangan Lanjutan**:
-   - Tuliskan ide-ide inovatif untuk analitik operasional, ekspor Excel/CSV dinamis, atau digital seal verifikasi laporan.
+---
 
-## 3. Kewajiban Laporan
-Setelah audit dan verifikasi via CLI (`node -c`, `npm run build`):
-- Tuliskan temuan masalah, status implementasi, dan ide/saran baru Anda ke: [`masak/temp/hasil_agent5.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/temp/hasil_agent5.md).
+## 🛠️ INSTRUKSI AKSI PERBAIKAN KONKRET:
+
+### 1. ELIMINASI TUNTAS BUG WATCH ROOM GANDA (TEMUAN UTAMA PENGGUNA)
+- **Akar Masalah:** Di database, `WATCHROOM` tercatat di tabel `vehicles` (ID 10, kategori posko). Pada `HalamanLaporan.jsx`, array `vehicles.map(...)` me-render Watch Room pada baris No. 8, lalu tepat di bawahnya terdapat baris hardcoded `<tr ...> WATCHROOM - Posko ARFF </tr>` yang me-render baris No. 9. Akibatnya Watch Room tampil 2 kali!
+- **Aksi Perbaikan:**
+  1. Di `frontend/src/services/reportService.js` (atau di `HalamanLaporan.jsx`), pastikan array armada kendaraan murni difilter:
+     ```javascript
+     const pureVehicles = (data.vehicles || []).filter(
+       v => v.category !== 'posko' && v.code_name !== 'WATCHROOM'
+     );
+     ```
+  2. Hapus baris manual hardcoded `<tr ...> WATCHROOM - Posko ARFF </tr>` yang menduplikasi tabel.
+  3. Lakukan hal yang sama pada `MobileReportSummaryCard.jsx` dan `pdfService.js`:
+     - Tabel armada HANYA mencetak 7 unit kendaraan operasional murni (FT-01, FT-02, FT-03, RIV-01, NT-01, CC-01, AMB-01).
+     - Fasilitas Watch Room dicetak tepat satu kali pada blok/tabel fasilitas khusus posko komunikasi. Total hitungan armada tidak akan pernah menjadi 9 lagi!
+
+### 2. Selaraskan Pejabat Penandatangan Laporan (Section Head & Dept Head)
+- Di `backend/src/controllers/reportController.js`:
+  - Perbaiki kueri penandatangan agar mencari pejabat `section_head` / `AIRPORT RESCUE & FIRE FIGHTING SECTION HEAD` terlebih dahulu dari tabel `personnel` dan `users`, baru kemudian fallback ke `dept_head` dan `admin`.
+  - Pastikan tidak terjadi fallback prematur ke akun admin jika Section Head sudah diinput di sistem.
+
+### 3. Tangani Kompatibilitas Format Tanda Tangan Gambar di PDFKit
+- Di `backend/src/services/pdfService.js`:
+  - PDFKit tidak mendukung WebP secara native.
+  - Tambahkan penanganan agar jika file tanda tangan berformat `.webp`, sistem melakukan fallback aman atau konversi agar gambar tidak melempar silent error yang menyebabkan tanda tangan kosong di PDF.
+
+### 4. Perbaikan Deteksi Transisi Pemulihan Armada Shift Aktif
+- Di `reportController.js` (`getVehicleIssuesAudit`):
+  - Tangkap status kendaraan yang beralih dari *unserviceable* ke *serviceable* pada shift aktif meskipun kolom `resolved_at` tidak terisi manual oleh teknisi.
+
+### 5. Validasi CLI & Laporan
+- Jalankan pengecekan sintaksis:
+  `node -c backend/src/controllers/reportController.js`
+  `node -c backend/src/services/pdfService.js`
+  `npm --prefix frontend run build` (atau cek via terminal).
+- Tuliskan bukti eksekusi dan laporan lengkap di:
+  👉 [`masak/temp/hasil_agent5.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/temp/hasil_agent5.md)

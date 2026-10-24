@@ -20,7 +20,10 @@ import HalamanPengumuman from './pages/HalamanPengumuman';
 import HalamanKelolaPejabat from './pages/HalamanKelolaPejabat';
 
 // Dynamic Loaders untuk Halaman Laporan Khusus
-const pageModules = import.meta.glob(['./pages/HalamanLaporanArmada.jsx']);
+const pageModules = import.meta.glob([
+  './pages/HalamanLaporanArmada.jsx',
+  './pages/HalamanLaporanInsiden.jsx',
+]);
 
 const HalamanLaporanArmada = React.lazy(
   pageModules['./pages/HalamanLaporanArmada.jsx'] ||
@@ -30,6 +33,19 @@ const HalamanLaporanArmada = React.lazy(
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
             <h3 className="text-base font-bold text-slate-800 mb-1">Laporan Kesiapan Armada</h3>
             <p className="text-xs text-slate-500">Memuat komponen laporan kelaikan armada...</p>
+          </div>
+        ),
+      }))
+);
+
+const HalamanLaporanInsiden = React.lazy(
+  pageModules['./pages/HalamanLaporanInsiden.jsx'] ||
+    (() =>
+      Promise.resolve({
+        default: () => (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
+            <h3 className="text-base font-bold text-slate-800 mb-1">Laporan Rekapitulasi Insiden</h3>
+            <p className="text-xs text-slate-500">Memuat komponen laporan rekapitulasi insiden...</p>
           </div>
         ),
       }))
@@ -171,7 +187,14 @@ export default function App() {
                 </React.Suspense>
               }
             />
-            <Route path="/insiden/laporan" element={<Navigate to="/incidents" replace />} />
+            <Route
+              path="/insiden/laporan"
+              element={
+                <React.Suspense fallback={<div className="p-8 text-center text-xs font-semibold text-slate-600">Memuat Laporan Rekap Insiden...</div>}>
+                  <HalamanLaporanInsiden />
+                </React.Suspense>
+              }
+            />
             <Route path="/personnel" element={<HalamanPersonel />} />
             <Route path="/personnel/officials" element={<HalamanKelolaPejabat />} />
             <Route path="/personnel/:id" element={<HalamanDetailPersonel />} />

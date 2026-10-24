@@ -315,16 +315,53 @@ export default function HalamanLaporan() {
         shiftData={shiftData}
         deptHeadData={deptHeadData}
       >
-        {/* BAGIAN 1: Kesiapan Fasilitas Posko & 8 Unit Armada Operasional */}
+        {/* BAGIAN 1: Kesiapan Fasilitas Posko & 7 Unit Kendaraan Operasional */}
         <div>
           <h4 className="font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-1 mb-2.5 flex items-center justify-between">
-            <span>1. Kesiapan Fasilitas Posko & 8 Unit Armada Operasional</span>
+            <span>1. Kesiapan Fasilitas Posko & 7 Unit Kendaraan Operasional</span>
             <span className="text-[10px] font-normal text-slate-500 normal-case">
               Audit Kelaikan Unit
             </span>
           </h4>
 
-          {/* Tabel Kesiapan Fasilitas & Armada Terpadu (Watchroom Terkonsolidasi Mulus) */}
+          {/* Blok Kesiapan Fasilitas Khusus Posko Komunikasi Watch Room (Tepat Satu Kali) */}
+          <div className="mb-3 p-2.5 bg-slate-50 border border-slate-200 rounded-lg flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-slate-900">Fasilitas Watch Room:</span>
+              <span className="text-slate-700 font-medium">{watchroomData?.pic_name || 'Petugas Jaga Watchroom'}</span>
+              <span className="text-slate-300">|</span>
+              <span className="text-slate-500 italic truncate max-w-xs">{watchroomData?.notes || 'Komunikasi darurat normal'}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedAuditUnit({
+                  id: 'WATCHROOM',
+                  code_name: 'WATCHROOM',
+                  vehicle_name: 'Posko ARFF',
+                  category: 'posko',
+                  status: watchroomData?.status || 'serviceable',
+                  justification: watchroomData?.notes || '',
+                });
+                setIsAuditModalOpen(true);
+              }}
+              className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] transition-colors duration-100 cursor-pointer shadow-xs ${
+                watchroomData?.status === 'serviceable'
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
+                  : watchroomData?.status === 'unserviceable'
+                  ? 'bg-red-100 text-red-800 border border-red-300 hover:bg-red-200'
+                  : 'bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200'
+              }`}
+            >
+              {watchroomData?.status === 'serviceable'
+                ? 'Serviceable'
+                : watchroomData?.status === 'unserviceable'
+                ? 'Unserviceable (Audit)'
+                : 'Belum Cek'}
+            </button>
+          </div>
+
+          {/* Tabel Kesiapan 7 Unit Armada Operasional Murni (No. 1 s.d. 7) */}
           <div className="overflow-x-auto border border-slate-200 rounded-lg">
             <table className="w-full text-left text-[11px] divide-y divide-slate-200">
               <thead className="bg-slate-100 font-bold text-slate-800">
@@ -384,57 +421,10 @@ export default function HalamanLaporan() {
                 ) : (
                   <tr>
                     <td colSpan={6} className="p-3 text-center text-slate-400 italic">
-                      Data kelaikan 8 armada terangkum otomatis setelah inspeksi shift aktif.
+                      Data kelaikan 7 armada terangkum otomatis setelah inspeksi shift aktif.
                     </td>
                   </tr>
                 )}
-                {/* Baris Konsolidasi Fasilitas Watchroom Posko (Bebas Duplikasi Box Terpisah) */}
-                <tr className="hover:bg-slate-50/60 bg-slate-50/40">
-                  <td className="p-2 text-center font-medium text-slate-500">
-                    {vehicles.length + 1}
-                  </td>
-                  <td className="p-2 font-bold text-slate-900">
-                    WATCHROOM - Posko ARFF
-                  </td>
-                  <td className="p-2 text-blue-700 capitalize">
-                    Posko
-                  </td>
-                  <td className="p-2 font-medium text-slate-800">
-                    {watchroomData?.pic_name || 'Petugas Jaga Watchroom'}
-                  </td>
-                  <td className="p-2 text-center">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedAuditUnit({
-                          id: 'WATCHROOM',
-                          code_name: 'WATCHROOM',
-                          vehicle_name: 'Posko ARFF',
-                          category: 'posko',
-                          status: watchroomData?.status || 'serviceable',
-                          justification: watchroomData?.notes || '',
-                        });
-                        setIsAuditModalOpen(true);
-                      }}
-                      className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] transition-colors duration-100 cursor-pointer shadow-xs ${
-                        watchroomData?.status === 'serviceable'
-                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
-                          : watchroomData?.status === 'unserviceable'
-                          ? 'bg-red-100 text-red-800 border border-red-300 hover:bg-red-200'
-                          : 'bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200'
-                      }`}
-                    >
-                      {watchroomData?.status === 'serviceable'
-                        ? 'Serviceable'
-                        : watchroomData?.status === 'unserviceable'
-                        ? 'Unserviceable (Audit)'
-                        : 'Belum Cek'}
-                    </button>
-                  </td>
-                  <td className="p-2 text-slate-600">
-                    {watchroomData?.notes || 'Komunikasi darurat normal'}
-                  </td>
-                </tr>
               </tbody>
             </table>
           </div>

@@ -4,6 +4,7 @@ import path from 'path';
 
 /**
  * Helper untuk menemukan berkas gambar di server
+ * Memastikan kompatibilitas penuh dengan PDFKit (hanya PNG dan JPEG yang didukung secara native)
  */
 const resolveSignatureFile = (fileUrl) => {
   if (!fileUrl) return null;
@@ -15,7 +16,24 @@ const resolveSignatureFile = (fileUrl) => {
     path.resolve(process.cwd(), 'uploads', path.basename(cleanPath))
   ];
   for (const c of candidates) {
-    if (fs.existsSync(c)) return c;
+    if (fs.existsSync(c)) {
+      const ext = path.extname(c).toLowerCase();
+      if (['.png', '.jpg', '.jpeg'].includes(ext)) {
+        return c;
+      }
+      if (ext === '.webp') {
+        const pngAlt = c.replace(/\.webp$/i, '.png');
+        if (fs.existsSync(pngAlt)) return pngAlt;
+        const jpgAlt = c.replace(/\.webp$/i, '.jpg');
+        if (fs.existsSync(jpgAlt)) return jpgAlt;
+        const jpegAlt = c.replace(/\.webp$/i, '.jpeg');
+        if (fs.existsSync(jpegAlt)) return jpegAlt;
+
+        console.warn(`[PDFKit] File tanda tangan ${path.basename(c)} berformat WebP (tidak didukung PDFKit). Melewati gambar.`);
+        return null;
+      }
+      return null;
+    }
   }
   return null;
 };
@@ -224,12 +242,15 @@ export const generateShiftReportPdf = (reportData) => {
   drawArmadaHeader(vHeadY);
 
   let curY = vHeadY + 18;
-  if (vehicles.length === 0) {
+  const pureVehicles = (vehicles || []).filter(
+    (v) => v.category !== 'posko' && v.code_name !== 'WATCHROOM'
+  );
+  if (pureVehicles.length === 0) {
     doc.rect(startX, curY, contentWidth, 18).fillAndStroke('#ffffff', '#e2e8f0');
     doc.fontSize(8).font('Helvetica').fillColor('#64748b').text('Belum ada kendaraan yang diperiksa shift ini.', startX + 10, curY + 5);
     curY += 18;
   } else {
-    vehicles.forEach((v, idx) => {
+    pureVehicles.forEach((v, idx) => {
       if (curY + 18 > 740) {
         doc.addPage();
         drawArmadaHeader(35);

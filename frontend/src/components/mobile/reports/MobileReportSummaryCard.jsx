@@ -13,12 +13,15 @@ export default function MobileReportSummaryCard({
   absents = [],
   onOpenUnitAudit,
 }) {
-  const totalVehicles = vehicles.length + (watchroomData?.status ? 1 : 0);
+  const pureVehicles = vehicles.filter(
+    (v) => v.category !== 'posko' && v.code_name !== 'WATCHROOM'
+  );
+  const totalVehicles = pureVehicles.length + (watchroomData?.status ? 1 : 0);
   const serviceableCount =
-    vehicles.filter((v) => v.status === 'serviceable').length +
+    pureVehicles.filter((v) => v.status === 'serviceable').length +
     (watchroomData?.status === 'serviceable' ? 1 : 0);
   const unserviceableCount =
-    vehicles.filter((v) => v.status === 'unserviceable').length +
+    pureVehicles.filter((v) => v.status === 'unserviceable').length +
     (watchroomData?.status === 'unserviceable' ? 1 : 0);
 
   return (
@@ -38,7 +41,7 @@ export default function MobileReportSummaryCard({
               {serviceableCount}
             </span>
             <span className="text-[10px] text-slate-500 font-medium">
-              / {Math.max(totalVehicles, 8)} Siap
+              / {totalVehicles || 8} Siap
             </span>
           </div>
           <div className="flex items-center gap-1.5 text-[9px]">
@@ -94,12 +97,12 @@ export default function MobileReportSummaryCard({
             </p>
           </div>
           <span className="text-[9.5px] font-mono font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">
-            {serviceableCount}/{Math.max(totalVehicles, 8)} Siap
+            {serviceableCount}/{totalVehicles || 8} Siap
           </span>
         </div>
 
         <div className="divide-y divide-slate-100 text-xs">
-          {vehicles.map((v) => {
+          {pureVehicles.map((v) => {
             const isServ = v.status === 'serviceable';
             const isUnserv = v.status === 'unserviceable';
 
@@ -193,9 +196,17 @@ export default function MobileReportSummaryCard({
                     justification: watchroomData?.notes || '',
                   })
                 }
-                className="px-2 py-0.5 rounded-full text-[9px] font-bold border transition-colors duration-100 flex items-center gap-1 shrink-0 bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100"
+                className={`px-2 py-0.5 rounded-full text-[9px] font-bold border transition-colors duration-100 flex items-center gap-1 shrink-0 ${
+                  watchroomData?.status === 'unserviceable'
+                    ? 'bg-red-50 text-red-800 border-red-300 hover:bg-red-100'
+                    : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                }`}
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    watchroomData?.status === 'unserviceable' ? 'bg-red-600' : 'bg-emerald-600'
+                  }`}
+                />
                 <span>{watchroomData?.status === 'unserviceable' ? 'Unserviceable' : 'Serviceable'}</span>
                 <ChevronRight className="w-2.5 h-2.5 text-slate-400" />
               </button>

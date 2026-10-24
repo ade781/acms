@@ -8,6 +8,57 @@ import {
 } from '../services/pdfService.js';
 import { errorResponse } from '../utils/responseHelper.js';
 
+/**
+ * Helper untuk mengambil pejabat penandatangan resmi Section Head / Dept Head secara dinamis
+ * Prioritas pencarian:
+ * 1. Personel dengan jabatan Section Head (Airport Technology & ARFF Section Head) atau users.role = 'section_head'
+ * 2. Personel dengan jabatan Dept Head atau users.role = 'dept_head'
+ * 3. Fallback ke akun administrator sistem
+ */
+export const getOfficialSignatory = async (dbPool) => {
+  // 1. Cari dari personnel yang menjabat Section Head atau Dept Head
+  const [officials] = await dbPool.query(
+    `SELECT COALESCE(p.full_name, u.name) as name,
+            COALESCE(p.nip, '-') as nip,
+            COALESCE(p.rank_position, 'Airport Rescue & Fire Fighting Section Head') as rank_position,
+            COALESCE(p.signature_url, u.signature_url) as signature_url
+     FROM personnel p
+     LEFT JOIN users u ON u.id = p.user_id
+     WHERE p.rank_position LIKE '%Section%Head%'
+        OR p.rank_position LIKE '%Seksi%'
+        OR u.role = 'section_head'
+        OR p.rank_position LIKE '%Dept%Head%'
+        OR u.role = 'dept_head'
+     ORDER BY
+       CASE
+         WHEN p.rank_position LIKE '%Section%Head%' OR p.rank_position LIKE '%Seksi%' OR u.role = 'section_head' THEN 1
+         WHEN p.rank_position LIKE '%Dept%Head%' OR u.role = 'dept_head' THEN 2
+         ELSE 3
+       END ASC,
+       p.id ASC
+     LIMIT 1`
+  );
+
+  if (officials.length > 0) {
+    return officials[0];
+  }
+
+  // 2. Fallback: Cari dari users dengan role section_head, dept_head, atau admin
+  const [userOfficials] = await dbPool.query(
+    `SELECT COALESCE(p.full_name, u.name) as name,
+            COALESCE(p.nip, '-') as nip,
+            'Airport Rescue & Fire Fighting Section Head' as rank_position,
+            COALESCE(u.signature_url, p.signature_url) as signature_url
+     FROM users u
+     LEFT JOIN personnel p ON p.user_id = u.id
+     WHERE u.role IN ('section_head', 'dept_head', 'admin')
+     ORDER BY FIELD(u.role, 'section_head', 'dept_head', 'admin'), u.id ASC
+     LIMIT 1`
+  );
+
+  return userOfficials.length > 0 ? userOfficials[0] : null;
+};
+
 export const getShiftReportPdf = async (req, res) => {
   try {
     const { date, shift, team_group } = req.query;
@@ -94,19 +145,10 @@ export const getShiftReportPdf = async (req, res) => {
       }
     }
 
-    // Ambil data pejabat Dept Head / Section Head secara dinamis dari database
-    const [deptHeads] = await pool.query(
-      `SELECT COALESCE(p.full_name, u.name) as name, p.nip, p.rank_position,
-              COALESCE(u.signature_url, p.signature_url) as signature_url
-       FROM users u
-       LEFT JOIN personnel p ON p.user_id = u.id
-       WHERE u.role IN ('dept_head', 'admin')
-       ORDER BY FIELD(u.role, 'dept_head', 'admin')
-       LIMIT 1`
-    );
-    const deptHeadData = deptHeads.length > 0 ? deptHeads[0] : null;
+    // Ambil data pejabat Section Head / Dept Head secara dinamis dari database
+    const deptHeadData = await getOfficialSignatory(pool);
 
-    // Ambil data kesiapan kendaraan & PIC ploting resmi shift
+    // Ambil data kesiapan kendaraan & PIC ploting resmi shift (7 armada pemadam murni)
     const [vehicles] = await pool.query(
       `SELECT v.code_name, v.vehicle_name, v.category, vrl.status, vrl.justification,
               COALESCE(deploy_pic.full_name, p.full_name) as pic_name
@@ -121,7 +163,7 @@ export const getShiftReportPdf = async (req, res) => {
          WHERE ps.shift_date = ? AND ps.shift_number = ? AND ps.team_group = ? AND pd.is_pic = 1
        ) deploy_pic ON deploy_pic.vehicle_id = v.id
        LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
-       WHERE v.is_active = 1`,
+       WHERE v.is_active = 1 AND v.category != 'posko' AND v.code_name != 'WATCHROOM'`,
       [shiftDate, shiftNumber, teamGroup, shiftDate, shiftNumber, teamGroup]
     );
 
@@ -266,14 +308,27 @@ export const getVehicleIssuesAudit = async (req, res) => {
     const [resolvedThisShift] = await pool.query(
       `SELECT vrl.id, vrl.vehicle_id, v.code_name, v.vehicle_name, v.category,
               vrl.shift_date, vrl.shift_number, vrl.team_group, vrl.status,
-              vrl.justification, vrl.follow_up_status, vrl.resolved_at, vrl.notes,
+              vrl.justification, vrl.follow_up_status,
+              COALESCE(vrl.resolved_at, vrl.updated_at, vrl.created_at) as resolved_at,
+              vrl.notes,
               p.full_name as resolved_by_name, p.nip as resolved_by_nip
        FROM vehicle_readiness_logs vrl
        JOIN vehicles v ON v.id = vrl.vehicle_id
        LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
        WHERE vrl.shift_date = ? AND vrl.shift_number = ? AND vrl.team_group = ?
-         AND vrl.status = 'serviceable' AND vrl.resolved_at IS NOT NULL`,
-      [shiftDate, shiftNumber, currentTeam]
+         AND vrl.status = 'serviceable'
+         AND (
+           vrl.resolved_at IS NOT NULL
+           OR vrl.follow_up_status = 'resolved'
+           OR EXISTS (
+             SELECT 1 FROM vehicle_readiness_logs prev
+             WHERE prev.vehicle_id = vrl.vehicle_id
+               AND prev.status = 'unserviceable'
+               AND (prev.shift_date < ? OR (prev.shift_date = ? AND prev.shift_number < ?))
+               AND (prev.follow_up_status != 'resolved' OR prev.resolved_at IS NULL)
+           )
+         )`,
+      [shiftDate, shiftNumber, currentTeam, shiftDate, shiftDate, shiftNumber]
     );
 
     // 3. Backlog kendala yang statusnya MASIH unserviceable dari shift-shift sebelumnya
@@ -379,9 +434,11 @@ export const getVehiclesReportPdf = async (req, res) => {
       calculatedStartDate = d.toISOString().split('T')[0];
     }
 
-    // Ambil daftar armada operasional
+    // Ambil daftar armada operasional murni (7 armada pemadam)
     const [allVehicles] = await pool.query(
-      `SELECT id, code_name, vehicle_name, category FROM vehicles WHERE is_active = 1 ORDER BY id ASC`
+      `SELECT id, code_name, vehicle_name, category FROM vehicles 
+       WHERE is_active = 1 AND category != 'posko' AND code_name != 'WATCHROOM'
+       ORDER BY id ASC`
     );
 
     // Ambil riwayat kesiapan armada pada rentang periode
@@ -438,17 +495,8 @@ export const getVehiclesReportPdf = async (req, res) => {
       [calculatedStartDate, calculatedEndDate]
     );
 
-    // Ambil data pejabat Dept Head secara dinamis
-    const [deptHeads] = await pool.query(
-      `SELECT COALESCE(p.full_name, u.name) as name, p.nip, p.rank_position,
-              COALESCE(u.signature_url, p.signature_url) as signature_url
-       FROM users u
-       LEFT JOIN personnel p ON p.user_id = u.id
-       WHERE u.role IN ('dept_head', 'admin')
-       ORDER BY FIELD(u.role, 'dept_head', 'admin')
-       LIMIT 1`
-    );
-    const deptHeadData = deptHeads.length > 0 ? deptHeads[0] : null;
+    // Ambil data pejabat Section Head / Dept Head secara dinamis
+    const deptHeadData = await getOfficialSignatory(pool);
 
     const totalReadiness = vehicleStats.reduce((acc, curr) => acc + curr.readinessPct, 0);
     const averageReadinessPct = vehicleStats.length > 0 ? Math.round(totalReadiness / vehicleStats.length) : 100;
@@ -527,17 +575,8 @@ export const getIncidentsReportPdf = async (req, res) => {
       [calculatedStartDate, calculatedEndDate]
     );
 
-    // Ambil data pejabat Dept Head secara dinamis
-    const [deptHeads] = await pool.query(
-      `SELECT COALESCE(p.full_name, u.name) as name, p.nip, p.rank_position,
-              COALESCE(u.signature_url, p.signature_url) as signature_url
-       FROM users u
-       LEFT JOIN personnel p ON p.user_id = u.id
-       WHERE u.role IN ('dept_head', 'admin')
-       ORDER BY FIELD(u.role, 'dept_head', 'admin')
-       LIMIT 1`
-    );
-    const deptHeadData = deptHeads.length > 0 ? deptHeads[0] : null;
+    // Ambil data pejabat Section Head / Dept Head secara dinamis
+    const deptHeadData = await getOfficialSignatory(pool);
 
     const resolvedCount = incidentsList.filter(
       (i) => i.status === 'resolved' || i.status === 'closed'
