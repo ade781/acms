@@ -36,6 +36,22 @@ export default function VehicleReadinessModal({
     if (!file) return;
 
     setError(null);
+
+    // 1. Validasi Tipe MIME (wajib berkas gambar)
+    if (!file.type || !file.type.startsWith('image/')) {
+      setError('Format berkas tidak didukung. Harap pilih berkas foto/gambar (JPG, JPEG, PNG, atau WEBP).');
+      if (e.target) e.target.value = '';
+      return;
+    }
+
+    // 2. Validasi Batas Ukuran Berkas Maksimal 15 MB
+    const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15 MB
+    if (file.size > MAX_FILE_SIZE) {
+      setError('Ukuran file foto terlalu besar (maksimal 15 MB). Harap pilih foto dengan resolusi lebih rendah.');
+      if (e.target) e.target.value = '';
+      return;
+    }
+
     setCompressing(true);
     try {
       // Compress in browser via HTML5 canvas to WebP

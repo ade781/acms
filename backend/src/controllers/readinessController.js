@@ -89,13 +89,28 @@ export const getVehicleReadiness = async (req, res) => {
           rows[i].follow_up_status = prev.follow_up_status;
           rows[i].notes = prev.notes;
           rows[i].is_carried_over = true;
+          rows[i].has_shift_log = false;
+          rows[i].is_default_serviceable = false;
           rows[i].carried_from = {
             shift_date: prev.shift_date,
             shift_number: prev.shift_number,
             team_group: prev.team_group,
             reported_by: prev.prev_pic_name
           };
+        } else if (rows[i].status === 'belum_dilaporkan') {
+          // Default status kelaikan armada pada shift berjalan adalah serviceable (GEMINI.md No. 17)
+          rows[i].status = 'serviceable';
+          rows[i].is_default_serviceable = true;
+          rows[i].has_shift_log = false;
+        } else {
+          rows[i].has_shift_log = true;
+          rows[i].is_default_serviceable = false;
         }
+      }
+    } else {
+      for (let i = 0; i < rows.length; i++) {
+        rows[i].has_shift_log = Boolean(rows[i].log_id);
+        rows[i].is_default_serviceable = false;
       }
     }
 
@@ -499,6 +514,28 @@ export const getVehicleTransitionsReport = async (req, res) => {
        ORDER BY category ASC, code_name ASC`
     );
 
+    // Tarik status terakhir masing-masing armada sebelum startDate untuk memastikan carry-over kendala tidak hilang
+    const [priorLogs] = await pool.query(
+      `SELECT vrl.vehicle_id, vrl.status, vrl.justification, vrl.notes, vrl.photo_webp_url,
+              vrl.follow_up_status, vrl.shift_date, vrl.shift_number, vrl.team_group,
+              p.full_name as pic_name, p.nip as pic_nip
+       FROM vehicle_readiness_logs vrl
+       JOIN (
+         SELECT vehicle_id, MAX(CONCAT(shift_date, '_', LPAD(shift_number, 2, '0'))) as max_shift
+         FROM vehicle_readiness_logs
+         WHERE shift_date < ?
+         GROUP BY vehicle_id
+       ) latest ON latest.vehicle_id = vrl.vehicle_id
+               AND CONCAT(vrl.shift_date, '_', LPAD(vrl.shift_number, 2, '0')) = latest.max_shift
+       LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id`,
+      [startDate]
+    );
+
+    const priorStatusMap = new Map();
+    for (const pl of priorLogs) {
+      priorStatusMap.set(pl.vehicle_id, pl);
+    }
+
     const [logs] = await pool.query(
       `SELECT vrl.id, vrl.vehicle_id, vrl.shift_date, vrl.shift_number, vrl.team_group,
               vrl.status, vrl.justification, vrl.follow_up_status, vrl.notes, vrl.photo_webp_url,
@@ -525,11 +562,35 @@ export const getVehicleTransitionsReport = async (req, res) => {
 
     const vehiclesReport = vehicles.map(v => {
       const vLogs = logsByVehicle.get(v.id) || [];
+      const priorLog = priorStatusMap.get(v.id);
       
       const incidentLogs = [];
       const issuePeriods = [];
       let currentPeriod = null;
       let lastKnownStatus = 'serviceable';
+
+      // Jika sebelum startDate armada berstatus unserviceable dan belum resolved, bawa sebagai status awal
+      if (priorLog && priorLog.status === 'unserviceable' && priorLog.follow_up_status !== 'resolved') {
+        lastKnownStatus = 'unserviceable';
+        currentPeriod = {
+          period_number: 1,
+          start_date: priorLog.shift_date,
+          start_shift_number: priorLog.shift_number,
+          start_team_group: priorLog.team_group,
+          justification: priorLog.justification || '-',
+          notes: priorLog.notes ? `[Carry-over dari ${priorLog.shift_date}] ` + priorLog.notes : `[Carry-over dari ${priorLog.shift_date}]`,
+          reported_by: priorLog.pic_name || '-',
+          photo_webp_url: priorLog.photo_webp_url || null,
+          unserviceable_shifts_count: 0,
+          is_resolved: false,
+          resolved_date: null,
+          resolved_shift_number: null,
+          resolved_team_group: null,
+          resolved_by: null,
+          status: 'ongoing',
+          is_carried_from_prior: true
+        };
+      }
 
       for (let i = 0; i < vLogs.length; i++) {
         const item = vLogs[i];
@@ -603,7 +664,12 @@ export const getVehicleTransitionsReport = async (req, res) => {
       grandTotalTransitions += periodCount;
 
       const latestLog = vLogs.length > 0 ? vLogs[vLogs.length - 1] : null;
-      const currentStatus = (latestLog && latestLog.status !== 'belum_dilaporkan') ? latestLog.status : 'serviceable';
+      let currentStatus = 'serviceable';
+      if (latestLog && latestLog.status && latestLog.status !== 'belum_dilaporkan') {
+        currentStatus = latestLog.status;
+      } else if (priorLog && priorLog.status === 'unserviceable' && priorLog.follow_up_status !== 'resolved') {
+        currentStatus = 'unserviceable';
+      }
 
       if (currentStatus === 'unserviceable') {
         currentlyUnserviceableCount++;

@@ -163,14 +163,14 @@ export default function HalamanKesiapanKendaraan() {
     }
   };
 
-  const serviceableCount = vehicles.filter(
-    (v) => (v.status === 'serviceable' || v.current_log?.status === 'serviceable')
-  ).length;
   const unserviceableCount = vehicles.filter(
     (v) => (v.status === 'unserviceable' || v.current_log?.status === 'unserviceable')
   ).length;
-  const pendingCount = vehicles.filter(
-    (v) => (!v.status || v.status === 'belum_dilaporkan') && v.current_log?.status !== 'serviceable' && v.current_log?.status !== 'unserviceable'
+  const serviceableCount = vehicles.filter(
+    (v) => (v.status === 'serviceable' || v.current_log?.status === 'serviceable' || (!v.status && v.current_log?.status !== 'unserviceable'))
+  ).length;
+  const needsPhysicalInspectCount = vehicles.filter(
+    (v) => (v.status === 'serviceable' || !v.status) && (v.is_default_serviceable || !v.has_shift_log)
   ).length;
 
   return (
@@ -244,9 +244,9 @@ export default function HalamanKesiapanKendaraan() {
           <span className="px-3 py-1.5 rounded-lg bg-red-50 text-red-800 border border-red-200 text-xs font-bold">
             {unserviceableCount} Unserviceable
           </span>
-          {pendingCount > 0 && (
-            <span className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold">
-              {pendingCount} Belum Diperiksa
+          {needsPhysicalInspectCount > 0 && (
+            <span className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 text-xs font-medium" title="Armada berstatus siap operasi (menunggu upload foto fisik shift ini)">
+              {needsPhysicalInspectCount} Menunggu Foto Fisik
             </span>
           )}
         </div>

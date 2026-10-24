@@ -1,41 +1,43 @@
-# TUGAS AGENT 2: KESIAPAN ARMADA, WATCHROOM & HALAMAN LAPORAN ARMADA
+# LEMBAR TUGAS AGENT 2: KESIAPAN ARMADA, CARRY-OVER & VALIDASI FORM
 
-**Peran**: Spesialis Kesiapan Armada, Watchroom & Pengumuman/Edaran Dinas  
-**Status**: 🚀 **FASE EKSEKUSI FITUR BARU, AUDIT TAHAP 2 & REKOMENDASI**  
+**Domain:** Kesiapan Armada, Kesiapan Fasilitas/Watchroom & Laporan Transisi Armada  
+**Fase:** FASE 3 (Eksekusi Perbaikan & Validasi CLI)  
+**Tujuan Utama:** Memperbaiki carry-over status kelaikan pada filter tanggal, menyelaraskan default status serviceable, validasi file foto modal PIC, dan optimasi kueri.
 
-## 1. Berkas Tanggung Jawab Eksklusif (Zero Collision)
+---
+
+## 🎯 DAFTAR BERKAS EKSKLUSIF ANDA:
 - `backend/src/controllers/readinessController.js`
 - `backend/src/routes/readinessRoutes.js`
-- `backend/src/controllers/vehicleController.js`
-- `frontend/src/pages/HalamanKesiapanArmada.jsx`
-- `frontend/src/pages/HalamanLaporanArmada.jsx` (halaman baru laporan armada)
+- `frontend/src/pages/HalamanKesiapanKendaraan.jsx`
 - `frontend/src/components/forms/VehicleReadinessModal.jsx`
+- `frontend/src/components/dashboard/VehicleMetricCard.jsx`
 
-## 2. Butir Tindakan & Mandat
-1. **Saran 1 (Konsolidasi Watchroom)**:
-   - Satukan status dan log posko Watch Room ke dalam struktur data fasilitas khusus agar sinkron dengan kelaikan armada.
-2. **Instruksi Tambahan Pengguna: Tombol & Halaman Laporan Armada Penuh (`/armada/laporan`)**:
-   - Di `HalamanKesiapanArmada.jsx`, tambahkan tombol **"Laporan Kesiapan Armada" / "Report"** di bagian header aksi yang membuka rute `/armada/laporan`.
-   - Buat halaman baru `HalamanLaporanArmada.jsx`:
-     - Tombol navigasi kembali (*Back ke Kesiapan Armada*).
-     - **Filter Periode Baku**:
-       - Default: **1 Bulan Terakhir**
-       - Pilihan Cepat: **3 Bulan**, **1 Tahun**
-       - **Kustom**: Pilihan memilih rentang tanggal awal s.d. tanggal akhir (*Start Date* s.d. *End Date*).
-     - **Tabel Data Armada**:
-       - Menampilkan seluruh kendaraan operasional ARFF.
-       - Kategori armada, status kelaikan saat ini (*Serviceable* / *Unserviceable*).
-       - **Metrik Transisi Status**: Berapa kali kendaraan berganti status (*serviceable* ke *unserviceable* dan sebaliknya) pada periode yang dipilih, dihitung per shift/per hari.
-       - Daftar tanggal & catatan kendala saat kendaraan mengalami unserviceable pada periode tersebut.
-     - **Tombol Ekspor / Cetak PDF**: Memanggil generator PDF laporan kelaikan armada (Agent 5).
-3. **Endpoint Agregasi Transisi Status di Backend**:
-   - Di `readinessController.js`, buat endpoint API `GET /api/readiness/transitions-report` yang menerima query `?period=1month|3months|1year` atau `?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD`.
-   - Hitung pergantian status kelaikan per armada berdasarkan riwayat shift log di database.
-4. **Cari List Kesalahan / Celah Baru**:
-   - Sisir logika kelaikan kendaraan, carryover kerusakan, dan audit trail armada untuk menemukan celah baru.
-5. **Berikan Saran / Ide Pengembangan Lanjutan**:
-   - Tuliskan ide-ide inovatif untuk perawatan armada, reminder servis, atau telemetri kendaraan di laporan Anda.
+---
 
-## 3. Kewajiban Laporan
-Setelah audit dan verifikasi via CLI (`node -c`, `npm run build`):
-- Tuliskan temuan masalah, status implementasi, dan ide/saran baru Anda ke: [`masak/temp/hasil_agent2.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/temp/hasil_agent2.md).
+## 🛠️ INSTRUKSI AKSI PERBAIKAN KONKRET:
+
+### 1. Perbaikan Missing Carry-Over pada Laporan Transisi (`readinessController.js`)
+- Di `getVehicleTransitionsReport`:
+  - Jangan mengasumsikan status armada sebelum `start_date` otomatis `serviceable`.
+  - Tambahkan subquery untuk menarik status terakhir masing-masing kendaraan yang tercatat *sebelum* `start_date`.
+  - Gunakan status tersebut sebagai inisialisasi `lastKnownStatus`, sehingga armada yang rusak dari minggu lalu tetap terhitung `currently_unserviceable` sejak awal periode laporan.
+
+### 2. Selaraskan Default Status Kelaikan (Sesuai GEMINI.md Aturan 17)
+- Pastikan bahwa pada agregat kesiapan operasional shift berjalan, armada yang belum sempat dilaporkan PIC baru tetap berstatus default `serviceable` (siap operasi) selama tidak ada catatan carry-over kerusakan aktif yang belum terselesaikan.
+- Perbaiki `VehicleMetricCard.jsx` dan `HalamanKesiapanKendaraan.jsx` agar tidak menampilkan status ambigu abu-abu yang merusak hitungan kesiapan kategori bandara.
+
+### 3. Validasi Format MIME & Batas Ukuran File Foto Armada
+- Di `VehicleReadinessModal.jsx` (`handleFileChange`):
+  - Validasi bahwa `file.type.startsWith('image/')`. Jika bukan gambar, batalkan dan tampilkan toast error.
+  - Validasi ukuran file `file.size <= 15 * 1024 * 1024` (15 MB) sebelum diproses ke modul kompresi canvas.
+
+### 4. Optimasi Kueri Laporan 1 Tahun
+- Di database atau controller, tambahkan penanganan indeks `CREATE INDEX IF NOT EXISTS idx_vrl_date_shift_veh ON vehicle_readiness_logs (shift_date, shift_number, vehicle_id);` agar kueri riwayat tahunan berjalan instan.
+
+### 5. Validasi CLI & Laporan
+- Jalankan pengecekan sintaksis:
+  `node -c backend/src/controllers/readinessController.js`
+  `npm --prefix frontend run build` (atau cek via terminal).
+- Tuliskan bukti eksekusi dan laporan lengkap di:
+  👉 [`masak/temp/hasil_agent2.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/temp/hasil_agent2.md)
