@@ -1,5 +1,11 @@
 import pool from '../config/db.js';
-import { generateShiftReportPdf } from '../services/pdfService.js';
+import {
+  generateShiftReportPdf,
+  generateVehicleReadinessReportPdf,
+  generateIncidentSummaryReportPdf,
+  getPdfCache,
+  setPdfCache,
+} from '../services/pdfService.js';
 import { errorResponse } from '../utils/responseHelper.js';
 
 export const getShiftReportPdf = async (req, res) => {
@@ -10,6 +16,18 @@ export const getShiftReportPdf = async (req, res) => {
     const shiftNumber = shift ? Number(shift) : 1;
     const rawTeam = team_group || 'Alpha';
     const teamGroup = rawTeam.replace(/^(Regu\s+|Team\s+)/i, '').trim();
+
+    // 1. Cek In-Memory Cache PDF
+    const cacheKey = `shift_report_${shiftDate}_${shiftNumber}_${teamGroup}`;
+    const cachedBuffer = getPdfCache(cacheKey);
+    if (cachedBuffer) {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `inline; filename="laporan-shift-${shiftNumber}-${teamGroup}-${shiftDate}.pdf"`
+      );
+      return res.send(cachedBuffer);
+    }
 
     // Eksekusi generator PDF resmi laporan dinas A4
     const [shifts] = await pool.query(
@@ -137,8 +155,6 @@ export const getShiftReportPdf = async (req, res) => {
     }
 
     // Ambil juga personel dari regu ini yang tercatat cuti/izin pada tanggal ini
-    // Query langsung ke seluruh record absent pada shift_date ini untuk regu terkait
-    // bahkan jika shift posko spesifik belum dibuka
     const [teamAbsents] = await pool.query(
       `SELECT pd.*, p.full_name, p.nip, p.rank_position, pd.absent_reason, pd.notes
        FROM personnel_deployments pd
@@ -204,6 +220,13 @@ export const getShiftReportPdf = async (req, res) => {
       `inline; filename="laporan-shift-${shiftNumber}-${teamGroup}-${shiftDate}.pdf"`
     );
 
+    const chunks = [];
+    doc.on('data', (chunk) => chunks.push(chunk));
+    doc.on('end', () => {
+      const resultBuffer = Buffer.concat(chunks);
+      setPdfCache(cacheKey, resultBuffer);
+    });
+
     doc.pipe(res);
     doc.end();
   } catch (error) {
@@ -212,6 +235,12 @@ export const getShiftReportPdf = async (req, res) => {
   }
 };
 
+/**
+ * Audit trail kendala armada operasional
+ * STRICT INSTRUKSI 2 PENGGUNA:
+ * Hanya tampilkan kendaraan yang statusnya MASIH unserviceable, ATAU
+ * Kendaraan yang mengalami transisi status (serviceable <-> unserviceable) pada shift ini.
+ */
 export const getVehicleIssuesAudit = async (req, res) => {
   try {
     const { date, shift, team_group } = req.query;
@@ -219,7 +248,7 @@ export const getVehicleIssuesAudit = async (req, res) => {
     const shiftNumber = shift ? Number(shift) : 1;
     const currentTeam = team_group || 'Alpha';
 
-    // 1. Kendala unserviceable pada shift saat ini
+    // 1. Kendala unserviceable pada shift saat ini (status masih unserviceable)
     const [currentIssues] = await pool.query(
       `SELECT vrl.id, vrl.vehicle_id, v.code_name, v.vehicle_name, v.category,
               vrl.shift_date, vrl.shift_number, vrl.team_group, vrl.status,
@@ -233,23 +262,7 @@ export const getVehicleIssuesAudit = async (req, res) => {
       [shiftDate, shiftNumber, currentTeam]
     );
 
-    // 2. Backlog kendala yang masih unserviceable dari shift-shift sebelumnya
-    const [backlogIssues] = await pool.query(
-      `SELECT vrl.id, vrl.vehicle_id, v.code_name, v.vehicle_name, v.category,
-              vrl.shift_date, vrl.shift_number, vrl.team_group, vrl.status,
-              vrl.justification, vrl.follow_up_status, vrl.resolved_at, vrl.notes,
-              p.full_name as reported_by_name, p.nip as reported_by_nip
-       FROM vehicle_readiness_logs vrl
-       JOIN vehicles v ON v.id = vrl.vehicle_id
-       LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
-       WHERE vrl.status = 'unserviceable'
-         AND vrl.follow_up_status != 'resolved'
-         AND (vrl.shift_date < ? OR (vrl.shift_date = ? AND vrl.shift_number < ?))
-       ORDER BY vrl.shift_date DESC, vrl.shift_number DESC`,
-      [shiftDate, shiftDate, shiftNumber]
-    );
-
-    // 3. Kendaraan yang berhasil dipulihkan (resolved) pada shift ini
+    // 2. Kendaraan yang berhasil dipulihkan (transisi unserviceable -> serviceable) pada shift ini
     const [resolvedThisShift] = await pool.query(
       `SELECT vrl.id, vrl.vehicle_id, v.code_name, v.vehicle_name, v.category,
               vrl.shift_date, vrl.shift_number, vrl.team_group, vrl.status,
@@ -262,6 +275,58 @@ export const getVehicleIssuesAudit = async (req, res) => {
          AND vrl.status = 'serviceable' AND vrl.resolved_at IS NOT NULL`,
       [shiftDate, shiftNumber, currentTeam]
     );
+
+    // 3. Backlog kendala yang statusnya MASIH unserviceable dari shift-shift sebelumnya
+    // Kendaraan yang sudah tercatat di currentIssues atau resolvedThisShift dikecualikan agar tidak dobel.
+    const handledVehicleIds = new Set([
+      ...currentIssues.map((i) => i.vehicle_id),
+      ...resolvedThisShift.map((i) => i.vehicle_id)
+    ]);
+
+    const [rawBacklog] = await pool.query(
+      `SELECT vrl.id, vrl.vehicle_id, v.code_name, v.vehicle_name, v.category,
+              vrl.shift_date, vrl.shift_number, vrl.team_group, vrl.status,
+              vrl.justification, vrl.follow_up_status, vrl.resolved_at, vrl.notes,
+              p.full_name as reported_by_name, p.nip as reported_by_nip
+       FROM vehicle_readiness_logs vrl
+       JOIN vehicles v ON v.id = vrl.vehicle_id
+       LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
+       WHERE vrl.status = 'unserviceable'
+         AND vrl.follow_up_status != 'resolved'
+         AND (vrl.shift_date < ? OR (vrl.shift_date = ? AND vrl.shift_number < ?))
+       ORDER BY vrl.shift_date DESC, vrl.shift_number DESC, vrl.id DESC`,
+      [shiftDate, shiftDate, shiftNumber]
+    );
+
+    // Periksa status log serviceable paling mutakhir per kendaraan sebelum shift saat ini
+    const [serviceableLogs] = await pool.query(
+      `SELECT vehicle_id, MAX(CONCAT(shift_date, ' ', LPAD(shift_number, 2, '0'))) as latest_serv
+       FROM vehicle_readiness_logs
+       WHERE status = 'serviceable'
+         AND (shift_date < ? OR (shift_date = ? AND shift_number <= ?))
+       GROUP BY vehicle_id`,
+      [shiftDate, shiftDate, shiftNumber]
+    );
+    const serviceableMap = new Map();
+    serviceableLogs.forEach((r) => serviceableMap.set(r.vehicle_id, r.latest_serv));
+
+    // Deduplikasi backlog: ambil tepat 1 record unserviceable terbaru per unit armada yang masih belum sembuh
+    const backlogIssues = [];
+    const seenVehicle = new Set();
+
+    for (const item of rawBacklog) {
+      if (handledVehicleIds.has(item.vehicle_id) || seenVehicle.has(item.vehicle_id)) {
+        continue;
+      }
+      const itemKey = `${item.shift_date} ${String(item.shift_number).padStart(2, '0')}`;
+      const latestServ = serviceableMap.get(item.vehicle_id);
+      // Jika ada log serviceable yang lebih mutakhir daripada log unserviceable ini, maka unit sudah tidak unserviceable
+      if (latestServ && latestServ > itemKey) {
+        continue;
+      }
+      seenVehicle.add(item.vehicle_id);
+      backlogIssues.push(item);
+    }
 
     return res.json({
       success: true,
@@ -280,3 +345,233 @@ export const getVehicleIssuesAudit = async (req, res) => {
     return errorResponse(res, 'Gagal mengambil data pelacakan kendala armada: ' + error.message, 500);
   }
 };
+
+/**
+ * Controller Laporan Kesiapan Armada dalam Format PDF (Mendukung Agent 2 di /armada/laporan)
+ * Filter Periode: 1month (default), 3months, 1year, custom
+ */
+export const getVehiclesReportPdf = async (req, res) => {
+  try {
+    const { period = '1month', start_date, end_date } = req.query;
+
+    const today = new Date();
+    let calculatedStartDate = '';
+    let calculatedEndDate = today.toISOString().split('T')[0];
+
+    if (period === '1month') {
+      const d = new Date();
+      d.setMonth(d.getMonth() - 1);
+      calculatedStartDate = d.toISOString().split('T')[0];
+    } else if (period === '3months') {
+      const d = new Date();
+      d.setMonth(d.getMonth() - 3);
+      calculatedStartDate = d.toISOString().split('T')[0];
+    } else if (period === '1year') {
+      const d = new Date();
+      d.setFullYear(d.getFullYear() - 1);
+      calculatedStartDate = d.toISOString().split('T')[0];
+    } else if (period === 'custom' && start_date && end_date) {
+      calculatedStartDate = start_date;
+      calculatedEndDate = end_date;
+    } else {
+      const d = new Date();
+      d.setMonth(d.getMonth() - 1);
+      calculatedStartDate = d.toISOString().split('T')[0];
+    }
+
+    // Ambil daftar armada operasional
+    const [allVehicles] = await pool.query(
+      `SELECT id, code_name, vehicle_name, category FROM vehicles WHERE is_active = 1 ORDER BY id ASC`
+    );
+
+    // Ambil riwayat kesiapan armada pada rentang periode
+    const [readinessLogs] = await pool.query(
+      `SELECT vrl.*, p.full_name as pic_name
+       FROM vehicle_readiness_logs vrl
+       LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
+       WHERE vrl.shift_date BETWEEN ? AND ?
+       ORDER BY vrl.vehicle_id, vrl.shift_date ASC, vrl.shift_number ASC`,
+      [calculatedStartDate, calculatedEndDate]
+    );
+
+    // Hitung frekuensi transisi status per armada (serviceable <-> unserviceable)
+    const vehicleStats = allVehicles.map((v) => {
+      const logs = readinessLogs.filter((l) => l.vehicle_id === v.id);
+      let transitions = 0;
+      let prevStatus = null;
+      let serviceableCount = 0;
+
+      logs.forEach((log) => {
+        if (prevStatus !== null && prevStatus !== log.status) {
+          transitions++;
+        }
+        prevStatus = log.status;
+        if (log.status === 'serviceable') serviceableCount++;
+      });
+
+      const totalLogs = logs.length;
+      const readinessPct = totalLogs > 0 ? Math.round((serviceableCount / totalLogs) * 100) : 100;
+      const latestLog = logs[logs.length - 1];
+
+      return {
+        id: v.id,
+        code_name: v.code_name,
+        vehicle_name: v.vehicle_name,
+        category: v.category,
+        status: latestLog ? latestLog.status : 'serviceable',
+        readinessPct,
+        transitionCount: transitions,
+        totalLogs,
+      };
+    });
+
+    // Ambil kendala kerusakan pada periode terpilih
+    const [issuesList] = await pool.query(
+      `SELECT vrl.id, vrl.vehicle_id, v.code_name, v.vehicle_name, vrl.shift_date, vrl.shift_number,
+              vrl.team_group, vrl.status, vrl.justification, vrl.follow_up_status, vrl.resolved_at,
+              p.full_name as reported_by_name
+       FROM vehicle_readiness_logs vrl
+       JOIN vehicles v ON v.id = vrl.vehicle_id
+       LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
+       WHERE vrl.shift_date BETWEEN ? AND ? AND vrl.status = 'unserviceable'
+       ORDER BY vrl.shift_date DESC, vrl.shift_number DESC`,
+      [calculatedStartDate, calculatedEndDate]
+    );
+
+    // Ambil data pejabat Dept Head secara dinamis
+    const [deptHeads] = await pool.query(
+      `SELECT COALESCE(p.full_name, u.name) as name, p.nip, p.rank_position,
+              COALESCE(u.signature_url, p.signature_url) as signature_url
+       FROM users u
+       LEFT JOIN personnel p ON p.user_id = u.id
+       WHERE u.role IN ('dept_head', 'admin')
+       ORDER BY FIELD(u.role, 'dept_head', 'admin')
+       LIMIT 1`
+    );
+    const deptHeadData = deptHeads.length > 0 ? deptHeads[0] : null;
+
+    const totalReadiness = vehicleStats.reduce((acc, curr) => acc + curr.readinessPct, 0);
+    const averageReadinessPct = vehicleStats.length > 0 ? Math.round(totalReadiness / vehicleStats.length) : 100;
+
+    const payload = {
+      period,
+      start_date: calculatedStartDate,
+      end_date: calculatedEndDate,
+      vehicles: vehicleStats,
+      issues: issuesList,
+      summary: {
+        averageReadinessPct,
+        totalIssuesCount: issuesList.length,
+      },
+      dept_head_name: deptHeadData?.name || 'Section Head ARFF',
+      dept_head_nip: deptHeadData?.nip || null,
+      dept_head_signature_url: deptHeadData?.signature_url || null,
+    };
+
+    const doc = generateVehicleReadinessReportPdf(payload);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="laporan-kesiapan-armada-${calculatedStartDate}-sd-${calculatedEndDate}.pdf"`
+    );
+
+    doc.pipe(res);
+    doc.end();
+  } catch (error) {
+    console.error('Error getVehiclesReportPdf:', error);
+    return errorResponse(res, 'Gagal menerbitkan laporan PDF kesiapan armada: ' + error.message, 500);
+  }
+};
+
+/**
+ * Controller Laporan Rekap Insiden dalam Format PDF (Mendukung Agent 4 di /insiden/laporan)
+ * Filter Periode: 1month (default), 3months, 1year, custom
+ */
+export const getIncidentsReportPdf = async (req, res) => {
+  try {
+    const { period = '1month', start_date, end_date } = req.query;
+
+    const today = new Date();
+    let calculatedStartDate = '';
+    let calculatedEndDate = today.toISOString().split('T')[0];
+
+    if (period === '1month') {
+      const d = new Date();
+      d.setMonth(d.getMonth() - 1);
+      calculatedStartDate = d.toISOString().split('T')[0];
+    } else if (period === '3months') {
+      const d = new Date();
+      d.setMonth(d.getMonth() - 3);
+      calculatedStartDate = d.toISOString().split('T')[0];
+    } else if (period === '1year') {
+      const d = new Date();
+      d.setFullYear(d.getFullYear() - 1);
+      calculatedStartDate = d.toISOString().split('T')[0];
+    } else if (period === 'custom' && start_date && end_date) {
+      calculatedStartDate = start_date;
+      calculatedEndDate = end_date;
+    } else {
+      const d = new Date();
+      d.setMonth(d.getMonth() - 1);
+      calculatedStartDate = d.toISOString().split('T')[0];
+    }
+
+    // Ambil insiden pada rentang periode
+    const [incidentsList] = await pool.query(
+      `SELECT i.*, u.name as reporter_name
+       FROM incidents i
+       LEFT JOIN users u ON u.id = i.reporter_id
+       WHERE i.incident_date BETWEEN ? AND ?
+       ORDER BY i.incident_date DESC, i.incident_time DESC`,
+      [calculatedStartDate, calculatedEndDate]
+    );
+
+    // Ambil data pejabat Dept Head secara dinamis
+    const [deptHeads] = await pool.query(
+      `SELECT COALESCE(p.full_name, u.name) as name, p.nip, p.rank_position,
+              COALESCE(u.signature_url, p.signature_url) as signature_url
+       FROM users u
+       LEFT JOIN personnel p ON p.user_id = u.id
+       WHERE u.role IN ('dept_head', 'admin')
+       ORDER BY FIELD(u.role, 'dept_head', 'admin')
+       LIMIT 1`
+    );
+    const deptHeadData = deptHeads.length > 0 ? deptHeads[0] : null;
+
+    const resolvedCount = incidentsList.filter(
+      (i) => i.status === 'resolved' || i.status === 'closed'
+    ).length;
+    const ongoingCount = incidentsList.length - resolvedCount;
+
+    const payload = {
+      period,
+      start_date: calculatedStartDate,
+      end_date: calculatedEndDate,
+      incidents: incidentsList,
+      summary: {
+        totalIncidents: incidentsList.length,
+        resolvedCount,
+        ongoingCount,
+      },
+      dept_head_name: deptHeadData?.name || 'Section Head ARFF',
+      dept_head_nip: deptHeadData?.nip || null,
+      dept_head_signature_url: deptHeadData?.signature_url || null,
+    };
+
+    const doc = generateIncidentSummaryReportPdf(payload);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="laporan-rekap-insiden-${calculatedStartDate}-sd-${calculatedEndDate}.pdf"`
+    );
+
+    doc.pipe(res);
+    doc.end();
+  } catch (error) {
+    console.error('Error getIncidentsReportPdf:', error);
+    return errorResponse(res, 'Gagal menerbitkan laporan PDF rekap insiden: ' + error.message, 500);
+  }
+};
+

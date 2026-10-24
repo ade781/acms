@@ -467,3 +467,154 @@ export const submitWatchroomReadiness = async (req, res) => {
     return errorResponse(res, 'Gagal menyimpan kesiapan watchroom', 500);
   }
 };
+
+export const getVehicleTransitionsReport = async (req, res) => {
+  try {
+    const { period = '1month', start_date, end_date } = req.query;
+
+    let startDate, endDate;
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+
+    if (start_date && end_date) {
+      startDate = start_date;
+      endDate = end_date;
+    } else {
+      endDate = todayStr;
+      const d = new Date(now);
+      if (period === '3months') {
+        d.setMonth(d.getMonth() - 3);
+      } else if (period === '1year') {
+        d.setFullYear(d.getFullYear() - 1);
+      } else {
+        d.setMonth(d.getMonth() - 1);
+      }
+      startDate = d.toISOString().split('T')[0];
+    }
+
+    const [vehicles] = await pool.query(
+      `SELECT id, code_name, vehicle_name, category, license_plate, description
+       FROM vehicles
+       WHERE is_active = 1
+       ORDER BY category ASC, code_name ASC`
+    );
+
+    const [logs] = await pool.query(
+      `SELECT vrl.id, vrl.vehicle_id, vrl.shift_date, vrl.shift_number, vrl.team_group,
+              vrl.status, vrl.justification, vrl.follow_up_status, vrl.notes, vrl.photo_webp_url,
+              vrl.resolved_at, vrl.created_at,
+              p.full_name as pic_name, p.nip as pic_nip
+       FROM vehicle_readiness_logs vrl
+       LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
+       WHERE vrl.shift_date BETWEEN ? AND ?
+       ORDER BY vrl.shift_date ASC, vrl.shift_number ASC, vrl.id ASC`,
+      [startDate, endDate]
+    );
+
+    const logsByVehicle = new Map();
+    for (const log of logs) {
+      if (!logsByVehicle.has(log.vehicle_id)) {
+        logsByVehicle.set(log.vehicle_id, []);
+      }
+      logsByVehicle.get(log.vehicle_id).push(log);
+    }
+
+    let grandTotalTransitions = 0;
+    let currentlyServiceableCount = 0;
+    let currentlyUnserviceableCount = 0;
+
+    const vehiclesReport = vehicles.map(v => {
+      const vLogs = logsByVehicle.get(v.id) || [];
+      
+      let transitionCount = 0;
+      let lastKnownStatus = 'serviceable';
+      const incidentLogs = [];
+      const transitions = [];
+
+      for (let i = 0; i < vLogs.length; i++) {
+        const item = vLogs[i];
+        
+        if (item.status === 'unserviceable') {
+          incidentLogs.push({
+            id: item.id,
+            shift_date: item.shift_date,
+            shift_number: item.shift_number,
+            team_group: item.team_group,
+            justification: item.justification,
+            notes: item.notes,
+            photo_webp_url: item.photo_webp_url,
+            follow_up_status: item.follow_up_status,
+            pic_name: item.pic_name,
+            pic_nip: item.pic_nip
+          });
+        }
+
+        if (item.status && item.status !== 'belum_dilaporkan') {
+          if (item.status !== lastKnownStatus) {
+            transitionCount++;
+            transitions.push({
+              shift_date: item.shift_date,
+              shift_number: item.shift_number,
+              team_group: item.team_group,
+              from_status: lastKnownStatus,
+              to_status: item.status,
+              justification: item.justification,
+              notes: item.notes,
+              reported_by: item.pic_name
+            });
+            lastKnownStatus = item.status;
+          }
+        }
+      }
+
+      grandTotalTransitions += transitionCount;
+
+      const latestLog = vLogs.length > 0 ? vLogs[vLogs.length - 1] : null;
+      const currentStatus = (latestLog && latestLog.status !== 'belum_dilaporkan') ? latestLog.status : 'serviceable';
+
+      if (currentStatus === 'unserviceable') {
+        currentlyUnserviceableCount++;
+      } else {
+        currentlyServiceableCount++;
+      }
+
+      const totalServiceableShifts = vLogs.filter(l => l.status === 'serviceable').length;
+      const totalUnserviceableShifts = vLogs.filter(l => l.status === 'unserviceable').length;
+
+      return {
+        id: v.id,
+        vehicle_id: v.id,
+        code_name: v.code_name,
+        vehicle_name: v.vehicle_name,
+        category: v.category,
+        license_plate: v.license_plate,
+        description: v.description,
+        current_status: currentStatus,
+        transition_count: transitionCount,
+        unserviceable_count: totalUnserviceableShifts,
+        serviceable_count: totalServiceableShifts,
+        total_logs: vLogs.length,
+        incident_logs: incidentLogs,
+        transitions: transitions
+      };
+    });
+
+    return successResponse(res, 'Laporan transisi kesiapan armada berhasil dihitung', {
+      period_info: {
+        period: start_date && end_date ? 'custom' : period,
+        start_date: startDate,
+        end_date: endDate
+      },
+      summary: {
+        total_vehicles: vehicles.length,
+        total_transitions: grandTotalTransitions,
+        currently_serviceable: currentlyServiceableCount,
+        currently_unserviceable: currentlyUnserviceableCount,
+      },
+      vehicles: vehiclesReport
+    });
+  } catch (error) {
+    console.error('Error getVehicleTransitionsReport:', error);
+    return errorResponse(res, 'Gagal mengambil laporan transisi armada: ' + error.message, 500);
+  }
+};

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clock, Trash2, Camera, User, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { Clock, Trash2, Edit2, Camera, User, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 
 export const ACTIVITY_CATEGORIES = {
   serah_terima: {
@@ -38,6 +38,8 @@ export const ACTIVITY_CATEGORIES = {
 
 export default function MobileActivityTimelineItem({
   activity,
+  canEdit = false,
+  onEdit,
   canDelete = false,
   onDelete,
 }) {
@@ -85,6 +87,17 @@ export default function MobileActivityTimelineItem({
           </div>
 
           <div className="flex items-center gap-1">
+            {canEdit && onEdit && (
+              <button
+                type="button"
+                onClick={() => onEdit(activity)}
+                className="p-1 text-slate-400 hover:text-blue-600 transition-colors duration-100 rounded"
+                title="Edit kegiatan"
+                aria-label="Edit kegiatan"
+              >
+                <Edit2 className="w-3 h-3" />
+              </button>
+            )}
             {canDelete && onDelete && (
               <button
                 type="button"

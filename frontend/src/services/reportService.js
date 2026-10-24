@@ -90,6 +90,55 @@ export async function fetchShiftReportData({ date, shift, team }) {
   };
 }
 
+/**
+ * Mengunduh dokumen PDF Laporan Kesiapan Armada Resmi
+ */
+export async function downloadVehicleReportPdf({ period = '1month', start_date = '', end_date = '' } = {}) {
+  const query = new URLSearchParams({ period });
+  if (start_date) query.append('start_date', start_date);
+  if (end_date) query.append('end_date', end_date);
+
+  const res = await api.get(`/reports/vehicles/pdf?${query.toString()}`, {
+    responseType: 'blob',
+  });
+
+  const blob = new Blob([res.data], { type: 'application/pdf' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', `Laporan-Kesiapan-Armada-${period}.pdf`);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+/**
+ * Mengunduh dokumen PDF Laporan Rekapitulasi Insiden Resmi
+ */
+export async function downloadIncidentReportPdf({ period = '1month', start_date = '', end_date = '' } = {}) {
+  const query = new URLSearchParams({ period });
+  if (start_date) query.append('start_date', start_date);
+  if (end_date) query.append('end_date', end_date);
+
+  const res = await api.get(`/reports/incidents/pdf?${query.toString()}`, {
+    responseType: 'blob',
+  });
+
+  const blob = new Blob([res.data], { type: 'application/pdf' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', `Laporan-Rekap-Insiden-${period}.pdf`);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
 export default {
   fetchShiftReportData,
+  downloadVehicleReportPdf,
+  downloadIncidentReportPdf,
 };
+

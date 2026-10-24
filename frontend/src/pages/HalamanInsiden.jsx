@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Plus, Search, Calendar, ChevronRight, ChevronLeft, ShieldAlert, Check, X } from 'lucide-react';
+import { AlertTriangle, Plus, Search, Calendar, ChevronRight, ChevronLeft, ShieldAlert, Check, X, FileText } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam, formatTeam } from '../utils/shiftHelper';
 import api from '../services/api';
@@ -79,15 +79,25 @@ export default function HalamanInsiden() {
           </h2>
         </div>
 
-        {canReport && (
+        <div className="flex items-center gap-2">
           <Button
-            variant="danger"
-            icon={Plus}
-            onClick={() => setModalOpen(true)}
+            variant="outline"
+            icon={FileText}
+            onClick={() => navigate('/insiden/laporan')}
           >
-            Tambah Insiden
+            Laporan Rekap Insiden
           </Button>
-        )}
+
+          {canReport && (
+            <Button
+              variant="danger"
+              icon={Plus}
+              onClick={() => setModalOpen(true)}
+            >
+              Tambah Insiden
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Toast Feedback */}

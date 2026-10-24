@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Camera, X, Check, AlertCircle, Clock, Tag } from 'lucide-react';
 import api from '../../../services/api';
 import { ACTIVITY_CATEGORIES } from './MobileActivityTimelineItem';
 import { cleanTeam } from '../../../utils/shiftHelper';
+import { compressImageToWebP } from '../../../utils/imageCompressor';
 
 export default function MobileActivityModal({
   isOpen,
@@ -11,6 +12,7 @@ export default function MobileActivityModal({
   shiftDate,
   shiftNumber,
   teamGroup,
+  editingActivity = null,
 }) {
   const [activityTime, setActivityTime] = useState(() => {
     const now = new Date();
@@ -24,32 +26,74 @@ export default function MobileActivityModal({
   // Photo upload states
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [photoRemoved, setPhotoRemoved] = useState(false);
 
+  const [compressing, setCompressing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Sinkronisasi data saat modal dibuka untuk tambah atau edit
+  useEffect(() => {
+    if (!isOpen) return;
+    if (editingActivity) {
+      setActivityTime(
+        editingActivity.activity_time
+          ? editingActivity.activity_time.slice(0, 5)
+          : new Date().toTimeString().slice(0, 5)
+      );
+      setActivityType(editingActivity.activity_type || 'serah_terima');
+      setTitle(editingActivity.title || '');
+      setDescription(editingActivity.description || '');
+      setResultNotes(editingActivity.result_notes || '');
+      setSelectedPhoto(null);
+      setPhotoPreview(editingActivity.attachment_url || null);
+      setPhotoRemoved(false);
+      setErrorMsg('');
+    } else {
+      setActivityTime(new Date().toTimeString().slice(0, 5));
+      setActivityType('serah_terima');
+      setTitle('');
+      setDescription('');
+      setResultNotes('');
+      setSelectedPhoto(null);
+      setPhotoPreview(null);
+      setPhotoRemoved(false);
+      setErrorMsg('');
+    }
+  }, [isOpen, editingActivity]);
+
   if (!isOpen) return null;
 
-  const handlePhotoSelect = (e) => {
+  const handlePhotoSelect = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
         setErrorMsg('Harap pilih berkas gambar yang sah (JPEG, PNG, WebP).');
         return;
       }
-      setSelectedPhoto(file);
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setPhotoPreview(ev.target.result);
-      };
-      reader.readAsDataURL(file);
       setErrorMsg('');
+      setCompressing(true);
+      try {
+        const compressedWebP = await compressImageToWebP(file, {
+          maxWidth: 1280,
+          maxHeight: 1280,
+          quality: 0.8,
+        });
+        setSelectedPhoto(compressedWebP);
+        setPhotoPreview(URL.createObjectURL(compressedWebP));
+        setPhotoRemoved(false);
+      } catch (err) {
+        setErrorMsg(`Gagal memproses gambar: ${err.message}`);
+      } finally {
+        setCompressing(false);
+      }
     }
   };
 
   const handleRemovePhoto = () => {
     setSelectedPhoto(null);
     setPhotoPreview(null);
+    setPhotoRemoved(true);
   };
 
   const handleSubmit = async (e) => {
@@ -80,21 +124,22 @@ export default function MobileActivityModal({
       }
       if (selectedPhoto) {
         formData.append('photo', selectedPhoto);
+      } else if (editingActivity && photoRemoved) {
+        formData.append('attachment_url', '');
       }
 
-      await api.post('/activities', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      if (editingActivity) {
+        await api.put(`/activities/${editingActivity.id}`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        onSuccess?.('✓ Catatan kegiatan berhasil diperbarui.');
+      } else {
+        await api.post('/activities', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        onSuccess?.('✓ Kegiatan operasional berhasil dicatat ke logbook.');
+      }
 
-      // Reset
-      setTitle('');
-      setDescription('');
-      setResultNotes('');
-      setSelectedPhoto(null);
-      setPhotoPreview(null);
-      onSuccess?.('✓ Kegiatan operasional berhasil dicatat ke logbook.');
       onClose();
     } catch (err) {
       console.error('Error simpan kegiatan:', err);
@@ -118,7 +163,7 @@ export default function MobileActivityModal({
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-red-600"></span>
             <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-              Catat Kegiatan Shift
+              {editingActivity ? 'Edit Kegiatan Shift' : 'Catat Kegiatan Shift'}
             </h4>
           </div>
           <button
@@ -266,15 +311,17 @@ export default function MobileActivityModal({
           {/* Tombol Simpan Kegiatan */}
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || compressing}
             className="w-full mt-2 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors duration-100"
           >
             {submitting ? (
               <span>Menyimpan Kegiatan...</span>
+            ) : compressing ? (
+              <span>Mengompres Foto...</span>
             ) : (
               <>
                 <Check className="w-3.5 h-3.5" />
-                <span>Simpan Kegiatan Shift</span>
+                <span>{editingActivity ? 'Simpan Perubahan Kegiatan' : 'Simpan Kegiatan Shift'}</span>
               </>
             )}
           </button>

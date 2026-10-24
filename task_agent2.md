@@ -1,30 +1,41 @@
-# TUGAS AGENT 2: EKSEKUSI PERBAIKAN LAMPIRAN, ARMADA & WATCHROOM
+# TUGAS AGENT 2: KESIAPAN ARMADA, WATCHROOM & HALAMAN LAPORAN ARMADA
 
-**Peran**: Spesialis Kesiapan Armada (Fleet), Fasilitas Watchroom & Pengumuman/Edaran Dinas  
-**Status**: 🚀 **FASE EKSEKUSI PERBAIKAN TERISOLASI (FIX & VERIFY PHASE)**  
+**Peran**: Spesialis Kesiapan Armada, Watchroom & Pengumuman/Edaran Dinas  
+**Status**: 🚀 **FASE EKSEKUSI FITUR BARU, AUDIT TAHAP 2 & REKOMENDASI**  
 
 ## 1. Berkas Tanggung Jawab Eksklusif (Zero Collision)
-- `backend/src/controllers/announcementController.js`
-- `backend/src/routes/announcementRoutes.js`
 - `backend/src/controllers/readinessController.js`
-- `frontend/src/pages/HalamanPengumuman.jsx`
-- `frontend/src/components/mobile/announcements/MobileAnnouncementsModal.jsx`
-- `frontend/src/pages/mobile/MobileDashboard.jsx` (area pengumuman)
+- `backend/src/routes/readinessRoutes.js`
+- `backend/src/controllers/vehicleController.js`
+- `frontend/src/pages/HalamanKesiapanArmada.jsx`
+- `frontend/src/pages/HalamanLaporanArmada.jsx` (halaman baru laporan armada)
+- `frontend/src/components/forms/VehicleReadinessModal.jsx`
 
-## 2. Butir Tindakan Perbaikan
-1. **Tuntaskan Error 401 Unauthorized Lampiran Pengumuman**:
-   - Di `HalamanPengumuman.jsx` (`getPdfUrl`), `MobileDashboard.jsx`, dan `MobileAnnouncementsModal.jsx`, sematkan token JWT dari localStorage sebagai fallback query string: `?token=${encodeURIComponent(token)}`.
-   - Di `announcementRoutes.js`, pastikan middleware autentikasi membaca token dari `req.query.token`.
-2. **Seragamkan Alur UX Pengumuman Mobile**:
-   - Di `MobileAnnouncementsModal.jsx`, ganti pemanggilan `window.open` mentah dengan pratinjau modal in-app yang seragam dengan mobile dashboard.
-3. **Aturan Khusus Pengguna: Default Kendaraan Tetap Serviceable**:
-   - **Pertahankan status awal kendaraan tetap `serviceable`** (siap operasi penuh), kecuali unit tersebut memiliki carry-over backlog unserviceable dari shift sebelumnya.
-4. **Perbaiki Carry-Over Kendala Posko Watchroom**:
-   - Di `readinessController.js` (`getWatchroomReadiness`), tambahkan logika carry-over status rusak dari shift sebelumnya jika watchroom belum dilaporkan di shift aktif, dan perbarui `follow_up_status = 'resolved'` saat dipulihkan.
-5. **Pencegahan Berkas Sampah (*Orphan Files*)**:
-   - Di `announcementController.js`, tambahkan pembersihan `fs.unlink` di blok catch saat create gagal, dan pastikan hapus file fisik dilakukan SETELAH query database delete sukses.
+## 2. Butir Tindakan & Mandat
+1. **Saran 1 (Konsolidasi Watchroom)**:
+   - Satukan status dan log posko Watch Room ke dalam struktur data fasilitas khusus agar sinkron dengan kelaikan armada.
+2. **Instruksi Tambahan Pengguna: Tombol & Halaman Laporan Armada Penuh (`/armada/laporan`)**:
+   - Di `HalamanKesiapanArmada.jsx`, tambahkan tombol **"Laporan Kesiapan Armada" / "Report"** di bagian header aksi yang membuka rute `/armada/laporan`.
+   - Buat halaman baru `HalamanLaporanArmada.jsx`:
+     - Tombol navigasi kembali (*Back ke Kesiapan Armada*).
+     - **Filter Periode Baku**:
+       - Default: **1 Bulan Terakhir**
+       - Pilihan Cepat: **3 Bulan**, **1 Tahun**
+       - **Kustom**: Pilihan memilih rentang tanggal awal s.d. tanggal akhir (*Start Date* s.d. *End Date*).
+     - **Tabel Data Armada**:
+       - Menampilkan seluruh kendaraan operasional ARFF.
+       - Kategori armada, status kelaikan saat ini (*Serviceable* / *Unserviceable*).
+       - **Metrik Transisi Status**: Berapa kali kendaraan berganti status (*serviceable* ke *unserviceable* dan sebaliknya) pada periode yang dipilih, dihitung per shift/per hari.
+       - Daftar tanggal & catatan kendala saat kendaraan mengalami unserviceable pada periode tersebut.
+     - **Tombol Ekspor / Cetak PDF**: Memanggil generator PDF laporan kelaikan armada (Agent 5).
+3. **Endpoint Agregasi Transisi Status di Backend**:
+   - Di `readinessController.js`, buat endpoint API `GET /api/readiness/transitions-report` yang menerima query `?period=1month|3months|1year` atau `?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD`.
+   - Hitung pergantian status kelaikan per armada berdasarkan riwayat shift log di database.
+4. **Cari List Kesalahan / Celah Baru**:
+   - Sisir logika kelaikan kendaraan, carryover kerusakan, dan audit trail armada untuk menemukan celah baru.
+5. **Berikan Saran / Ide Pengembangan Lanjutan**:
+   - Tuliskan ide-ide inovatif untuk perawatan armada, reminder servis, atau telemetri kendaraan di laporan Anda.
 
-## 3. Kewajiban Laporan (Ide & Saran)
-Setelah pengujian lolos via CLI:
-- Tuliskan bukti pengujian dan penyelesaian masalah ke: [`masak/temp/hasil_agent2.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/temp/hasil_agent2.md).
-- **Wajib cantumkan ide, saran arsitektur, dan rekomendasi perbaikan lanjutan** untuk modul Anda di bagian akhir laporan!
+## 3. Kewajiban Laporan
+Setelah audit dan verifikasi via CLI (`node -c`, `npm run build`):
+- Tuliskan temuan masalah, status implementasi, dan ide/saran baru Anda ke: [`masak/temp/hasil_agent2.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/temp/hasil_agent2.md).

@@ -52,14 +52,27 @@ export default function DeploymentSlotCard({
     onInspectVehicle && !isPosko && (isUserThePic || isAdmin || isSupervisor)
   );
 
+  // Analisis Kesiapan Armada & Kelengkapan Formasi Kru
+  const readinessStatus = vehicle.status || vehicle.readiness || 'serviceable';
+  const isUnserviceable = readinessStatus === 'unserviceable';
+  const picAssigned = Boolean(picSlot?.personnel_id);
+  const filledSlotsCount = slots.filter((s) => Boolean(s.personnel_id)).length;
+  // Kru dinyatakan lengkap jika minimal 2 personel (termasuk PIC) terisi
+  const isCrewComplete = filledSlotsCount >= 2 && picAssigned;
+  const isReadyForDuty = !isUnserviceable && isCrewComplete;
+
   return (
     <div
       className={`rounded-xl border shadow-sm p-4 sm:p-5 flex flex-col justify-between transition-colors duration-100 ${
         isUserThePic
-          ? 'bg-white border-emerald-500 ring-2 ring-emerald-500/30 shadow-md'
+          ? 'bg-white border-emerald-500 ring-2 ring-emerald-500/40 shadow-md'
           : isUserKru
-          ? 'bg-white border-blue-400 ring-1 ring-blue-300/30 shadow-sm'
-          : 'bg-white border-slate-200'
+          ? 'bg-white border-blue-400 ring-2 ring-blue-300/40 shadow-sm'
+          : isUnserviceable
+          ? 'bg-red-50/15 border-red-300 ring-1 ring-red-200/50 shadow-xs'
+          : isReadyForDuty
+          ? 'bg-emerald-50/15 border-emerald-300 ring-1 ring-emerald-200/50 shadow-xs'
+          : 'bg-amber-50/15 border-amber-300 ring-1 ring-amber-200/50 shadow-xs'
       }`}
     >
       {/* Header */}
@@ -68,19 +81,23 @@ export default function DeploymentSlotCard({
           <div className="flex items-center gap-2.5">
             <div
               className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                isPosko
+                isUnserviceable
+                  ? 'bg-red-100 text-red-700'
+                  : isPosko
                   ? 'bg-emerald-100 text-emerald-800'
                   : isUserThePic
                   ? 'bg-emerald-100 text-emerald-800'
                   : isUserKru
                   ? 'bg-blue-100 text-blue-800'
-                  : 'bg-red-100 text-arff-primary'
+                  : isReadyForDuty
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : 'bg-amber-100 text-amber-800'
               }`}
             >
               <IconComponent className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <h4 className="text-sm font-bold text-slate-900 leading-tight">
                   {vehicle.code_name || vehicle.vehicle_name}
                 </h4>
@@ -100,15 +117,53 @@ export default function DeploymentSlotCard({
               </p>
             </div>
           </div>
-          <Badge variant={isPosko ? 'teamAlpha' : 'default'} size="sm">
-            {slots.length} Personel
-          </Badge>
+
+          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+            {/* Badge Kelaikan Fisik Armada */}
+            {!isPosko && (
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${
+                  isUnserviceable
+                    ? 'bg-red-100 text-red-800 border-red-300'
+                    : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                }`}
+              >
+                {isUnserviceable ? 'Unserviceable' : 'Serviceable'}
+              </span>
+            )}
+
+            {/* Badge Kelengkapan Kru */}
+            <span
+              className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${
+                isCrewComplete
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : !picAssigned
+                  ? 'bg-red-50 text-red-800 border-red-200 font-bold'
+                  : 'bg-amber-50 text-amber-800 border-amber-200'
+              }`}
+            >
+              {isCrewComplete
+                ? `Lengkap (${filledSlotsCount}/${slots.length})`
+                : !picAssigned
+                ? `Belum Ada PIC (${filledSlotsCount}/${slots.length})`
+                : `Belum Lengkap (${filledSlotsCount}/${slots.length})`}
+            </span>
+          </div>
         </div>
 
+        {/* Peringatan Fisik jika Unserviceable */}
+        {isUnserviceable && (
+          <div className="mt-2.5 px-2.5 py-1.5 rounded-lg bg-red-50 border border-red-200 text-[11px] text-red-800 font-semibold flex items-center justify-between">
+            <span>⚠️ Armada Rusak / Dalam Perbaikan</span>
+            <span className="text-[10px] font-normal text-red-600">Periksa PIC</span>
+          </div>
+        )}
+
         {/* Slot List */}
-        <div className="mt-4 space-y-3">
+        <div className="mt-3 space-y-2.5">
           {slots.map((slot, index) => {
             const isPic = index === 0; // Slot paling atas selalu FIX sebagai PIC
+            const isSlotFilled = Boolean(slot.personnel_id);
 
             const personObj = availablePersonnel.find(
               (p) => Number(p.id) === Number(slot.personnel_id)
@@ -125,17 +180,25 @@ export default function DeploymentSlotCard({
                 key={`${vehicle.id || vehicle.vehicle_id || 'v'}-slot-${index}`}
                 className={`p-3 rounded-lg border transition-colors duration-100 ${
                   isCurrentUser
-                    ? 'border-emerald-400 bg-emerald-50/90 ring-2 ring-emerald-500/40 shadow-xs'
+                    ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-400/40 shadow-xs'
                     : isPic
-                    ? 'border-amber-300 bg-amber-50/70'
-                    : 'border-slate-200 bg-slate-50'
+                    ? isSlotFilled
+                      ? 'border-emerald-300 bg-emerald-50/50'
+                      : 'border-dashed border-red-300 bg-red-50/30'
+                    : isSlotFilled
+                    ? 'border-slate-200 bg-white'
+                    : 'border-dashed border-slate-200 bg-slate-50/50'
                 }`}
               >
                 <div className="flex items-center justify-between gap-2 mb-1.5">
                   <div className="flex items-center gap-1.5">
                     <span
                       className={`text-[11px] font-bold uppercase tracking-wider ${
-                        isCurrentUser ? 'text-emerald-900' : 'text-slate-700'
+                        isCurrentUser
+                          ? 'text-emerald-900'
+                          : isPic && !isSlotFilled
+                          ? 'text-red-700'
+                          : 'text-slate-700'
                       }`}
                     >
                       {isPic
@@ -155,9 +218,15 @@ export default function DeploymentSlotCard({
 
                     {/* Fixed PIC Badge for top slot */}
                     {isPic && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                        <ShieldCheck className="w-3 h-3 text-amber-700" />
-                        <span>PIC</span>
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
+                          isSlotFilled
+                            ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                            : 'bg-red-100 text-red-900 border-red-300 animate-pulse'
+                        }`}
+                      >
+                        <ShieldCheck className="w-3 h-3" />
+                        <span>{isSlotFilled ? 'PIC Terisi' : 'Wajib PIC'}</span>
                       </span>
                     )}
                   </div>

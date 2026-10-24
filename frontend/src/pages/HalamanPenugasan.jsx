@@ -85,6 +85,32 @@ export default function HalamanPenugasan() {
     return set;
   }, [absentList]);
 
+  // Ringkasan Kesiapan Visual Formasi Kru & Armada
+  const formationSummary = useMemo(() => {
+    let readyCount = 0;
+    let incompleteCount = 0;
+    let unserviceableCount = 0;
+
+    vehicles.forEach((v) => {
+      const vId = v.id || v.vehicle_id;
+      const slots = vehicleSlots[vId] || [];
+      const isUnserviceable = (v.status || v.readiness) === 'unserviceable';
+      const picAssigned = Boolean(slots[0]?.personnel_id);
+      const filledCount = slots.filter((s) => Boolean(s.personnel_id)).length;
+      const isComplete = filledCount >= 2 && picAssigned;
+
+      if (isUnserviceable) {
+        unserviceableCount++;
+      } else if (isComplete) {
+        readyCount++;
+      } else {
+        incompleteCount++;
+      }
+    });
+
+    return { readyCount, incompleteCount, unserviceableCount, total: vehicles.length };
+  }, [vehicles, vehicleSlots]);
+
 
   // Fetch current deployment & master data concurrently
   const fetchDeploymentData = useCallback(async (options = {}) => {
@@ -391,6 +417,49 @@ export default function HalamanPenugasan() {
                 <span>{saving ? 'Menyimpan...' : 'Simpan Draf Ploting'}</span>
               </button>
             )}
+          </div>
+
+          {/* Bar Ringkasan Kesiapan Visual Formasi Kru */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+            <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                {formationSummary.readyCount}
+              </div>
+              <div>
+                <div className="text-[11px] font-medium text-slate-500">Siap Operasi Penuh</div>
+                <div className="text-xs font-bold text-slate-900">Kru & Armada Lengkap</div>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                {formationSummary.incompleteCount}
+              </div>
+              <div>
+                <div className="text-[11px] font-medium text-slate-500">Perlu Dilengkapi</div>
+                <div className="text-xs font-bold text-slate-900">Kru Kurang / Tanpa PIC</div>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-red-50 text-red-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                {formationSummary.unserviceableCount}
+              </div>
+              <div>
+                <div className="text-[11px] font-medium text-slate-500">Armada Unserviceable</div>
+                <div className="text-xs font-bold text-slate-900">Kendala Teknis / Rusak</div>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                {assignedPersonnelIds.size}
+              </div>
+              <div>
+                <div className="text-[11px] font-medium text-slate-500">Personel Bertugas</div>
+                <div className="text-xs font-bold text-slate-900">Dari {teamPersonnel.length} Anggota Regu</div>
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

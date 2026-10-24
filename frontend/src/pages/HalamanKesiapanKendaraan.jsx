@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Truck, CheckCircle2, AlertTriangle, ShieldCheck, HelpCircle, Plus, Trash2, X, AlertCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Truck, CheckCircle2, AlertTriangle, ShieldCheck, HelpCircle, Plus, Trash2, X, AlertCircle, FileBarChart2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam } from '../utils/shiftHelper';
 import api from '../services/api';
@@ -15,6 +16,7 @@ import SelectField from '../components/common/SelectField';
 import TextareaField from '../components/common/TextareaField';
 
 export default function HalamanKesiapanKendaraan() {
+  const navigate = useNavigate();
   const {
     user,
     activeDate,
@@ -167,6 +169,9 @@ export default function HalamanKesiapanKendaraan() {
   const unserviceableCount = vehicles.filter(
     (v) => (v.status === 'unserviceable' || v.current_log?.status === 'unserviceable')
   ).length;
+  const pendingCount = vehicles.filter(
+    (v) => (!v.status || v.status === 'belum_dilaporkan') && v.current_log?.status !== 'serviceable' && v.current_log?.status !== 'unserviceable'
+  ).length;
 
   return (
     <div>
@@ -215,6 +220,14 @@ export default function HalamanKesiapanKendaraan() {
 
         {/* Action & Counter Summary */}
         <div className="flex items-center gap-2.5 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            icon={FileBarChart2}
+            onClick={() => navigate('/armada/laporan')}
+          >
+            Laporan Kesiapan
+          </Button>
           {isAdmin && (
             <Button
               variant="primary"
@@ -231,6 +244,11 @@ export default function HalamanKesiapanKendaraan() {
           <span className="px-3 py-1.5 rounded-lg bg-red-50 text-red-800 border border-red-200 text-xs font-bold">
             {unserviceableCount} Unserviceable
           </span>
+          {pendingCount > 0 && (
+            <span className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold">
+              {pendingCount} Belum Diperiksa
+            </span>
+          )}
         </div>
       </div>
 

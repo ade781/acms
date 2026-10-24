@@ -24,6 +24,7 @@ import { fetchShiftReportData } from '../services/reportService';
 import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import Button from '../components/common/Button';
 import MobileUnitAuditModal from '../components/mobile/reports/MobileUnitAuditModal';
+import A4DocumentLayout from '../components/reports/A4DocumentLayout';
 
 export default function HalamanLaporan() {
   const { activeDate, activeShiftNumber, activeTeam } = useAuth();
@@ -306,155 +307,138 @@ export default function HalamanLaporan() {
         </div>
       </div>
 
-      {/* Lembar Pratinjau Dokumen Cetak Standar A4 Resmi */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 sm:p-8 max-w-4xl mx-auto">
-        {/* Kop Dokumen Resmi PT Angkasa Pura Indonesia YIA */}
-        <div className="text-center pb-6 border-b-2 border-slate-900 mb-6">
-          <h3 className="text-sm sm:text-base font-black uppercase tracking-wider text-slate-900 leading-tight">
-            PT ANGKASA PURA INDONESIA
-          </h3>
-          <p className="text-xs font-bold text-slate-800 leading-tight mt-0.5">
-            KANTOR CABANG BANDARA INTERNASIONAL YOGYAKARTA (YIA)
-          </p>
-          <p className="text-[11px] text-slate-600 font-medium leading-tight mt-0.5">
-            AIRPORT RESCUE & FIRE FIGHTING (ARFF) SECTION • KODE WAHI • KATEGORI 8
-          </p>
-
-          <div className="mt-4 pt-2 border-t border-slate-200">
-            <h4 className="text-xs sm:text-sm font-black uppercase text-slate-900 tracking-wide underline">
-              LAPORAN OPERASIONAL DINAS SHIFT
-            </h4>
-            <p className="text-[10px] font-mono text-slate-500 mt-0.5">
-              NOMOR: DSR/ARFF-YIA/{activeDate.replace(/-/g, '')}/S{activeShiftNumber}
-            </p>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-slate-700 font-medium bg-slate-50 py-2 px-4 rounded-lg border border-slate-200">
-            <span>
-              Tanggal: <strong>{formatIndoDate(activeDate)}</strong>
+      {/* Lembar Pratinjau Dokumen Cetak Standar A4 Resmi (Shared A4DocumentLayout) */}
+      <A4DocumentLayout
+        shiftDate={activeDate}
+        shiftNumber={activeShiftNumber}
+        teamGroup={activeTeam}
+        shiftData={shiftData}
+        deptHeadData={deptHeadData}
+      >
+        {/* BAGIAN 1: Kesiapan Fasilitas Posko & 8 Unit Armada Operasional */}
+        <div>
+          <h4 className="font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-1 mb-2.5 flex items-center justify-between">
+            <span>1. Kesiapan Fasilitas Posko & 8 Unit Armada Operasional</span>
+            <span className="text-[10px] font-normal text-slate-500 normal-case">
+              Audit Kelaikan Unit
             </span>
-            <span>|</span>
-            <span>
-              Shift:{' '}
-              <strong>
-                {currentDef.name} ({currentDef.startTime} s.d. {currentDef.endTime} WIB)
-              </strong>
-            </span>
-            <span>|</span>
-            <span>
-              Regu Dinas: <strong>{formatTeam(activeTeam)}</strong>
-            </span>
-            <span>|</span>
-            <span>
-              Ketua Regu:{' '}
-              <strong>
-                {shiftData?.supervisor_name || `Chief ${formatTeam(activeTeam)}`}
-              </strong>
-            </span>
-          </div>
-        </div>
+          </h4>
 
-        {/* Isi Bagian Dokumen Resmi */}
-        <div className="space-y-6 text-xs text-slate-700">
-          {/* BAGIAN 1: Kesiapan Fasilitas Posko & 8 Unit Armada Operasional */}
-          <div>
-            <h4 className="font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-1 mb-2.5 flex items-center justify-between">
-              <span>1. Kesiapan Fasilitas Posko & 8 Unit Armada Operasional</span>
-              <span className="text-[10px] font-normal text-slate-500 normal-case">
-                Audit Kelaikan Unit
-              </span>
-            </h4>
-
-            {/* Status Watchroom */}
-            <div className="mb-3 p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px]">
-              <div className="flex items-center gap-2">
-                <Radio className="w-4 h-4 text-slate-600 flex-shrink-0" />
-                <span className="font-bold text-slate-900">Watch Room Posko ARFF:</span>
-                <span
-                  className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                    watchroomData?.status === 'serviceable'
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : watchroomData?.status === 'unserviceable'
-                      ? 'bg-red-100 text-red-800'
-                      : 'bg-slate-200 text-slate-700'
-                  }`}
-                >
-                  {watchroomData?.status ? watchroomData.status.toUpperCase() : 'BELUM CEK'}
-                </span>
-              </div>
-              <div className="text-slate-600 text-[10.5px]">
-                Catatan: {watchroomData?.notes || 'Nihil / Operasional normal'}
-              </div>
-            </div>
-
-            {/* Tabel 8 Armada */}
-            <div className="overflow-x-auto border border-slate-200 rounded-lg">
-              <table className="w-full text-left text-[11px] divide-y divide-slate-200">
-                <thead className="bg-slate-100 font-bold text-slate-800">
-                  <tr>
-                    <th className="p-2 w-10 text-center">No</th>
-                    <th className="p-2">Kode & Nama Unit Armada</th>
-                    <th className="p-2">Kategori</th>
-                    <th className="p-2">Penanggung Jawab (PIC)</th>
-                    <th className="p-2 text-center">Kondisi Fisik</th>
-                    <th className="p-2">Justifikasi / Catatan Kelaikan</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
-                  {vehicles.length > 0 ? (
-                    vehicles.map((v, idx) => (
-                      <tr key={v.id || v.code_name} className="hover:bg-slate-50/60">
-                        <td className="p-2 text-center font-medium text-slate-500">
-                          {idx + 1}
-                        </td>
-                        <td className="p-2 font-bold text-slate-900">
-                          {v.code_name} - {v.vehicle_name}
-                        </td>
-                        <td className="p-2 text-slate-600 capitalize">
-                          {v.category || 'Utama'}
-                        </td>
-                        <td className="p-2 font-medium text-slate-800">
-                          {v.pic_name || <span className="text-slate-400 italic">Belum Ditunjuk</span>}
-                        </td>
-                        <td className="p-2 text-center">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedAuditUnit(v);
-                              setIsAuditModalOpen(true);
-                            }}
-                            className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] transition-colors duration-100 cursor-pointer shadow-xs ${
-                              v.status === 'serviceable'
-                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
-                                : v.status === 'unserviceable'
-                                ? 'bg-red-100 text-red-800 border border-red-300 hover:bg-red-200'
-                                : 'bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200'
-                            }`}
-                            title="Klik untuk memeriksa audit trail kendala & riwayat pemulihan unit"
-                          >
-                            {v.status === 'serviceable'
-                              ? 'Serviceable'
+          {/* Tabel Kesiapan Fasilitas & Armada Terpadu (Watchroom Terkonsolidasi Mulus) */}
+          <div className="overflow-x-auto border border-slate-200 rounded-lg">
+            <table className="w-full text-left text-[11px] divide-y divide-slate-200">
+              <thead className="bg-slate-100 font-bold text-slate-800">
+                <tr>
+                  <th className="p-2 w-10 text-center">No</th>
+                  <th className="p-2">Kode & Nama Unit Armada</th>
+                  <th className="p-2">Kategori</th>
+                  <th className="p-2">Penanggung Jawab (PIC)</th>
+                  <th className="p-2 text-center">Kondisi Fisik</th>
+                  <th className="p-2">Justifikasi / Catatan Kelaikan</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {vehicles.length > 0 ? (
+                  vehicles.map((v, idx) => (
+                    <tr key={v.id || v.code_name} className="hover:bg-slate-50/60">
+                      <td className="p-2 text-center font-medium text-slate-500">
+                        {idx + 1}
+                      </td>
+                      <td className="p-2 font-bold text-slate-900">
+                        {v.code_name} - {v.vehicle_name}
+                      </td>
+                      <td className="p-2 text-slate-600 capitalize">
+                        {v.category || 'Utama'}
+                      </td>
+                      <td className="p-2 font-medium text-slate-800">
+                        {v.pic_name || <span className="text-slate-400 italic">Belum Ditunjuk</span>}
+                      </td>
+                      <td className="p-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedAuditUnit(v);
+                            setIsAuditModalOpen(true);
+                          }}
+                          className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] transition-colors duration-100 cursor-pointer shadow-xs ${
+                            v.status === 'serviceable'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
                               : v.status === 'unserviceable'
-                              ? 'Unserviceable (Audit)'
-                              : 'Belum Cek'}
-                          </button>
-                        </td>
-                        <td className="p-2 text-slate-600">
-                          {v.justification || v.notes || '-'}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={6} className="p-3 text-center text-slate-400 italic">
-                        Data kelaikan 8 armada terangkum otomatis setelah inspeksi shift aktif.
+                              ? 'bg-red-100 text-red-800 border border-red-300 hover:bg-red-200'
+                              : 'bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200'
+                          }`}
+                          title="Klik untuk memeriksa audit trail kendala & riwayat pemulihan unit"
+                        >
+                          {v.status === 'serviceable'
+                            ? 'Serviceable'
+                            : v.status === 'unserviceable'
+                            ? 'Unserviceable (Audit)'
+                            : 'Belum Cek'}
+                        </button>
+                      </td>
+                      <td className="p-2 text-slate-600">
+                        {v.justification || v.notes || '-'}
                       </td>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="p-3 text-center text-slate-400 italic">
+                      Data kelaikan 8 armada terangkum otomatis setelah inspeksi shift aktif.
+                    </td>
+                  </tr>
+                )}
+                {/* Baris Konsolidasi Fasilitas Watchroom Posko (Bebas Duplikasi Box Terpisah) */}
+                <tr className="hover:bg-slate-50/60 bg-slate-50/40">
+                  <td className="p-2 text-center font-medium text-slate-500">
+                    {vehicles.length + 1}
+                  </td>
+                  <td className="p-2 font-bold text-slate-900">
+                    WATCHROOM - Posko ARFF
+                  </td>
+                  <td className="p-2 text-blue-700 capitalize">
+                    Posko
+                  </td>
+                  <td className="p-2 font-medium text-slate-800">
+                    {watchroomData?.pic_name || 'Petugas Jaga Watchroom'}
+                  </td>
+                  <td className="p-2 text-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedAuditUnit({
+                          id: 'WATCHROOM',
+                          code_name: 'WATCHROOM',
+                          vehicle_name: 'Posko ARFF',
+                          category: 'posko',
+                          status: watchroomData?.status || 'serviceable',
+                          justification: watchroomData?.notes || '',
+                        });
+                        setIsAuditModalOpen(true);
+                      }}
+                      className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] transition-colors duration-100 cursor-pointer shadow-xs ${
+                        watchroomData?.status === 'serviceable'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
+                          : watchroomData?.status === 'unserviceable'
+                          ? 'bg-red-100 text-red-800 border border-red-300 hover:bg-red-200'
+                          : 'bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200'
+                      }`}
+                    >
+                      {watchroomData?.status === 'serviceable'
+                        ? 'Serviceable'
+                        : watchroomData?.status === 'unserviceable'
+                        ? 'Unserviceable (Audit)'
+                        : 'Belum Cek'}
+                    </button>
+                  </td>
+                  <td className="p-2 text-slate-600">
+                    {watchroomData?.notes || 'Komunikasi darurat normal'}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
+        </div>
 
           {/* BAGIAN 2: Pelacakan Kendala & Pemulihan Armada Lintas Shift */}
           <div>
@@ -711,75 +695,7 @@ export default function HalamanLaporan() {
             )}
           </div>
 
-          {/* BAGIAN 6: Pengesahan & Validasi Serah Terima Dinas */}
-          <div>
-            <h4 className="font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-1 mb-2">
-              6. Pengesahan & Validasi Serah Terima Dinas
-            </h4>
-            <div className="pt-6 flex justify-between items-end">
-              {/* Dept Head / Section Head */}
-              <div className="text-center min-w-[200px]">
-                <p className="text-slate-500 mb-2">Mengetahui, Section Head ARFF</p>
-                {deptHeadData?.signature_url ? (
-                  <div className="h-14 flex items-center justify-center my-1">
-                    <img
-                      src={deptHeadData.signature_url}
-                      alt="Tanda Tangan Section Head"
-                      className="max-h-12 object-contain"
-                    />
-                  </div>
-                ) : (
-                  <div className="h-14 flex items-center justify-center">
-                    <span className="text-[10px] font-mono text-slate-400 italic">
-                      [ Tanda Tangan Digital ]
-                    </span>
-                  </div>
-                )}
-                <p className="font-bold text-slate-900 underline">
-                  {deptHeadData?.name || 'Section Head ARFF'}
-                </p>
-                {deptHeadData?.nip && deptHeadData.nip !== '-' && (
-                  <p className="text-[10px] text-slate-500 font-mono">NIP. {deptHeadData.nip}</p>
-                )}
-                <p className="text-[10px] text-slate-500">
-                  Airport Rescue & Fire Fighting Section Head
-                </p>
-              </div>
-
-              {/* Ketua Regu Dinas */}
-              <div className="text-center min-w-[200px]">
-                <p className="text-slate-500 mb-2">Ketua Regu Dinas ({cleanTeam(activeTeam)})</p>
-                {shiftData?.supervisor_signature_url ? (
-                  <div className="h-14 flex items-center justify-center my-1">
-                    <img
-                      src={shiftData.supervisor_signature_url}
-                      alt="Tanda Tangan Ketua Regu"
-                      className="max-h-12 object-contain"
-                    />
-                  </div>
-                ) : (
-                  <div className="h-14 flex items-center justify-center">
-                    <span className="text-[10px] font-mono text-slate-400 italic">
-                      [ Tanda Tangan Digital ]
-                    </span>
-                  </div>
-                )}
-                <p className="font-bold text-slate-900 underline">
-                  {shiftData?.supervisor_name || `Chief ${formatTeam(activeTeam)}`}
-                </p>
-                {shiftData?.supervisor_nip && shiftData.supervisor_nip !== '-' && (
-                  <p className="text-[10px] text-slate-500 font-mono">
-                    NIP. {shiftData.supervisor_nip}
-                  </p>
-                )}
-                <p className="text-[10px] text-slate-500">
-                  Airport Rescue & Fire Fighting Shift Supervisor
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      </A4DocumentLayout>
 
       {/* Modal Audit Trail Pelacakan Status Kendala Unit Armada */}
       <MobileUnitAuditModal

@@ -14,12 +14,18 @@ export default function MobileKegiatan() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingActivity, setEditingActivity] = useState(null);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('ALL');
   const [toastMsg, setToastMsg] = useState(null);
 
   // In-app Delete Modal state
   const [targetDeleteId, setTargetDeleteId] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleRequestEdit = (act) => {
+    setEditingActivity(act);
+    setIsModalOpen(true);
+  };
 
   const fetchActivities = useCallback(async () => {
     setLoading(true);
@@ -128,7 +134,10 @@ export default function MobileKegiatan() {
           {canManage && (
             <button
               type="button"
-              onClick={() => setIsModalOpen(true)}
+              onClick={() => {
+                setEditingActivity(null);
+                setIsModalOpen(true);
+              }}
               className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-xs transition-colors duration-100"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -215,7 +224,10 @@ export default function MobileKegiatan() {
           {canManage && (
             <button
               type="button"
-              onClick={() => setIsModalOpen(true)}
+              onClick={() => {
+                setEditingActivity(null);
+                setIsModalOpen(true);
+              }}
               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-[10.5px] shadow-xs transition-colors duration-100"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -232,6 +244,8 @@ export default function MobileKegiatan() {
             <MobileActivityTimelineItem
               key={act.id}
               activity={act}
+              canEdit={canManage}
+              onEdit={handleRequestEdit}
               canDelete={canManage}
               onDelete={handleRequestDelete}
             />
@@ -239,10 +253,14 @@ export default function MobileKegiatan() {
         </div>
       )}
 
-      {/* Modal Tambah Kegiatan */}
+      {/* Modal Tambah / Edit Kegiatan */}
       <MobileActivityModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        editingActivity={editingActivity}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingActivity(null);
+        }}
         onSuccess={(msg) => {
           fetchActivities();
           setToastMsg({ type: 'success', text: msg || '✓ Kegiatan operasional berhasil dicatat.' });

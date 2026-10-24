@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, ShieldAlert, AlertTriangle, RefreshCw, AlertCircle, Search, CheckCircle2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, ShieldAlert, AlertTriangle, RefreshCw, AlertCircle, Search, CheckCircle2, FileText } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { cleanTeam } from '../../utils/shiftHelper';
@@ -8,6 +9,7 @@ import MobileIncidentModal from '../../components/mobile/incidents/MobileInciden
 import MobileIncidentDetailModal from '../../components/mobile/incidents/MobileIncidentDetailModal';
 
 export default function MobileInsiden() {
+  const navigate = useNavigate();
   const { user, isChief, isAdmin, isSupervisor, activeDate, activeShiftNumber, activeTeam } = useAuth();
   const canManage = isChief || isAdmin || isSupervisor;
 
@@ -90,6 +92,17 @@ export default function MobileInsiden() {
         </div>
 
         <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => navigate('/insiden/laporan')}
+            className="p-1 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-100 flex items-center gap-1 text-[10px] font-bold border border-slate-200 px-2 py-0.5"
+            title="Rekap Laporan Insiden"
+            aria-label="Rekap Laporan Insiden"
+          >
+            <FileText className="w-3.5 h-3.5 text-slate-600" />
+            <span>Rekap</span>
+          </button>
+
           <button
             type="button"
             onClick={fetchIncidents}

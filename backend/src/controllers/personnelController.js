@@ -323,7 +323,24 @@ export const updatePersonnel = async (req, res) => {
     const effectiveEmploymentStatus = isStaffAdmin && employment_status ? employment_status : existing[0].employment_status;
     const effectiveFullName = isStaffAdmin && full_name ? full_name : existing[0].full_name;
     const effectiveNip = isStaffAdmin && nip !== undefined ? nip : existing[0].nip;
-    const effectiveCertLevel = isStaffAdmin && cert_level ? cert_level : existing[0].cert_level;
+    let effectiveCertLevel = isStaffAdmin && cert_level ? cert_level : existing[0].cert_level;
+    if (effectiveCertLevel) {
+      const cl = String(effectiveCertLevel);
+      if (cl.includes('Senior')) effectiveCertLevel = 'Senior';
+      else if (cl.includes('Junior')) effectiveCertLevel = 'Junior';
+      else if (cl.includes('Basic')) effectiveCertLevel = 'Basic';
+      else effectiveCertLevel = 'Basic';
+    }
+
+    const parseDateOrNull = (val, fallback) => {
+      if (val === undefined) return fallback;
+      if (!val || String(val).trim() === '' || String(val).trim() === '-' || String(val).startsWith('0000')) return null;
+      const d = new Date(val);
+      return isNaN(d.getTime()) ? null : String(val).split('T')[0];
+    };
+
+    const cleanBirthDate = parseDateOrNull(birth_date, existing[0].birth_date);
+    const cleanExpiryDate = parseDateOrNull(cert_expiry_date, existing[0].cert_expiry_date);
 
     await pool.query(
       `UPDATE personnel SET
@@ -340,16 +357,16 @@ export const updatePersonnel = async (req, res) => {
         is_active = ?
       WHERE id = ?`,
       [
-        effectiveNip,
+        effectiveNip !== undefined ? (effectiveNip ? String(effectiveNip).trim() : null) : existing[0].nip,
         effectiveFullName,
         effectiveRankPosition,
-        birth_date !== undefined ? birth_date : existing[0].birth_date,
+        cleanBirthDate,
         effectiveEmploymentStatus,
         effectiveTeamGroup,
-        formal_education !== undefined ? formal_education : existing[0].formal_education,
+        formal_education !== undefined ? (formal_education ? String(formal_education).trim() : null) : existing[0].formal_education,
         effectiveCertLevel,
-        cert_number !== undefined ? cert_number : existing[0].cert_number,
-        cert_expiry_date !== undefined ? cert_expiry_date : existing[0].cert_expiry_date,
+        cert_number !== undefined ? (cert_number ? String(cert_number).trim() : null) : existing[0].cert_number,
+        cleanExpiryDate,
         effectiveIsActive,
         id
       ]
@@ -466,8 +483,8 @@ export const uploadSignature = async (req, res) => {
     const target = rows[0];
     const targetRole = target.user_role || mapRankPositionToRole(target.rank_position);
 
-    // HANYA dept_head, chief, dan chief_assistant yang berhak memiliki & mengunggah tanda tangan
-    const allowedSignatureRoles = ['dept_head', 'chief', 'chief_assistant'];
+    // HANYA dept_head, section_head, chief, dan chief_assistant yang berhak memiliki & mengunggah tanda tangan
+    const allowedSignatureRoles = ['dept_head', 'section_head', 'chief', 'chief_assistant'];
     const isTargetEligible = allowedSignatureRoles.includes(targetRole);
 
     if (!isTargetEligible) {
@@ -476,14 +493,14 @@ export const uploadSignature = async (req, res) => {
       }
       return errorResponse(
         res,
-        'Akses ditolak: Opsi tanda tangan hanya diperuntukkan bagi Department Head, Chief, dan Chief Assistant.',
+        'Akses ditolak: Opsi tanda tangan hanya diperuntukkan bagi Department Head, Section Head, Chief, dan Chief Assistant.',
         403
       );
     }
 
-    // Pengecekan user yang mengunggah (hanya dept_head, chief, chief_assistant, atau admin)
+    // Pengecekan user yang mengunggah (hanya dept_head, section_head, chief, chief_assistant, atau admin)
     const currentUserRole = req.user.role;
-    const isUploaderEligible = ['admin', 'dept_head', 'chief', 'chief_assistant'].includes(currentUserRole);
+    const isUploaderEligible = ['admin', 'dept_head', 'section_head', 'chief', 'chief_assistant'].includes(currentUserRole);
 
     if (!isUploaderEligible) {
       if (req.file.path && fs.existsSync(req.file.path)) {
@@ -497,7 +514,7 @@ export const uploadSignature = async (req, res) => {
       currentUserRole !== 'admin' &&
       target.user_id &&
       target.user_id !== req.user.id &&
-      !['dept_head', 'chief'].includes(currentUserRole)
+      !['dept_head', 'section_head', 'chief'].includes(currentUserRole)
     ) {
       if (req.file.path && fs.existsSync(req.file.path)) {
         fs.unlinkSync(req.file.path);
@@ -557,7 +574,7 @@ export const deleteSignature = async (req, res) => {
     const target = rows[0];
     const currentUserRole = req.user.role;
 
-    if (!['admin', 'dept_head', 'chief', 'chief_assistant'].includes(currentUserRole)) {
+    if (!['admin', 'dept_head', 'section_head', 'chief', 'chief_assistant'].includes(currentUserRole)) {
       return errorResponse(res, 'Anda tidak memiliki hak untuk menghapus tanda tangan.', 403);
     }
 

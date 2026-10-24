@@ -5,7 +5,9 @@ import {
   createIncident,
   updateIncidentStatus,
   getIncidentCategories,
-  createIncidentCategory
+  createIncidentCategory,
+  getIncidentSummaryReport,
+  getIncidentSummaryReportPdf
 } from '../controllers/incidentController.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
 import { requireRole } from '../middleware/roleMiddleware.js';
@@ -17,6 +19,9 @@ router.use(requireAuth);
 
 router.get('/categories', getIncidentCategories);
 router.post('/categories', requireRole(['admin']), createIncidentCategory);
+
+router.get('/summary-report', getIncidentSummaryReport);
+router.get('/summary-report/pdf', getIncidentSummaryReportPdf);
 
 router.get('/', getIncidents);
 router.get('/:id', getIncidentById);

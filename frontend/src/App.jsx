@@ -19,6 +19,35 @@ import HalamanJadwal from './pages/HalamanJadwal';
 import HalamanPengumuman from './pages/HalamanPengumuman';
 import HalamanKelolaPejabat from './pages/HalamanKelolaPejabat';
 
+// Dynamic Loaders untuk Halaman Laporan Khusus Baru (Zero Collision dengan Agent 2 & Agent 4)
+const pageModules = import.meta.glob(['./pages/HalamanLaporanArmada.jsx', './pages/HalamanLaporanInsiden.jsx']);
+
+const HalamanLaporanArmada = React.lazy(
+  pageModules['./pages/HalamanLaporanArmada.jsx'] ||
+    (() =>
+      Promise.resolve({
+        default: () => (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
+            <h3 className="text-base font-bold text-slate-800 mb-1">Laporan Kesiapan Armada</h3>
+            <p className="text-xs text-slate-500">Memuat komponen laporan kelaikan armada...</p>
+          </div>
+        ),
+      }))
+);
+
+const HalamanLaporanInsiden = React.lazy(
+  pageModules['./pages/HalamanLaporanInsiden.jsx'] ||
+    (() =>
+      Promise.resolve({
+        default: () => (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
+            <h3 className="text-base font-bold text-slate-800 mb-1">Laporan Rekap Insiden</h3>
+            <p className="text-xs text-slate-500">Memuat komponen laporan rekap insiden...</p>
+          </div>
+        ),
+      }))
+);
+
 // Mobile Layout & Halaman Mobile (Operasional Lapangan)
 import MobileLayout from './components/mobile/MobileLayout';
 import MobileDashboard from './pages/mobile/MobileDashboard';
@@ -27,9 +56,9 @@ import MobileKegiatan from './pages/mobile/MobileKegiatan';
 import MobileInsiden from './pages/mobile/MobileInsiden';
 import MobileLaporan from './pages/mobile/MobileLaporan';
 
-// Protected Route Component
-function ProtectedRoute({ children, adminOnly = false }) {
-  const { user, loading, isAdmin } = useAuth();
+// Protected Route Component (Mendukung Guard Role Operasional ARFF)
+function ProtectedRoute({ children, adminOnly = false, allowedRoles = null }) {
+  const { user, loading, isAdmin, isRole } = useAuth();
 
   if (loading) {
     return (
@@ -46,6 +75,13 @@ function ProtectedRoute({ children, adminOnly = false }) {
 
   if (adminOnly && !isAdmin) {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  if (allowedRoles && Array.isArray(allowedRoles) && allowedRoles.length > 0) {
+    const hasAllowedRole = isRole(...allowedRoles);
+    if (!hasAllowedRole && !isAdmin) {
+      return <Navigate to="/" replace />;
+    }
   }
 
   return children;
@@ -123,6 +159,28 @@ export default function App() {
             <Route path="insiden" element={<MobileInsiden />} />
             <Route path="laporan" element={<MobileLaporan />} />
           </Route>
+
+          {/* Halaman Rute Baru Penuh: Laporan Kesiapan Armada & Rekap Insiden (Akses Terbuka Semua Role Operasional) */}
+          <Route
+            path="/armada/laporan"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'dept_head', 'section_head', 'chief', 'chief_assistant', 'supervisor', 'senior_firefighter', 'junior_firefighter']}>
+                <React.Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 text-xs font-semibold text-slate-600">Memuat Laporan Kesiapan Armada...</div>}>
+                  <HalamanLaporanArmada />
+                </React.Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/insiden/laporan"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'dept_head', 'section_head', 'chief', 'chief_assistant', 'supervisor', 'senior_firefighter', 'junior_firefighter']}>
+                <React.Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 text-xs font-semibold text-slate-600">Memuat Laporan Rekap Insiden...</div>}>
+                  <HalamanLaporanInsiden />
+                </React.Suspense>
+              </ProtectedRoute>
+            }
+          />
 
           {/* Authenticated Desktop Layout Routes */}
           <Route

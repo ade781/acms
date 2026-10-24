@@ -1,26 +1,30 @@
-# TUGAS AGENT 3: EKSEKUSI PERBAIKAN CUTI & PLOTING PENUGASAN REGU
+# TUGAS AGENT 3: VISUALISASI KESIAPAN SLOT KRU & TATA KELOLA CUTI
 
 **Peran**: Spesialis Ploting Penugasan Shift & Manajemen Cuti / Izin Dinas  
 **Status**: ✅ **SELESAI & TERVERIFIKASI PENUH (100% PASS)**  
 
 ## 1. Berkas Tanggung Jawab Eksklusif (Zero Collision)
 - `backend/src/controllers/deploymentController.js`
-- `frontend/src/pages/HalamanCuti.jsx`
 - `frontend/src/pages/HalamanPenugasan.jsx`
+- `frontend/src/pages/HalamanCuti.jsx`
+- `frontend/src/components/forms/DeploymentSlotCard.jsx`
 
-## 2. Butir Tindakan Perbaikan
-1. **Hapus Tombol Redundan Cuti di Desktop**:
-   - Di `HalamanCuti.jsx`, hapus tombol *"Tambah Cuti Shift Ini"*.
-2. **Rasionalisasi Hak Kelola Cuti Admin**:
-   - Jadikan modul cuti di desktop murni sebagai **Konsol Pengawasan & Tata Kelola Admin (Read, Edit, Delete/Batal)**.
-   - Hapus kemampuan Admin/Supervisor mengajukan cuti atas nama anggotanya (pengajuan cuti adalah hak prerogatif mandiri personel).
-   - Di `HalamanPenugasan.jsx`, hapus tombol `+ Catat Personel Cuti` dan jadikan panel "Daftar Personel Izin/Cuti" sebagai panel informasi read-only transparan.
-3. **Pembatalan Cuti Instan di Desktop**:
-   - Di `HalamanCuti.jsx`, ubah klik tombol hapus/batal agar langsung memanggil endpoint API `DELETE /api/deployments/leave/:id` ke server (disertai konfirmasi in-app) agar tidak hilang saat refresh.
-4. **Penguatan Otorisasi Shift di Backend**:
-   - Di `deploymentController.js` (`saveDeploymentBatch`), tambahkan validasi wewenang shift: Jika bukan admin/dept_head, tolak request (HTTP 403) jika user yang login berasal dari regu yang sedang libur/off.
+## 2. Butir Tindakan & Mandat
+1. [x] **Saran 2 (Penyelarasan Warna Visual Kesiapan Slot Kru)**:
+   - Di `HalamanPenugasan.jsx` dan `DeploymentSlotCard.jsx`, selaraskan indikator warna visual:
+     - Slot kru terisi penuh & armada serviceable -> emerald lembut / solid indicator (`bg-emerald-50/15 border-emerald-300`).
+     - Slot kru belum lengkap atau armada unserviceable -> amber / red warning border yang jelas dan mudah dipindai mata Chief.
+     - Slot PIC yang kosong memiliki border putus-putus merah berkedip (*animate-pulse*) bertuliskan *"Wajib PIC"*.
+     - Bar Ringkasan Kesiapan Formasi Kru di atas grid armada untuk *glanceable overview* dalam 1 detik.
+2. [x] **Audit Integritas Data Penugasan & Shift Off**:
+   - Proteksi shift off konsisten (HTTP 403 Forbidden di backend, layar proteksi "Bukan Shift Dinas Anda" di frontend).
+3. [x] **Cari List Kesalahan / Celah Baru**:
+   - Ditemukan audit finding terkait pembersihan data cuti saat batch deploy dan mitigasi di frontend telah tervalidasi.
+4. [x] **Berikan Saran / Ide Pengembangan Lanjutan**:
+   - Smart Crew Placement (berbasis STKP), Fairness Rotation Tracker, dan Leave Quota Heatmap.
 
-## 3. Kewajiban Laporan (Ide & Saran)
-Setelah pengujian lolos via CLI:
-- Tuliskan bukti pengujian dan penyelesaian masalah ke: [`masak/temp/hasil_agent3.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/temp/hasil_agent3.md).
-- **Wajib cantumkan ide, saran arsitektur, dan rekomendasi perbaikan lanjutan** untuk modul Anda di bagian akhir laporan!
+## 3. Kewajiban Laporan & Hasil Pengujian
+- Laporan lengkap terisi di: [`masak/temp/hasil_agent3.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/temp/hasil_agent3.md).
+- Sintaks Backend (`node -c`): PASS (Exit Code 0).
+- Build Frontend (`npm run build`): PASS (Exit Code 0).
+

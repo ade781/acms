@@ -77,7 +77,8 @@ export const getMe = async (req, res) => {
     const [users] = await pool.query(
       `SELECT u.id, u.username, u.name, u.email, u.role, u.must_change_password, u.created_at,
               p.id as personnel_id, p.nip, p.full_name, p.rank_position,
-              p.team_group, p.cert_level, p.employment_status
+              p.birth_date, p.formal_education, p.cert_level, p.cert_number,
+              p.cert_expiry_date, p.signature_url, p.team_group, p.employment_status
        FROM users u
        LEFT JOIN personnel p ON p.user_id = u.id
        WHERE u.id = ?`,
@@ -101,8 +102,13 @@ export const getMe = async (req, res) => {
       nip: user.nip,
       full_name: user.full_name,
       rank_position: user.rank_position,
+      birth_date: user.birth_date,
+      formal_education: user.formal_education,
       team_group: user.team_group,
       cert_level: user.cert_level,
+      cert_number: user.cert_number,
+      cert_expiry_date: user.cert_expiry_date,
+      signature_url: user.signature_url,
       employment_status: user.employment_status
     };
 
@@ -161,6 +167,27 @@ export const updateProfile = async (req, res) => {
 
     const pers = personnelRows[0];
 
+    // Sanitasi cert_level ke nilai ENUM valid ('Basic', 'Junior', 'Senior')
+    let sanitizedCertLevel = pers.cert_level;
+    if (cert_level !== undefined && cert_level !== null) {
+      const cl = String(cert_level);
+      if (cl.includes('Senior')) sanitizedCertLevel = 'Senior';
+      else if (cl.includes('Junior')) sanitizedCertLevel = 'Junior';
+      else if (cl.includes('Basic')) sanitizedCertLevel = 'Basic';
+      else sanitizedCertLevel = 'Basic';
+    }
+
+    // Sanitasi tanggal agar aman dari format invalid / empty string
+    const parseDateOrNull = (val, fallback) => {
+      if (val === undefined) return fallback;
+      if (!val || String(val).trim() === '' || String(val).trim() === '-' || String(val).startsWith('0000')) return null;
+      const d = new Date(val);
+      return isNaN(d.getTime()) ? null : String(val).split('T')[0];
+    };
+
+    const cleanBirthDate = parseDateOrNull(birth_date, pers.birth_date);
+    const cleanExpiryDate = parseDateOrNull(cert_expiry_date, pers.cert_expiry_date);
+
     await pool.query(
       `UPDATE personnel SET
         nip = ?,
@@ -172,11 +199,11 @@ export const updateProfile = async (req, res) => {
       WHERE id = ?`,
       [
         nip !== undefined ? (nip ? String(nip).trim() : null) : pers.nip,
-        birth_date !== undefined ? (birth_date || null) : pers.birth_date,
+        cleanBirthDate,
         formal_education !== undefined ? (formal_education ? String(formal_education).trim() : null) : pers.formal_education,
-        cert_level !== undefined ? cert_level : pers.cert_level,
+        sanitizedCertLevel,
         cert_number !== undefined ? (cert_number ? String(cert_number).trim() : null) : pers.cert_number,
-        cert_expiry_date !== undefined ? (cert_expiry_date || null) : pers.cert_expiry_date,
+        cleanExpiryDate,
         pers.id
       ]
     );
