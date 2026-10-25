@@ -87,9 +87,9 @@ export default function Sidebar({ isOpen, onClose }) {
       icon: Truck,
     },
     {
-      to: '/personnel',
-      label: 'Data Personel',
-      icon: UserCheck,
+      to: '/activities',
+      label: 'Logbook Kegiatan',
+      icon: ClipboardList,
     },
     {
       to: '/incidents',
@@ -97,24 +97,24 @@ export default function Sidebar({ isOpen, onClose }) {
       icon: AlertTriangle,
     },
     {
-      to: '/leave',
-      label: 'Pencatatan Cuti',
-      icon: UserX,
-    },
-    {
-      to: '/activities',
-      label: 'Logbook Kegiatan',
-      icon: ClipboardList,
-    },
-    {
       to: '/reports',
       label: 'Laporan Dinas',
       icon: FileText,
     },
     {
+      to: '/leave',
+      label: 'Pencatatan Cuti',
+      icon: UserX,
+    },
+    {
       to: '/schedules',
       label: 'Jadwal Dinas',
       icon: Calendar,
+    },
+    {
+      to: '/personnel',
+      label: 'Data Personel',
+      icon: UserCheck,
     },
     {
       to: '/announcements',
