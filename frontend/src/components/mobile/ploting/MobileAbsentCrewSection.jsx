@@ -1,12 +1,11 @@
 import React from 'react';
-import { UserX, Plus } from 'lucide-react';
+import { UserX } from 'lucide-react';
 
 export default function MobileAbsentCrewSection({
   absentList = [],
   personnelMap = {},
   onRequestCancel,
   onOpenCutiSaya,
-  onAddAbsentMember,
 }) {
   const formatReason = (r) => {
     switch (r) {
@@ -44,15 +43,6 @@ export default function MobileAbsentCrewSection({
               className="text-[10px] font-bold text-blue-600 hover:underline"
             >
               + Cuti Saya
-            </button>
-          )}
-          {onAddAbsentMember && (
-            <button
-              type="button"
-              onClick={onAddAbsentMember}
-              className="text-[10px] font-bold text-red-600 hover:text-red-700"
-            >
-              + Anggota
             </button>
           )}
         </div>

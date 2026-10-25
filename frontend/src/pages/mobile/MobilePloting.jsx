@@ -55,11 +55,6 @@ export default function MobilePloting({ onOpenCutiModal, onOpenAuditModal }) {
   const [targetCancelLeave, setTargetCancelLeave] = useState(null);
   const [cancelingLeave, setCancelingLeave] = useState(false);
 
-  // Manual Add Absent Crew Modal State
-  const [addAbsentModalOpen, setAddAbsentModalOpen] = useState(false);
-  const [selectedAbsentPersonnelId, setSelectedAbsentPersonnelId] = useState('');
-  const [absentReason, setAbsentReason] = useState('cuti');
-  const [absentNotes, setAbsentNotes] = useState('');
 
   // Map of personnel by ID for fast lookup
   const personnelMap = useMemo(() => {
@@ -452,49 +447,6 @@ export default function MobilePloting({ onOpenCutiModal, onOpenAuditModal }) {
   };
   const handleExecuteCancelLeave = handleConfirmCancelLeave;
 
-  // Add Absent Member manually
-  const handleSaveNewAbsent = () => {
-    if (!selectedAbsentPersonnelId) return;
-    const pId = Number(selectedAbsentPersonnelId);
-    const person = personnelMap[pId];
-
-    // Remove from any vehicle slot
-    setVehicleSlots((prev) => {
-      const nextSlots = { ...prev };
-      Object.keys(nextSlots).forEach((vKey) => {
-        nextSlots[vKey] = nextSlots[vKey].map((s) => {
-          if (Number(s.personnel_id) === pId) {
-            return { ...s, personnel_id: '', personnel_name: '' };
-          }
-          return s;
-        });
-      });
-      return nextSlots;
-    });
-
-    setAbsentList((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        personnel_id: pId,
-        name: person?.full_name || person?.name || `Personel #${pId}`,
-        reason: absentReason,
-        notes: absentNotes,
-        isLocal: true,
-      },
-    ]);
-
-    setAddAbsentModalOpen(false);
-    setSelectedAbsentPersonnelId('');
-    setAbsentNotes('');
-    setToastMsg(`Personel ${person?.full_name || ''} dicatat izin/cuti.`);
-  };
-  const handleAddAbsentCrew = handleSaveNewAbsent;
-
-  // Available personnel for manual absent modal (not already absent)
-  const availableForAbsent = useMemo(() => {
-    return personnelList.filter((p) => !absentSet.has(Number(p.id)));
-  }, [personnelList, absentSet]);
 
   // Layar santun jika pengguna sedang lepas piket / bukan shift dinas regunya
   if (!isAuthorizedShift) {
@@ -629,7 +581,6 @@ export default function MobilePloting({ onOpenCutiModal, onOpenAuditModal }) {
         personnelMap={personnelMap}
         onRequestCancel={handleRequestCancelLeave}
         onOpenCutiSaya={onOpenCutiModal}
-        onAddAbsentMember={() => setAddAbsentModalOpen(true)}
       />
 
       {/* Crew Picker Bottom Sheet */}
@@ -658,92 +609,6 @@ export default function MobilePloting({ onOpenCutiModal, onOpenAuditModal }) {
         loading={cancelingLeave}
       />
 
-      {/* Modal Cepat Tambah Anggota Absen */}
-      {addAbsentModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 p-3.5 space-y-2.5 shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-              <h4 className="text-xs font-bold text-slate-900 uppercase">
-                Catat Personel Izin / Cuti
-              </h4>
-              <button
-                type="button"
-                onClick={() => setAddAbsentModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-1.5 text-xs">
-              <div>
-                <label className="text-[10px] font-bold text-slate-600 block mb-0.5">
-                  Pilih Anggota *
-                </label>
-                <select
-                  value={selectedAbsentPersonnelId}
-                  onChange={(e) => setSelectedAbsentPersonnelId(e.target.value)}
-                  className="w-full p-1.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 text-xs outline-none"
-                >
-                  <option value="">-- Pilih Personel --</option>
-                  {availableForAbsent.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.full_name || p.name} ({p.nip})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-600 block mb-0.5">
-                  Kategori Izin *
-                </label>
-                <select
-                  value={absentReason}
-                  onChange={(e) => setAbsentReason(e.target.value)}
-                  className="w-full p-1.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 text-xs outline-none"
-                >
-                  <option value="cuti">Cuti Tahunan</option>
-                  <option value="sakit">Sakit</option>
-                  <option value="dinas">Dinas Luar</option>
-                  <option value="tukar_dinas">Tukar Dinas</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-600 block mb-0.5">
-                  Keterangan Singkat
-                </label>
-                <input
-                  type="text"
-                  value={absentNotes}
-                  onChange={(e) => setAbsentNotes(e.target.value)}
-                  placeholder="Keterangan permohonan..."
-                  className="w-full p-1.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 text-xs outline-none transition-colors duration-100"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-1.5 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setAddAbsentModalOpen(false)}
-                  className="w-full py-1.5 rounded-lg border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50"
-                >
-                  Batal
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveNewAbsent}
-                  disabled={!selectedAbsentPersonnelId}
-                  className="w-full py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-xs transition-colors duration-100 disabled:opacity-50"
-                >
-                  Simpan Izin
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

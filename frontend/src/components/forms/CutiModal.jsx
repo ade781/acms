@@ -20,6 +20,8 @@ export default function CutiModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
+  const MAX_LEAVE_DOC_SIZE = 5 * 1024 * 1024; // 5 MB
+
   useEffect(() => {
     if (isOpen) {
       const initialDate = activeDate || new Date().toISOString().split('T')[0];
@@ -33,6 +35,22 @@ export default function CutiModal({
   }, [isOpen, activeDate]);
 
   if (!isOpen) return null;
+
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files?.[0] || null;
+    setError(null);
+    if (!selectedFile) {
+      setFile(null);
+      return;
+    }
+    if (selectedFile.size > MAX_LEAVE_DOC_SIZE) {
+      setError(`Ukuran berkas (${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB) melebihi batas maksimum 5 MB. Silakan pilih dokumen yang lebih kecil.`);
+      setFile(null);
+      e.target.value = '';
+      return;
+    }
+    setFile(selectedFile);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -51,6 +69,11 @@ export default function CutiModal({
 
     if (new Date(startDate) > new Date(endDate)) {
       setError('Tanggal selesai tidak boleh lebih awal dari tanggal mulai cuti.');
+      return;
+    }
+
+    if (file && file.size > MAX_LEAVE_DOC_SIZE) {
+      setError('Ukuran berkas melebihi batas maksimum 5 MB.');
       return;
     }
 
@@ -198,7 +221,7 @@ export default function CutiModal({
           <input
             type="file"
             accept=".pdf,image/png,image/jpeg,image/webp"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            onChange={handleFileChange}
             className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
           />
           <span className="text-[11px] text-slate-400 mt-1 block">
