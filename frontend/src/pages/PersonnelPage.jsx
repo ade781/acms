@@ -114,7 +114,7 @@ export default function PersonnelPage() {
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
-  const [perPage, setPerPage] = useState(50);
+  const [perPage, setPerPage] = useState(10);
 
   const fetchPersonnel = useCallback(async () => {
     setLoading(true);
@@ -383,6 +383,7 @@ export default function PersonnelPage() {
                 chiefRow: 'bg-red-50/70 border-red-200 text-slate-900',
                 chiefStar: 'text-red-600',
                 chiefBadge: 'bg-red-100 text-red-800 border-red-200',
+                beamGradient: 'conic-gradient(from 0deg, transparent 0deg, transparent 280deg, #ef4444 330deg, transparent 360deg)',
               },
               bravo: {
                 border: 'border-blue-500',
@@ -390,6 +391,7 @@ export default function PersonnelPage() {
                 chiefRow: 'bg-blue-50/70 border-blue-200 text-slate-900',
                 chiefStar: 'text-blue-600',
                 chiefBadge: 'bg-blue-100 text-blue-800 border-blue-200',
+                beamGradient: 'conic-gradient(from 0deg, transparent 0deg, transparent 280deg, #3b82f6 330deg, transparent 360deg)',
               },
               charlie: {
                 border: 'border-emerald-500',
@@ -397,6 +399,7 @@ export default function PersonnelPage() {
                 chiefRow: 'bg-emerald-50/70 border-emerald-200 text-slate-900',
                 chiefStar: 'text-emerald-600',
                 chiefBadge: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                beamGradient: 'conic-gradient(from 0deg, transparent 0deg, transparent 280deg, #10b981 330deg, transparent 360deg)',
               },
               delta: {
                 border: 'border-purple-500',
@@ -404,6 +407,7 @@ export default function PersonnelPage() {
                 chiefRow: 'bg-purple-50/70 border-purple-200 text-slate-900',
                 chiefStar: 'text-purple-600',
                 chiefBadge: 'bg-purple-100 text-purple-800 border-purple-200',
+                beamGradient: 'conic-gradient(from 0deg, transparent 0deg, transparent 280deg, #a855f7 330deg, transparent 360deg)',
               },
             };
             const theme = teamThemes[teamKey] || teamThemes.alpha;
@@ -441,15 +445,8 @@ export default function PersonnelPage() {
             const hasChief = sortedMembers.some((m) => isActualChief(m));
             const isActiveShift = (cleanTeam(activeTeam) || '').toLowerCase() === teamKey;
 
-            return (
-              <div
-                key={teamName}
-                className={`rounded-xl bg-white p-4 flex flex-col justify-between transition-colors duration-100 ${
-                  isActiveShift
-                    ? `border-2 ${theme.border} shadow-sm`
-                    : 'border border-slate-200/90 shadow-xs'
-                }`}
-              >
+            const cardBody = (
+              <>
                 <div>
                   {/* Header Nama Regu */}
                   <div className="text-center pb-3 mb-3 border-b border-slate-100">
@@ -532,6 +529,38 @@ export default function PersonnelPage() {
                 <div className="mt-4 pt-2.5 border-t border-slate-100 text-center text-[11px] text-slate-400 font-medium">
                   {members.length} Anggota Terdaftar
                 </div>
+              </>
+            );
+
+            if (isActiveShift) {
+              return (
+                <div
+                  key={teamName}
+                  className="relative rounded-xl overflow-hidden p-[2.5px] shadow-sm transition-all duration-300 flex flex-col"
+                >
+                  {/* Animasi Berkas Cahaya yang Mengitari Border Kartu (Rotating Border Beam) */}
+                  <div
+                    className="absolute inset-[-150%] animate-[spin_5s_linear_infinite] pointer-events-none"
+                    style={{ background: theme.beamGradient }}
+                  />
+
+                  {/* Garis Border Dasar Transparan */}
+                  <div className="absolute inset-0 rounded-xl border border-slate-200 pointer-events-none" />
+
+                  {/* Isi Kartu Regu Utama */}
+                  <div className="relative rounded-[10px] bg-white p-4 flex flex-col justify-between h-full">
+                    {cardBody}
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div
+                key={teamName}
+                className="rounded-xl border border-slate-200/90 bg-white p-4 flex flex-col justify-between shadow-xs transition-colors duration-100"
+              >
+                {cardBody}
               </div>
             );
           })}
