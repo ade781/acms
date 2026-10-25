@@ -35,7 +35,7 @@
    - Akses Profil Pribadi, data kredensial STKP, dan arsip dokumen kepegawaian di seluruh role (Admin, Chief, Kru) wajib **SERAGAM ditempatkan di Header Atas (*Top App Bar*)** melalui avatar / ikon profil pengguna.
    - Navigasi bawah (*Bottom Navigation Bar*) HANYA untuk alur operasional dinas utama (Tugas, Cuti, Posko, Ploting, Kegiatan, Insiden, Laporan). Dilarang memasukkan menu Profil ke dalam Bottom Bar Kru maupun Chief.
    - Tampilan profil wajib menggunakan layout kartu baku yang seragam:
-     1. Card 1: **PROFIL & KREDENSIAL** (Nama Lengkap, NIP, Tempat/Tanggal Lahir, Pendidikan Terakhir, Golongan Darah, Kualifikasi STKP, Nomor Lisensi STKP, Masa Berlaku STKP, tombol Edit Data, dan tombol Kunci Ubah Password).
+     1. Card 1: **PROFIL & KREDENSIAL** (Nama Lengkap, NIP, Tempat/Tanggal Lahir, Pendidikan Terakhir, Kualifikasi STKP, Nomor Lisensi STKP, Masa Berlaku STKP, tombol Edit Data, dan tombol Kunci Ubah Password).
      2. Card 2: **DOKUMEN & SERTIFIKAT SAYA** (Arsip ijazah/STKP/diklat, tombol `+ Upload Dokumen`, dan list berkas PDF terunduh).
    - Profil dibuka sebagai tampilan layar/halaman penuh (*sub-view*) yang nyaman dan bersih, bukan sekadar pop-up modal sempit yang terpotong.
 10. **Wajib Umpan Balik Visual Instan (Feedback Toast / Notification) pada Setiap Aksi Pengguna**:

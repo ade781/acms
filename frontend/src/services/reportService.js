@@ -5,12 +5,13 @@ import { cleanTeam } from '../utils/shiftHelper';
  * Service Terpadu Rekapitulasi Laporan Dinas Shift ARFF YIA
  * Single Source of Truth (DRY) untuk penarikan data laporan lintas perangkat (Desktop & Mobile)
  */
-export async function fetchShiftReportData({ date, shift, team }) {
+export async function fetchShiftReportData({ date, shift, team, signal }) {
   const currentTeam = cleanTeam(team || 'Alpha');
   const currentShift = Number(shift || 1);
   const currentDate = date || new Date().toISOString().split('T')[0];
 
   const params = `date=${currentDate}&shift=${currentShift}&team_group=${currentTeam}`;
+  const options = signal ? { signal } : {};
 
   const [
     deployRes,
@@ -20,12 +21,12 @@ export async function fetchShiftReportData({ date, shift, team }) {
     actRes,
     incRes,
   ] = await Promise.allSettled([
-    api.get(`/deployments/current?${params}`),
-    api.get(`/readiness/vehicles?${params}`),
-    api.get(`/readiness/watchroom?${params}`),
-    api.get(`/reports/vehicle-issues?${params}`),
-    api.get(`/activities?${params}`),
-    api.get(`/incidents?${params}`),
+    api.get(`/deployments/current?${params}`, options),
+    api.get(`/readiness/vehicles?${params}`, options),
+    api.get(`/readiness/watchroom?${params}`, options),
+    api.get(`/reports/vehicle-issues?${params}`, options),
+    api.get(`/activities?${params}`, options),
+    api.get(`/incidents?${params}`, options),
   ]);
 
   // Ekstrak data deployment & shift

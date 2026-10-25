@@ -669,6 +669,65 @@ export const cancelLeave = async (req, res) => {
   }
 };
 
+export const getLeaveHistory = async (req, res) => {
+  try {
+    const { month, year, team, personnel_id, date } = req.query;
+    let query = `
+      SELECT 
+        pa.id,
+        pa.shift_id,
+        pa.personnel_id,
+        pa.absent_reason,
+        pa.notes,
+        pa.created_at,
+        ps.shift_date,
+        ps.shift_number,
+        ps.team_group AS shift_team,
+        p.name AS personnel_name,
+        p.nip AS personnel_nip,
+        p.team_group AS personnel_team,
+        p.role AS personnel_role
+      FROM personnel_absent pa
+      JOIN personnel_shifts ps ON pa.shift_id = ps.id
+      JOIN personnel p ON pa.personnel_id = p.id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (date) {
+      query += ' AND ps.shift_date = ?';
+      params.push(date);
+    } else {
+      if (year) {
+        query += ' AND YEAR(ps.shift_date) = ?';
+        params.push(Number(year));
+      }
+      if (month) {
+        query += ' AND MONTH(ps.shift_date) = ?';
+        params.push(Number(month));
+      }
+    }
+
+    if (team && team !== 'all' && team !== 'Semua') {
+      query += ' AND (p.team_group = ? OR ps.team_group = ?)';
+      params.push(team, team);
+    }
+
+    if (personnel_id) {
+      query += ' AND pa.personnel_id = ?';
+      params.push(Number(personnel_id));
+    }
+
+    query += ' ORDER BY ps.shift_date DESC, ps.shift_number DESC, p.name ASC';
+
+    const [rows] = await pool.query(query, params);
+    return successResponse(res, 'Riwayat cuti berhasil diambil', rows);
+  } catch (error) {
+    console.error('Error getLeaveHistory:', error);
+    return errorResponse(res, 'Gagal mengambil riwayat cuti: ' + error.message, 500);
+  }
+};
+
 export const submitLeave = requestLeaveRange;
 export const getCurrentDeployments = getCurrentDeployment;
 export const saveDeployments = saveDeploymentBatch;

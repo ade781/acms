@@ -3,7 +3,8 @@ import {
   getCurrentDeployment,
   saveDeploymentBatch,
   requestLeaveRange,
-  cancelLeave
+  cancelLeave,
+  getLeaveHistory
 } from '../controllers/deploymentController.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
 import { requireRole } from '../middleware/roleMiddleware.js';
@@ -15,6 +16,7 @@ router.use(requireAuth);
 
 router.get('/', getCurrentDeployment);
 router.get('/current', getCurrentDeployment);
+router.get('/leave-history', getLeaveHistory);
 router.post('/batch', requireRole(['admin', 'supervisor', 'chief', 'chief_assistant', 'dept_head']), saveDeploymentBatch);
 router.post('/save', requireRole(['admin', 'supervisor', 'chief', 'chief_assistant', 'dept_head']), saveDeploymentBatch);
 router.post('/leave-range', uploadSingleDocument('document'), requestLeaveRange);
