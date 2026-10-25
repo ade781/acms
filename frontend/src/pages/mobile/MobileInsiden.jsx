@@ -7,7 +7,7 @@ import { cleanTeam } from '../../utils/shiftHelper';
 import MobileIncidentTimelineItem from '../../components/mobile/incidents/MobileIncidentTimelineItem';
 import MobileIncidentModal from '../../components/mobile/incidents/MobileIncidentModal';
 import MobileIncidentDetailModal from '../../components/mobile/incidents/MobileIncidentDetailModal';
-import MobileIncidentReportModal from '../../components/mobile/incidents/MobileIncidentReportModal';
+import MobileIncidentExportModal from '../../components/mobile/incidents/MobileIncidentExportModal';
 
 export default function MobileInsiden() {
   const navigate = useNavigate();
@@ -36,11 +36,8 @@ export default function MobileInsiden() {
           }
         : {};
       const res = await api.get('/incidents', { params });
-      const list = Array.isArray(res.data?.incidents)
-        ? res.data.incidents
-        : Array.isArray(res.data)
-        ? res.data
-        : [];
+      const raw = res.data?.data ?? res.data?.incidents ?? res.data;
+      const list = Array.isArray(raw) ? raw : [];
       setIncidents(list);
     } catch (err) {
       console.error('Error fetching incidents:', err);
@@ -305,7 +302,7 @@ export default function MobileInsiden() {
       />
 
       {/* Modal Rekapitulasi Insiden Mobile */}
-      <MobileIncidentReportModal
+      <MobileIncidentExportModal
         isOpen={isReportModalOpen}
         onClose={() => setIsReportModalOpen(false)}
       />

@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import api from '../../../services/api';
 
-export default function MobileIncidentReportModal({ isOpen, onClose }) {
+export default function MobileIncidentExportModal({ isOpen, onClose }) {
   const [period, setPeriod] = useState('1month');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

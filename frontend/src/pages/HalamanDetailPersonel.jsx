@@ -26,9 +26,10 @@ import { cleanTeam, formatTeam, TEAMS, OPERATIONAL_ROLES, formatRoleName, mapRan
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
-import Modal from '../components/common/Modal';
-import InputField from '../components/common/InputField';
-import SelectField from '../components/common/SelectField';
+import EditPersonnelModal from '../components/personnel/EditPersonnelModal';
+import UploadDocumentModal from '../components/personnel/UploadDocumentModal';
+import ResetPasswordConfirmModal from '../components/personnel/ResetPasswordConfirmModal';
+import ConfirmActionModal from '../components/personnel/ConfirmActionModal';
 
 const DOCUMENT_TYPE_LABELS = {
   lisensi_stkp: 'Lisensi STKP',
@@ -45,7 +46,6 @@ function formatBytes(bytes) {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
-
 
 export default function HalamanDetailPersonel() {
   const { id } = useParams();
@@ -71,37 +71,31 @@ export default function HalamanDetailPersonel() {
 
   // Document state
   const [uploadDocModalOpen, setUploadDocModalOpen] = useState(false);
-  const [docTitle, setDocTitle] = useState('');
-  const [docType, setDocType] = useState('lisensi_stkp');
-  const [docFile, setDocFile] = useState(null);
-  const [uploadingDoc, setUploadingDoc] = useState(false);
   const [docError, setDocError] = useState(null);
   const [docSuccess, setDocSuccess] = useState(null);
-  const [deletingDocId, setDeletingDocId] = useState(null);
 
   // Edit Modal State
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [fullName, setFullName] = useState('');
-  const [nip, setNip] = useState('');
-  const [rankPosition, setRankPosition] = useState('');
-  const [teamGroup, setTeamGroup] = useState('Alpha');
-  const [certLevel, setCertLevel] = useState('Junior');
-  const [certNumber, setCertNumber] = useState('');
-  const [certExpiryDate, setCertExpiryDate] = useState('');
-  const [birthDate, setBirthDate] = useState('');
-  const [formalEducation, setFormalEducation] = useState('');
-  const [employmentStatus, setEmploymentStatus] = useState('organik');
-  const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState(null);
-  const [deletingPersonnel, setDeletingPersonnel] = useState(false);
-
-  // Global Toast Feedback State
-  const [globalSuccess, setGlobalSuccess] = useState(null);
-  const [globalError, setGlobalError] = useState(null);
 
   // Reset Password State
   const [resetPasswordModalOpen, setResetPasswordModalOpen] = useState(false);
   const [resettingPassword, setResettingPassword] = useState(false);
+
+  // Confirm Action Modal State (menggantikan seluruh dialog browser native window.confirm)
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    subtitle: '',
+    message: '',
+    confirmText: 'Ya, Lanjutkan',
+    variant: 'danger',
+    action: null,
+    loading: false,
+  });
+
+  // Global Toast Feedback State
+  const [globalSuccess, setGlobalSuccess] = useState(null);
+  const [globalError, setGlobalError] = useState(null);
 
   const isOwner = Boolean(
     (user?.personnel_id && Number(user.personnel_id) === Number(id)) ||
@@ -112,7 +106,6 @@ export default function HalamanDetailPersonel() {
   const canEdit = isOwner || isAdmin;
   const canUploadDoc = isOwner || isAdmin;
 
-
   const fetchPersonnelDetail = async () => {
     setLoading(true);
     setError(null);
@@ -120,18 +113,6 @@ export default function HalamanDetailPersonel() {
       const res = await api.get(`/personnel/${id}`);
       const data = res.data?.data || res.data?.personnel || res.data;
       setPersonnel(data);
-      if (data) {
-        setFullName(data.full_name || '');
-        setNip(data.nip || '');
-        setRankPosition(data.rank_position || '');
-        setTeamGroup(cleanTeam(data.team_group) || 'Alpha');
-        setCertLevel(data.cert_level || 'Junior');
-        setCertNumber(data.cert_number || '');
-        setCertExpiryDate(data.cert_expiry_date ? data.cert_expiry_date.split('T')[0] : '');
-        setBirthDate(data.birth_date ? data.birth_date.split('T')[0] : '');
-        setFormalEducation(data.formal_education || '');
-        setEmploymentStatus(data.employment_status || 'organik');
-      }
     } catch (err) {
       console.error('Error fetching personnel detail:', err);
       setError('Gagal memuat profil personel.');
@@ -144,59 +125,34 @@ export default function HalamanDetailPersonel() {
     fetchPersonnelDetail();
   }, [id]);
 
-  const handleUpdatePersonnel = async (e) => {
-    e.preventDefault();
-    setFormError(null);
-    setGlobalSuccess(null);
-    setGlobalError(null);
-    if (!fullName.trim()) {
-      setFormError('Nama lengkap wajib diisi.');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await api.put(`/personnel/${id}`, {
-        nip: nip.trim() || null,
-        full_name: fullName.trim(),
-        rank_position: rankPosition.trim() || null,
-        team_group: teamGroup,
-        cert_level: certLevel,
-        cert_number: certNumber.trim() || null,
-        cert_expiry_date: certExpiryDate || null,
-        birth_date: birthDate || null,
-        formal_education: formalEducation.trim() || null,
-        employment_status: employmentStatus,
-      });
-
-      setEditModalOpen(false);
-      setGlobalSuccess('Data profil personel berhasil diperbarui.');
-      fetchPersonnelDetail();
-    } catch (err) {
-      console.error('Error updating personnel:', err);
-      setFormError(err.response?.data?.message || err.message || 'Gagal memperbarui data personel.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDeletePersonnel = async () => {
+  // Request Delete Personnel (In-App Confirm Modal)
+  const requestDeletePersonnel = () => {
     if (!personnel) return;
-    const confirmMsg = `PERINGATAN: Apakah Anda yakin ingin menghapus data anggota "${personnel.full_name}"?\n\nTindakan ini akan menghapus profil personel, seluruh dokumen fisik & catatan terkait, serta akun login yang terhubung. Tindakan ini tidak dapat dibatalkan.`;
-    if (!window.confirm(confirmMsg)) return;
-
-    setDeletingPersonnel(true);
-    setGlobalSuccess(null);
-    setGlobalError(null);
-    try {
-      await api.delete(`/personnel/${id}`);
-      navigate('/personnel');
-    } catch (err) {
-      console.error('Error deleting personnel:', err);
-      const errMsg = err.response?.data?.message || 'Gagal menghapus data personel.';
-      setGlobalError(errMsg);
-      setDeletingPersonnel(false);
-    }
+    setEditModalOpen(false);
+    setConfirmModal({
+      isOpen: true,
+      title: 'Hapus Data Anggota?',
+      subtitle: 'Tindakan ini permanen dan tidak dapat dibatalkan',
+      message: `PERINGATAN: Apakah Anda yakin ingin menghapus data anggota "${personnel.full_name}"?\n\nTindakan ini akan menghapus profil personel, seluruh dokumen fisik & catatan terkait, serta akun login yang terhubung. Tindakan ini tidak dapat dibatalkan.`,
+      confirmText: 'Ya, Hapus Anggota',
+      variant: 'danger',
+      loading: false,
+      action: async () => {
+        setConfirmModal((prev) => ({ ...prev, loading: true }));
+        setGlobalSuccess(null);
+        setGlobalError(null);
+        try {
+          await api.delete(`/personnel/${id}`);
+          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+          navigate('/personnel');
+        } catch (err) {
+          console.error('Error deleting personnel:', err);
+          const errMsg = err.response?.data?.message || 'Gagal menghapus data personel.';
+          setGlobalError(errMsg);
+          setConfirmModal((prev) => ({ ...prev, loading: false }));
+        }
+      },
+    });
   };
 
   const handleResetPassword = async () => {
@@ -257,75 +213,61 @@ export default function HalamanDetailPersonel() {
     }
   };
 
-  const handleDeleteSignature = async () => {
-    if (!window.confirm('Hapus spesimen tanda tangan digital resmi ini?')) return;
-
-    setSignatureError(null);
-    setSignatureSuccess(null);
-    setUploadingSignature(true);
-    try {
-      await api.delete(`/personnel/${id}/signature`);
-      setSignatureSuccess('Spesimen tanda tangan digital berhasil dihapus.');
-      fetchPersonnelDetail();
-    } catch (err) {
-      console.error('Error delete signature:', err);
-      setSignatureError(err.response?.data?.message || err.message || 'Gagal menghapus tanda tangan.');
-    } finally {
-      setUploadingSignature(false);
-    }
+  // Request Delete Signature (In-App Confirm Modal)
+  const requestDeleteSignature = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Hapus Spesimen Tanda Tangan?',
+      subtitle: 'Tanda tangan digital resmi akan dihapus dari sistem',
+      message: 'Apakah Anda yakin ingin menghapus spesimen tanda tangan digital resmi ini?',
+      confirmText: 'Ya, Hapus Tanda Tangan',
+      variant: 'danger',
+      loading: false,
+      action: async () => {
+        setConfirmModal((prev) => ({ ...prev, loading: true }));
+        setSignatureError(null);
+        setSignatureSuccess(null);
+        try {
+          await api.delete(`/personnel/${id}/signature`);
+          setSignatureSuccess('Spesimen tanda tangan digital berhasil dihapus.');
+          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+          fetchPersonnelDetail();
+        } catch (err) {
+          console.error('Error delete signature:', err);
+          setSignatureError(err.response?.data?.message || err.message || 'Gagal menghapus tanda tangan.');
+          setConfirmModal((prev) => ({ ...prev, loading: false }));
+        }
+      },
+    });
   };
 
-  const handleUploadDocument = async (e) => {
-    e.preventDefault();
-    if (!docFile) {
-      setDocError('Silakan pilih berkas dokumen untuk diunggah (PDF atau gambar).');
-      return;
-    }
-
-    setUploadingDoc(true);
-    setDocError(null);
-    setDocSuccess(null);
-
-    const formData = new FormData();
-    formData.append('document', docFile);
-    formData.append('title', docTitle.trim() || docFile.name);
-    formData.append('document_type', docType);
-
-    try {
-      await api.post(`/personnel/${id}/documents`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      setDocSuccess('Dokumen berkas personel berhasil diunggah.');
-      setUploadDocModalOpen(false);
-      setDocTitle('');
-      setDocFile(null);
-      fetchPersonnelDetail();
-    } catch (err) {
-      console.error('Error upload document:', err);
-      setDocError(err.response?.data?.message || err.message || 'Gagal mengunggah dokumen.');
-    } finally {
-      setUploadingDoc(false);
-    }
+  // Request Delete Document (In-App Confirm Modal)
+  const requestDeleteDocument = (doc) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Hapus Berkas Dokumen?',
+      subtitle: 'Berkas arsip dokumen akan dihapus dari profil personel',
+      message: `Apakah Anda yakin ingin menghapus berkas dokumen "${doc.title || 'Dokumen'}" ini dari profil personel?`,
+      confirmText: 'Ya, Hapus Berkas',
+      variant: 'danger',
+      loading: false,
+      action: async () => {
+        setConfirmModal((prev) => ({ ...prev, loading: true }));
+        setDocError(null);
+        setDocSuccess(null);
+        try {
+          await api.delete(`/personnel/${id}/documents/${doc.id}`);
+          setDocSuccess('Berkas dokumen berhasil dihapus.');
+          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+          fetchPersonnelDetail();
+        } catch (err) {
+          console.error('Error delete document:', err);
+          setDocError(err.response?.data?.message || err.message || 'Gagal menghapus dokumen.');
+          setConfirmModal((prev) => ({ ...prev, loading: false }));
+        }
+      },
+    });
   };
-
-  const handleDeleteDocument = async (docId) => {
-    if (!window.confirm('Hapus berkas dokumen ini dari profil personel?')) return;
-
-    setDeletingDocId(docId);
-    setDocError(null);
-    setDocSuccess(null);
-    try {
-      await api.delete(`/personnel/${id}/documents/${docId}`);
-      setDocSuccess('Berkas dokumen berhasil dihapus.');
-      fetchPersonnelDetail();
-    } catch (err) {
-      console.error('Error delete document:', err);
-      setDocError(err.response?.data?.message || err.message || 'Gagal menghapus dokumen.');
-    } finally {
-      setDeletingDocId(null);
-    }
-  };
-
 
   return (
     <div>
@@ -408,8 +350,7 @@ export default function HalamanDetailPersonel() {
                     variant="danger"
                     size="sm"
                     icon={Trash2}
-                    onClick={handleDeletePersonnel}
-                    loading={deletingPersonnel}
+                    onClick={requestDeletePersonnel}
                   >
                     Hapus Anggota
                   </Button>
@@ -460,117 +401,92 @@ export default function HalamanDetailPersonel() {
                 </div>
               </div>
 
-              {/* Status & Operational Records */}
+              {/* Account & Role */}
               <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
                 <div className="flex items-center gap-2 pb-3 border-b border-slate-200 mb-4">
-                  <Shield className="w-5 h-5 text-sky-600" />
-                  <h3 className="text-sm font-bold text-slate-900">Kedinasan & Akun</h3>
+                  <Shield className="w-5 h-5 text-arff-primary" />
+                  <h3 className="text-sm font-bold text-slate-900">Akun Sistem & Hak Akses</h3>
                 </div>
 
                 <div className="space-y-3 text-xs">
                   <div className="flex justify-between py-1.5 border-b border-slate-100">
-                    <span className="text-slate-500">Status Aktif Dinas:</span>
-                    <span className="font-semibold text-emerald-700">Aktif Berdinas</span>
-                  </div>
-                  <div className="flex justify-between py-1.5 border-b border-slate-100">
-                    <span className="text-slate-500">Kesesuaian Regu:</span>
-                    <span className="font-bold text-slate-800">{formatTeam(personnel.team_group)}</span>
-                  </div>
-                  <div className="flex justify-between py-1.5 border-b border-slate-100">
                     <span className="text-slate-500">Username Login:</span>
-                    <span className="font-mono font-bold text-slate-900">
+                    <span className="font-mono font-bold text-slate-800">
                       {personnel.username || '-'}
                     </span>
                   </div>
-                  <div className="flex justify-between py-1.5 border-b border-slate-100 items-center">
-                    <span className="text-slate-500">Peran Sistem (Role):</span>
-                    <span className="font-semibold text-xs px-2.5 py-0.5 rounded-full border bg-slate-100 text-slate-800 border-slate-200">
-                      {formatRoleName(personnel.user_role || personnel.rank_position)}
+                  <div className="flex justify-between py-1.5 border-b border-slate-100">
+                    <span className="text-slate-500">Peran Sistem:</span>
+                    <span className="font-semibold text-slate-800">
+                      {formatRoleName(personnel.user_role || targetRole)}
                     </span>
                   </div>
-                  <div className="flex justify-between py-1.5">
-                    <span className="text-slate-500">Status Kata Sandi:</span>
-                    <span
-                      className={`font-semibold ${
-                        personnel.must_change_password
-                          ? 'text-amber-700'
-                          : 'text-emerald-700'
-                      }`}
-                    >
-                      {personnel.must_change_password
-                        ? 'Default (123456) - Belum Diganti'
-                        : 'Aman (Telah Diubah Mandiri)'}
+                  <div className="flex justify-between py-1.5 border-b border-slate-100">
+                    <span className="text-slate-500">Regu Operasional:</span>
+                    <span className="font-bold text-slate-800">
+                      Regu {formatTeam(personnel.team_group || 'Alpha')}
                     </span>
                   </div>
-
-                  {isAdmin && (
-                    <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between">
-                      <span className="text-[11px] text-slate-500">Aksi Administratif Akun:</span>
+                  <div className="flex justify-between py-1.5 border-b border-slate-100">
+                    <span className="text-slate-500">Status Akun:</span>
+                    <Badge variant={personnel.is_active ? 'success' : 'danger'} size="sm">
+                      {personnel.is_active ? 'Aktif' : 'Non-Aktif'}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center py-1.5">
+                    <span className="text-slate-500">Kata Sandi:</span>
+                    {isAdmin ? (
                       <Button
                         variant="outline"
                         size="xs"
                         icon={Key}
                         onClick={() => setResetPasswordModalOpen(true)}
-                        className="text-amber-800 border-amber-300 hover:bg-amber-50"
+                        className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
                       >
-                        Reset Sandi (123456)
+                        Reset Password
                       </Button>
-                    </div>
-                  )}
+                    ) : (
+                      <span className="text-slate-400">••••••••</span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Feedback Alert Signature */}
-            {signatureSuccess && (
-              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center justify-between gap-3 shadow-sm animate-in fade-in">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                  <span>{signatureSuccess}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSignatureSuccess(null)}
-                  className="text-emerald-700 hover:text-emerald-900 font-bold px-2 py-1"
-                >
-                  Tutup
-                </button>
-              </div>
-            )}
-
-            {signatureError && (
-              <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-800 flex items-center justify-between gap-3 shadow-sm animate-in fade-in">
-                <span>{signatureError}</span>
-                <button
-                  type="button"
-                  onClick={() => setSignatureError(null)}
-                  className="text-red-700 hover:text-red-900 font-bold px-2 py-1"
-                >
-                  Tutup
-                </button>
-              </div>
-            )}
-
-            {/* Kartu Spesimen Tanda Tangan Digital Resmi (Khusus Dept Head, Chief, Chief Assistant) */}
+            {/* Spesimen Tanda Tangan Digital Resmi (Khusus Dept Head, Chief, & Chief Assistant) */}
             {isEligibleForSignature && (
               <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4 flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <PenTool className="w-5 h-5 text-arff-primary" />
                     <div>
                       <h3 className="text-sm font-bold text-slate-900">Spesimen Tanda Tangan Digital Resmi</h3>
                       <p className="text-[11px] text-slate-500">
-                        Khusus pimpinan operasional (Dept. Head, Chief, dan Chief Assistant) untuk pengesahan dokumen & dinas
+                        Otorisasi penandatanganan laporan serah terima shift & verifikasi dokumen berkala
                       </p>
                     </div>
                   </div>
+
                   {personnel.signature_url && (
-                    <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md flex items-center gap-1">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       Terverifikasi
                     </span>
                   )}
                 </div>
+
+                {signatureSuccess && (
+                  <div className="mb-4 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center justify-between">
+                    <span>{signatureSuccess}</span>
+                    <button type="button" onClick={() => setSignatureSuccess(null)} className="font-bold">✕</button>
+                  </div>
+                )}
+                {signatureError && (
+                  <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-800 flex items-center justify-between">
+                    <span>{signatureError}</span>
+                    <button type="button" onClick={() => setSignatureError(null)} className="font-bold">✕</button>
+                  </div>
+                )}
 
                 <div className="flex flex-col sm:flex-row items-center gap-6">
                   {/* Kotak Pratinjau Tanda Tangan */}
@@ -620,7 +536,7 @@ export default function HalamanDetailPersonel() {
                             variant="outline"
                             size="sm"
                             icon={Trash2}
-                            onClick={handleDeleteSignature}
+                            onClick={requestDeleteSignature}
                             className="text-red-600 hover:bg-red-50 hover:border-red-200"
                           >
                             Hapus
@@ -718,8 +634,6 @@ export default function HalamanDetailPersonel() {
                     onClick={() => {
                       setDocError(null);
                       setDocSuccess(null);
-                      setDocTitle('');
-                      setDocFile(null);
                       setUploadDocModalOpen(true);
                     }}
                   >
@@ -779,9 +693,8 @@ export default function HalamanDetailPersonel() {
                             {canDeleteThisDoc && (
                               <button
                                 type="button"
-                                onClick={() => handleDeleteDocument(doc.id)}
-                                disabled={deletingDocId === doc.id}
-                                className="inline-flex items-center gap-1 p-1 rounded-md text-red-600 hover:bg-red-50 hover:text-red-800 transition-colors duration-100 disabled:opacity-50"
+                                onClick={() => requestDeleteDocument(doc)}
+                                className="inline-flex items-center gap-1 p-1 rounded-md text-red-600 hover:bg-red-50 hover:text-red-800 transition-colors duration-100"
                                 title="Hapus Dokumen"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -794,9 +707,9 @@ export default function HalamanDetailPersonel() {
                   })}
                 </div>
               ) : (
-                <div className="text-center py-8 px-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50">
+                <div className="p-8 text-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">
                   <FileUp className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                  <p className="text-xs font-medium text-slate-600">
+                  <p className="text-xs font-semibold text-slate-700">
                     Belum ada berkas atau dokumen yang diunggah untuk personel ini.
                   </p>
                   <p className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
@@ -810,8 +723,6 @@ export default function HalamanDetailPersonel() {
                       onClick={() => {
                         setDocError(null);
                         setDocSuccess(null);
-                        setDocTitle('');
-                        setDocFile(null);
                         setUploadDocModalOpen(true);
                       }}
                       className="mt-3.5"
@@ -836,275 +747,52 @@ export default function HalamanDetailPersonel() {
         )}
       </StateView>
 
+      {/* Modal Edit Data Personel (Modular) */}
+      <EditPersonnelModal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        personnel={personnel}
+        onSuccess={(msg) => {
+          setGlobalSuccess(msg);
+          fetchPersonnelDetail();
+        }}
+        onRequestDelete={requestDeletePersonnel}
+        isAdmin={isAdmin}
+        isSupervisor={isSupervisor}
+      />
 
-      {/* Modal Edit Data Personel */}
-      {editModalOpen && (
-        <Modal
-          isOpen={editModalOpen}
-          onClose={() => setEditModalOpen(false)}
-          title="Lengkapi & Perbarui Data Personel"
-          subtitle="Isi atau perbarui data kepegawaian, nomor lisensi, tanggal lahir, dan pendidikan"
-          footer={
-            <div className="flex items-center justify-between w-full">
-              <div>
-                {(isAdmin || isSupervisor) && (
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    icon={Trash2}
-                    onClick={handleDeletePersonnel}
-                    loading={deletingPersonnel}
-                    disabled={saving}
-                  >
-                    Hapus Anggota
-                  </Button>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={() => setEditModalOpen(false)} disabled={saving || deletingPersonnel}>
-                  Batal
-                </Button>
-                <Button variant="primary" onClick={handleUpdatePersonnel} loading={saving} disabled={deletingPersonnel}>
-                  Simpan Profil
-                </Button>
-              </div>
-            </div>
-          }
-        >
-          <form onSubmit={handleUpdatePersonnel} className="space-y-4">
-            {formError && (
-              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
-                {formError}
-              </div>
-            )}
+      {/* Modal Unggah Berkas & Dokumen Personel (Modular with 10MB pre-validation) */}
+      <UploadDocumentModal
+        isOpen={uploadDocModalOpen}
+        onClose={() => setUploadDocModalOpen(false)}
+        personnelId={id}
+        onSuccess={(msg) => {
+          setDocSuccess(msg);
+          fetchPersonnelDetail();
+        }}
+      />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <InputField
-                label="Nama Lengkap & Gelar"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                disabled={!isAdmin}
-                required
-              />
+      {/* Modal Konfirmasi Reset Password (Modular) */}
+      <ResetPasswordConfirmModal
+        isOpen={resetPasswordModalOpen}
+        onClose={() => setResetPasswordModalOpen(false)}
+        personnel={personnel}
+        onConfirm={handleResetPassword}
+        loading={resettingPassword}
+      />
 
-              <InputField
-                label="NIP (Nomor Induk Pegawai)"
-                placeholder="Contoh: 20240123 atau -"
-                value={nip}
-                onChange={(e) => setNip(e.target.value)}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <SelectField
-                label="Jabatan Operasional (Role)"
-                id="rankPosition"
-                value={rankPosition}
-                onChange={(e) => setRankPosition(e.target.value)}
-                options={OPERATIONAL_ROLES.map((r) => ({
-                  value: r.rank_position,
-                  label: r.label,
-                }))}
-                required
-                disabled={!isAdmin && !isSupervisor}
-              />
-
-              <SelectField
-                label="Regu Kedinasan"
-                value={teamGroup}
-                onChange={(e) => setTeamGroup(e.target.value)}
-                options={TEAMS.map((t) => ({ value: cleanTeam(t), label: formatTeam(t) }))}
-                disabled={!isAdmin && !isSupervisor}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <SelectField
-                label="Tingkat Lisensi PKP-PK"
-                value={certLevel}
-                onChange={(e) => setCertLevel(e.target.value)}
-                options={[
-                  { value: 'Basic', label: 'Basic Fire Fighter' },
-                  { value: 'Junior', label: 'Junior Fire Fighter' },
-                  { value: 'Senior', label: 'Senior Fire Fighter' },
-                ]}
-              />
-
-              <InputField
-                label="Nomor Registrasi Lisensi"
-                placeholder="Contoh: LIS-ARFF-2024-001 atau -"
-                value={certNumber}
-                onChange={(e) => setCertNumber(e.target.value)}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <InputField
-                label="Masa Berlaku Lisensi"
-                type="date"
-                value={certExpiryDate}
-                onChange={(e) => setCertExpiryDate(e.target.value)}
-              />
-
-              <InputField
-                label="Tanggal Lahir"
-                type="date"
-                value={birthDate}
-                onChange={(e) => setBirthDate(e.target.value)}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <InputField
-                label="Pendidikan Terakhir"
-                placeholder="Contoh: SMA/SMK, D3 Penerbangan, S1"
-                value={formalEducation}
-                onChange={(e) => setFormalEducation(e.target.value)}
-              />
-
-              <SelectField
-                label="Status Kepegawaian"
-                value={employmentStatus}
-                onChange={(e) => setEmploymentStatus(e.target.value)}
-                options={[
-                  { value: 'organik', label: 'Organik (Karyawan Tetap)' },
-                  { value: 'outsourcing', label: 'Outsourcing / Kontrak' },
-                ]}
-                disabled={!isAdmin && !isSupervisor}
-              />
-            </div>
-          </form>
-        </Modal>
-      )}
-
-      {/* Modal Unggah Berkas & Dokumen Personel */}
-      {uploadDocModalOpen && (
-        <Modal
-          isOpen={uploadDocModalOpen}
-          onClose={() => {
-            if (!uploadingDoc) setUploadDocModalOpen(false);
-          }}
-          title="Unggah Berkas & Dokumen Personel"
-          subtitle="Tambahkan salinan lisensi STKP, sertifikat diklat, atau dokumen kesehatan"
-          footer={
-            <>
-              <Button
-                variant="outline"
-                onClick={() => setUploadDocModalOpen(false)}
-                disabled={uploadingDoc}
-              >
-                Batal
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleUploadDocument}
-                loading={uploadingDoc}
-              >
-                Unggah Berkas
-              </Button>
-            </>
-          }
-        >
-          <form onSubmit={handleUploadDocument} className="space-y-4">
-            {docError && (
-              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
-                {docError}
-              </div>
-            )}
-
-            <InputField
-              label="Judul / Nama Dokumen"
-              placeholder="Contoh: Lisensi STKP Senior Fire Fighter 2024"
-              value={docTitle}
-              onChange={(e) => setDocTitle(e.target.value)}
-              helperText="Jika dikosongkan, nama berkas asli akan digunakan otomatis."
-            />
-
-            <SelectField
-              label="Kategori / Jenis Dokumen"
-              value={docType}
-              onChange={(e) => setDocType(e.target.value)}
-              options={Object.entries(DOCUMENT_TYPE_LABELS).map(([k, v]) => ({
-                value: k,
-                label: v,
-              }))}
-              required
-            />
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Pilih Berkas Dokumen <span className="text-red-500">*</span>
-              </label>
-              <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 bg-slate-50/50 hover:bg-slate-50 transition-colors duration-100 text-center">
-                <input
-                  type="file"
-                  id="documentFileInput"
-                  accept=".pdf,image/png,image/jpeg,image/webp"
-                  onChange={(e) => setDocFile(e.target.files[0] || null)}
-                  className="hidden"
-                  disabled={uploadingDoc}
-                />
-                <label
-                  htmlFor="documentFileInput"
-                  className="cursor-pointer flex flex-col items-center justify-center gap-1.5"
-                >
-                  <Upload className="w-6 h-6 text-slate-400" />
-                  <span className="text-xs font-semibold text-arff-primary hover:underline">
-                    {docFile ? docFile.name : 'Pilih berkas dari perangkat'}
-                  </span>
-                  <span className="text-[11px] text-slate-400">
-                    Format didukung: PDF, WebP, PNG, atau JPEG (Maks. 10 MB)
-                  </span>
-                </label>
-                {docFile && (
-                  <div className="mt-2 text-xs font-mono text-emerald-700 font-semibold bg-emerald-50 py-1 px-2 rounded-md inline-block">
-                    {docFile.name} ({formatBytes(docFile.size)})
-                  </div>
-                )}
-              </div>
-            </div>
-          </form>
-        </Modal>
-      )}
-      {/* Modal Konfirmasi Reset Password */}
-      {resetPasswordModalOpen && (
-        <Modal
-          isOpen={resetPasswordModalOpen}
-          onClose={() => setResetPasswordModalOpen(false)}
-          title="Konfirmasi Reset Kata Sandi"
-          subtitle="Atur ulang kata sandi personel ke nilai bawaan sistem"
-          footer={
-            <>
-              <Button
-                variant="outline"
-                onClick={() => setResetPasswordModalOpen(false)}
-                disabled={resettingPassword}
-              >
-                Batal
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleResetPassword}
-                loading={resettingPassword}
-                className="bg-amber-600 hover:bg-amber-700"
-              >
-                Ya, Reset Kata Sandi
-              </Button>
-            </>
-          }
-        >
-          <div className="space-y-3 text-xs text-slate-700 leading-relaxed">
-            <p>
-              Apakah Anda yakin ingin mereset kata sandi akun untuk <strong>{personnel?.full_name}</strong>?
-            </p>
-            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] space-y-1">
-              <span className="font-bold block">• Kata sandi baru akan diatur ke: <strong>123456</strong></span>
-              <span className="block">• Pengguna akan diwajibkan mengganti kata sandi secara mandiri pada saat login pertama kali.</span>
-            </div>
-          </div>
-        </Modal>
-      )}
+      {/* Modal Konfirmasi Umum In-App (Pengganti window.confirm) */}
+      <ConfirmActionModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={() => confirmModal.action && confirmModal.action()}
+        title={confirmModal.title}
+        subtitle={confirmModal.subtitle}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        variant={confirmModal.variant}
+        loading={confirmModal.loading}
+      />
     </div>
   );
 }
-
