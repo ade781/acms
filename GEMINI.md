@@ -65,6 +65,12 @@
 18. **Input Struktural Pejabat Department Head (Bukan Memilih dari Regu Operasional)**:
     - Jabatan Department Head (Dept. Head) adalah pimpinan struktural unit di atas 4 regu dinas operasional.
     - Data Department Head wajib DIINPUT mandiri (Nama Lengkap, NIP, Jabatan, dan Tanda Tangan), BUKAN dipilih dari daftar anggota regu operasional.
+19. **Batasan Kuota Cuti (Maksimal 2 Cuti Berjalan) & Konsolidasi Paket Riwayat (Anti-Dobel)**:
+    - Setiap anggota personel dibatasi maksimal memiliki **2 pengajuan cuti yang sedang/akan berjalan** (*active/upcoming leave*).
+    - Untuk mengajukan cuti baru di atas kuota tersebut, anggota harus menunggu hingga tanggal cuti sebelumnya selesai terlewati atau membatalkan salah satu pengajuan cuti yang ada.
+    - Sistem secara ketat menolak pengajuan tanggal cuti yang beririsan (*anti-overlap*).
+    - Seluruh riwayat cuti disajikan dalam format **Paket Pengajuan Terpadu** (rentang tanggal, durasi hari, status berjalan/selesai) sehingga tidak memecah baris harian yang tampak dobel.
+    - Pembatalan cuti pada paket langsung menghapus seluruh hari terkait secara bersih dalam 1 kali aksi.
 
 ## Aturan Pengelolaan Database & Folder Kerja Khusus (`masak/`)
 - **Fungsi Folder `masak/` (Sandbox / Workroom Database & Testing):**

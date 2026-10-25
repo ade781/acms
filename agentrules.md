@@ -121,24 +121,38 @@ ACMS ARFF YIA adalah sistem informasi operasional terpadu yang dirancang untuk m
   - Pengajuan cuti adalah hak prerogatif personel (*self-service*).
   - Admin dan Chief DILARANG memiliki tombol untuk mencatat/mengajukan cuti atas nama anggotanya ("Tambah Cuti Shift Ini" di admin/mobile dilarang).
   - Peran pimpinan/admin murni sebagai pengawas & pengelola: **Read** (melihat siapa yang izin), **Edit** (menyesuaikan), dan **Delete/Batal** (membatalkan cuti untuk mengembalikan kru ke status dinas aktif).
-- **Tab Switcher Riwayat Cuti Desktop:**
+- **Batasan Kuota Maksimal 2 Cuti yang Sedang/Akan Berjalan (Active / Upcoming):**
+  - Setiap anggota dibatasi maksimal hanya boleh memiliki **2 pengajuan cuti yang sedang/akan berjalan**.
+  - Jika kuota 2 cuti aktif sudah tercapai, pengajuan baru ditolak server hingga tanggal cuti lamanya terlewati atau dibatalkan oleh pengguna.
+  - Sistem secara ketat menolak pengajuan tanggal cuti yang beririsan (*anti-overlap*).
+- **Tab Switcher & Konsolidasi Paket Riwayat Cuti (Anti-Dobel):**
   - Tab `[Shift Berjalan]`: Menampilkan personel yang sedang cuti/izin pada shift aktif saat ini.
-  - Tab `[Riwayat Bulan Ini]`: Menampilkan seluruh arsip cuti bulanan dengan filter bulan, tahun, dan regu melalui endpoint backend `GET /api/deployments/leave-history`.
+  - Tab `[Riwayat Bulan Ini]`: Menampilkan arsip cuti bulanan dalam format **Paket Pengajuan Terpadu** (Periode Start s/d End, Durasi Hari, Badge Status Berjalan/Selesai, dan Alasan Bersih) melalui endpoint backend `GET /api/deployments/leave-history`. Mencegah tampilan baris harian berulang.
+  - Pembatalan cuti langsung menghapus seluruh hari dalam paket cuti tersebut dalam 1 kali aksi.
 - **Validasi Berkas Bukti Cuti:**
   - Unggah surat dokter/bukti cuti divalidasi di sisi browser dengan batas maksimal 5 MB.
 
 ---
 
 ### 9. Logbook Kegiatan Dinas (`/activities` & `/m/kegiatan`)
+- **Dual-Mode Tampilan Terpadu:**
+  - `[Shift Berjalan]`: Menampilkan rangkaian aktivitas shift dinas yang aktif saat ini (`ShiftHeaderCard`).
+  - `[Riwayat & Arsip Periode]`: Menampilkan rekaman aktivitas lintas sesi dinas dengan filter rentang waktu (7 Hari, 30 Hari, 3 Bulan, atau Rentang Tanggal Kustom).
 - **Pencatatan Jurnal Shift:**
   - Mencatat seluruh rutinitas shift: Waktu mulai-selesai, kategori kegiatan (Briefing/Apel Serah Terima, Uji Pancar Kendaraan, Pemeliharaan Alat Rescue, Fire Drill / Pelatihan, Patroli Runway/Manoeuvring Area, Catatan Kendala Khusus), deskripsi pelaksanaan, dan dokumentasi foto.
 - **Tata Letak Vertical Step Timeline Desktop:**
   - Disajikan dalam format **Vertical Step Timeline** bersambung garis dinas vertikal kronologis, badge waktu dinas (`07:30 WIB`), dan ikon kategori visual yang elegan.
+- **Cetak Logbook PDF Resmi Langsung di Tempat:**
+  - Header dilengkapi tombol *"Cetak Logbook PDF"* untuk mengunduh rekapitulasi kegiatan resmi bertandatangan Section Head tanpa berpindah halaman (`downloadActivityReportPdf`).
 - **Auto-Dismiss Feedback:** Notifikasi berhasil simpan otomatis menutup setelah 3.5 detik.
 
 ---
 
-### 10. Pelaporan Insiden & Alert Darurat (`/incidents`, `/incidents/:id` & `/m/insiden`)
+### 10. Pelaporan & Pemantauan Insiden Terpadu (`/incidents`, `/incidents/:id` & `/m/insiden`)
+- **Satu Pintu Pemantauan & Rekapitulasi:**
+  - Halaman `/incidents` kini menjadi satu-satunya pintu terpadu untuk pemantauan insiden aktif, input kejadian darurat baru, dan pencetakan rekapitulasi dokumen PDF resmi (rute `/insiden/laporan` otomatis dialihkan ke `/incidents`).
+  - Scorecard KPI di bagian atas tabel menyajikan metrik cepat: Total Laporan, Siaga I (Kritis), Dalam Penanganan, dan Selesai Ditangani.
+  - Header dilengkapi tombol *"Cetak Rekap PDF"* dengan modal filter periode (1 Bulan, 3 Bulan, 1 Tahun, Rentang Kustom), kategori, dan status penanganan.
 - **Pelaporan Kejadian Darurat (`IncidentModal.jsx`):**
   - Wajib menerima props `activeDate`, `activeShiftNumber`, dan `activeTeam` dengan proteksi fallback `useAuth()` agar tanggal tidak pernah bernilai literal `"undefined"`.
   - Formulir memuat data insiden: Kategori (Aircraft Accident, Fuel Spillage, Fire Alert, Medical Emergency, Runway Excursion), data pesawat (Airline, Flight Number, Tipe Pesawat), lokasi kejadian (Runway/Taxiway/Apron/Grid Map), armada yang dikerahkan (multi-select checklist unit aktif), korban jiwa/luka, dan penanganan operasional.
@@ -149,7 +163,7 @@ ACMS ARFF YIA adalah sistem informasi operasional terpadu yang dirancang untuk m
 
 ---
 
-### 11. Laporan Shift & Rekapitulasi Cetak Resmi (`/reports`, `/armada/laporan`, `/insiden/laporan`, `/m/laporan`)
+### 11. Laporan Shift & Rekapitulasi Cetak Resmi (`/reports`, `/armada/laporan`, `/m/laporan`)
 - **Single Source of Truth (`reportService.js`):**
   - Modul tunggal terpadu untuk mengekstrak gabungan formasi ploting dinas, kesiapan armada, kesiapan posko watchroom, log kegiatan, dan kejadian insiden lintas perangkat (GEMINI.md Butir 14).
   - Mendukung pembatalan request lama melalui opsi `signal` (*AbortSignal*).
@@ -157,7 +171,7 @@ ACMS ARFF YIA adalah sistem informasi operasional terpadu yang dirancang untuk m
   - Mengimplementasikan CSS cetak presisi: `@page { size: A4 portrait; margin: 10mm 12mm; }` dan `@media print` (*page-break-avoid*).
   - Format Tanda Tangan Resmi: Menampilkan spesimen digital nyata jika terdaftar di database (GEMINI.md Butir 7). Jika belum ada spesimen, menggunakan standar kedinasan PT Angkasa Pura Indonesia: Ruang tanda tangan bersih setinggi 56px di atas **Nama Lengkap Huruf Kapital Bergaris Bawah** dan **NIP** (tanpa teks placeholder buatan).
 - **Unduh PDF Terotentikasi:**
-  - Unduh berkas PDF kesiapan armada dan rekap insiden menggunakan Axios authenticated blob stream terpadu (`downloadVehicleReportPdf` & `downloadIncidentReportPdf`), menghilangkan popup `window.open` dengan raw query token yang rentan terblokir browser.
+  - Seluruh unduh berkas PDF resmi (Shift, Armada, Insiden, dan Kegiatan) menggunakan Axios authenticated blob stream terpadu (`downloadShiftReportPdf`, `downloadVehicleReportPdf`, `downloadIncidentReportPdf`, `downloadActivityReportPdf`), menghilangkan popup `window.open` dengan raw query token yang rentan terblokir browser.
 
 ---
 
