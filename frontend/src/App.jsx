@@ -187,14 +187,7 @@ export default function App() {
                 </React.Suspense>
               }
             />
-            <Route
-              path="/insiden/laporan"
-              element={
-                <React.Suspense fallback={<div className="p-8 text-center text-xs font-semibold text-slate-600">Memuat Laporan Rekap Insiden...</div>}>
-                  <HalamanLaporanInsiden />
-                </React.Suspense>
-              }
-            />
+            <Route path="/insiden/laporan" element={<Navigate to="/incidents" replace />} />
             <Route path="/personnel" element={<HalamanPersonel />} />
             <Route path="/personnel/officials" element={<HalamanKelolaPejabat />} />
             <Route path="/personnel/:id" element={<HalamanDetailPersonel />} />

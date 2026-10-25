@@ -39,7 +39,16 @@ export default function HalamanPersonel() {
   // Filters
   const [selectedTeam, setSelectedTeam] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedCert, setSelectedCert] = useState('ALL');
+
+  // Debounce input pencarian nama/NIP personel 350ms (Anti-Lag Form Input Rule)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Add Personnel Modal State
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -69,7 +78,7 @@ export default function HalamanPersonel() {
       let queryParams = [];
       if (selectedTeam !== 'ALL') queryParams.push(`team_group=${selectedTeam}`);
       if (selectedCert !== 'ALL') queryParams.push(`cert_level=${selectedCert}`);
-      if (searchQuery.trim()) queryParams.push(`search=${encodeURIComponent(searchQuery.trim())}`);
+      if (debouncedSearchQuery.trim()) queryParams.push(`search=${encodeURIComponent(debouncedSearchQuery.trim())}`);
 
       const url = `/personnel${queryParams.length > 0 ? '?' + queryParams.join('&') : ''}`;
       const res = await api.get(url);
@@ -85,7 +94,7 @@ export default function HalamanPersonel() {
     } finally {
       setLoading(false);
     }
-  }, [selectedTeam, selectedCert, searchQuery]);
+  }, [selectedTeam, selectedCert, debouncedSearchQuery]);
 
   useEffect(() => {
     fetchPersonnel();
@@ -163,6 +172,12 @@ export default function HalamanPersonel() {
     }
   };
 
+  const teamsToDisplay = selectedTeam === 'ALL'
+    ? ['Alpha', 'Bravo', 'Charlie', 'Delta']
+    : ['Alpha', 'Bravo', 'Charlie', 'Delta'].filter(
+        (t) => cleanTeam(t).toLowerCase() === cleanTeam(selectedTeam).toLowerCase()
+      );
+
   return (
     <div>
       {/* Header */}
@@ -231,22 +246,36 @@ export default function HalamanPersonel() {
       {/* Filter Bar */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-6 flex flex-col md:flex-row items-center justify-between gap-3">
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto flex-1">
-          <div className="w-full sm:w-72">
+          <div className="w-full sm:w-64">
             <InputField
               id="searchPersonnel"
-              placeholder="Cari nama personel di seluruh regu..."
+              placeholder="Cari nama atau NIP..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               icon={Search}
             />
           </div>
-          <div className="w-full sm:w-56">
+          <div className="w-full sm:w-48">
+            <SelectField
+              id="filterTeam"
+              value={selectedTeam}
+              onChange={(e) => setSelectedTeam(e.target.value)}
+              options={[
+                { value: 'ALL', label: 'Semua Regu' },
+                { value: 'Alpha', label: 'Regu Alpha' },
+                { value: 'Bravo', label: 'Regu Bravo' },
+                { value: 'Charlie', label: 'Regu Charlie' },
+                { value: 'Delta', label: 'Regu Delta' },
+              ]}
+            />
+          </div>
+          <div className="w-full sm:w-52">
             <SelectField
               id="filterCertLevel"
               value={selectedCert}
               onChange={(e) => setSelectedCert(e.target.value)}
               options={[
-                { value: 'ALL', label: 'Semua Kualifikasi STKP' },
+                { value: 'ALL', label: 'Semua STKP' },
                 { value: 'Basic', label: 'Basic Fire Fighter' },
                 { value: 'Junior', label: 'Junior Fire Fighter' },
                 { value: 'Senior', label: 'Senior Fire Fighter' },
@@ -280,7 +309,7 @@ export default function HalamanPersonel() {
         error={error}
         isEmpty={personnelList.length === 0}
         emptyTitle="Tidak Ada Data Personel"
-        emptyDescription="Data personel operasional belum tersedia di sistem."
+        emptyDescription="Data personel operasional belum tersedia atau tidak cocok dengan filter pencarian."
         emptyAction={
           isAdmin && (
             <Button variant="primary" size="sm" onClick={() => setAddModalOpen(true)}>
@@ -290,8 +319,8 @@ export default function HalamanPersonel() {
         }
         onRetry={fetchPersonnel}
       >
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pb-6">
-          {['Alpha', 'Bravo', 'Charlie', 'Delta'].map((teamName) => {
+        <div className={`grid grid-cols-1 ${teamsToDisplay.length === 1 ? 'max-w-md mx-auto sm:grid-cols-1' : 'sm:grid-cols-2 lg:grid-cols-4'} gap-6 pb-6`}>
+          {teamsToDisplay.map((teamName) => {
             // Skema border dan warna per regu
             const teamKey = teamName.toLowerCase();
             const teamThemes = {
@@ -331,8 +360,15 @@ export default function HalamanPersonel() {
               (p) => cleanTeam(p.team_group).toLowerCase() === teamKey
             );
 
-            // Filter berdasarkan pencarian jika ada
-            const isFiltering = Boolean(searchQuery.trim());
+            // Filter pencarian client-side: sembunyikan baris non-matching secara total (bukan sekadar opacity)
+            if (debouncedSearchQuery.trim()) {
+              const q = debouncedSearchQuery.trim().toLowerCase();
+              members = members.filter(
+                (p) =>
+                  (p.full_name || '').toLowerCase().includes(q) ||
+                  (p.nip || '').toLowerCase().includes(q)
+              );
+            }
 
             // Urutkan: Ketua Regu (Chief aktual) selalu paling atas #1, disusul Asisten Chief, lalu anggota lainnya
             const sortedMembers = [...members].sort((a, b) => {
@@ -355,14 +391,14 @@ export default function HalamanPersonel() {
             return (
               <div
                 key={teamName}
-                className={`rounded-xl border-2 p-4 flex flex-col justify-between transition-opacity duration-150 ${
+                className={`rounded-xl border-2 p-4 flex flex-col justify-between transition-colors duration-100 ${
                   isOnDuty
                     ? `bg-white ${theme.border} shadow-md ring-2 ring-offset-1 ring-red-500/20 opacity-100`
-                    : `bg-slate-50/70 border-slate-200/90 shadow-xs opacity-50 hover:opacity-90`
+                    : `bg-slate-50/70 border-slate-200/90 shadow-xs opacity-90 hover:opacity-100`
                 }`}
               >
                 <div>
-                  {/* Header Nama Regu (Tanpa teks UNIT PKP-PK) */}
+                  {/* Header Nama Regu */}
                   <div className="text-center pb-3 mb-3 border-b border-slate-100">
                     <div className="flex items-center justify-center gap-2">
                       <h3 className={`text-base font-extrabold tracking-wider uppercase ${theme.title}`}>
@@ -380,69 +416,70 @@ export default function HalamanPersonel() {
                   </div>
 
                   {/* List Nama Anggota */}
-                  <div className="space-y-1">
-                    {sortedMembers
-                      .slice((currentPage - 1) * perPage, currentPage * perPage)
-                      .map((person, idx) => {
-                        const isChief = isActualChief(person);
-                        const isAssistant = isChiefAssistant(person);
-                        const isMatchedSearch =
-                          !isFiltering ||
-                          (person.full_name || '')
-                            .toLowerCase()
-                            .includes(searchQuery.trim().toLowerCase());
+                  {sortedMembers.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-slate-400 italic">
+                      Tidak ada personel yang sesuai pencarian.
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {sortedMembers
+                        .slice((currentPage - 1) * perPage, currentPage * perPage)
+                        .map((person, idx) => {
+                          const isChief = isActualChief(person);
+                          const isAssistant = isChiefAssistant(person);
 
-                        // Nomor urut: Bintang ★ HANYA untuk Chief resmi
-                        const globalIdx = (currentPage - 1) * perPage + idx;
-                        const memberNumber = isChief
-                          ? '★'
-                          : String(hasChief ? globalIdx : globalIdx + 1).padStart(2, '0');
+                          // Nomor urut: Bintang ★ HANYA untuk Chief resmi
+                          const globalIdx = (currentPage - 1) * perPage + idx;
+                          const memberNumber = isChief
+                            ? '★'
+                            : String(hasChief ? globalIdx : globalIdx + 1).padStart(2, '0');
 
-                      return (
-                        <div
-                          key={person.id}
-                          onClick={() => navigate(`/personnel/${person.id}`)}
-                          className={`group px-2.5 py-1.5 rounded transition-colors duration-100 cursor-pointer flex items-center justify-between gap-2 border ${
-                            isChief
-                              ? `${theme.chiefRow} font-semibold shadow-xs`
-                              : isAssistant
-                              ? 'bg-amber-50/50 border-amber-200/60 hover:bg-amber-50 text-slate-800'
-                              : 'border-transparent hover:bg-slate-50 text-slate-800 hover:text-slate-900'
-                          } ${!isMatchedSearch ? 'opacity-30' : 'opacity-100'}`}
-                          title={`Klik untuk melihat detail profil ${person.full_name}`}
-                        >
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <span
-                              className={`text-xs font-mono shrink-0 ${
-                                isChief ? `${theme.chiefStar} font-bold` : 'text-slate-400'
-                              }`}
-                            >
-                              {memberNumber}
-                            </span>
-                            <span
-                              className={`truncate text-xs ${
-                                isChief ? 'font-bold text-slate-900' : 'font-medium'
-                              }`}
-                            >
-                              {person.full_name}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            {isChief && (
-                              <span className={`text-[10px] ${theme.chiefBadge} font-bold px-1.5 py-0.5 rounded border uppercase tracking-tight`}>
-                                Ketua
+                        return (
+                          <div
+                            key={person.id}
+                            onClick={() => navigate(`/personnel/${person.id}`)}
+                            className={`group px-2.5 py-1.5 rounded transition-colors duration-100 cursor-pointer flex items-center justify-between gap-2 border ${
+                              isChief
+                                ? `${theme.chiefRow} font-semibold shadow-xs`
+                                : isAssistant
+                                ? 'bg-amber-50/50 border-amber-200/60 hover:bg-amber-50 text-slate-800'
+                                : 'border-transparent hover:bg-slate-50 text-slate-800 hover:text-slate-900'
+                            }`}
+                            title={`Klik untuk melihat detail profil ${person.full_name}`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <span
+                                className={`text-xs font-mono shrink-0 ${
+                                  isChief ? `${theme.chiefStar} font-bold` : 'text-slate-400'
+                                }`}
+                              >
+                                {memberNumber}
                               </span>
-                            )}
-                            {isAssistant && !isChief && (
-                              <span className="text-[10px] bg-amber-100 text-amber-800 border border-amber-300 font-semibold px-1.5 py-0.5 rounded uppercase tracking-tight">
-                                Asisten
+                              <span
+                                className={`truncate text-xs ${
+                                  isChief ? 'font-bold text-slate-900' : 'font-medium'
+                                }`}
+                              >
+                                {person.full_name}
                               </span>
-                            )}
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {isChief && (
+                                <span className={`text-[10px] ${theme.chiefBadge} font-bold px-1.5 py-0.5 rounded border uppercase tracking-tight`}>
+                                  Ketua
+                                </span>
+                              )}
+                              {isAssistant && !isChief && (
+                                <span className="text-[10px] bg-amber-100 text-amber-800 border border-amber-300 font-semibold px-1.5 py-0.5 rounded uppercase tracking-tight">
+                                  Asisten
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-4 pt-2.5 border-t border-slate-100 text-center text-[11px] text-slate-400 font-medium">
@@ -456,8 +493,8 @@ export default function HalamanPersonel() {
         {/* Komponen Paginasi Terstandar */}
         {(() => {
           const maxTeamCount = Math.max(
-            ...['alpha', 'bravo', 'charlie', 'delta'].map(
-              (k) => personnelList.filter((p) => cleanTeam(p.team_group).toLowerCase() === k).length
+            ...teamsToDisplay.map(
+              (k) => personnelList.filter((p) => cleanTeam(p.team_group).toLowerCase() === k.toLowerCase()).length
             ),
             1
           );
@@ -481,7 +518,7 @@ export default function HalamanPersonel() {
                   <option value={25}>25 per regu</option>
                 </select>
                 <span className="text-slate-300">|</span>
-                <span>Total <strong>{personnelList.length}</strong> personel pada 4 regu</span>
+                <span>Total <strong>{personnelList.length}</strong> personel pada daftar</span>
               </div>
 
               <div className="flex items-center gap-2">

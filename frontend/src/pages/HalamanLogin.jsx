@@ -45,8 +45,12 @@ export default function HalamanLogin() {
         navigate('/dashboard', { replace: true });
       }
     } catch (err) {
-      const msg = err.response?.data?.message || err.message || 'Kombinasi username atau password tidak cocok.';
-      setError(msg);
+      if (err.message === 'Network Error' || !err.response) {
+        setError('Gagal terhubung ke server operasional. Pastikan koneksi jaringan aktif atau hubungi pengelola sistem.');
+      } else {
+        const msg = err.response?.data?.message || err.message || 'Kombinasi username atau password tidak cocok.';
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }

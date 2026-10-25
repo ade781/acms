@@ -10,25 +10,59 @@ const uploadsDir = path.resolve(__dirname, '../../uploads');
 
 export const getActivities = async (req, res) => {
   try {
-    const { date, shift, team_group, page, limit } = req.query;
-
-    const shiftDate = date || new Date().toISOString().split('T')[0];
-    const shiftNumber = shift ? Number(shift) : 1;
+    const { date, shift, team_group, page, limit, start_date, end_date, period, activity_type } = req.query;
 
     let query = `
       SELECT a.*, ps.shift_date, ps.shift_number, ps.team_group
       FROM daily_shift_activities a
       JOIN personnel_shifts ps ON ps.id = a.shift_id
-      WHERE ps.shift_date = ? AND ps.shift_number = ?
+      WHERE 1=1
     `;
-    const params = [shiftDate, shiftNumber];
+    const params = [];
 
-    if (team_group) {
+    // Filter Rentang Periode atau Shift Tunggal
+    if (start_date && end_date) {
+      query += ` AND ps.shift_date >= ? AND ps.shift_date <= ?`;
+      params.push(start_date, end_date);
+    } else if (period) {
+      const now = new Date();
+      let past = new Date();
+      if (period === '1week') past.setDate(now.getDate() - 7);
+      else if (period === '3months') past.setMonth(now.getMonth() - 3);
+      else if (period === '1year') past.setFullYear(now.getFullYear() - 1);
+      else past.setMonth(now.getMonth() - 1); // default 1month
+
+      const startDateStr = past.toISOString().split('T')[0];
+      const endDateStr = now.toISOString().split('T')[0];
+      query += ` AND ps.shift_date >= ? AND ps.shift_date <= ?`;
+      params.push(startDateStr, endDateStr);
+    } else if (date && shift) {
+      query += ` AND ps.shift_date = ? AND ps.shift_number = ?`;
+      params.push(date, Number(shift));
+    } else if (date) {
+      query += ` AND ps.shift_date = ?`;
+      params.push(date);
+    } else {
+      const today = new Date().toISOString().split('T')[0];
+      query += ` AND ps.shift_date = ? AND ps.shift_number = 1`;
+      params.push(today);
+    }
+
+    if (team_group && team_group !== 'ALL' && team_group !== 'all') {
       query += ` AND ps.team_group = ?`;
       params.push(team_group);
     }
 
-    query += ` ORDER BY a.activity_time ASC, a.id ASC`;
+    if (activity_type && activity_type !== 'ALL' && activity_type !== 'all') {
+      query += ` AND a.activity_type = ?`;
+      params.push(activity_type);
+    }
+
+    if (start_date || period) {
+      query += ` ORDER BY ps.shift_date DESC, a.activity_time ASC, a.id DESC`;
+    } else {
+      query += ` ORDER BY a.activity_time ASC, a.id ASC`;
+    }
 
     if (limit) {
       const pageNum = page ? Math.max(1, parseInt(page, 10)) : 1;

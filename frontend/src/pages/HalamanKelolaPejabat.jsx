@@ -21,8 +21,16 @@ import SelectField from '../components/common/SelectField';
 import StateView from '../components/common/StateView';
 
 export default function HalamanKelolaPejabat() {
-  const { isAdmin, isSupervisor } = useAuth();
+  const { isAdmin, isSupervisor, token } = useAuth();
   const navigate = useNavigate();
+
+  const getAuthorizedUrl = (rawUrl) => {
+    if (!rawUrl) return '';
+    const currentToken = token || localStorage.getItem('arff_token') || '';
+    if (!currentToken) return rawUrl;
+    const separator = rawUrl.includes('?') ? '&' : '?';
+    return `${rawUrl}${separator}token=${encodeURIComponent(currentToken)}`;
+  };
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -42,6 +50,7 @@ export default function HalamanKelolaPejabat() {
   const [dhNip, setDhNip] = useState('');
   const [dhRankPosition, setDhRankPosition] = useState('Airport Technology & ARFF Dept. Head');
   const [dhSignatureFile, setDhSignatureFile] = useState(null);
+  const [dhSignaturePreview, setDhSignaturePreview] = useState(null);
   const [savingDh, setSavingDh] = useState(false);
   const [dhError, setDhError] = useState(null);
 
@@ -98,6 +107,7 @@ export default function HalamanKelolaPejabat() {
     setDhNip(officials.dept_head?.nip || '');
     setDhRankPosition(officials.dept_head?.rank_position || 'Airport Technology & ARFF Dept. Head');
     setDhSignatureFile(null);
+    setDhSignaturePreview(null);
     setDhModalOpen(true);
   };
 
@@ -131,6 +141,47 @@ export default function HalamanKelolaPejabat() {
     } finally {
       setSavingSh(false);
     }
+  };
+
+  // Handler unggah spesimen tanda tangan Dept Head dengan validasi sisi klien
+  const handleDhSignatureChange = (e) => {
+    const file = e.target.files?.[0];
+    setDhError(null);
+    if (!file) {
+      setDhSignatureFile(null);
+      setDhSignaturePreview(null);
+      return;
+    }
+
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setDhError('Format berkas tidak valid. Harap pilih gambar bertipe PNG, JPG, atau WEBP.');
+      e.target.value = '';
+      setDhSignatureFile(null);
+      setDhSignaturePreview(null);
+      return;
+    }
+
+    const maxSizeBytes = 2 * 1024 * 1024; // 2MB
+    if (file.size > maxSizeBytes) {
+      setDhError(`Ukuran file terlalu besar (${(file.size / (1024 * 1024)).toFixed(1)} MB). Batas maksimum tanda tangan adalah 2 MB.`);
+      e.target.value = '';
+      setDhSignatureFile(null);
+      setDhSignaturePreview(null);
+      return;
+    }
+
+    setDhSignatureFile(file);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setDhSignaturePreview(event.target.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleClearDhSignatureFile = () => {
+    setDhSignatureFile(null);
+    setDhSignaturePreview(null);
   };
 
   // Submit Kelola Dept Head (Input Data Mandiri)
@@ -567,18 +618,75 @@ export default function HalamanKelolaPejabat() {
               required
             />
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-slate-700">
-                Unggah Tanda Tangan Digital Resmi (Opsional)
+                Spesimen Tanda Tangan Digital Resmi
               </label>
+
+              {/* Pratinjau Tanda Tangan Aktif dari Database / Pratinjau Berkas Baru */}
+              {dhSignaturePreview ? (
+                <div className="p-3 bg-emerald-50/50 border border-emerald-300 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-emerald-800 flex items-center gap-1">
+                      <FileCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      Pratinjau Berkas Baru Terpilih (Belum Disimpan)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleClearDhSignatureFile}
+                      className="text-[11px] text-red-600 hover:text-red-800 font-semibold underline cursor-pointer"
+                    >
+                      Batal Ganti
+                    </button>
+                  </div>
+                  <div className="p-2 bg-white rounded-lg border border-slate-200 flex items-center justify-center max-h-28 overflow-hidden">
+                    <img
+                      src={dhSignaturePreview}
+                      alt="Pratinjau Tanda Tangan Baru"
+                      className="max-h-24 w-auto object-contain"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-500">
+                    Nama file: {dhSignatureFile?.name} ({(dhSignatureFile?.size / 1024).toFixed(0)} KB)
+                  </p>
+                </div>
+              ) : officials.dept_head?.signature_url ? (
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1">
+                      <FileCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      Tanda Tangan Aktif Tersimpan di Server
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold border border-emerald-200">
+                      Aktif
+                    </span>
+                  </div>
+                  <div className="p-2 bg-white rounded-lg border border-slate-200 flex items-center justify-center max-h-28 overflow-hidden">
+                    <img
+                      src={getAuthorizedUrl(officials.dept_head.signature_url)}
+                      alt="Tanda Tangan Aktif Dept Head"
+                      className="max-h-24 w-auto object-contain"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-500">
+                    Pilih berkas baru di bawah jika ingin memperbarui spesimen tanda tangan ini.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl flex items-center gap-2 text-xs text-amber-800">
+                  <FileX className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Belum ada tanda tangan aktif untuk Dept. Head ini di server.</span>
+                </div>
+              )}
+
               <input
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
-                onChange={(e) => setDhSignatureFile(e.target.files?.[0] || null)}
-                className="text-xs text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 border border-slate-300 rounded-lg p-1.5 bg-white"
+                onChange={handleDhSignatureChange}
+                className="text-xs text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 border border-slate-300 rounded-lg p-1.5 bg-white cursor-pointer"
               />
               <p className="text-[11px] text-slate-500">
-                Format: PNG transparan disarankan, maks 2MB. Tanda tangan ini akan tercetak otomatis pada berkas dokumen dinas resmi.
+                Format yang didukung: PNG transparan disarankan, JPG, atau WEBP. Maksimal ukuran berkas 2 MB.
               </p>
             </div>
           </form>

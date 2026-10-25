@@ -38,11 +38,8 @@ export default function MobileKegiatan() {
           team_group: cleanTeam(activeTeam),
         },
       });
-      const list = Array.isArray(res.data?.activities)
-        ? res.data.activities
-        : Array.isArray(res.data)
-        ? res.data
-        : [];
+      const raw = res.data?.data ?? res.data?.activities ?? res.data;
+      const list = Array.isArray(raw) ? raw : [];
       setActivities(list);
     } catch (err) {
       console.error('Error fetching activities:', err);

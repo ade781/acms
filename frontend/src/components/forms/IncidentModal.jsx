@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertCircle, Camera, CheckCircle2, X } from 'lucide-react';
+import { AlertCircle, Camera, CheckCircle2, Check, Plus, X } from 'lucide-react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import InputField from '../common/InputField';
@@ -23,6 +23,16 @@ export const OFFICIAL_INCIDENT_CLASSIFICATIONS = [
   'Kejadian Lainnya',
 ];
 
+export const ARFF_FLEET_OPTIONS = [
+  'Foam Tender 1',
+  'Foam Tender 2',
+  'Foam Tender 3',
+  'Rapid Intervention Vehicle (RIV)',
+  'Nurse Tender',
+  'Ambulance',
+  'Command Car',
+];
+
 export default function IncidentModal({
   isOpen,
   onClose,
@@ -31,7 +41,12 @@ export default function IncidentModal({
   activeTeam,
   onSuccess,
 }) {
-  const { user, isAdmin, isSupervisor } = useAuth();
+  const auth = useAuth();
+  const { user, isAdmin, isSupervisor } = auth;
+  const effectiveDate = activeDate || auth.activeDate;
+  const effectiveShift = activeShiftNumber || auth.activeShiftNumber;
+  const effectiveTeam = activeTeam || auth.activeTeam;
+
   const canReportIncident = isAdmin || isSupervisor || ['admin', 'chief', 'chief_assistant', 'supervisor', 'dept_head'].includes(user?.role);
   const [classification, setClassification] = useState(OFFICIAL_INCIDENT_CLASSIFICATIONS[0]);
   const [customTitle, setCustomTitle] = useState('');
@@ -42,6 +57,7 @@ export default function IncidentModal({
   const [coordinatedParties, setCoordinatedParties] = useState('');
   const [chronology, setChronology] = useState('');
   const [actionTaken, setActionTaken] = useState('');
+  const [deployedVehicles, setDeployedVehicles] = useState([]);
   const [lastCondition, setLastCondition] = useState('');
   const [photoFiles, setPhotoFiles] = useState([]);
   const [photoPreviews, setPhotoPreviews] = useState([]);
@@ -120,18 +136,26 @@ export default function IncidentModal({
 
     setSubmitting(true);
     try {
+      let recordedAction = actionTaken.trim();
+      if (deployedVehicles.length > 0) {
+        const fleetNote = `[Armada Dikerahkan: ${deployedVehicles.join(', ')}]`;
+        if (!recordedAction.includes('[Armada Dikerahkan:')) {
+          recordedAction = recordedAction ? `${fleetNote}\n${recordedAction}` : fleetNote;
+        }
+      }
+
       const formData = new FormData();
       formData.append('title', finalTitle);
       formData.append('category', mappedCategory);
-      formData.append('incident_date', activeDate);
+      formData.append('incident_date', effectiveDate);
       formData.append('incident_time', new Date().toTimeString().slice(0, 5));
-      formData.append('shift_number', activeShiftNumber);
-      formData.append('team_group', cleanTeam(activeTeam));
+      formData.append('shift_number', effectiveShift);
+      formData.append('team_group', cleanTeam(effectiveTeam));
       formData.append('location', location);
       formData.append('priority_level', priorityLevel);
       formData.append('aircraft_info', aircraftInfo);
       formData.append('chronology', chronology);
-      formData.append('action_taken', actionTaken);
+      formData.append('action_taken', recordedAction);
       formData.append('last_condition', lastCondition);
 
       if (sourceInfo.trim()) formData.append('source_info', sourceInfo.trim());
@@ -162,7 +186,7 @@ export default function IncidentModal({
       isOpen={isOpen}
       onClose={onClose}
       title="Catat Laporan Kejadian / Insiden Operasional"
-      subtitle={`Shift ${activeShiftNumber} | ${formatTeam(activeTeam)} | ${activeDate}`}
+      subtitle={`Shift ${effectiveShift || 1} | ${formatTeam(effectiveTeam || 'Alpha')} | ${effectiveDate || ''}`}
       maxWidth="max-w-2xl"
       footer={
         <>
@@ -286,6 +310,51 @@ export default function IncidentModal({
           placeholder="Penyemprotan foam, proteksi bahan bakar, evakuasi pax, koordinasi ATC..."
           rows={2}
         />
+
+        {/* Checklist Multi-Select Armada Aktif ke TKP */}
+        <div className="space-y-1.5 p-3 rounded-xl bg-slate-50 border border-slate-200">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-slate-800 block">
+              Armada ARFF yang Dikerahkan ke TKP (Multi-Select)
+            </label>
+            {deployedVehicles.length > 0 && (
+              <span className="text-[11px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded">
+                {deployedVehicles.length} Armada Terpilih
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-slate-500">
+            Klik armada yang meluncur ke lokasi kejadian untuk dicatat otomatis ke riwayat penanganan:
+          </p>
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {ARFF_FLEET_OPTIONS.map((veh) => {
+              const isSelected = deployedVehicles.includes(veh);
+              return (
+                <button
+                  key={veh}
+                  type="button"
+                  onClick={() => {
+                    setDeployedVehicles((prev) =>
+                      prev.includes(veh) ? prev.filter((v) => v !== veh) : [...prev, veh]
+                    );
+                  }}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors duration-100 flex items-center gap-1.5 ${
+                    isSelected
+                      ? 'bg-red-600 text-white border-red-700 shadow-xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  {isSelected ? (
+                    <Check className="w-3.5 h-3.5 shrink-0" />
+                  ) : (
+                    <Plus className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                  )}
+                  <span>{veh}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         <TextareaField
           label="Kondisi Terakhir Lokasi"

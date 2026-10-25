@@ -34,6 +34,23 @@ export default function A4DocumentLayout({
     <div
       className={`bg-white rounded-xl border border-slate-200 shadow-sm p-6 sm:p-8 max-w-4xl mx-auto print:p-0 print:border-0 print:shadow-none text-slate-800 ${className}`}
     >
+      <style>{`
+        @page {
+          size: A4 portrait;
+          margin: 10mm 12mm;
+        }
+        @media print {
+          body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .a4-avoid-break {
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+        }
+      `}</style>
+
       {/* 1. KOP RESMI DOKUMEN PT ANGKASA PURA INDONESIA */}
       <div className="text-center pb-5 border-b-2 border-slate-900 mb-5">
         <h3 className="text-sm sm:text-base font-black uppercase tracking-wider text-slate-900 leading-tight">
@@ -87,7 +104,7 @@ export default function A4DocumentLayout({
 
         {/* 3. PENGESAHAN & TANDA TANGAN PEJABAT RESMI */}
         {!hideSignatures && (
-          <div className="pt-6 border-t border-slate-200">
+          <div className="pt-6 border-t border-slate-200 a4-avoid-break">
             <h4 className="font-bold text-slate-900 uppercase tracking-wider mb-3">
               Pengesahan & Validasi Serah Terima Dinas
             </h4>
@@ -107,14 +124,10 @@ export default function A4DocumentLayout({
                     />
                   </div>
                 ) : (
-                  <div className="h-14 flex items-center justify-center">
-                    <span className="text-[10px] font-mono text-slate-400 italic">
-                      [ Tanda Tangan Digital ]
-                    </span>
-                  </div>
+                  <div className="h-14" aria-hidden="true" />
                 )}
-                <p className="font-bold text-slate-900 underline mt-1">
-                  ( {deptHeadData?.name || 'Section Head ARFF'} )
+                <p className="font-bold text-slate-900 underline mt-1 uppercase">
+                  {deptHeadData?.name || 'SECTION HEAD ARFF'}
                 </p>
                 {deptHeadData?.nip && deptHeadData.nip !== '-' && (
                   <p className="text-[10px] text-slate-500 font-mono">
@@ -138,14 +151,10 @@ export default function A4DocumentLayout({
                     />
                   </div>
                 ) : (
-                  <div className="h-14 flex items-center justify-center">
-                    <span className="text-[10px] font-mono text-slate-400 italic">
-                      [ Tanda Tangan Digital ]
-                    </span>
-                  </div>
+                  <div className="h-14" aria-hidden="true" />
                 )}
-                <p className="font-bold text-slate-900 underline mt-1">
-                  ( {shiftData?.supervisor_name || `Ketua Regu ${formatTeam(currentTeam)}`} )
+                <p className="font-bold text-slate-900 underline mt-1 uppercase">
+                  {shiftData?.supervisor_name || `KETUA REGU ${formatTeam(currentTeam)}`}
                 </p>
                 {shiftData?.supervisor_nip && shiftData.supervisor_nip !== '-' && (
                   <p className="text-[10px] text-slate-500 font-mono">

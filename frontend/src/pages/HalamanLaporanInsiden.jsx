@@ -20,6 +20,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import api from '../services/api';
+import { downloadIncidentReportPdf } from '../services/reportService';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
@@ -41,6 +42,7 @@ export default function HalamanLaporanInsiden() {
 
   // Data State
   const [loading, setLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState(null);
   const [reportData, setReportData] = useState({
     startDate: '',
@@ -89,21 +91,21 @@ export default function HalamanLaporanInsiden() {
   }, [fetchSummaryReport]);
 
   // Handler Download PDF Rekapitulasi Resmi
-  const handleExportPdf = () => {
-    const token = localStorage.getItem('arff_token') || localStorage.getItem('token') || '';
-    const queryParams = new URLSearchParams();
-    if (period === 'custom') {
-      if (startDate) queryParams.set('start_date', startDate);
-      if (endDate) queryParams.set('end_date', endDate);
-    } else {
-      queryParams.set('period', period);
+  const handleExportPdf = async () => {
+    try {
+      setIsExporting(true);
+      await downloadIncidentReportPdf({
+        period,
+        start_date: period === 'custom' ? startDate : '',
+        end_date: period === 'custom' ? endDate : '',
+        category: filterCategory,
+        status: filterStatus,
+      });
+    } catch (err) {
+      console.error('Gagal mengunduh PDF insiden:', err);
+    } finally {
+      setIsExporting(false);
     }
-    if (filterCategory !== 'ALL') queryParams.set('category', filterCategory);
-    if (filterStatus !== 'ALL') queryParams.set('status', filterStatus);
-    if (token) queryParams.set('token', token);
-
-    const pdfUrl = `/api/incidents/summary-report/pdf?${queryParams.toString()}`;
-    window.open(pdfUrl, '_blank');
   };
 
   // Filter teks pencarian (Layer 1)
@@ -194,8 +196,10 @@ export default function HalamanLaporanInsiden() {
             size="sm"
             icon={Download}
             onClick={handleExportPdf}
+            loading={isExporting}
+            disabled={isExporting}
           >
-            Unduh PDF Resmi
+            {isExporting ? 'Mengunduh...' : 'Unduh PDF Resmi'}
           </Button>
         </div>
       </div>

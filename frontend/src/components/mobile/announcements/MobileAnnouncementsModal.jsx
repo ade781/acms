@@ -31,10 +31,27 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
 
     let isMounted = true;
     async function fetchAnnouncements() {
+      const cached = typeof window !== 'undefined' ? window.__arff_announcements_cache : null;
+      if (cached && Date.now() - cached.timestamp < 30000 && cached.data) {
+        const list = cached.data?.data?.announcements || cached.data?.announcements || cached.data?.data || [];
+        if (isMounted) {
+          setAnnouncements(Array.isArray(list) ? list : []);
+          setCurrentPage(1);
+          setLoading(false);
+        }
+        return;
+      }
+
       try {
         setLoading(true);
         setError(null);
         const res = await api.get('/announcements');
+        if (typeof window !== 'undefined') {
+          window.__arff_announcements_cache = {
+            data: res.data,
+            timestamp: Date.now(),
+          };
+        }
         const list = res.data?.data?.announcements || res.data?.announcements || res.data?.data || [];
         if (isMounted) {
           setAnnouncements(Array.isArray(list) ? list : []);
@@ -66,6 +83,9 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
     if (isUnread) {
       try {
         await api.post(`/announcements/${item.id}/read`);
+        if (typeof window !== 'undefined') {
+          window.__arff_announcements_cache = null;
+        }
         setAnnouncements((prev) =>
           prev.map((a) => (a.id === item.id ? { ...a, is_read: 1 } : a))
         );

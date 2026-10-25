@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   ClipboardList,
   Plus,
@@ -14,10 +14,22 @@ import {
   ChevronRight,
   Eye,
   ImageIcon,
+  Users,
+  Megaphone,
+  Truck,
+  Wrench,
+  Activity,
+  Settings,
+  Compass,
+  AlertTriangle,
+  Download,
+  Calendar,
+  Filter,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam, formatTeam } from '../utils/shiftHelper';
 import api from '../services/api';
+import { downloadActivityReportPdf } from '../services/reportService';
 import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
@@ -38,6 +50,83 @@ export const OFFICIAL_ACTIVITY_CATEGORIES = [
   { value: 'sosialisasi_keselamatan', label: 'Edukasi & Inspeksi Runway/Apron' },
   { value: 'catatan_kendala', label: 'Catatan Khusus & Hambatan Dinas' },
 ];
+
+export const getActivityCategoryMeta = (type) => {
+  switch (type) {
+    case 'serah_terima':
+      return {
+        icon: Users,
+        badgeBg: 'bg-indigo-50 border-indigo-200 text-indigo-700',
+        nodeBg: 'bg-indigo-600 text-white',
+        nodeRing: 'ring-indigo-100',
+        label: 'Serah Terima Shift',
+      };
+    case 'apel_briefing':
+      return {
+        icon: Megaphone,
+        badgeBg: 'bg-blue-50 border-blue-200 text-blue-700',
+        nodeBg: 'bg-blue-600 text-white',
+        nodeRing: 'ring-blue-100',
+        label: 'Apel & Briefing Dinas',
+      };
+    case 'periksa_armada':
+      return {
+        icon: Truck,
+        badgeBg: 'bg-red-50 border-red-200 text-red-700',
+        nodeBg: 'bg-red-600 text-white',
+        nodeRing: 'ring-red-100',
+        label: 'Uji Pancar & Armada',
+      };
+    case 'periksa_peralatan':
+      return {
+        icon: Wrench,
+        badgeBg: 'bg-amber-50 border-amber-200 text-amber-800',
+        nodeBg: 'bg-amber-600 text-white',
+        nodeRing: 'ring-amber-100',
+        label: 'Pemeriksaan Alat Rescue',
+      };
+    case 'latihan_drill':
+      return {
+        icon: Activity,
+        badgeBg: 'bg-orange-50 border-orange-200 text-orange-700',
+        nodeBg: 'bg-orange-600 text-white',
+        nodeRing: 'ring-orange-100',
+        label: 'Latihan / Fire Drill',
+      };
+    case 'pemeliharaan':
+      return {
+        icon: Settings,
+        badgeBg: 'bg-teal-50 border-teal-200 text-teal-700',
+        nodeBg: 'bg-teal-600 text-white',
+        nodeRing: 'ring-teal-100',
+        label: 'Pemeliharaan Fasilitas',
+      };
+    case 'sosialisasi_keselamatan':
+      return {
+        icon: Compass,
+        badgeBg: 'bg-sky-50 border-sky-200 text-sky-700',
+        nodeBg: 'bg-sky-600 text-white',
+        nodeRing: 'ring-sky-100',
+        label: 'Patroli Runway & Apron',
+      };
+    case 'catatan_kendala':
+      return {
+        icon: AlertTriangle,
+        badgeBg: 'bg-rose-50 border-rose-200 text-rose-700',
+        nodeBg: 'bg-rose-600 text-white',
+        nodeRing: 'ring-rose-100',
+        label: 'Catatan Kendala Dinas',
+      };
+    default:
+      return {
+        icon: ClipboardList,
+        badgeBg: 'bg-slate-50 border-slate-200 text-slate-700',
+        nodeBg: 'bg-slate-700 text-white',
+        nodeRing: 'ring-slate-100',
+        label: 'Kegiatan Operasional',
+      };
+  }
+};
 
 export default function HalamanKegiatan() {
   const { user, isAdmin, isSupervisor, activeDate, activeShiftNumber, activeTeam } = useAuth();
@@ -77,30 +166,71 @@ export default function HalamanKegiatan() {
   // Modal Pratinjau Foto Lampiran
   const [previewImageUrl, setPreviewImageUrl] = useState(null);
 
+  // Mode Tampilan: 'shift' (Shift Ini) | 'range' (Rentang Periode / Riwayat)
+  const [viewMode, setViewMode] = useState('shift');
+  const [rangePeriod, setRangePeriod] = useState('1month');
+  const [rangeStartDate, setRangeStartDate] = useState('');
+  const [rangeEndDate, setRangeEndDate] = useState('');
+
+  // State Modal Ekspor PDF Logbook Kegiatan
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportPeriod, setExportPeriod] = useState('1month');
+  const [exportStartDate, setExportStartDate] = useState('');
+  const [exportEndDate, setExportEndDate] = useState('');
+  const [exportCategory, setExportCategory] = useState('ALL');
+  const [exportTeam, setExportTeam] = useState('ALL');
+  const [isExporting, setIsExporting] = useState(false);
+
   const fetchActivities = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get(
-        `/activities?date=${activeDate}&shift=${activeShiftNumber}&team_group=${cleanTeam(activeTeam)}`
-      );
-      const list = Array.isArray(res.data?.activities)
-        ? res.data.activities
-        : Array.isArray(res.data)
-        ? res.data
-        : [];
+      let endpoint = '';
+      if (viewMode === 'shift') {
+        endpoint = `/activities?date=${activeDate}&shift=${activeShiftNumber}&team_group=${cleanTeam(activeTeam)}`;
+      } else {
+        if (rangePeriod === 'custom' && rangeStartDate && rangeEndDate) {
+          endpoint = `/activities?start_date=${rangeStartDate}&end_date=${rangeEndDate}`;
+        } else {
+          endpoint = `/activities?period=${rangePeriod === 'custom' ? '1month' : rangePeriod}`;
+        }
+      }
+
+      const res = await api.get(endpoint);
+      const raw = res.data?.data ?? res.data?.activities ?? res.data;
+      const list = Array.isArray(raw) ? raw : [];
       setActivities(list);
     } catch (err) {
       console.error('Error fetching activities:', err);
-      setError('Gagal memuat logbook kegiatan shift.');
+      setError('Gagal memuat logbook kegiatan.');
     } finally {
       setLoading(false);
     }
-  }, [activeDate, activeShiftNumber, activeTeam]);
+  }, [viewMode, activeDate, activeShiftNumber, activeTeam, rangePeriod, rangeStartDate, rangeEndDate]);
 
   useEffect(() => {
     fetchActivities();
   }, [fetchActivities]);
+
+  const handleExportPdf = async () => {
+    try {
+      setIsExporting(true);
+      await downloadActivityReportPdf({
+        period: exportPeriod,
+        start_date: exportPeriod === 'custom' ? exportStartDate : '',
+        end_date: exportPeriod === 'custom' ? exportEndDate : '',
+        category: exportCategory,
+        team: exportTeam,
+      });
+      setToastMsg('Dokumen rekapitulasi logbook kegiatan resmi berhasil diunduh.');
+      setExportModalOpen(false);
+    } catch (err) {
+      console.error('Gagal mengunduh PDF logbook kegiatan:', err);
+      setToastMsg('Gagal mengunduh berkas logbook kegiatan. Silakan coba kembali.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleOpenCreateModal = () => {
     setEditingId(null);
@@ -226,6 +356,26 @@ export default function HalamanKegiatan() {
     }
   };
 
+  // Auto-dismiss toast feedback 3.5 detik
+  useEffect(() => {
+    if (toastMsg) {
+      const timer = setTimeout(() => {
+        setToastMsg(null);
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMsg]);
+
+  // Optimasi perhitungan jumlah kategori dengan useMemo
+  const categoryCounts = useMemo(() => {
+    const counts = { ALL: activities.length };
+    for (const act of activities) {
+      const type = act.activity_type || 'serah_terima';
+      counts[type] = (counts[type] || 0) + 1;
+    }
+    return counts;
+  }, [activities]);
+
   // Filtered & Paginated
   const filteredActivities = activities.filter((act) => {
     if (selectedFilterCategory === 'ALL') return true;
@@ -241,16 +391,108 @@ export default function HalamanKegiatan() {
   };
 
   return (
-    <div>
-      <ShiftHeaderCard
-        shiftNumber={activeShiftNumber}
-        shiftDate={activeDate}
-        teamGroup={activeTeam}
-      />
+    <div className="space-y-6">
+      {/* Mode Switcher: Shift Ini vs Riwayat Periode */}
+      <div className="flex items-center justify-between border-b border-slate-200 pb-3 gap-3 flex-wrap">
+        <div className="inline-flex rounded-lg bg-slate-100 p-1 text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => {
+              setViewMode('shift');
+              setCurrentPage(1);
+            }}
+            className={`px-3 py-1.5 rounded-md transition-colors duration-100 ${
+              viewMode === 'shift'
+                ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Shift Berjalan ({activeTeam})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setViewMode('range');
+              setCurrentPage(1);
+            }}
+            className={`px-3 py-1.5 rounded-md transition-colors duration-100 ${
+              viewMode === 'range'
+                ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Riwayat & Arsip Periode
+          </button>
+        </div>
+
+        {viewMode === 'range' && (
+          <span className="text-xs text-slate-500 font-medium hidden sm:inline">
+            Menampilkan aktivitas lintas sesi dinas
+          </span>
+        )}
+      </div>
+
+      {/* Kondisional Header: ShiftHeaderCard (Mode Shift) vs Filter Rentang Waktu (Mode Range) */}
+      {viewMode === 'shift' ? (
+        <ShiftHeaderCard
+          shiftNumber={activeShiftNumber}
+          shiftDate={activeDate}
+          teamGroup={activeTeam}
+        />
+      ) : (
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs space-y-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+              Pilih Rentang Periode Aktivitas:
+            </span>
+            <div className="inline-flex gap-1.5 flex-wrap">
+              {[
+                { id: '1week', label: '7 Hari Terakhir' },
+                { id: '1month', label: '30 Hari Terakhir' },
+                { id: '3months', label: '3 Bulan (Triwulan)' },
+                { id: 'custom', label: 'Rentang Kustom' },
+              ].map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    setRangePeriod(p.id);
+                    setCurrentPage(1);
+                  }}
+                  className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors duration-100 ${
+                    rangePeriod === p.id
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {rangePeriod === 'custom' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+              <InputField
+                label="Tanggal Mulai"
+                type="date"
+                value={rangeStartDate}
+                onChange={(e) => setRangeStartDate(e.target.value)}
+              />
+              <InputField
+                label="Tanggal Selesai"
+                type="date"
+                value={rangeEndDate}
+                onChange={(e) => setRangeEndDate(e.target.value)}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Toast Feedback */}
       {toastMsg && (
-        <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between shadow-xs">
+        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-2">
             <Check className="w-4 h-4 text-emerald-600 shrink-0" />
             <span className="font-semibold">{toastMsg}</span>
@@ -267,7 +509,7 @@ export default function HalamanKegiatan() {
       )}
 
       {/* Top Header & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold tracking-tight text-slate-900">
             Logbook Kegiatan Rutin
@@ -277,15 +519,25 @@ export default function HalamanKegiatan() {
           </p>
         </div>
 
-        {canManageActivity && (
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
-            variant="primary"
-            icon={Plus}
-            onClick={handleOpenCreateModal}
+            variant="outline"
+            icon={Download}
+            onClick={() => setExportModalOpen(true)}
           >
-            Tambah Kegiatan
+            Cetak Logbook PDF
           </Button>
-        )}
+
+          {canManageActivity && (
+            <Button
+              variant="primary"
+              icon={Plus}
+              onClick={handleOpenCreateModal}
+            >
+              Tambah Kegiatan
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Filter Kategori */}
@@ -303,10 +555,10 @@ export default function HalamanKegiatan() {
               : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
           }`}
         >
-          Semua ({activities.length})
+          Semua ({categoryCounts.ALL || 0})
         </button>
         {OFFICIAL_ACTIVITY_CATEGORIES.map((cat) => {
-          const count = activities.filter((a) => a.activity_type === cat.value).length;
+          const count = categoryCounts[cat.value] || 0;
           return (
             <button
               key={cat.value}
@@ -346,88 +598,103 @@ export default function HalamanKegiatan() {
         }
         onRetry={fetchActivities}
       >
-        <div className="space-y-4">
-          {paginatedActivities.map((act) => (
-            <div
-              key={act.id}
-              className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:border-slate-300 transition-colors duration-100"
-            >
-              <div className="flex items-start justify-between gap-2 pb-3 border-b border-slate-100">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-mono text-xs font-bold text-slate-800 bg-slate-100 px-2.5 py-1 rounded">
-                    {act.activity_time ? act.activity_time.slice(0, 5) : '-'} WIB
-                  </span>
-                  <span className="text-xs font-bold text-red-700 bg-red-50 border border-red-200 px-2.5 py-0.5 rounded">
-                    {getCategoryLabel(act.activity_type)}
-                  </span>
+        {/* Vertical Step Timeline Kronologis Logbook Resmi */}
+        <div className="relative pl-6 sm:pl-8 before:absolute before:top-4 before:bottom-4 before:left-3 sm:before:left-4 before:w-0.5 before:bg-slate-200 space-y-6">
+          {paginatedActivities.map((act) => {
+            const meta = getActivityCategoryMeta(act.activity_type);
+            const NodeIcon = meta.icon;
+            return (
+              <div key={act.id} className="relative group">
+                {/* Simpul Timeline / Timeline Node */}
+                <div
+                  className={`absolute -left-6 sm:-left-8 top-1 w-6 h-6 sm:w-8 sm:h-8 rounded-full ${meta.nodeBg} ring-4 ${meta.nodeRing} flex items-center justify-center shadow-xs z-10 transition-transform duration-100 group-hover:scale-110`}
+                  title={meta.label}
+                >
+                  <NodeIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400 font-mono hidden sm:inline">
-                    Regu {formatTeam(act.team_group || activeTeam)}
-                  </span>
-                  {canManageActivity && (
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEditModal(act)}
-                        className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-100"
-                        title="Edit Kegiatan"
-                        aria-label="Edit Kegiatan"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenDeleteModal(act)}
-                        className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-100"
-                        title="Hapus Kegiatan"
-                        aria-label="Hapus Kegiatan"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                {/* Card Logbook */}
+                <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-xs hover:border-slate-300 transition-colors duration-100 ml-1">
+                  <div className="flex items-start justify-between gap-2 pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-xs font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded border border-slate-200 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-slate-500" />
+                        {act.activity_time ? act.activity_time.slice(0, 5) : '-'} WIB
+                      </span>
+                      <span className={`text-xs font-bold border px-2.5 py-0.5 rounded ${meta.badgeBg}`}>
+                        {meta.label}
+                      </span>
                     </div>
-                  )}
-                </div>
-              </div>
 
-              <div className="mt-3 flex flex-col md:flex-row gap-4 items-start">
-                <div className="flex-1">
-                  <h4 className="text-sm font-bold text-slate-900 mb-1">{act.title}</h4>
-                  <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">
-                    {act.description}
-                  </p>
-
-                  {act.result_notes && (
-                    <div className="mt-3 p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600">
-                      <strong className="text-slate-800 block mb-0.5">Hasil / Catatan Khusus:</strong>
-                      <span>{act.result_notes}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Thumbnail Dokumentasi Foto */}
-                {act.attachment_url && (
-                  <div className="w-full md:w-44 shrink-0">
-                    <div
-                      onClick={() => setPreviewImageUrl(act.attachment_url)}
-                      className="group relative cursor-pointer rounded-lg overflow-hidden border border-slate-200 bg-slate-100 aspect-video md:aspect-4/3 flex items-center justify-center hover:opacity-90 transition-opacity"
-                    >
-                      <img
-                        src={act.attachment_url}
-                        alt="Foto Kegiatan"
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-100 text-white text-xs font-semibold gap-1">
-                        <Eye className="w-4 h-4" />
-                        <span>Perbesar</span>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-slate-400 font-mono hidden sm:inline">
+                        Regu {formatTeam(act.team_group || activeTeam)}
+                      </span>
+                      {canManageActivity && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditModal(act)}
+                            className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-100"
+                            title="Edit Kegiatan"
+                            aria-label="Edit Kegiatan"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDeleteModal(act)}
+                            className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-100"
+                            title="Hapus Kegiatan"
+                            aria-label="Hapus Kegiatan"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
-                )}
+
+                  <div className="mt-3 flex flex-col md:flex-row gap-4 items-start">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-bold text-slate-900 mb-1.5">{act.title}</h4>
+                      <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">
+                        {act.description}
+                      </p>
+
+                      {act.result_notes && (
+                        <div className="mt-3 p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600">
+                          <strong className="text-slate-800 block mb-0.5">Hasil / Catatan Khusus:</strong>
+                          <span>{act.result_notes}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Thumbnail Dokumentasi Foto */}
+                    {act.attachment_url && (
+                      <div className="w-full md:w-44 shrink-0">
+                        <div
+                          onClick={() => setPreviewImageUrl(act.attachment_url)}
+                          className="group relative cursor-pointer rounded-lg overflow-hidden border border-slate-200 bg-slate-100 aspect-video md:aspect-4/3 flex items-center justify-center hover:opacity-95 transition-opacity"
+                        >
+                          <img
+                            src={act.attachment_url}
+                            alt="Foto Kegiatan"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-100 text-white text-xs font-semibold gap-1">
+                            <Eye className="w-4 h-4" />
+                            <span>Perbesar</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
+        </div>
 
           {/* Pagination Controls */}
           {filteredActivities.length > 0 && (
@@ -464,8 +731,7 @@ export default function HalamanKegiatan() {
               </div>
             </div>
           )}
-        </div>
-      </StateView>
+        </StateView>
 
       {/* Modal Tambah / Edit Kegiatan */}
       {modalOpen && (
@@ -655,6 +921,102 @@ export default function HalamanKegiatan() {
           </div>
         </div>
       )}
+
+      {/* Modal Ekspor PDF Logbook Kegiatan Resmi */}
+      <Modal
+        isOpen={exportModalOpen}
+        onClose={() => !isExporting && setExportModalOpen(false)}
+        title="Cetak Rekapitulasi Logbook Kegiatan Resmi"
+        subtitle="Unduh berkas PDF logbook rangkaian kegiatan dinas bertandatangan pimpinan dinas ARFF YIA"
+      >
+        <div className="space-y-4">
+          <SelectField
+            label="Periode Rekapitulasi"
+            value={exportPeriod}
+            onChange={(e) => setExportPeriod(e.target.value)}
+            options={[
+              { value: '1week', label: '1 Minggu Terakhir (7 Hari)' },
+              { value: '1month', label: '1 Bulan Terakhir (30 Hari)' },
+              { value: '3months', label: '3 Bulan Terakhir (Triwulan)' },
+              { value: '1year', label: '1 Tahun Terakhir (Tahunan)' },
+              { value: 'custom', label: 'Rentang Tanggal Kustom' },
+            ]}
+          />
+
+          {exportPeriod === 'custom' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <InputField
+                label="Tanggal Mulai"
+                type="date"
+                value={exportStartDate}
+                onChange={(e) => setExportStartDate(e.target.value)}
+              />
+              <InputField
+                label="Tanggal Selesai"
+                type="date"
+                value={exportEndDate}
+                onChange={(e) => setExportEndDate(e.target.value)}
+              />
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <SelectField
+              label="Filter Kategori Kegiatan"
+              value={exportCategory}
+              onChange={(e) => setExportCategory(e.target.value)}
+              options={[
+                { value: 'ALL', label: 'Semua Kategori Aktivitas' },
+                ...OFFICIAL_ACTIVITY_CATEGORIES.map((c) => ({
+                  value: c.value,
+                  label: c.label.split('(')[0].trim(),
+                })),
+              ]}
+            />
+
+            <SelectField
+              label="Filter Regu Dinas"
+              value={exportTeam}
+              onChange={(e) => setExportTeam(e.target.value)}
+              options={[
+                { value: 'ALL', label: 'Seluruh Regu Dinas (A-D)' },
+                { value: 'Alpha', label: 'Regu Alpha' },
+                { value: 'Bravo', label: 'Regu Bravo' },
+                { value: 'Charlie', label: 'Regu Charlie' },
+                { value: 'Delta', label: 'Regu Delta' },
+              ]}
+            />
+          </div>
+
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 space-y-1">
+            <p className="font-semibold">Format Dokumen Cetak Standar D-OPS ARFF YIA:</p>
+            <p className="text-[11px] text-blue-700">
+              Dokumen PDF memuat daftar kronologis aktivitas dinas, jam pelaksanaan (WIB), kategori kegiatan, uraian teknis hasil pelaksanaan, serta lembar tanda tangan dinas Section Head.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isExporting}
+              onClick={() => setExportModalOpen(false)}
+            >
+              Batal
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              icon={Download}
+              loading={isExporting}
+              disabled={isExporting || (exportPeriod === 'custom' && (!exportStartDate || !exportEndDate))}
+              onClick={handleExportPdf}
+            >
+              {isExporting ? 'Memproses Dokumen PDF...' : 'Unduh Dokumen PDF'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

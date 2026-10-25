@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Download,
   AlertCircle,
@@ -28,6 +28,7 @@ import A4DocumentLayout from '../components/reports/A4DocumentLayout';
 
 export default function HalamanLaporan() {
   const { activeDate, activeShiftNumber, activeTeam } = useAuth();
+  const abortControllerRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
@@ -60,6 +61,12 @@ export default function HalamanLaporan() {
 
   // Fetch data laporan operasional terpadu (Single Source of Truth)
   const fetchShiftData = useCallback(async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       setLoading(true);
       setFetchError(null);
@@ -68,6 +75,7 @@ export default function HalamanLaporan() {
         date: activeDate,
         shift: activeShiftNumber,
         team: activeTeam,
+        signal: controller.signal,
       });
 
       setShiftData(data.shiftData);
@@ -80,6 +88,7 @@ export default function HalamanLaporan() {
       setActivities(data.activities);
       setIncidents(data.incidents);
     } catch (err) {
+      if (err.name === 'CanceledError' || err.name === 'AbortError') return;
       console.error('Fetch shift report preview error:', err);
       setFetchError(
         'Gagal memuat pratinjau data operasional shift. Silakan periksa koneksi server atau coba lagi.'
@@ -91,6 +100,11 @@ export default function HalamanLaporan() {
 
   useEffect(() => {
     fetchShiftData();
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [fetchShiftData]);
 
   const handleExportPDF = async () => {

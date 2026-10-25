@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   FileText,
   Download,
@@ -36,6 +36,7 @@ import MobileSignaturesSection from '../../components/mobile/reports/MobileSigna
  */
 export default function MobileLaporan() {
   const { activeDate, activeShiftNumber, activeTeam } = useAuth();
+  const abortControllerRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -71,6 +72,12 @@ export default function MobileLaporan() {
   // Fetch seluruh data operasional shift secara agregat via modul service terpadu (Single Source of Truth)
   const fetchReportData = useCallback(
     async (isManualRefresh = false) => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       try {
         if (isManualRefresh) setRefreshing(true);
         else setLoading(true);
@@ -80,6 +87,7 @@ export default function MobileLaporan() {
           date: activeDate,
           shift: activeShiftNumber,
           team: activeTeam,
+          signal: controller.signal,
         });
 
         setShiftData(data.shiftData);
@@ -92,6 +100,7 @@ export default function MobileLaporan() {
         setActivities(data.activities);
         setIncidents(data.incidents);
       } catch (err) {
+        if (err.name === 'CanceledError' || err.name === 'AbortError') return;
         console.error('Error fetching mobile report data:', err);
         setErrorMessage(
           'Sebagian data operasional shift belum lengkap atau sedang disinkronkan.'
@@ -106,6 +115,11 @@ export default function MobileLaporan() {
 
   useEffect(() => {
     fetchReportData();
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [fetchReportData]);
 
   // Handler Download PDF Langsung

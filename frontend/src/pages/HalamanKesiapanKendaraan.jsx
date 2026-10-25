@@ -184,7 +184,7 @@ export default function HalamanKesiapanKendaraan() {
       {/* Toast Feedback */}
       {toastMsg && (
         <div
-          className={`mb-4 p-3 rounded-xl border flex items-center justify-between text-xs font-semibold shadow-sm transition-all duration-150 ${
+          className={`mb-4 p-3 rounded-xl border flex items-center justify-between text-xs font-semibold shadow-sm transition-colors duration-100 ${
             toastMsg.type === 'error'
               ? 'bg-red-50 border-red-200 text-red-800'
               : 'bg-emerald-50 border-emerald-200 text-emerald-800'
@@ -245,8 +245,12 @@ export default function HalamanKesiapanKendaraan() {
             {unserviceableCount} Unserviceable
           </span>
           {needsPhysicalInspectCount > 0 && (
-            <span className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 text-xs font-medium" title="Armada berstatus siap operasi (menunggu upload foto fisik shift ini)">
-              {needsPhysicalInspectCount} Menunggu Foto Fisik
+            <span
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 text-xs font-medium cursor-help"
+              title="Sesuai SOP dinas (GEMINI.md Butir 17): Status kesiapan armada tetap Serviceable (Siap Operasi Penuh), menunggu dokumentasi verifikasi foto fisik oleh PIC armada pada shift ini."
+            >
+              <span>{needsPhysicalInspectCount} Menunggu Foto Fisik</span>
+              <HelpCircle className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 transition-colors duration-100" />
             </span>
           )}
         </div>

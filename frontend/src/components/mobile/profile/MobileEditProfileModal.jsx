@@ -5,6 +5,7 @@ import api from '../../../services/api';
 export default function MobileEditProfileModal({ isOpen, onClose, personnel, onSuccess }) {
   const [formData, setFormData] = useState({
     nip: '',
+    birth_place: '',
     birth_date: '',
     formal_education: '',
     cert_level: 'Junior',
@@ -23,6 +24,7 @@ export default function MobileEditProfileModal({ isOpen, onClose, personnel, onS
 
       setFormData({
         nip: personnel.nip || '',
+        birth_place: personnel.birth_place || '',
         birth_date: personnel.birth_date ? personnel.birth_date.split('T')[0] : '',
         formal_education: personnel.formal_education || '',
         cert_level: rawCert,
@@ -47,6 +49,7 @@ export default function MobileEditProfileModal({ isOpen, onClose, personnel, onS
 
     const payload = {
       nip: formData.nip,
+      birth_place: formData.birth_place || null,
       birth_date: formData.birth_date || null,
       formal_education: formData.formal_education,
       cert_level: formData.cert_level,
@@ -109,16 +112,28 @@ export default function MobileEditProfileModal({ isOpen, onClose, personnel, onS
             />
           </div>
 
+          <div>
+            <label className="text-[10px] font-bold text-slate-600 block mb-0.5">NIP</label>
+            <input
+              type="text"
+              name="nip"
+              value={formData.nip}
+              onChange={handleChange}
+              placeholder="NIP Personel"
+              className="w-full p-1.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 font-mono text-xs outline-none focus:border-red-500 transition-colors duration-100"
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-1.5">
             <div>
-              <label className="text-[10px] font-bold text-slate-600 block mb-0.5">NIP</label>
+              <label className="text-[10px] font-bold text-slate-600 block mb-0.5">Tempat Lahir</label>
               <input
                 type="text"
-                name="nip"
-                value={formData.nip}
+                name="birth_place"
+                value={formData.birth_place}
                 onChange={handleChange}
-                placeholder="NIP Personel"
-                className="w-full p-1.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 font-mono text-xs outline-none focus:border-red-500 transition-colors duration-100"
+                placeholder="Kota Kelahiran"
+                className="w-full p-1.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 text-xs outline-none focus:border-red-500 transition-colors duration-100"
               />
             </div>
             <div>

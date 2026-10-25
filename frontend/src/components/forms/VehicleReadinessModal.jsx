@@ -126,12 +126,20 @@ export default function VehicleReadinessModal({
     }
   };
 
+  const formattedDate = activeDate
+    ? new Date(activeDate.includes('T') ? activeDate : `${activeDate}T00:00:00`).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    : '-';
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={`Pemeriksaan Kondisi Kendaraan: ${vehicle.code_name || vehicle.vehicle_name}`}
-      subtitle={`Shift ${activeShiftNumber} | ${formatTeam(activeTeam)} | ${activeDate}`}
+      subtitle={`Shift ${activeShiftNumber} | ${formatTeam(activeTeam)} | ${formattedDate}`}
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={submitting}>

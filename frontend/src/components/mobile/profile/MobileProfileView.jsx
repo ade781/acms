@@ -207,15 +207,6 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
               <span>+ Cuti Mandiri</span>
             </button>
           )}
-
-          <button
-            type="button"
-            onClick={() => setIsPasswordOpen(true)}
-            className="px-2 py-1 rounded-md bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-bold hover:bg-slate-200 transition-colors duration-100 flex items-center gap-1"
-          >
-            <Lock className="w-3 h-3" />
-            <span>Sandi</span>
-          </button>
         </div>
       </div>
 
@@ -269,17 +260,34 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
               NIP: {activePersonnel?.nip || '-'}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setIsEditOpen(true)}
-            className="px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-bold flex items-center gap-1 transition-colors duration-100 shadow-2xs"
-          >
-            <Edit3 className="w-3 h-3" />
-            <span>Edit Data</span>
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsPasswordOpen(true)}
+              className="px-2 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[10px] font-bold flex items-center gap-1 transition-colors duration-100 shadow-2xs"
+            >
+              <Lock className="w-3 h-3 text-slate-500" />
+              <span>Ubah Sandi</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsEditOpen(true)}
+              className="px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-bold flex items-center gap-1 transition-colors duration-100 shadow-2xs"
+            >
+              <Edit3 className="w-3 h-3" />
+              <span>Edit Data</span>
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-1.5 text-xs">
+          <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+            <span className="text-[9px] font-medium text-slate-500 block">Tempat Lahir</span>
+            <span className="font-bold text-slate-900 text-[11px] block mt-0.5 truncate">
+              {activePersonnel?.birth_place || '-'}
+            </span>
+          </div>
+
           <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
             <span className="text-[9px] font-medium text-slate-500 block">Tanggal Lahir</span>
             <span className="font-bold text-slate-900 text-[11px] block mt-0.5">

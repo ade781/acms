@@ -1,13 +1,12 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import { Menu, LogOut, User, Calendar, Clock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { SHIFT_DEFINITIONS, formatTeam, formatRoleName } from '../../utils/shiftHelper';
 import Logo from '../common/Logo';
 import Badge from '../common/Badge';
+import DesktopProfileModal from '../profile/DesktopProfileModal';
 
 export default function Navbar({ onToggleSidebar }) {
-  const navigate = useNavigate();
   const {
     user,
     logout,
@@ -17,6 +16,16 @@ export default function Navbar({ onToggleSidebar }) {
     setActiveShiftNumber,
     activeTeam,
   } = useAuth();
+
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  useEffect(() => {
+    const handleOpenProfile = () => setIsProfileOpen(true);
+    window.addEventListener('arff:open-profile-modal', handleOpenProfile);
+    return () => {
+      window.removeEventListener('arff:open-profile-modal', handleOpenProfile);
+    };
+  }, []);
 
   const currentShiftDef = SHIFT_DEFINITIONS.find((s) => s.number === Number(activeShiftNumber));
 
@@ -83,15 +92,10 @@ export default function Navbar({ onToggleSidebar }) {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  if (user?.personnel_id) {
-                    navigate(`/personnel/${user.personnel_id}`);
-                  } else {
-                    navigate('/personnel');
-                  }
-                }}
+                onClick={() => setIsProfileOpen(true)}
                 className="hidden sm:flex flex-col text-right hover:opacity-80 transition-opacity focus:outline-none cursor-pointer"
-                title="Buka Profil Pribadi & STKP"
+                title="Buka Profil Mandiri & Kredensial STKP"
+                aria-label="Buka Profil Pribadi"
               >
                 <span className="text-xs font-bold text-slate-900 leading-tight">
                   {user.name || user.username}
@@ -103,15 +107,9 @@ export default function Navbar({ onToggleSidebar }) {
 
               <button
                 type="button"
-                onClick={() => {
-                  if (user?.personnel_id) {
-                    navigate(`/personnel/${user.personnel_id}`);
-                  } else {
-                    navigate('/personnel');
-                  }
-                }}
+                onClick={() => setIsProfileOpen(true)}
                 className="w-9 h-9 rounded-full bg-slate-100 hover:bg-red-50 hover:border-red-400 border border-slate-300 flex items-center justify-center text-slate-700 hover:text-red-600 font-semibold text-xs select-none transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-red-500 cursor-pointer"
-                title={`Profil Pribadi: ${user.name || user.username}`}
+                title={`Profil Mandiri: ${user.name || user.username}`}
                 aria-label="Profil Pengguna"
               >
                 {user.name ? user.name.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
@@ -142,6 +140,12 @@ export default function Navbar({ onToggleSidebar }) {
         </div>
         <span className="text-[11px] text-slate-500">{activeDate}</span>
       </div>
+
+      {/* Sub-view Modal Profil Mandiri Desktop (GEMINI.md Butir 9) */}
+      <DesktopProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+      />
     </header>
   );
 }

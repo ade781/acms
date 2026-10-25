@@ -14,6 +14,7 @@ import api from '../services/api';
 import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import DeploymentSlotCard from '../components/forms/DeploymentSlotCard';
 import VehicleReadinessModal from '../components/forms/VehicleReadinessModal';
+import WatchroomReadinessModal from '../components/forms/WatchroomReadinessModal';
 import StateView from '../components/common/StateView';
 
 export default function HalamanPenugasan() {
@@ -281,33 +282,68 @@ export default function HalamanPenugasan() {
 
     try {
       const payloadDeployments = [];
+      const assignedMap = new Map(); // personnel_id -> unitName
+      let duplicateErrorMsg = null;
 
       // Collect all operational units (armada & posko watchroom)
-      Object.entries(vehicleSlots).forEach(([vId, slots]) => {
+      for (const [vId, slots] of Object.entries(vehicleSlots)) {
         const unitObj = vehicles.find((v) => Number(v.id) === Number(vId));
+        const unitName = unitObj?.code_name || unitObj?.vehicle_name || `Unit #${vId}`;
         const isPosko = unitObj?.category === 'posko' || unitObj?.code_name === 'WATCHROOM';
         const depType = isPosko
           ? 'watchroom'
           : (unitObj?.category === 'pendukung' ? 'vehicle_pendukung' : 'vehicle_utama');
 
-        slots.forEach((s, idx) => {
+        for (let idx = 0; idx < slots.length; idx++) {
+          const s = slots[idx];
           if (s.personnel_id) {
+            const pId = Number(s.personnel_id);
+
+            // Cek duplikasi personel di lebih dari satu slot armada
+            if (assignedMap.has(pId)) {
+              const prevUnit = assignedMap.get(pId);
+              const personObj = teamPersonnel.find((p) => Number(p.id) === pId);
+              const personName = personObj?.name || personObj?.full_name || s.personnel_name || `ID #${pId}`;
+              duplicateErrorMsg = `Personel ${personName} terdeteksi ditugaskan ganda pada ${prevUnit} dan ${unitName}. Satu personel hanya dapat menempati satu slot armada.`;
+              break;
+            }
+
+            assignedMap.set(pId, unitName);
+
             payloadDeployments.push({
-              personnel_id: Number(s.personnel_id),
+              personnel_id: pId,
               deployment_type: depType,
               vehicle_id: Number(vId),
               is_pic: idx === 0, // Slot 0 paling atas FIX sebagai PIC
               notes: isPosko ? 'Operator Komunikasi Watchroom' : (idx === 0 ? 'PIC Armada' : 'Kru Armada'),
             });
           }
-        });
-      });
+        }
 
-      // Collect absent
-      absentList.forEach((abs) => {
+        if (duplicateErrorMsg) break;
+      }
+
+      if (duplicateErrorMsg) {
+        setError(duplicateErrorMsg);
+        setSaving(false);
+        return;
+      }
+
+      // Collect absent and check collision with assigned personnel
+      for (const abs of absentList) {
         if (abs.personnel_id) {
+          const pId = Number(abs.personnel_id);
+          if (assignedMap.has(pId)) {
+            const prevUnit = assignedMap.get(pId);
+            const personObj = teamPersonnel.find((p) => Number(p.id) === pId);
+            const personName = personObj?.name || personObj?.full_name || `ID #${pId}`;
+            setError(`Personel ${personName} tercatat sedang cuti/izin namun masih terploting di ${prevUnit}. Silakan kosongkan slotnya terlebih dahulu.`);
+            setSaving(false);
+            return;
+          }
+
           payloadDeployments.push({
-            personnel_id: Number(abs.personnel_id),
+            personnel_id: pId,
             deployment_type: 'absent',
             vehicle_id: null,
             is_pic: false,
@@ -315,7 +351,7 @@ export default function HalamanPenugasan() {
             notes: abs.notes,
           });
         }
-      });
+      }
 
       await api.post('/deployments/batch', {
         shift_date: activeDate,
@@ -590,27 +626,51 @@ export default function HalamanPenugasan() {
       </>
       )}
 
-      {/* Modal Pemeriksaan Kesiapan Fisik Armada Langsung dari Ploting */}
+      {/* Modal Pemeriksaan Kesiapan Fisik Armada / Posko Watchroom Langsung dari Ploting */}
       {inspectionModalOpen && selectedVehicleForInspection && (
-        <VehicleReadinessModal
-          isOpen={inspectionModalOpen}
-          onClose={() => {
-            setInspectionModalOpen(false);
-            setSelectedVehicleForInspection(null);
-          }}
-          vehicle={selectedVehicleForInspection}
-          activeDate={activeDate}
-          activeShiftNumber={activeShiftNumber}
-          activeTeam={activeTeam}
-          onSuccess={() => {
-            fetchDeploymentData({ keepSuccessMsg: true });
-            setSuccessMsg(
-              `Kesiapan fisik kendaraan ${
-                selectedVehicleForInspection.code_name || selectedVehicleForInspection.vehicle_name
-              } berhasil diperbarui.`
-            );
-          }}
-        />
+        (selectedVehicleForInspection.category === 'posko' || selectedVehicleForInspection.code_name === 'WATCHROOM') ? (
+          <WatchroomReadinessModal
+            isOpen={inspectionModalOpen}
+            onClose={() => {
+              setInspectionModalOpen(false);
+              setSelectedVehicleForInspection(null);
+            }}
+            logItem={selectedVehicleForInspection}
+            activeDate={activeDate}
+            activeShiftNumber={activeShiftNumber}
+            activeTeam={activeTeam}
+            onSuccess={(customMsg) => {
+              fetchDeploymentData({ keepSuccessMsg: true });
+              setSuccessMsg(
+                customMsg ||
+                `Kesiapan fasilitas posko ${
+                  selectedVehicleForInspection.code_name || selectedVehicleForInspection.vehicle_name
+                } berhasil diperbarui.`
+              );
+            }}
+          />
+        ) : (
+          <VehicleReadinessModal
+            isOpen={inspectionModalOpen}
+            onClose={() => {
+              setInspectionModalOpen(false);
+              setSelectedVehicleForInspection(null);
+            }}
+            vehicle={selectedVehicleForInspection}
+            activeDate={activeDate}
+            activeShiftNumber={activeShiftNumber}
+            activeTeam={activeTeam}
+            onSuccess={(customMsg) => {
+              fetchDeploymentData({ keepSuccessMsg: true });
+              setSuccessMsg(
+                customMsg ||
+                `Kesiapan fisik kendaraan ${
+                  selectedVehicleForInspection.code_name || selectedVehicleForInspection.vehicle_name
+                } berhasil diperbarui.`
+              );
+            }}
+          />
+        )
       )}
     </div>
   );

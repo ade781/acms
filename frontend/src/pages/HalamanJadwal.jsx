@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -49,6 +49,11 @@ export default function HalamanJadwal() {
   const [successMessage, setSuccessMessage] = useState(null);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
 
+  // In-memory cache untuk jadwal bulanan selama sesi aktif
+  const monthlyCacheRef = useRef(new Map());
+  // Timer ref untuk debounce pemilih tanggal siklus 300ms
+  const cyclePreviewTimerRef = useRef(null);
+
   const getLocalDateStr = (d = new Date()) => {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -56,13 +61,23 @@ export default function HalamanJadwal() {
     return `${y}-${m}-${day}`;
   };
 
-  const fetchMonthlySchedule = useCallback(async () => {
+  const fetchMonthlySchedule = useCallback(async (forceRefresh = false) => {
+    const cacheKey = `${selectedYear}-${selectedMonth}`;
+
+    // Gunakan in-memory cache jika sudah pernah ditarik dan tidak dipaksa refresh
+    if (!forceRefresh && monthlyCacheRef.current.has(cacheKey)) {
+      setScheduleData(monthlyCacheRef.current.get(cacheKey));
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
       const res = await api.get(`/schedules/monthly?year=${selectedYear}&month=${selectedMonth}`);
       const data = res.data?.data || res.data;
       setScheduleData(data);
+      monthlyCacheRef.current.set(cacheKey, data);
     } catch (err) {
       console.error('Error fetching monthly schedule:', err);
       setError('Gagal memuat jadwal dinas.');
@@ -137,7 +152,13 @@ export default function HalamanJadwal() {
 
   const handleStartDateChange = (newDateStr) => {
     setCycleStartDate(newDateStr);
-    loadCyclePreview(newDateStr);
+    if (cyclePreviewTimerRef.current) {
+      clearTimeout(cyclePreviewTimerRef.current);
+    }
+    // Debounce 300ms agar tidak spam request GET /schedules/cycle saat user memilih/mengetik tanggal
+    cyclePreviewTimerRef.current = setTimeout(() => {
+      loadCyclePreview(newDateStr);
+    }, 300);
   };
 
   /**
@@ -214,7 +235,9 @@ export default function HalamanJadwal() {
 
       setSuccessMessage(`Pergantian jadwal berhasil diterapkan secara keseluruhan mulai ${cycleStartDate}.`);
       setEditModalOpen(false);
-      fetchMonthlySchedule();
+      // Invalidate cache bulanan agar data baru ditarik segar
+      monthlyCacheRef.current.clear();
+      fetchMonthlySchedule(true);
     } catch (err) {
       console.error('Error saving cycle:', err);
       setFormError(err.response?.data?.message || err.message || 'Gagal menyimpan pergantian jadwal.');
@@ -234,7 +257,9 @@ export default function HalamanJadwal() {
       setSuccessMessage('Seluruh jadwal telah dikembalikan ke pola rotasi standar otomatis.');
       setConfirmResetOpen(false);
       setEditModalOpen(false);
-      fetchMonthlySchedule();
+      // Invalidate cache bulanan agar rotasi standar termuat
+      monthlyCacheRef.current.clear();
+      fetchMonthlySchedule(true);
     } catch (err) {
       setFormError(`Gagal mereset: ${err.response?.data?.message || err.message}`);
     } finally {
@@ -387,8 +412,9 @@ export default function HalamanJadwal() {
       >
         {scheduleData && daysList.length > 0 && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            {/* Tabel Matriks Horizontal (Tanggal Ke Samping) */}
-            <div className="overflow-x-auto max-w-full">
+            {/* Tabel Matriks Horizontal (Tanggal Ke Samping) dengan indikator scroll */}
+            <div className="relative">
+              <div className="overflow-x-auto max-w-full">
               <table className="text-center border-collapse text-xs whitespace-nowrap min-w-max">
                 <thead>
                   <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold">
@@ -535,14 +561,23 @@ export default function HalamanJadwal() {
               </table>
             </div>
 
-            {/* Petunjuk Interaksi */}
-            {(isAdmin || isSupervisor) && (
-              <div className="p-2.5 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 text-center">
-                Klik pada kolom tanggal atau tombol &quot;Ubah Siklus Jadwal&quot; untuk mengganti pola rotasi 8 hari secara keseluruhan.
-              </div>
-            )}
+            {/* Gradien visual halus tepi kanan sebagai petunjuk scroll pada layar kecil */}
+            <div className="pointer-events-none absolute top-0 bottom-0 right-0 w-8 bg-gradient-to-l from-slate-200/50 to-transparent sm:hidden" />
           </div>
-        )}
+
+          {/* Petunjuk Interaksi & Scroll */}
+          <div className="p-2.5 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-1 text-center sm:text-left">
+            <span>
+              {(isAdmin || isSupervisor)
+                ? 'Klik pada kolom tanggal atau tombol "Ubah Siklus Jadwal" untuk mengganti pola rotasi 8 hari secara keseluruhan.'
+                : 'Kalender jadwal dinas rotasi 4 regu berulang dalam siklus 8 hari.'}
+            </span>
+            <span className="text-slate-400 font-medium sm:hidden">
+              Geser ke samping (scroll) untuk melihat tanggal 1–31 →
+            </span>
+          </div>
+        </div>
+      )}
       </StateView>
 
       {/* Modal Pergantian Jadwal Siklus 8 Hari (Secara Keseluruhan) */}
