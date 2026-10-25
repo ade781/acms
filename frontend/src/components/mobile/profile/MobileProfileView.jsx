@@ -17,6 +17,8 @@ import { useAuth } from '../../../context/AuthContext';
 import api from '../../../services/api';
 import MobileEditProfileModal from './MobileEditProfileModal';
 import MobileChangePasswordModal from './MobileChangePasswordModal';
+import MobilePersonnelAccordion from './MobilePersonnelAccordion';
+import PersonnelDossierEditModal from '../../personnel/PersonnelDossierEditModal';
 
 const DOCUMENT_TYPE_LABELS = {
   lisensi_stkp: 'Lisensi STKP',
@@ -58,6 +60,8 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
 
   // Modals inside Profile View
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isEditDossierOpen, setIsEditDossierOpen] = useState(false);
+  const [savingDossier, setSavingDossier] = useState(false);
   const [isPasswordOpen, setIsPasswordOpen] = useState(false);
   const [isUploadDocOpen, setIsUploadDocOpen] = useState(false);
 
@@ -173,6 +177,33 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
     window.open(authUrl, '_blank', 'noopener,noreferrer');
   };
 
+  const handleSaveDossierMobile = async (formData) => {
+    setSavingDossier(true);
+    setFeedbackSuccess(null);
+    setFeedbackError(null);
+    try {
+      try {
+        await api.put('/auth/profile', formData);
+      } catch (errAuth) {
+        if (personnelId) {
+          await api.put(`/personnel/${personnelId}`, formData);
+        } else {
+          throw errAuth;
+        }
+      }
+      setFeedbackSuccess('Data profil & kualifikasi Lapbul berhasil diperbarui.');
+      setIsEditDossierOpen(false);
+      await refreshUser();
+      await loadProfileAndDocs();
+    } catch (err) {
+      console.error('Error simpan dossier mobile:', err);
+      setFeedbackError(err.response?.data?.message || err.message || 'Gagal memperbarui data profil.');
+      throw err;
+    } finally {
+      setSavingDossier(false);
+    }
+  };
+
   const activePersonnel = personnelData || user;
 
   return (
@@ -249,88 +280,13 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
         </div>
       )}
 
-      {/* Card 1: PROFIL & KREDENSIAL */}
-      <div className="bg-white rounded-lg border border-slate-200 p-3 shadow-xs space-y-2.5">
-        <div className="flex items-start justify-between border-b border-slate-100 pb-2">
-          <div>
-            <h3 className="text-xs font-bold text-slate-900 leading-snug">
-              {activePersonnel?.full_name || activePersonnel?.name || 'Petugas ARFF'}
-            </h3>
-            <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-              NIP: {activePersonnel?.nip || '-'}
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              onClick={() => setIsPasswordOpen(true)}
-              className="px-2 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[10px] font-bold flex items-center gap-1 transition-colors duration-100 shadow-2xs"
-            >
-              <Lock className="w-3 h-3 text-slate-500" />
-              <span>Ubah Sandi</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsEditOpen(true)}
-              className="px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-bold flex items-center gap-1 transition-colors duration-100 shadow-2xs"
-            >
-              <Edit3 className="w-3 h-3" />
-              <span>Edit Data</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-1.5 text-xs">
-          <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-            <span className="text-[9px] font-medium text-slate-500 block">Tempat Lahir</span>
-            <span className="font-bold text-slate-900 text-[11px] block mt-0.5 truncate">
-              {activePersonnel?.birth_place || '-'}
-            </span>
-          </div>
-
-          <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-            <span className="text-[9px] font-medium text-slate-500 block">Tanggal Lahir</span>
-            <span className="font-bold text-slate-900 text-[11px] block mt-0.5">
-              {formatDateIndo(activePersonnel?.birth_date)}
-            </span>
-          </div>
-
-          <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-            <span className="text-[9px] font-medium text-slate-500 block">Pendidikan Terakhir</span>
-            <span className="font-bold text-slate-900 text-[11px] block mt-0.5 truncate">
-              {activePersonnel?.formal_education || '-'}
-            </span>
-          </div>
-
-          <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-            <span className="text-[9px] font-medium text-slate-500 block">Kualifikasi STKP</span>
-            <span className="font-bold text-blue-700 text-[11px] block mt-0.5 truncate">
-              {activePersonnel?.cert_level || 'Junior Fire Fighter'}
-            </span>
-          </div>
-
-          <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-            <span className="text-[9px] font-medium text-slate-500 block">Status Kepegawaian</span>
-            <span className="font-bold text-slate-800 text-[11px] block mt-0.5 capitalize">
-              {activePersonnel?.employment_status || 'Organik'}
-            </span>
-          </div>
-
-          <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-            <span className="text-[9px] font-medium text-slate-500 block">Nomor Lisensi STKP</span>
-            <span className="font-bold text-slate-900 font-mono text-[11px] block mt-0.5 truncate">
-              {activePersonnel?.cert_number || '-'}
-            </span>
-          </div>
-
-          <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-            <span className="text-[9px] font-medium text-slate-500 block">Masa Berlaku STKP</span>
-            <span className="font-bold text-slate-900 font-mono text-[11px] block mt-0.5">
-              {formatDateIndo(activePersonnel?.cert_expiry_date)}
-            </span>
-          </div>
-        </div>
-      </div>
+      {/* Dossier Personel Versi Mobile: Accordion Lipat-Buka (100% Light Theme, Ergonomis Mobile) */}
+      <MobilePersonnelAccordion
+        personnel={activePersonnel}
+        canEdit={true}
+        onEditClick={() => setIsEditDossierOpen(true)}
+        onChangePasswordClick={() => setIsPasswordOpen(true)}
+      />
 
       {/* Card 2: DOKUMEN & SERTIFIKAT SAYA */}
       <div className="bg-white rounded-lg border border-slate-200 p-3 shadow-xs space-y-2">
@@ -416,16 +372,14 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
         <span>Logout Sesi Operasional</span>
       </button>
 
-      {/* Modal Edit Profil */}
-      <MobileEditProfileModal
-        isOpen={isEditOpen}
-        onClose={() => setIsEditOpen(false)}
+      {/* Modal Edit Dossier & Kualifikasi Lapbul Mobile */}
+      <PersonnelDossierEditModal
+        isOpen={isEditDossierOpen}
+        onClose={() => setIsEditDossierOpen(false)}
         personnel={activePersonnel}
-        onSuccess={async () => {
-          setFeedbackSuccess('Data profil mandiri berhasil diperbarui.');
-          await refreshUser();
-          await loadProfileAndDocs();
-        }}
+        onSave={handleSaveDossierMobile}
+        saving={savingDossier}
+        isStaffAdmin={user?.role === 'admin'}
       />
 
       {/* Modal Change Password */}

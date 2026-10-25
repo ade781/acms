@@ -22,6 +22,8 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { formatTeam, formatRoleName } from '../../utils/shiftHelper';
+import PersonnelDossier from '../personnel/PersonnelDossier';
+import PersonnelDossierEditModal from '../personnel/PersonnelDossierEditModal';
 
 const DOCUMENT_TYPE_LABELS = {
   lisensi_stkp: 'Lisensi STKP',
@@ -63,6 +65,7 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
 
   // Sub-forms toggle
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isEditingDossier, setIsEditingDossier] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
 
@@ -187,6 +190,35 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
     } catch (err) {
       console.error('Error simpan profil:', err);
       setFeedbackError(err.response?.data?.message || err.message || 'Gagal memperbarui data profil.');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  // Handler Simpan Dossier Mandiri (Lapbul 16 Atribut + 11 Kompetensi)
+  const handleSaveDossierModal = async (formData) => {
+    setSavingProfile(true);
+    setFeedbackSuccess(null);
+    setFeedbackError(null);
+    try {
+      try {
+        await api.put('/auth/profile', formData);
+      } catch (errAuth) {
+        const pId = profileData?.personnel_id || personnelId;
+        if (pId) {
+          await api.put(`/personnel/${pId}`, formData);
+        } else {
+          throw errAuth;
+        }
+      }
+      setFeedbackSuccess('Data profil & kualifikasi Lapbul berhasil diperbarui.');
+      setIsEditingDossier(false);
+      await refreshUser();
+      await loadData();
+    } catch (err) {
+      console.error('Error simpan dossier:', err);
+      setFeedbackError(err.response?.data?.message || err.message || 'Gagal memperbarui data profil.');
+      throw err;
     } finally {
       setSavingProfile(false);
     }
@@ -602,39 +634,25 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
           )}
 
           {/* CARD 1: PROFIL & KREDENSIAL */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-3">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
               <div>
                 <span className="text-[10px] font-bold tracking-wider uppercase text-slate-400 block">
                   CARD 1
                 </span>
                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-tight">
-                  Profil & Kredensial
+                  Profil & Kredensial Personel
                 </h3>
               </div>
 
               <div className="flex items-center gap-2">
-                {!isPureAdmin && !isEditingProfile && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsEditingProfile(true);
-                      setIsChangingPassword(false);
-                    }}
-                    className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors duration-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-slate-500"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    <span>Edit Data</span>
-                  </button>
-                )}
-
                 <button
                   type="button"
                   onClick={() => {
                     setIsChangingPassword((prev) => !prev);
                     setIsEditingProfile(false);
                   }}
-                  className="px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 hover:bg-amber-100 text-xs font-semibold flex items-center gap-1.5 transition-colors duration-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  className="px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 hover:bg-amber-100 text-xs font-semibold flex items-center gap-1.5 transition-colors duration-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer"
                 >
                   <KeyRound className="w-3.5 h-3.5 text-amber-700" />
                   <span>Kunci Ubah Password</span>
@@ -645,7 +663,7 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
             {/* Layout Tampilan Kartu 1 */}
             {isPureAdmin ? (
               /* Khusus Administrator Murni */
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                   <span className="text-[10px] font-medium text-slate-500 block">Nama Lengkap / Akun</span>
                   <span className="font-bold text-slate-900 text-sm block mt-0.5">
@@ -675,71 +693,12 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
                 </div>
               </div>
             ) : (
-              /* Personel Lapangan / Operasional */
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <span className="text-[10px] font-medium text-slate-500 block">Nama Lengkap</span>
-                  <span className="font-bold text-slate-900 text-sm block mt-0.5 truncate">
-                    {activeUser?.full_name || activeUser?.name || '-'}
-                  </span>
-                </div>
-
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <span className="text-[10px] font-medium text-slate-500 block">NIP (Nomor Induk Pegawai)</span>
-                  <span className="font-bold text-slate-900 font-mono text-sm block mt-0.5 truncate">
-                    {activeUser?.nip || '-'}
-                  </span>
-                </div>
-
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <span className="text-[10px] font-medium text-slate-500 block">Tanggal Lahir</span>
-                  <span className="font-bold text-slate-900 text-sm block mt-0.5">
-                    {formatDateIndo(activeUser?.birth_date)}
-                  </span>
-                </div>
-
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <span className="text-[10px] font-medium text-slate-500 block">Pendidikan Terakhir</span>
-                  <span className="font-bold text-slate-900 text-sm block mt-0.5 truncate">
-                    {activeUser?.formal_education || '-'}
-                  </span>
-                </div>
-
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <span className="text-[10px] font-medium text-slate-500 block">Kualifikasi STKP</span>
-                  <span className="font-bold text-blue-700 text-sm block mt-0.5 truncate">
-                    {activeUser?.cert_level ? `${activeUser.cert_level} Fire Fighter` : 'Junior Fire Fighter'}
-                  </span>
-                </div>
-
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <span className="text-[10px] font-medium text-slate-500 block">Nomor Lisensi STKP</span>
-                  <span className="font-bold text-slate-900 font-mono text-sm block mt-0.5 truncate">
-                    {activeUser?.cert_number || '-'}
-                  </span>
-                </div>
-
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <span className="text-[10px] font-medium text-slate-500 block">Masa Berlaku STKP</span>
-                  <span className="font-bold text-slate-900 font-mono text-sm block mt-0.5">
-                    {formatDateIndo(activeUser?.cert_expiry_date)}
-                  </span>
-                </div>
-
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <span className="text-[10px] font-medium text-slate-500 block">Regu Dinas / Jabatan</span>
-                  <span className="font-bold text-slate-900 text-sm block mt-0.5 truncate">
-                    {activeUser?.team_group ? formatTeam(activeUser.team_group) : '-'} • {activeUser?.rank_position || formatRoleName(activeUser?.role)}
-                  </span>
-                </div>
-
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <span className="text-[10px] font-medium text-slate-500 block">Status Kepegawaian</span>
-                  <span className="font-bold text-slate-900 text-sm block mt-0.5 capitalize">
-                    {activeUser?.employment_status || 'Organik'}
-                  </span>
-                </div>
-              </div>
+              /* Personel Lapangan / Operasional Menggunakan Dossier 3-Tab Terpadu */
+              <PersonnelDossier
+                personnel={activeUser}
+                canEdit={true}
+                onEditClick={() => setIsEditingDossier(true)}
+              />
             )}
           </div>
 
@@ -919,12 +878,22 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold text-xs transition-colors duration-100"
+            className="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold text-xs transition-colors duration-100 cursor-pointer"
           >
             Tutup
           </button>
         </div>
       </div>
+
+      {/* Modal Edit Kualifikasi Dossier Mandiri */}
+      <PersonnelDossierEditModal
+        isOpen={isEditingDossier}
+        onClose={() => setIsEditingDossier(false)}
+        personnel={activeUser}
+        onSave={handleSaveDossierModal}
+        saving={savingProfile}
+        isStaffAdmin={activeUser?.role === 'admin'}
+      />
     </div>
   );
 }

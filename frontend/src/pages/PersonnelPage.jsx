@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Search, Plus, Filter, UserCheck, ChevronRight, Download, Settings } from 'lucide-react';
+import { Users, Search, Plus, Filter, UserCheck, ChevronRight, Download, Settings, FileText } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { TEAMS, cleanTeam, formatTeam, OPERATIONAL_ROLES } from '../utils/shiftHelper';
 import api from '../services/api';
@@ -10,6 +10,7 @@ import Badge from '../components/common/Badge';
 import InputField from '../components/common/InputField';
 import Modal from '../components/common/Modal';
 import SelectField from '../components/common/SelectField';
+import PersonnelPdfPreviewModal from '../components/personnel/PersonnelPdfPreviewModal';
 
 function isActualChief(p) {
   if (!p) return false;
@@ -71,12 +72,14 @@ function getStkpBadge(person) {
 }
 
 export default function PersonnelPage() {
-  const { isAdmin, isSupervisor, activeTeam } = useAuth();
+  const { isAdmin, isSupervisor, activeTeam, token } = useAuth();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [personnelList, setPersonnelList] = useState([]);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
 
   // Filters
   const [selectedTeam, setSelectedTeam] = useState('ALL');
@@ -111,7 +114,7 @@ export default function PersonnelPage() {
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
-  const [perPage, setPerPage] = useState(10);
+  const [perPage, setPerPage] = useState(50);
 
   const fetchPersonnel = useCallback(async () => {
     setLoading(true);
@@ -185,8 +188,6 @@ export default function PersonnelPage() {
     }
   };
 
-  const [downloadingPdf, setDownloadingPdf] = useState(false);
-
   const handleDownloadAccountList = async () => {
     try {
       setDownloadingPdf(true);
@@ -234,11 +235,21 @@ export default function PersonnelPage() {
           {isAdmin && (
             <Button
               variant="outline"
+              icon={FileText}
+              onClick={() => setPdfPreviewOpen(true)}
+            >
+              Pratinjau PDF
+            </Button>
+          )}
+
+          {isAdmin && (
+            <Button
+              variant="outline"
               icon={Download}
               loading={downloadingPdf}
               onClick={handleDownloadAccountList}
             >
-              Unduh Akun (PDF)
+              Unduh PDF
             </Button>
           )}
 
@@ -427,33 +438,26 @@ export default function PersonnelPage() {
               return a.id - b.id;
             });
 
-            const isOnDuty = cleanTeam(teamName).toLowerCase() === cleanTeam(activeTeam).toLowerCase();
             const hasChief = sortedMembers.some((m) => isActualChief(m));
+            const isActiveShift = (cleanTeam(activeTeam) || '').toLowerCase() === teamKey;
 
             return (
               <div
                 key={teamName}
-                className={`rounded-xl border-2 p-4 flex flex-col justify-between transition-colors duration-100 ${
-                  isOnDuty
-                    ? `bg-white ${theme.border} shadow-md ring-2 ring-offset-1 ring-red-500/20 opacity-100`
-                    : `bg-slate-50/70 border-slate-200/90 shadow-xs opacity-90 hover:opacity-100`
+                className={`rounded-xl bg-white p-4 flex flex-col justify-between transition-colors duration-100 ${
+                  isActiveShift
+                    ? `border-2 ${theme.border} shadow-sm`
+                    : 'border border-slate-200/90 shadow-xs'
                 }`}
               >
                 <div>
                   {/* Header Nama Regu */}
                   <div className="text-center pb-3 mb-3 border-b border-slate-100">
-                    <div className="flex items-center justify-center gap-2">
-                      <h3 className={`text-base font-extrabold tracking-wider uppercase ${theme.title}`}>
-                        REGU {teamName.toUpperCase()}
-                      </h3>
-                      {isOnDuty && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                          Shift Aktif
-                        </span>
-                      )}
-                    </div>
+                    <h3 className={`text-base font-extrabold tracking-wider uppercase ${theme.title}`}>
+                      REGU {teamName.toUpperCase()}
+                    </h3>
                     <span className="text-xs font-medium text-slate-500 block mt-0.5">
-                      {members.length} Personel {!isOnDuty ? '(Off)' : ''}
+                      {members.length} Personel
                     </span>
                   </div>
 
@@ -555,10 +559,10 @@ export default function PersonnelPage() {
                   }}
                   className="border border-slate-300 rounded px-2 py-1 text-xs font-semibold text-slate-700 bg-slate-50 focus:outline-none"
                 >
-                  <option value={8}>8 per regu</option>
                   <option value={10}>10 per regu</option>
-                  <option value={15}>15 per regu</option>
+                  <option value={20}>20 per regu</option>
                   <option value={25}>25 per regu</option>
+                  <option value={50}>Semua (50)</option>
                 </select>
                 <span className="text-slate-300">|</span>
                 <span>Total <strong>{personnelList.length}</strong> personel pada daftar</span>
@@ -698,6 +702,14 @@ export default function PersonnelPage() {
           </form>
         </Modal>
       )}
+
+      {/* Modal Pratinjau Dokumen PDF Personel */}
+      <PersonnelPdfPreviewModal
+        isOpen={pdfPreviewOpen}
+        onClose={() => setPdfPreviewOpen(false)}
+        selectedTeam={selectedTeam}
+        token={token}
+      />
     </div>
   );
 }

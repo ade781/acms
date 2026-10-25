@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   ShieldAlert,
+  Shield,
   UserCheck,
   CheckCircle,
   AlertCircle,
@@ -38,8 +39,8 @@ export default function OfficialsManagementPage() {
 
   const [officials, setOfficials] = useState({
     dept_head: null,
-    section_head: null,
     chiefs: { Alpha: null, Bravo: null, Charlie: null, Delta: null },
+    administrasi: [],
   });
 
   const [allPersonnel, setAllPersonnel] = useState([]);
@@ -54,11 +55,7 @@ export default function OfficialsManagementPage() {
   const [savingDh, setSavingDh] = useState(false);
   const [dhError, setDhError] = useState(null);
 
-  // Modal Ganti Section Head
-  const [shModalOpen, setShModalOpen] = useState(false);
-  const [newShPersonnelId, setNewShPersonnelId] = useState('');
-  const [savingSh, setSavingSh] = useState(false);
-  const [shError, setShError] = useState(null);
+
 
   // Modal Ganti Chief
   const [chiefModalOpen, setChiefModalOpen] = useState(false);
@@ -80,8 +77,8 @@ export default function OfficialsManagementPage() {
       const offData = offRes.data?.data || offRes.data;
       setOfficials({
         dept_head: offData.dept_head || null,
-        section_head: offData.section_head || null,
         chiefs: offData.chiefs || { Alpha: null, Bravo: null, Charlie: null, Delta: null },
+        administrasi: Array.isArray(offData.administrasi) ? offData.administrasi : [],
       });
 
       const pList = Array.isArray(pRes.data?.data)
@@ -111,37 +108,7 @@ export default function OfficialsManagementPage() {
     setDhModalOpen(true);
   };
 
-  // Open Ganti Section Head Modal
-  const openReplaceSectionHeadModal = () => {
-    setShError(null);
-    setNewShPersonnelId('');
-    setShModalOpen(true);
-  };
 
-  // Submit Ganti Section Head
-  const handleSaveSectionHead = async (e) => {
-    e.preventDefault();
-    if (!newShPersonnelId) {
-      setShError('Silakan pilih personel yang akan diangkat sebagai Section Head.');
-      return;
-    }
-
-    setSavingSh(true);
-    setShError(null);
-    try {
-      const res = await api.post('/personnel/officials/section-head', {
-        new_personnel_id: Number(newShPersonnelId),
-      });
-
-      setSuccessMsg(res.data?.message || 'Section Head berhasil diperbarui.');
-      setShModalOpen(false);
-      fetchData();
-    } catch (err) {
-      setShError(err.response?.data?.message || err.message || 'Gagal memperbarui Section Head.');
-    } finally {
-      setSavingSh(false);
-    }
-  };
 
   // Handler unggah spesimen tanda tangan Dept Head dengan validasi sisi klien
   const handleDhSignatureChange = (e) => {
@@ -393,81 +360,7 @@ export default function OfficialsManagementPage() {
           )}
         </div>
 
-        {/* Section 1B: Section Head */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
-            <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-200 uppercase tracking-wider mb-1">
-                <Award className="w-3.5 h-3.5 text-blue-600" />
-                Pimpinan Seksi
-              </div>
-              <h3 className="text-base font-bold text-slate-900">
-                Airport Technology & ARFF Section Head
-              </h3>
-              <p className="text-xs text-slate-500">
-                Pejabat kepala seksi teknis yang mengoordinasikan kesiapan fasilitas dan operasional harian ARFF.
-              </p>
-            </div>
 
-            {isAdmin && (
-              <Button
-                variant="outline"
-                size="sm"
-                icon={RefreshCw}
-                onClick={openReplaceSectionHeadModal}
-              >
-                Ganti Section Head
-              </Button>
-            )}
-          </div>
-
-          {officials.section_head ? (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
-              <div className="space-y-1">
-                <span className="text-sm font-extrabold text-slate-900 block">
-                  {officials.section_head.full_name}
-                </span>
-                <div className="flex items-center gap-3 text-xs text-slate-500 font-mono">
-                  <span>NIP: {officials.section_head.nip || '-'}</span>
-                  <span>•</span>
-                  <span>Jabatan: {officials.section_head.rank_position}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {officials.section_head.signature_url ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                    <FileCheck className="w-3.5 h-3.5 text-emerald-600" />
-                    Tanda Tangan Aktif
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
-                    <FileX className="w-3.5 h-3.5 text-amber-600" />
-                    Belum Ada Tanda Tangan
-                  </span>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate(`/personnel/${officials.section_head.id}`)}
-                >
-                  Detail Profil
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="p-6 text-center rounded-xl bg-slate-50 border border-dashed border-slate-300">
-              <p className="text-xs text-slate-500 font-medium mb-3">
-                Belum ada pejabat Airport Technology & ARFF Section Head yang ditetapkan.
-              </p>
-              {isAdmin && (
-                <Button variant="outline" size="sm" onClick={openReplaceSectionHeadModal}>
-                  Tunjuk Section Head Sekarang
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
 
         {/* Section 2: 4 Chief Regu */}
         <div className="space-y-4 pt-4">
@@ -482,7 +375,7 @@ export default function OfficialsManagementPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {['Alpha', 'Bravo', 'Charlie', 'Delta'].map((teamName) => {
               const chief = officials.chiefs[teamName];
               const theme = teamColors[teamName];
@@ -490,58 +383,56 @@ export default function OfficialsManagementPage() {
               return (
                 <div
                   key={teamName}
-                  className={`bg-white rounded-xl border-2 ${theme.border} p-5 shadow-xs flex flex-col justify-between space-y-4`}
+                  className={`bg-white rounded-xl border ${theme.border} p-3.5 shadow-xs flex flex-col justify-between space-y-2.5 transition-colors duration-100`}
                 >
                   <div>
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs font-extrabold uppercase px-2 py-0.5 rounded border ${theme.badge}`}>
-                          REGU {teamName.toUpperCase()}
-                        </span>
-                        <span className="text-xs font-bold text-slate-700">ARFF Operation Chief</span>
-                      </div>
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 gap-1.5">
+                      <span className={`text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded border ${theme.badge}`}>
+                        REGU {teamName.toUpperCase()}
+                      </span>
                       {isAdmin && (
                         <Button
                           variant="outline"
-                          size="sm"
+                          size="xs"
                           icon={RefreshCw}
                           onClick={() => openReplaceChiefModal(teamName)}
+                          className="h-6 text-[10px] px-2"
                         >
                           Ganti
                         </Button>
                       )}
                     </div>
 
-                    <div className="mt-4 space-y-1">
+                    <div className="mt-2.5 space-y-1">
                       {chief ? (
                         <>
-                          <div className="flex items-center gap-2">
-                            <span className="text-amber-500 font-bold text-sm">★</span>
-                            <span className="text-sm font-extrabold text-slate-900">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-amber-500 font-bold text-xs shrink-0">★</span>
+                            <span className="text-xs font-bold text-slate-900 truncate" title={chief.full_name}>
                               {chief.full_name}
                             </span>
                           </div>
-                          <p className="text-xs text-slate-500 font-mono">
+                          <p className="text-[11px] text-slate-500 font-mono pl-3.5">
                             NIP: {chief.nip || '-'}
                           </p>
-                          <div className="pt-2 flex items-center gap-2">
+                          <div className="pt-1.5 pl-3.5 flex items-center gap-1.5">
                             {chief.signature_url ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                                <FileCheck className="w-3 h-3 text-emerald-600" />
-                                Tanda Tangan Terdaftar
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                <FileCheck className="w-2.5 h-2.5 text-emerald-600" />
+                                TTD Ada
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                                <FileX className="w-3 h-3 text-amber-600" />
-                                Tanda Tangan Belum Ada
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                                <FileX className="w-2.5 h-2.5 text-amber-600" />
+                                TTD Belum Ada
                               </span>
                             )}
                           </div>
                         </>
                       ) : (
-                        <div className="py-4 text-center">
-                          <p className="text-xs text-slate-400 italic">
-                            Belum ada Ketua Regu yang terdaftar untuk Regu {teamName}.
+                        <div className="py-2.5 text-center">
+                          <p className="text-[11px] text-slate-400 italic">
+                            Belum ada Ketua Regu.
                           </p>
                         </div>
                       )}
@@ -549,14 +440,15 @@ export default function OfficialsManagementPage() {
                   </div>
 
                   {chief && (
-                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                      <span className="text-[11px] text-slate-400">
-                        Status: <strong className="text-slate-600">Aktif</strong>
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+                      <span className="text-[10px] text-slate-400">
+                        Status: <strong className="text-emerald-600">Aktif</strong>
                       </span>
                       <Button
                         variant="ghost"
-                        size="sm"
+                        size="xs"
                         onClick={() => navigate(`/personnel/${chief.id}`)}
+                        className="h-6 text-[10px] px-1.5 text-slate-600 hover:text-slate-900"
                       >
                         Lihat Profil
                       </Button>
@@ -565,6 +457,75 @@ export default function OfficialsManagementPage() {
                 </div>
               );
             })}
+          </div>
+        </div>
+
+        {/* Section 3: Administrasi */}
+        <div className="space-y-4 pt-4 border-t border-slate-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-800 border border-slate-200 uppercase tracking-wider mb-1">
+                <Shield className="w-3.5 h-3.5 text-slate-600" />
+                Administrasi
+              </div>
+              <h3 className="text-base font-bold text-slate-900">
+                Staf Administrasi & Pemeliharaan (Non-Shift)
+              </h3>
+              <p className="text-xs text-slate-500">
+                Personel pemeliharaan fasilitas dan operasional kantor yang memiliki hak akses sistem Administrasi.
+              </p>
+            </div>
+            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
+              Total: {officials.administrasi?.length || 0} Personel
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {officials.administrasi && officials.administrasi.length > 0 ? (
+              officials.administrasi.map((staff) => (
+                <div
+                  key={staff.id}
+                  className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs flex flex-col justify-between hover:border-slate-300 transition-colors duration-100"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                        Administrasi
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        @{staff.username || 'admin'}
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-bold text-slate-900 pt-1 leading-snug">
+                      {staff.full_name}
+                    </h4>
+                    <p className="text-xs text-slate-500 font-mono">
+                      NIP: {staff.nip || '-'}
+                    </p>
+                    <p className="text-[11px] text-slate-600 font-medium">
+                      {staff.rank_position || 'Staf Administrasi'}
+                    </p>
+                  </div>
+
+                  <div className="pt-3 mt-2 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      Role: Administrasi
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      onClick={() => navigate(`/personnel/${staff.id}`)}
+                    >
+                      Detail
+                    </Button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-full p-6 text-center rounded-xl bg-slate-50 border border-dashed border-slate-200 text-xs text-slate-500">
+                Belum ada data personel administrasi.
+              </div>
+            )}
           </div>
         </div>
       </StateView>
@@ -693,61 +654,7 @@ export default function OfficialsManagementPage() {
         </Modal>
       )}
 
-      {/* Modal 1B: Ganti Section Head */}
-      {shModalOpen && (
-        <Modal
-          isOpen={shModalOpen}
-          onClose={() => setShModalOpen(false)}
-          title="Pergantian Airport Technology & ARFF Section Head"
-          subtitle="Pilih personel yang akan diangkat sebagai kepala seksi baru"
-          footer={
-            <>
-              <Button variant="outline" onClick={() => setShModalOpen(false)} disabled={savingSh}>
-                Batal
-              </Button>
-              <Button variant="primary" onClick={handleSaveSectionHead} loading={savingSh}>
-                Simpan & Tetapkan Section Head
-              </Button>
-            </>
-          }
-        >
-          <form onSubmit={handleSaveSectionHead} className="space-y-4">
-            {shError && (
-              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
-                {shError}
-              </div>
-            )}
 
-            {officials.section_head && (
-              <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 space-y-1">
-                <span className="font-bold block">Pejabat Saat Ini:</span>
-                <p>
-                  <strong>{officials.section_head.full_name}</strong> (NIP: {officials.section_head.nip || '-'})
-                </p>
-                <p className="text-[11px] text-blue-800 leading-relaxed pt-1">
-                  * Catatan Keamanan: Tanda tangan digital milik pejabat lama akan otomatis dihapus dari database.
-                </p>
-              </div>
-            )}
-
-            <SelectField
-              label="Pilih Personel Pengganti (Section Head Baru)"
-              value={newShPersonnelId}
-              onChange={(e) => setNewShPersonnelId(e.target.value)}
-              options={[
-                { value: '', label: '-- Pilih Personel --' },
-                ...allPersonnel
-                  .filter((p) => !officials.section_head || p.id !== officials.section_head.id)
-                  .map((p) => ({
-                    value: p.id,
-                    label: `${p.full_name} (${p.rank_position || '-'} | Regu: ${p.team_group || 'Non-Regu'})`,
-                  })),
-              ]}
-              required
-            />
-          </form>
-        </Modal>
-      )}
 
       {/* Modal 2: Ganti Ketua Regu (Opsi C) */}
       {chiefModalOpen && (

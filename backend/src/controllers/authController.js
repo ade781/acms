@@ -76,9 +76,7 @@ export const getMe = async (req, res) => {
   try {
     const [users] = await pool.query(
       `SELECT u.id, u.username, u.name, u.email, u.role, u.must_change_password, u.created_at,
-              p.id as personnel_id, p.nip, p.full_name, p.rank_position,
-              p.birth_date, p.formal_education, p.cert_level, p.cert_number,
-              p.cert_expiry_date, p.signature_url, p.team_group, p.employment_status
+              p.id as personnel_id, p.*
        FROM users u
        LEFT JOIN personnel p ON p.user_id = u.id
        WHERE u.id = ?`,
@@ -90,6 +88,11 @@ export const getMe = async (req, res) => {
     }
 
     const user = users[0];
+    let parsedCompetencies = user.additional_competencies;
+    if (typeof parsedCompetencies === 'string') {
+      try { parsedCompetencies = JSON.parse(parsedCompetencies); } catch (e) { parsedCompetencies = []; }
+    }
+
     const safeProfile = {
       id: user.id,
       username: user.username,
@@ -102,14 +105,30 @@ export const getMe = async (req, res) => {
       nip: user.nip,
       full_name: user.full_name,
       rank_position: user.rank_position,
+      birth_place: user.birth_place,
       birth_date: user.birth_date,
+      tmt_date: user.tmt_date,
       formal_education: user.formal_education,
+      recognized_education: user.recognized_education,
       team_group: user.team_group,
+      employment_status: user.employment_status,
       cert_level: user.cert_level,
       cert_number: user.cert_number,
       cert_expiry_date: user.cert_expiry_date,
-      signature_url: user.signature_url,
-      employment_status: user.employment_status
+      basic_lemdik: user.basic_lemdik,
+      basic_cert_number: user.basic_cert_number,
+      junior_lemdik: user.junior_lemdik,
+      junior_cert_number: user.junior_cert_number,
+      senior_lemdik: user.senior_lemdik,
+      senior_cert_number: user.senior_cert_number,
+      salvage_license_number: user.salvage_license_number,
+      salvage_expiry_date: user.salvage_expiry_date,
+      refreshing_cert_number: user.refreshing_cert_number,
+      refreshing_date: user.refreshing_date,
+      salvage_refreshing_cert_number: user.salvage_refreshing_cert_number,
+      salvage_refreshing_date: user.salvage_refreshing_date,
+      additional_competencies: parsedCompetencies || [],
+      signature_url: user.signature_url
     };
 
     return successResponse(res, 'Profil pengguna berhasil diambil', safeProfile);
@@ -158,7 +177,30 @@ export const changePassword = async (req, res) => {
 
 export const updateProfile = async (req, res) => {
   try {
-    const { nip, birth_date, formal_education, cert_level, cert_number, cert_expiry_date } = req.body;
+    const {
+      nip,
+      birth_place,
+      birth_date,
+      tmt_date,
+      formal_education,
+      recognized_education,
+      cert_level,
+      cert_number,
+      cert_expiry_date,
+      basic_lemdik,
+      basic_cert_number,
+      junior_lemdik,
+      junior_cert_number,
+      senior_lemdik,
+      senior_cert_number,
+      salvage_license_number,
+      salvage_expiry_date,
+      refreshing_cert_number,
+      refreshing_date,
+      salvage_refreshing_cert_number,
+      salvage_refreshing_date,
+      additional_competencies
+    } = req.body;
 
     const [personnelRows] = await pool.query('SELECT * FROM personnel WHERE user_id = ?', [req.user.id]);
     if (personnelRows.length === 0) {
@@ -186,30 +228,79 @@ export const updateProfile = async (req, res) => {
     };
 
     const cleanBirthDate = parseDateOrNull(birth_date, pers.birth_date);
-    const cleanExpiryDate = parseDateOrNull(cert_expiry_date, pers.cert_expiry_date);
+    const cleanTmtDate = parseDateOrNull(tmt_date, pers.tmt_date);
+    const cleanCertExpiry = parseDateOrNull(cert_expiry_date, pers.cert_expiry_date);
+    const cleanSalvageExpiry = parseDateOrNull(salvage_expiry_date, pers.salvage_expiry_date);
+    const cleanRefreshingDate = parseDateOrNull(refreshing_date, pers.refreshing_date);
+    const cleanSalvageRefreshingDate = parseDateOrNull(salvage_refreshing_date, pers.salvage_refreshing_date);
+
+    const cleanStr = (val, fallback) => (val !== undefined ? (val ? String(val).trim() : null) : fallback);
+
+    let cleanCompetencies = pers.additional_competencies;
+    if (additional_competencies !== undefined) {
+      cleanCompetencies = Array.isArray(additional_competencies)
+        ? JSON.stringify(additional_competencies)
+        : (typeof additional_competencies === 'string' ? additional_competencies : JSON.stringify([]));
+    }
 
     await pool.query(
       `UPDATE personnel SET
         nip = ?,
+        birth_place = ?,
         birth_date = ?,
+        tmt_date = ?,
         formal_education = ?,
+        recognized_education = ?,
         cert_level = ?,
         cert_number = ?,
-        cert_expiry_date = ?
+        cert_expiry_date = ?,
+        basic_lemdik = ?,
+        basic_cert_number = ?,
+        junior_lemdik = ?,
+        junior_cert_number = ?,
+        senior_lemdik = ?,
+        senior_cert_number = ?,
+        salvage_license_number = ?,
+        salvage_expiry_date = ?,
+        refreshing_cert_number = ?,
+        refreshing_date = ?,
+        salvage_refreshing_cert_number = ?,
+        salvage_refreshing_date = ?,
+        additional_competencies = ?
       WHERE id = ?`,
       [
-        nip !== undefined ? (nip ? String(nip).trim() : null) : pers.nip,
+        cleanStr(nip, pers.nip),
+        cleanStr(birth_place, pers.birth_place),
         cleanBirthDate,
-        formal_education !== undefined ? (formal_education ? String(formal_education).trim() : null) : pers.formal_education,
+        cleanTmtDate,
+        cleanStr(formal_education, pers.formal_education),
+        cleanStr(recognized_education, pers.recognized_education),
         sanitizedCertLevel,
-        cert_number !== undefined ? (cert_number ? String(cert_number).trim() : null) : pers.cert_number,
-        cleanExpiryDate,
+        cleanStr(cert_number, pers.cert_number),
+        cleanCertExpiry,
+        cleanStr(basic_lemdik, pers.basic_lemdik),
+        cleanStr(basic_cert_number, pers.basic_cert_number),
+        cleanStr(junior_lemdik, pers.junior_lemdik),
+        cleanStr(junior_cert_number, pers.junior_cert_number),
+        cleanStr(senior_lemdik, pers.senior_lemdik),
+        cleanStr(senior_cert_number, pers.senior_cert_number),
+        cleanStr(salvage_license_number, pers.salvage_license_number),
+        cleanSalvageExpiry,
+        cleanStr(refreshing_cert_number, pers.refreshing_cert_number),
+        cleanRefreshingDate,
+        cleanStr(salvage_refreshing_cert_number, pers.salvage_refreshing_cert_number),
+        cleanSalvageRefreshingDate,
+        cleanCompetencies,
         pers.id
       ]
     );
 
     const [updated] = await pool.query('SELECT * FROM personnel WHERE id = ?', [pers.id]);
-    return successResponse(res, 'Profil berhasil diperbarui', updated[0]);
+    const resPers = updated[0];
+    if (typeof resPers.additional_competencies === 'string') {
+      try { resPers.additional_competencies = JSON.parse(resPers.additional_competencies); } catch (e) { resPers.additional_competencies = []; }
+    }
+    return successResponse(res, 'Profil berhasil diperbarui', resPers);
   } catch (error) {
     console.error('Error updateProfile:', error);
     return errorResponse(res, 'Gagal memperbarui data profil: ' + error.message, 500);

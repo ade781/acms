@@ -12,8 +12,6 @@ export default function MobileLeaveModal({
   activeUserLeave,
   onSuccess
 }) {
-  if (!isOpen) return null;
-
   const isPrivileged = ['admin', 'supervisor', 'chief', 'chief_assistant', 'dept_head'].includes(user?.role);
 
   const [category, setCategory] = useState('cuti');
@@ -31,6 +29,7 @@ export default function MobileLeaveModal({
   const [selectedPersonnelId, setSelectedPersonnelId] = useState('');
 
   useEffect(() => {
+    if (!isOpen) return;
     if (activeDate) {
       setStartDate(activeDate);
       setEndDate(activeDate);
@@ -151,6 +150,8 @@ export default function MobileLeaveModal({
       setSubmitting(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">

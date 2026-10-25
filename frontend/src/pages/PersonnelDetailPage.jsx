@@ -30,6 +30,8 @@ import EditPersonnelModal from '../components/personnel/EditPersonnelModal';
 import UploadDocumentModal from '../components/personnel/UploadDocumentModal';
 import ResetPasswordConfirmModal from '../components/personnel/ResetPasswordConfirmModal';
 import ConfirmActionModal from '../components/personnel/ConfirmActionModal';
+import PersonnelDossier from '../components/personnel/PersonnelDossier';
+import PersonnelDossierEditModal from '../components/personnel/PersonnelDossierEditModal';
 
 const DOCUMENT_TYPE_LABELS = {
   lisensi_stkp: 'Lisensi STKP',
@@ -76,6 +78,8 @@ export default function PersonnelDetailPage() {
 
   // Edit Modal State
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [dossierEditOpen, setDossierEditOpen] = useState(false);
+  const [savingDossier, setSavingDossier] = useState(false);
 
   // Reset Password State
   const [resetPasswordModalOpen, setResetPasswordModalOpen] = useState(false);
@@ -169,6 +173,20 @@ export default function PersonnelDetailPage() {
       setGlobalError(err.response?.data?.message || err.message || 'Gagal mereset kata sandi personel.');
     } finally {
       setResettingPassword(false);
+    }
+  };
+
+  const handleSaveDossier = async (formData) => {
+    setSavingDossier(true);
+    setGlobalSuccess(null);
+    setGlobalError(null);
+    try {
+      await api.put(`/personnel/${id}`, formData);
+      setGlobalSuccess('Data kualifikasi & dossier personel berhasil diperbarui.');
+      setDossierEditOpen(false);
+      fetchPersonnelDetail();
+    } finally {
+      setSavingDossier(false);
     }
   };
 
@@ -315,140 +333,71 @@ export default function PersonnelDetailPage() {
               </div>
             )}
 
-            {/* Header Identity Card */}
-            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-xl bg-red-100 text-arff-primary flex items-center justify-center font-bold text-xl select-none">
-                  {personnel.full_name?.charAt(0) || <User className="w-8 h-8" />}
+            {/* Dossier Personel 3-Tab: Identitas & Kepegawaian, STKP & Salvage, 11 Kompetensi Tambahan */}
+            <PersonnelDossier
+              personnel={personnel}
+              canEdit={canEdit}
+              onEditClick={() => setDossierEditOpen(true)}
+            />
+
+            {/* Account & Role Strip */}
+            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4 flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-slate-600" />
+                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    Akun Login Sistem & Otorisasi Dinas
+                  </h3>
                 </div>
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-xl font-bold text-slate-900">{personnel.full_name}</h2>
-                    <Badge variant={`team${cleanTeam(personnel.team_group) || 'Alpha'}`} size="md">
-                      {formatTeam(personnel.team_group || 'Alpha')}
-                    </Badge>
-                  </div>
-                  <p className="text-xs font-semibold text-slate-700 mt-1">
-                    {personnel.rank_position || 'Anggota Unit PKP-PK'}
-                  </p>
-                  <p className="text-xs font-mono text-slate-500 mt-0.5">
-                    NIP: <span className="font-bold text-slate-800">{personnel.nip || '-'}</span>
-                  </p>
+                <div className="flex items-center gap-2">
+                  {(isAdmin || isSupervisor) && (
+                    <Button
+                      variant="danger"
+                      size="xs"
+                      icon={Trash2}
+                      onClick={requestDeletePersonnel}
+                    >
+                      Hapus Anggota
+                    </Button>
+                  )}
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                <div className="flex flex-col sm:items-end gap-1">
-                  <span className="text-[11px] font-bold uppercase text-slate-400">Status Kepegawaian</span>
-                  <span className="text-xs font-bold text-slate-800 capitalize px-2.5 py-1 bg-slate-100 rounded-md">
-                    {personnel.employment_status || 'Organik'}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <span className="text-slate-400 block text-[11px]">Username Login</span>
+                  <span className="font-mono font-bold text-slate-900 mt-1 block">
+                    {personnel.username || '-'}
                   </span>
                 </div>
-
-                {(isAdmin || isSupervisor) && (
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    icon={Trash2}
-                    onClick={requestDeletePersonnel}
-                  >
-                    Hapus Anggota
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Information Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* License & Certification */}
-              <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-                <div className="flex items-center gap-2 pb-3 border-b border-slate-200 mb-4">
-                  <Award className="w-5 h-5 text-arff-primary" />
-                  <h3 className="text-sm font-bold text-slate-900">Lisensi & Pendidikan</h3>
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <span className="text-slate-400 block text-[11px]">Role Sistem (Akses)</span>
+                  <span className="font-bold text-slate-900 mt-1 block">
+                    {formatRoleName(personnel.user_role || (personnel.team_group === 'Non-Shift' ? 'admin' : targetRole))}
+                  </span>
                 </div>
-
-                <div className="space-y-3 text-xs">
-                  <div className="flex justify-between py-1.5 border-b border-slate-100">
-                    <span className="text-slate-500">Tingkat Lisensi:</span>
-                    <Badge variant="info" size="sm">
-                      {personnel.cert_level || 'Junior'} Fire Fighter
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between py-1.5 border-b border-slate-100">
-                    <span className="text-slate-500">Nomor Registrasi Lisensi:</span>
-                    <span className="font-mono font-semibold text-slate-800">
-                      {personnel.cert_number || '-'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1.5 border-b border-slate-100">
-                    <span className="text-slate-500">Masa Berlaku Lisensi:</span>
-                    <span className="font-medium text-slate-800">
-                      {personnel.cert_expiry_date ? new Date(personnel.cert_expiry_date).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' }) : '-'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1.5 border-b border-slate-100">
-                    <span className="text-slate-500">Tanggal Lahir:</span>
-                    <span className="font-medium text-slate-800">
-                      {personnel.birth_date ? new Date(personnel.birth_date).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' }) : '-'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1.5">
-                    <span className="text-slate-500">Pendidikan Terakhir:</span>
-                    <span className="font-medium text-slate-800">
-                      {personnel.formal_education || '-'}
-                    </span>
-                  </div>
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <span className="text-slate-400 block text-[11px]">Penempatan Regu</span>
+                  <span className="font-bold text-slate-900 mt-1 block">
+                    {personnel.team_group === 'Non-Shift' ? 'Non-Shift (Administrasi)' : formatTeam(personnel.team_group)}
+                  </span>
                 </div>
-              </div>
-
-              {/* Account & Role */}
-              <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-                <div className="flex items-center gap-2 pb-3 border-b border-slate-200 mb-4">
-                  <Shield className="w-5 h-5 text-arff-primary" />
-                  <h3 className="text-sm font-bold text-slate-900">Akun Sistem & Hak Akses</h3>
-                </div>
-
-                <div className="space-y-3 text-xs">
-                  <div className="flex justify-between py-1.5 border-b border-slate-100">
-                    <span className="text-slate-500">Username Login:</span>
-                    <span className="font-mono font-bold text-slate-800">
-                      {personnel.username || '-'}
-                    </span>
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between">
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Kata Sandi</span>
+                    <span className="text-slate-500 font-mono mt-1 block">••••••••</span>
                   </div>
-                  <div className="flex justify-between py-1.5 border-b border-slate-100">
-                    <span className="text-slate-500">Peran Sistem:</span>
-                    <span className="font-semibold text-slate-800">
-                      {formatRoleName(personnel.user_role || targetRole)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1.5 border-b border-slate-100">
-                    <span className="text-slate-500">Regu Operasional:</span>
-                    <span className="font-bold text-slate-800">
-                      Regu {formatTeam(personnel.team_group || 'Alpha')}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1.5 border-b border-slate-100">
-                    <span className="text-slate-500">Status Akun:</span>
-                    <Badge variant={personnel.is_active ? 'success' : 'danger'} size="sm">
-                      {personnel.is_active ? 'Aktif' : 'Non-Aktif'}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between items-center py-1.5">
-                    <span className="text-slate-500">Kata Sandi:</span>
-                    {isAdmin ? (
-                      <Button
-                        variant="outline"
-                        size="xs"
-                        icon={Key}
-                        onClick={() => setResetPasswordModalOpen(true)}
-                        className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
-                      >
-                        Reset Password
-                      </Button>
-                    ) : (
-                      <span className="text-slate-400">••••••••</span>
-                    )}
-                  </div>
+                  {isAdmin && (
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      icon={Key}
+                      onClick={() => setResetPasswordModalOpen(true)}
+                      className="text-amber-700 hover:text-amber-800 hover:bg-amber-50"
+                    >
+                      Reset
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -779,6 +728,16 @@ export default function PersonnelDetailPage() {
         personnel={personnel}
         onConfirm={handleResetPassword}
         loading={resettingPassword}
+      />
+
+      {/* Modal Edit Dossier & Kualifikasi Lapbul */}
+      <PersonnelDossierEditModal
+        isOpen={dossierEditOpen}
+        onClose={() => setDossierEditOpen(false)}
+        personnel={personnel}
+        onSave={handleSaveDossier}
+        saving={savingDossier}
+        isStaffAdmin={isAdmin || isSupervisor}
       />
 
       {/* Modal Konfirmasi Umum In-App (Pengganti window.confirm) */}

@@ -234,8 +234,8 @@ export const OPERATIONAL_ROLES = [
   {
     role: 'admin',
     rank_position: 'Administrator',
-    label: 'Administrator (Sistem)',
-    badgeClass: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300 border-rose-200 dark:border-rose-800',
+    label: 'Administrasi',
+    badgeClass: 'bg-slate-100 text-slate-800 border-slate-200',
   },
 ];
 

@@ -78,12 +78,23 @@ export const exportPersonnelPdf = async (req, res) => {
 
     const [rows] = await pool.query(query, params);
 
-    const doc = generatePersonnelAccountsPdf(rows);
+    // Ambil pejabat Dept Head resmi untuk tanda tangan pengesahan
+    const [deptHeads] = await pool.query(
+      `SELECT p.full_name as name, p.nip, p.rank_position, COALESCE(u.signature_url, p.signature_url) as signature_url
+       FROM personnel p
+       LEFT JOIN users u ON u.id = p.user_id
+       WHERE u.role = 'dept_head' OR p.rank_position LIKE '%Dept%Head%' OR p.full_name LIKE '%TAMSUL%'
+       ORDER BY p.id ASC
+       LIMIT 1`
+    );
+    const signatory = deptHeads.length > 0 ? deptHeads[0] : null;
+
+    const doc = generatePersonnelAccountsPdf(rows, signatory);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
       'Content-Disposition',
-      'attachment; filename="Daftar_Akun_Personel_ARFF_YIA.pdf"'
+      'attachment; filename="Buku_Induk_Personel_ARFF_YIA.pdf"'
     );
 
     doc.pipe(res);
@@ -195,6 +206,19 @@ export function mapRankPositionToRole(rank) {
   return 'junior_firefighter';
 }
 
+/**
+ * Helper untuk mendeteksi apakah jabatan merupakan Ketua Regu (Chief) murni
+ * (Bukan Asisten Chief / Wakil)
+ */
+export function isChiefRank(rank) {
+  if (!rank) return false;
+  const r = rank.trim().toLowerCase();
+  if (r.includes('assistant') || r.includes('asisten') || r.includes('wakil')) {
+    return false;
+  }
+  return r.includes('chief') || r.includes('ketua regu');
+}
+
 async function generateUniqueUsername(nip, fullName) {
   let baseUsername = '';
   if (nip && nip.trim() && nip.trim() !== '-') {
@@ -248,6 +272,38 @@ export const createPersonnel = async (req, res) => {
       return errorResponse(res, 'Regu dinas harus salah satu dari: Alpha, Bravo, Charlie, Delta', 400);
     }
 
+    // Proteksi Integritas Ketua Regu (Chief): Setiap regu operasional HANYA BISA MEMILIKI MAKSIMAL 1 KETUA REGU
+    const effectiveRole = role && role !== 'operator' ? role : mapRankPositionToRole(rank_position);
+    const isTargetingChief = isChiefRank(rank_position) || effectiveRole === 'chief' || effectiveRole === 'supervisor';
+
+    if (isTargetingChief && validTeams.includes(team_group)) {
+      const [existingChiefs] = await connection.query(
+        `SELECT p.id, p.full_name
+         FROM personnel p
+         LEFT JOIN users u ON u.id = p.user_id
+         WHERE p.team_group = ?
+           AND p.is_active = 1
+           AND (
+             u.role IN ('chief', 'supervisor') 
+             OR p.rank_position LIKE '%Chief%' 
+             OR p.rank_position LIKE '%Ketua%'
+           )
+           AND p.rank_position NOT LIKE '%Assistant%'
+           AND p.rank_position NOT LIKE '%Asisten%'
+           AND (u.role IS NULL OR u.role != 'chief_assistant')`,
+        [team_group]
+      );
+
+      if (existingChiefs.length > 0) {
+        connection.release();
+        return errorResponse(
+          res,
+          `Regu ${team_group} sudah memiliki Ketua Regu (Chief: ${existingChiefs[0].full_name}). Setiap regu operasional hanya boleh memiliki tepat 1 Ketua Regu. Gunakan menu 'Kelola Pejabat' untuk mengganti posisi Ketua Regu.`,
+          400
+        );
+      }
+    }
+
     // 1. Otomatis buatkan akun pengguna langsung untuk setiap personel baru
     let accountUsername = username;
     if (!accountUsername) {
@@ -261,7 +317,6 @@ export const createPersonnel = async (req, res) => {
 
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password || '123456', salt);
-    const effectiveRole = role && role !== 'operator' ? role : mapRankPositionToRole(rank_position);
 
     await connection.beginTransaction();
 
@@ -322,13 +377,29 @@ export const updatePersonnel = async (req, res) => {
       nip,
       full_name,
       rank_position,
+      birth_place,
       birth_date,
+      tmt_date,
       employment_status,
       team_group,
       formal_education,
+      recognized_education,
       cert_level,
       cert_number,
       cert_expiry_date,
+      basic_lemdik,
+      basic_cert_number,
+      junior_lemdik,
+      junior_cert_number,
+      senior_lemdik,
+      senior_cert_number,
+      salvage_license_number,
+      salvage_expiry_date,
+      refreshing_cert_number,
+      refreshing_date,
+      salvage_refreshing_cert_number,
+      salvage_refreshing_date,
+      additional_competencies,
       is_active
     } = req.body;
 
@@ -373,7 +444,20 @@ export const updatePersonnel = async (req, res) => {
     };
 
     const cleanBirthDate = parseDateOrNull(birth_date, existing[0].birth_date);
-    const cleanExpiryDate = parseDateOrNull(cert_expiry_date, existing[0].cert_expiry_date);
+    const cleanTmtDate = parseDateOrNull(tmt_date, existing[0].tmt_date);
+    const cleanCertExpiry = parseDateOrNull(cert_expiry_date, existing[0].cert_expiry_date);
+    const cleanSalvageExpiry = parseDateOrNull(salvage_expiry_date, existing[0].salvage_expiry_date);
+    const cleanRefreshingDate = parseDateOrNull(refreshing_date, existing[0].refreshing_date);
+    const cleanSalvageRefreshingDate = parseDateOrNull(salvage_refreshing_date, existing[0].salvage_refreshing_date);
+
+    const cleanStr = (val, fallback) => (val !== undefined ? (val ? String(val).trim() : null) : fallback);
+
+    let cleanCompetencies = existing[0].additional_competencies;
+    if (additional_competencies !== undefined) {
+      cleanCompetencies = Array.isArray(additional_competencies)
+        ? JSON.stringify(additional_competencies)
+        : (typeof additional_competencies === 'string' ? additional_competencies : JSON.stringify([]));
+    }
 
     // Proteksi Integritas Mutasi Regu & Status Aktif:
     // Dilarang memindahkan regu atau menonaktifkan personel yang sedang bertugas aktif di armada/posko pada shift berjalan
@@ -404,31 +488,96 @@ export const updatePersonnel = async (req, res) => {
       }
     }
 
+    // Proteksi Integritas Ketua Regu (Chief): Setiap regu operasional HANYA BISA MEMILIKI MAKSIMAL 1 KETUA REGU (CHIEF)
+    const isTargetingChief = isChiefRank(effectiveRankPosition) || (rank_position && mapRankPositionToRole(rank_position) === 'chief');
+    const targetTeam = effectiveTeamGroup;
+    const validOperationalTeams = ['Alpha', 'Bravo', 'Charlie', 'Delta'];
+
+    if (isStaffAdmin && isTargetingChief && validOperationalTeams.includes(targetTeam) && effectiveIsActive !== 0) {
+      const [existingChiefs] = await pool.query(
+        `SELECT p.id, p.full_name
+         FROM personnel p
+         LEFT JOIN users u ON u.id = p.user_id
+         WHERE p.team_group = ?
+           AND p.id != ?
+           AND p.is_active = 1
+           AND (
+             u.role IN ('chief', 'supervisor') 
+             OR p.rank_position LIKE '%Chief%' 
+             OR p.rank_position LIKE '%Ketua%'
+           )
+           AND p.rank_position NOT LIKE '%Assistant%'
+           AND p.rank_position NOT LIKE '%Asisten%'
+           AND (u.role IS NULL OR u.role != 'chief_assistant')`,
+        [targetTeam, id]
+      );
+
+      if (existingChiefs.length > 0) {
+        return errorResponse(
+          res,
+          `Regu ${targetTeam} sudah memiliki Ketua Regu aktif (${existingChiefs[0].full_name}). Setiap regu operasional hanya boleh memiliki tepat 1 Ketua Regu. Untuk mengganti posisi Ketua Regu, silakan gunakan menu 'Kelola Pejabat'.`,
+          400
+        );
+      }
+    }
+
     await pool.query(
       `UPDATE personnel SET
         nip = ?,
         full_name = ?,
         rank_position = ?,
+        birth_place = ?,
         birth_date = ?,
+        tmt_date = ?,
         employment_status = ?,
         team_group = ?,
         formal_education = ?,
+        recognized_education = ?,
         cert_level = ?,
         cert_number = ?,
         cert_expiry_date = ?,
+        basic_lemdik = ?,
+        basic_cert_number = ?,
+        junior_lemdik = ?,
+        junior_cert_number = ?,
+        senior_lemdik = ?,
+        senior_cert_number = ?,
+        salvage_license_number = ?,
+        salvage_expiry_date = ?,
+        refreshing_cert_number = ?,
+        refreshing_date = ?,
+        salvage_refreshing_cert_number = ?,
+        salvage_refreshing_date = ?,
+        additional_competencies = ?,
         is_active = ?
       WHERE id = ?`,
       [
         effectiveNip !== undefined ? (effectiveNip ? String(effectiveNip).trim() : null) : existing[0].nip,
         effectiveFullName,
         effectiveRankPosition,
+        cleanStr(birth_place, existing[0].birth_place),
         cleanBirthDate,
+        cleanTmtDate,
         effectiveEmploymentStatus,
         effectiveTeamGroup,
-        formal_education !== undefined ? (formal_education ? String(formal_education).trim() : null) : existing[0].formal_education,
+        cleanStr(formal_education, existing[0].formal_education),
+        cleanStr(recognized_education, existing[0].recognized_education),
         effectiveCertLevel,
-        cert_number !== undefined ? (cert_number ? String(cert_number).trim() : null) : existing[0].cert_number,
-        cleanExpiryDate,
+        cleanStr(cert_number, existing[0].cert_number),
+        cleanCertExpiry,
+        cleanStr(basic_lemdik, existing[0].basic_lemdik),
+        cleanStr(basic_cert_number, existing[0].basic_cert_number),
+        cleanStr(junior_lemdik, existing[0].junior_lemdik),
+        cleanStr(junior_cert_number, existing[0].junior_cert_number),
+        cleanStr(senior_lemdik, existing[0].senior_lemdik),
+        cleanStr(senior_cert_number, existing[0].senior_cert_number),
+        cleanStr(salvage_license_number, existing[0].salvage_license_number),
+        cleanSalvageExpiry,
+        cleanStr(refreshing_cert_number, existing[0].refreshing_cert_number),
+        cleanRefreshingDate,
+        cleanStr(salvage_refreshing_cert_number, existing[0].salvage_refreshing_cert_number),
+        cleanSalvageRefreshingDate,
+        cleanCompetencies,
         effectiveIsActive,
         id
       ]
@@ -449,10 +598,14 @@ export const updatePersonnel = async (req, res) => {
     }
 
     const [updated] = await pool.query('SELECT * FROM personnel WHERE id = ?', [id]);
-    return successResponse(res, 'Data personel berhasil diperbarui', updated[0]);
+    const resPers = updated[0];
+    if (typeof resPers.additional_competencies === 'string') {
+      try { resPers.additional_competencies = JSON.parse(resPers.additional_competencies); } catch (e) { resPers.additional_competencies = []; }
+    }
+    return successResponse(res, 'Data personel berhasil diperbarui', resPers);
   } catch (error) {
     console.error('Error updatePersonnel:', error);
-    return errorResponse(res, 'Gagal memperbarui data personel', 500);
+    return errorResponse(res, 'Gagal memperbarui data personel: ' + error.message, 500);
   }
 };
 
@@ -901,10 +1054,21 @@ export const getOfficials = async (req, res) => {
       Delta: chiefs.find((c) => (c.team_group || '').toLowerCase().trim() === 'delta') || null,
     };
 
+    // 4. Staf Administrasi (Personel Non-Shift / Role Admin)
+    const [administrasi] = await pool.query(
+      `SELECT p.*, u.username, u.email as user_email, u.role as user_role,
+              COALESCE(u.signature_url, p.signature_url) as signature_url
+       FROM personnel p
+       LEFT JOIN users u ON u.id = p.user_id
+       WHERE (p.team_group = 'Non-Shift' OR p.team_group IS NULL)
+         AND (p.rank_position NOT LIKE '%Dept%Head%' AND (u.role IS NULL OR u.role != 'dept_head'))
+       ORDER BY p.id ASC`
+    );
+
     return successResponse(res, 'Data pejabat berhasil diambil', {
       dept_head: deptHead,
-      section_head: sectionHead,
       chiefs: chiefsByTeam,
+      administrasi: administrasi,
       raw_chiefs: chiefs,
     });
   } catch (error) {
@@ -1079,6 +1243,17 @@ export const replaceChief = async (req, res) => {
          AND u.role != 'chief_assistant'`,
       [team_group]
     );
+
+    const isAlreadyChief = currentChiefs.some((c) => c.id === Number(new_chief_id));
+    if (isAlreadyChief) {
+      await connection.rollback();
+      connection.release();
+      return errorResponse(
+        res,
+        `Personel tersebut saat ini sudah menjabat sebagai Ketua Regu ${team_group}. Silakan pilih anggota regu lain untuk melakukan pergantian Ketua Regu.`,
+        400
+      );
+    }
 
     for (const oldChief of currentChiefs) {
       if (oldChief.id === Number(new_chief_id)) continue;
