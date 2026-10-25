@@ -1,128 +1,60 @@
-# DOKUMEN MASTER ORKESTRASI & PEMBAGIAN TUGAS 5 AGENT (FASE 3)
+# MASTER ORKESTRASI PERBAIKAN SISTEM ACMS (ARFF YIA) - FASE 3 EKSEKUSI
 
-**Status Proyek:** FASE 3 (Eksekusi Perbaikan Kode Produksi Terisolasi)  
-**Tujuan:** Mengeliminasi seluruh 38 butir temuan audit pada seluruh aplikasi (Dashboard tetap di-skip 100%).  
-**Prinsip Utama:** **ISOLASI TOTAL (Zero File Collision)**, **Anti-Lag Form Input**, dan **Zero Redundant Request**.  
-**Pedoman Umum Agen:** Wajib membaca dan mematuhi [`agentrules.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/agentrules.md).
+Dokumen ini memuat master rencana perbaikan sistem terpadu (*Zero File Collision*) untuk Agent 1 sampai dengan Agent 5 dengan menyertakan konteks penuh: **Deskripsi Masalah**, **Dampak / Risiko**, dan **Instruksi Solusi Konkret**.
 
 ---
 
-## 📋 MATRIKS PEMBAGIAN DOMAIN & BERKAS TERISOLASI:
+## Ringkasan Matriks Domain & Penugasan Agen
 
-### 1. AGENT 1: Shell Navigasi Desktop, Autentikasi Login & Profil Mandiri Desktop
-- **Lembar Tugas:** [`task_agent1.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/task_agent1.md)
-- **Lembar Laporan Hasil:** [`masak/temp/hasil_agent1.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/temp/hasil_agent1.md)
-- **Berkas Target Eksklusif:**
-  - `frontend/src/components/layout/Navbar.jsx`
+### 1. Agent 1: URL Routing, Navigasi RESTful, & Mobile Shell
+- **Domain Berkas**:
+  - `frontend/src/App.jsx`
   - `frontend/src/components/layout/Sidebar.jsx`
-  - `frontend/src/pages/HalamanLogin.jsx`
-  - `frontend/src/components/common/InputField.jsx`
-  - `frontend/src/components/forms/MandatoryPasswordChangeModal.jsx`
-  - `frontend/src/components/profile/DesktopProfileModal.jsx`
-- **Poin Fokus:**
-  - Pembuatan modal profil mandiri terpusat (GEMINI.md Butir 9) via avatar Navbar untuk seluruh role dan Admin.
-  - Pesan error ramah saat backend offline (`Network Error`).
-  - Polling pengumuman hemat daya (interval 90s + visibility guard).
-  - Mode mini/collapse sidebar desktop `w-20` dengan persistensi `localStorage` dan kuncian rute menu baku yang utuh (pantangan mengubah path rute).
+  - `frontend/src/components/layout/MobileBottomNav.jsx`
+- **Fokus Utama**: Menstandarisasi URL hirarkis `/vehicles` dan `/vehicles/reports`, mengaktifkan `/incidents/reports`, memasang redirect otomatis dari path lama, menyinkronkan active route sidebar, dan memastikan tab bottom bar mobile kru hanya berisi 3 tab baku (Dashboard, Kegiatan, Laporan).
 
----
-
-### 2. AGENT 2: Master Data Personel Admin, Cuti Desktop & Roster Jadwal
-- **Lembar Tugas:** [`task_agent2.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/task_agent2.md)
-- **Lembar Laporan Hasil:** [`masak/temp/hasil_agent2.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/temp/hasil_agent2.md)
-- **Berkas Target Eksklusif:**
+### 2. Agent 2: Modul Personel, Validasi Cuti, & Lencana STKP
+- **Domain Berkas**:
   - `frontend/src/pages/HalamanPersonel.jsx`
-  - `frontend/src/pages/HalamanDetailPersonel.jsx`
-  - `frontend/src/components/personnel/` (Folder modular modal personel)
-  - `frontend/src/pages/HalamanCuti.jsx`
-  - `frontend/src/components/forms/CutiModal.jsx`
-  - `frontend/src/pages/HalamanJadwal.jsx`
-  - `backend/src/controllers/deploymentController.js` (Endpoint leave-history)
-  - `backend/src/routes/deploymentRoutes.js` (Route leave-history)
-- **Poin Fokus:**
-  - Eliminasi `window.confirm` native dan pemecahan file monolitik `HalamanDetailPersonel.jsx` ke 4 modal modular.
-  - Debounce pencarian nama personel 350ms dan filter dropdown regu yang menyembunyikan non-matching total.
-  - Debounce pemilihan tanggal siklus dan in-memory cache roster bulanan di `HalamanJadwal.jsx`.
-  - Tab switcher `[Shift Berjalan]` dan `[Riwayat Bulan Ini]` di `HalamanCuti.jsx` (Endpoint backend `GET /api/deployments/leave-history` sudah dibuat dan diuji aktif oleh Supervisor).
-  - Validasi client-side ukuran berkas upload dokumen personel (10 MB) dan bukti cuti (5 MB).
+  - `frontend/src/components/CutiModal.jsx`
+  - `backend/src/controllers/personnelController.js`
+- **Fokus Utama**: Menambahkan lencana peringatan kedaluwarsa lisensi STKP (amber ≤ 60 hari, merah expired), validasi tanggal cuti bentrok di frontend, dan memperkuat proteksi mutasi/penonaktifan personel saat bertugas aktif di backend.
 
----
-
-### 3. AGENT 3: Operasional Armada, Ploting Penugasan Desktop, Kesiapan PIC & Pejabat
-- **Lembar Tugas:** [`task_agent3.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/task_agent3.md)
-- **Lembar Laporan Hasil:** [`masak/temp/hasil_agent3.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/temp/hasil_agent3.md)
-- **Berkas Target Eksklusif:**
-  - `frontend/src/pages/HalamanPenugasan.jsx`
-  - `frontend/src/components/forms/DeploymentSlotCard.jsx`
+### 3. Agent 3: Kesiapan Armada, Carry-Over Status, & Ploting Dirty State
+- **Domain Berkas**:
+  - `backend/src/controllers/readinessController.js`
   - `frontend/src/pages/HalamanKesiapanKendaraan.jsx`
-  - `frontend/src/components/forms/VehicleReadinessModal.jsx`
-  - `frontend/src/components/forms/WatchroomReadinessModal.jsx`
-  - `frontend/src/pages/HalamanKelolaPejabat.jsx`
-- **Poin Fokus:**
-  - Sanitasi `Set` client-side untuk mencegah penugasan ganda pada payload batch ploting.
-  - Perbaikan percabangan modal kesiapan Posko Watchroom (`WatchroomReadinessModal`).
-  - Penanda merah mencolok `⛔ [CUTI/IZIN]` dan status disabled pada dropdown kru yang sedang cuti.
-  - Optimalisasi kerapatan padding slot kru pada perangkat mobile.
-  - Eliminasi CSS `transition-all` pada banner notifikasi kesiapan kendaraan.
-  - Format tanggal Bahasa Indonesia formal pada modal kesiapan.
-  - Tooltip penjelas chip status "Menunggu Foto Fisik" (tetap Serviceable sesuai GEMINI.md No. 17).
-  - Thumbnail dan instant preview tanda tangan digital Dept. Head dengan validasi berkas 2 MB.
+  - `frontend/src/pages/HalamanPenugasan.jsx`
+  - `frontend/src/pages/mobile/MobilePloting.jsx`
+- **Fokus Utama**: Memperbaiki transisi status armada agar log baru berstatus `belum_dilaporkan` (badge abu-abu netral) dengan tetap membawa carry-over unserviceable dari shift sebelumnya, memasang pelacakan dirty state (`hasUnsavedChanges`) dengan floating bar berdenyut dan route guard peringatan, serta menghapus request ganda di mobile.
 
----
-
-### 4. AGENT 4: Log Kegiatan Dinas, Pelaporan Insiden & Papan Pengumuman
-- **Lembar Tugas:** [`task_agent4.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/task_agent4.md)
-- **Lembar Laporan Hasil:** [`masak/temp/hasil_agent4.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/temp/hasil_agent4.md)
-- **Berkas Target Eksklusif:**
+### 4. Agent 4: Modul Kegiatan, Insiden, & Proteksi Read-Only Kru Non-Pimpinan (Nomor 8)
+- **Domain Berkas**:
+  - `backend/src/controllers/activityController.js`
+  - `backend/src/controllers/incidentController.js`
   - `frontend/src/pages/HalamanKegiatan.jsx`
   - `frontend/src/pages/HalamanInsiden.jsx`
-  - `frontend/src/pages/HalamanDetailInsiden.jsx`
-  - `frontend/src/components/forms/IncidentModal.jsx`
-  - `frontend/src/pages/HalamanPengumuman.jsx`
-- **Poin Fokus:**
-  - Perbaikan props tanggal/shift dan proteksi fallback `useAuth()` pada `IncidentModal.jsx`, serta tombol checklist multi-select armada aktif.
-  - Modal Lightbox interaktif foto bukti TKP resolusi penuh dengan navigasi dan unduh berkas asli.
-  - Restrukturisasi tampilan kegiatan menjadi **Vertical Step Timeline** bersambung garis vertikal dengan badge jam dinas dan ikon kategori dinas.
-  - Lazy-load dokumen PDF dan opsi penyematan pengumuman prioritas (`[MENDESAK]` / `PINNED`) di posisi teratas.
-  - Penggantian `window.confirm` hapus pengumuman dengan in-app modal konfirmasi.
-  - Timer `setTimeout` 3.5 detik untuk auto-dismiss toast feedback.
-  - Query pagination limit default `{ limit: 50 }` pada riwayat insiden.
+  - `frontend/src/pages/mobile/MobileKegiatan.jsx`
+  - `frontend/src/pages/mobile/MobileInsiden.jsx`
+- **Fokus Utama**: Memproteksi backend endpoint (HTTP 403 Forbidden) untuk Create/Update/Delete jika bukan Admin, Chief, atau Asisten Chief; menerapkan mode Read-Only murni di UI frontend mobile bagi kru biasa; menambahkan tombol "Rekap Laporan" di header insiden; dan membersihkan dead code unused import.
 
----
-
-### 5. AGENT 5: Dokumen Laporan Cetak Resmi A4 & Seluruh Ekosistem Mobile View
-- **Lembar Tugas:** [`task_agent5.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/task_agent5.md)
-- **Lembar Laporan Hasil:** [`masak/temp/hasil_agent5.md`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/masak/temp/hasil_agent5.md)
-- **Berkas Target Eksklusif:**
-  - `frontend/src/components/reports/A4DocumentLayout.jsx`
-  - `frontend/src/services/reportService.js`
-  - `frontend/src/pages/HalamanLaporan.jsx`
+### 5. Agent 5: Laporan Operasional, Pratinjau PDF, Tanda Tangan Digital, & Invalidation Cache
+- **Domain Berkas**:
   - `frontend/src/pages/HalamanLaporanArmada.jsx`
-  - `frontend/src/pages/HalamanLaporanInsiden.jsx`
-  - `frontend/src/pages/mobile/MobilePloting.jsx`
-  - `frontend/src/components/mobile/ploting/MobileAbsentCrewSection.jsx`
-  - `frontend/src/pages/mobile/MobileLaporan.jsx`
-  - `frontend/src/components/mobile/MobileHeader.jsx`
-  - `frontend/src/components/mobile/announcements/MobileAnnouncementsModal.jsx`
-  - `frontend/src/components/mobile/profile/MobileProfileView.jsx`
-  - `frontend/src/components/mobile/profile/MobileEditProfileModal.jsx`
-- **Poin Fokus:**
-  - Penghapusan modal manual dan tombol tambah cuti sepihak di `MobilePloting.jsx` & `MobileAbsentCrewSection.jsx` (patuh asas cuti mandiri GEMINI.md No. 15).
-  - Standardisasi Card 1 Profil Mandiri Mobile (Tempat Lahir dan tombol Ubah Password menyatu di Card 1).
-  - Penyatuan ekspor PDF desktop melalui Axios authenticated blob stream di `reportService.js` (menghapus `window.open` dengan raw query token).
-  - Presisi styling cetak CSS `@page { size: A4 portrait; margin: 10mm 12mm; }` dan format tanda tangan dinas resmi (garis bawah nama pejabat dan label NIP).
-  - Perluasan area touch target header mobile menjadi minimal 44x44px.
-  - Pencegahan network flooding dengan `AbortController` pada pergantian filter laporan dinas.
-  - Cache fetching pengumuman mobile untuk mengeliminasi pemanggilan berulang dalam rentang 30 detik.
+  - `frontend/src/pages/HalamanLaporan.jsx`
+  - `frontend/src/components/A4DocumentLayout.jsx`
+  - `backend/src/services/pdfService.js`
+  - `backend/src/controllers/deploymentController.js`
+- **Fokus Utama**: Menghubungkan token otentikasi pada `src` gambar tanda tangan digital di layout A4 PDF guna mengatasi HTTP 401 Unauthorized, format garis tanda tangan basah bila belum ada tanda tangan digital, menghapus angka hardcode 8 dan "7 Unit Kendaraan" di laporan dinas, dan memanggil `clearPdfCache()` saat penyimpanan ploting.
 
 ---
 
-## 📝 FORMAT WAJIB PENULISAN LAPORAN HASIL KERJA AGENT:
-Setiap agent diwajibkan menuliskan laporan hasil eksekusinya di berkas masing-masing (`masak/temp/hasil_agent1.md` s.d. `hasil_agent5.md`) dengan format baku:
-
-```text
-(nomor). (judul) (halaman (ditulis singkat saja)/namafile) .
-(deskripsi masalah)
-(dampak)
-(solusi)
-```
+## Protokol Eksekusi & Pelaporan Temuan Tambahan
+1. Setiap agen membaca lembar tugas spesifiknya (`task_agent1.md` s.d. `task_agent5.md`).
+2. Dilarang menyentuh berkas di luar domain eksklusif masing-masing (*Zero File Collision*).
+3. Seluruh pengujian kode wajib dilakukan via CLI (`npm run build` dan `node -c`). Dilarang membuka browser otomatis (`browser_subagent`).
+4. **Kanal Temuan, Bug, Ide, & Saran Tambahan**:
+   - Apabila selama inspeksi/eksekusi agen menemukan bug baru, anomali logika, celah keamanan/performa, ide inovasi, atau saran peningkatan UI/UX di luar tugas utamanya:
+   - **DILARANG mengubah kode di luar domain/tugas secara sepihak.**
+   - Agen **WAJIB mencatat seluruh temuan, ide, dan saran tersebut di berkas laporannya (`masak/temp/hasil_agent*.md`)** menggunakan format hierarkis: Judul Temuan/Ide, Deskripsi Masalah/Konsep, Dampak/Manfaat, dan Rekomendasi Solusi agar dapat dievaluasi bersama oleh Pengawas dan Pengguna.
+5. Setelah eksekusi tuntas dan lulus verifikasi CLI, agen menuliskan laporannya secara mandiri di `masak/temp/hasil_agent*.md`.

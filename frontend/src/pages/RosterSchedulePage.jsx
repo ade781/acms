@@ -26,7 +26,7 @@ const MONTH_NAMES = [
 
 const DAY_SHORT_NAMES = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 
-export default function HalamanJadwal() {
+export default function RosterSchedulePage() {
   const { isAdmin, isSupervisor } = useAuth();
   const canEdit = Boolean(isAdmin || isSupervisor);
 

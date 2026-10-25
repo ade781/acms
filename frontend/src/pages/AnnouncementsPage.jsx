@@ -24,7 +24,7 @@ import InputField from '../components/common/InputField';
 import TextareaField from '../components/common/TextareaField';
 import StateView from '../components/common/StateView';
 
-export default function HalamanPengumuman() {
+export default function AnnouncementsPage() {
   const { user, isAdmin, isSupervisor } = useAuth();
   const canPublish = isAdmin || isSupervisor || ['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor'].includes(user?.role);
   const canDelete = isAdmin || ['admin', 'dept_head'].includes(user?.role);

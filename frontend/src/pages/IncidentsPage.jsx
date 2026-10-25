@@ -29,7 +29,7 @@ import InputField from '../components/common/InputField';
 import SelectField from '../components/common/SelectField';
 import IncidentModal from '../components/forms/IncidentModal';
 
-export default function HalamanInsiden() {
+export default function IncidentsPage() {
   const navigate = useNavigate();
   const { activeDate, activeShiftNumber, activeTeam, user, isChief, isAdmin, isSupervisor } = useAuth();
   const canReport = isChief || isAdmin || isSupervisor || ['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor'].includes(user?.role);
@@ -187,6 +187,14 @@ export default function HalamanInsiden() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            icon={FileText}
+            onClick={() => navigate('/incidents/reports')}
+          >
+            Rekap Laporan
+          </Button>
+
           <Button
             variant="outline"
             icon={Download}

@@ -29,7 +29,6 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam, formatTeam } from '../utils/shiftHelper';
 import api from '../services/api';
-import { downloadActivityReportPdf } from '../services/reportService';
 import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
@@ -128,7 +127,7 @@ export const getActivityCategoryMeta = (type) => {
   }
 };
 
-export default function HalamanKegiatan() {
+export default function ActivitiesPage() {
   const { user, isAdmin, isSupervisor, activeDate, activeShiftNumber, activeTeam } = useAuth();
   const canManageActivity =
     isAdmin || isSupervisor || ['admin', 'chief', 'chief_assistant', 'supervisor', 'dept_head'].includes(user?.role);

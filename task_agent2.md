@@ -1,100 +1,71 @@
-# LEMBAR PENUGASAN AGENT 2: MASTER DATA PERSONEL ADMIN, CUTI DESKTOP & ROSTER JADWAL
+# LEMBAR TUGAS AGENT 2: MODUL PERSONEL, CUTI, & LENCANA STKP
 
-**Domain Tanggung Jawab:** Master Data Personel (`HalamanPersonel.jsx`, `HalamanDetailPersonel.jsx`), Pengajuan & Riwayat Cuti Desktop (`HalamanCuti.jsx`, `CutiModal.jsx`), Roster Jadwal Shift (`HalamanJadwal.jsx`), dan endpoint backend terkait cuti bulanan.  
-**Catatan Penting:** Halaman Dashboard dihiraukan (*skip*).  
-**Fase Saat Ini:** **FASE 3 (Eksekusi Perbaikan Kode Produksi)**  
-
----
-
-## 🎯 BERKAS TARGET PEKERJAAN ANDA (ISOLASI MUTLAK):
-1. [`frontend/src/pages/HalamanPersonel.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/HalamanPersonel.jsx)
-2. [`frontend/src/pages/HalamanDetailPersonel.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/HalamanDetailPersonel.jsx)
-3. Folder Komponen Modular: [`frontend/src/components/personnel/`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/personnel/)
-4. [`frontend/src/pages/HalamanCuti.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/HalamanCuti.jsx)
-5. [`frontend/src/components/forms/CutiModal.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/forms/CutiModal.jsx)
-6. [`frontend/src/pages/HalamanJadwal.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/HalamanJadwal.jsx)
-*(Catatan: Endpoint backend GET /api/deployments/leave-history sudah dibuat dan diuji oleh Supervisor. Anda fokus 100% pada frontend!)*
+## Domain Berkas Eksklusif
+- `frontend/src/pages/HalamanPersonel.jsx`
+- `frontend/src/components/CutiModal.jsx`
+- `backend/src/controllers/personnelController.js`
 
 ---
 
-## ⛔ BATASAN & PANTANGAN KERAS:
-1. **DILARANG MERUSAK STRUKTUR DETAIL PERSONEL**:
-   Saat memecah modal di `HalamanDetailPersonel.jsx`, pastikan semua props (ID, data personel, refresh callback) tetap tersambung dengan benar. Jangan sampai aksi edit personel atau ganti password gagal karena props hilang.
-2. **DILARANG MENYENTUH BERKAS DI LUAR DAFTAR TARGET DI ATAS.**
+## Rincian Butir Tugas
+
+### Poin 1: Lencana Indikator Kedaluwarsa Lisensi STKP di `HalamanPersonel.jsx`
+- **Deskripsi Masalah**:
+  - Pada katalog personel (`HalamanPersonel.jsx`), masa berlaku lisensi STKP (`stkp_expiry_date`) hanya ditampilkan sebagai tanggal teks polos tanpa indikator visual urgensi jika lisensi mendekati habis atau sudah kedaluwarsa.
+- **Dampak / Risiko**:
+  - Pimpinan regu dan admin gagal mengantisipasi masa berlaku lisensi kru yang akan habis, berisiko menugaskan personel dengan lisensi kedaluwarsa yang melanggar regulasi keselamatan penerbangan (KP / ICAO).
+- **Instruksi Solusi Konkret**:
+  - Di `frontend/src/pages/HalamanPersonel.jsx`:
+    1. Hitung sisa hari dari hari ini: `const diffDays = Math.ceil((new Date(person.stkp_expiry_date) - new Date()) / (1000 * 60 * 60 * 24));`.
+    2. Tampilkan badge status STKP yang jelas dan kontras:
+       - **Expired / Kedaluwarsa** (jika `diffDays <= 0`): Badge merah pekat (`bg-red-500/20 text-red-400 border border-red-500/30`) bertuliskan *"Kedaluwarsa"*.
+       - **Hampir Kedaluwarsa** (jika `0 < diffDays <= 60`): Badge amber/kuning (`bg-amber-500/20 text-amber-400 border border-amber-500/30`) bertuliskan `Hampir Habis (${diffDays} hari)`.
+       - **Aktif / Berlaku** (jika `diffDays > 60`): Badge hijau netral (`bg-emerald-500/20 text-emerald-400 border border-emerald-500/30`) bertuliskan *"Aktif"*.
 
 ---
 
-## 🛠️ RINCIAN BUTIR TUGAS YANG WAJIB ANDA SELESAIKAN:
-
-1. Penggunaan Dialog Browser Native window.confirm pada Halaman Detail Personel
-deskripsi masalah:
-Pada `HalamanDetailPersonel.jsx` (baris 186, 261, 312), aksi destruktif penghapusan personel, penghapusan spesimen tanda tangan, dan penghapusan dokumen arsip masih memanggil dialog native browser `window.confirm()`.
-dampak:
-Dialog browser native membekukan thread UI browser, terlihat tidak profesional, tidak konsisten dengan tema desain sistem, dan rentan terblokir pengaturan browser.
-solusi:
-Gantikan dialog native `window.confirm` dengan in-app modal konfirmasi kustom bertema dark/modern yang terisolasi dan memiliki callback konfirmasi yang jelas.
-
-2. Network Request Instan Tanpa Debounce pada Search Personel
-deskripsi masalah:
-Di `HalamanPersonel.jsx`, input pencarian nama/NIP personel mengeksekusi proses filter atau re-render seketika di setiap tombol keyboard ditekan tanpa mekanisme jeda (debounce). Selain itu, filter regu hanya menurunkan opasitas baris (`opacity-30`) tanpa benar-benar menyembunyikan data yang tidak cocok.
-dampak:
-Melanggar aturan performa global Anti-Lag Form Input. Menimbulkan frame drop dan ketikan tersendat (laggy input) saat mencari personel, serta tampilan layar tetap padat karena baris tidak cocok masih tampil.
-solusi:
-- Terapkan `debouncedSearchQuery` dengan jeda 350ms menggunakan `useEffect` dan `setTimeout` agar proses penyaringan hanya berjalan setelah user selesai mengetik.
-- Sediakan dropdown seleksi regu di bar filter atas (Semua Regu, Alpha, Bravo, Charlie, Delta), dan terapkan filter array client-side yang menyembunyikan baris non-matching secara total.
-
-3. Monolithic File Bloat 47.5 KB & 3 Modal Bertumpuk pada Halaman Detail Personel
-deskripsi masalah:
-Berkas `HalamanDetailPersonel.jsx` berukuran monolitik (47.5 KB / 1.111 baris) dengan 3 modal besar bertumpuk di dalam satu berkas komponen.
-dampak:
-Kode sangat sulit dirawat, memicu re-render berat pada seluruh halaman saat mengetik input di dalam modal, dan memperbesar risiko regresi saat ada perubahan kecil.
-solusi:
-Pecah modal-modal tersebut menjadi komponen modular terpisah di folder `frontend/src/components/personnel/`:
-- `EditPersonelModal.jsx` (Form edit biodata dan kredensial STKP).
-- `UploadDocumentModal.jsx` (Form upload dokumen arsip ijazah/STKP/MCU).
-- `ResetPasswordConfirmModal.jsx` (Modal konfirmasi reset password).
-- `ConfirmActionModal.jsx` (Modal konfirmasi umum untuk hapus personel/dokumen/tanda tangan).
-Gunakan komponen-komponen ini di `HalamanDetailPersonel.jsx` agar kode halaman utama menjadi ramping dan bersih.
-
-4. Input Tanggal Mulai Siklus Tanpa Debounce dan Caching Jadwal
-deskripsi masalah:
-Di `HalamanJadwal.jsx`, pemilihan tanggal awal siklus 8 hari langsung memicu request ke backend seketika tanpa debounce. Selain itu, navigasi bolak-balik antar-bulan selalu melakukan request ulang ke server.
-dampak:
-Memicu request beruntun (*spamming*) ke backend saat user mengganti tanggal dengan cepat, serta membebani server karena data bulan yang sama ditarik berkali-kali.
-solusi:
-- Pasang debounce 300ms pada perubahan input tanggal siklus.
-- Terapkan mekanisme in-memory caching (`monthlyCacheRef`) untuk menyimpan data jadwal bulanan yang telah ditarik selama sesi aktif, dan invalidate cache tersebut hanya jika ada perubahan siklus baru.
-- Tambahkan petunjuk visual scroll horizontal (gradien halus tepi kanan) agar pengguna mengetahui bahwa kalender 31 hari dapat digeser ke samping pada layar kecil.
-
-5. Tampilan Cuti Terbatas pada Shift Berjalan Saja
-deskripsi masalah:
-`HalamanCuti.jsx` sebelumnya hanya menampilkan daftar cuti pada shift aktif saat ini. Pengawas tidak dapat melihat riwayat cuti bulan bersangkutan atau rencana cuti masa depan.
-dampak:
-Pengawas kesulitan melakukan audit kehadiran bulanan dan mengecek pengajuan cuti yang telah diajukan personel lebih awal.
-solusi:
-- Tambahkan tab switcher di header `HalamanCuti.jsx`: `[Shift Berjalan]` dan `[Riwayat Bulan Ini]`.
-- Pada tab `[Riwayat Bulan Ini]`, sediakan pemilih bulan, tahun, dan filter regu.
-- **SUDAH TERSEDIA DI BACKEND (Dibuat oleh Supervisor):** Endpoint `GET /api/deployments/leave-history?month={1..12}&year={2026}&team={Alpha/Bravo/Charlie/Delta}` sudah aktif dan mengembalikan array data cuti bulanan. Anda **TIDAK PERLU** mengedit file backend, cukup lakukan `api.get('/deployments/leave-history', { params: { month, year, team } })` di `HalamanCuti.jsx`!
-
-6. Ketiadaan Validasi Client-Side Ukuran Berkas Dokumen Personel & Bukti Cuti
-deskripsi masalah:
-Form upload dokumen ijazah/STKP di `HalamanDetailPersonel.jsx` dan form pengajuan cuti di `CutiModal.jsx` belum memvalidasi batas ukuran file di browser sebelum dikirim ke server.
-dampak:
-Berkas berukuran raksasa (> 10 MB) tetap dikirimkan lewat jaringan, membuang bandwidth, memicu timeout, dan menghasilkan error teknis HTTP 413 Payload Too Large tanpa pesan error ramah.
-solusi:
-Terapkan pre-validasi ukuran berkas di sisi klien:
-- Maksimal 10 MB untuk dokumen kepegawaian/sertifikat di modal upload dokumen personel.
-- Maksimal 5 MB untuk dokumen bukti cuti di `CutiModal.jsx`.
-- Tampilkan notifikasi peringatan seketika di modal jika ukuran berkas yang dipilih melebihi batas.
+### Poin 2: Validasi Tanggal Bentrok pada Pengajuan Cuti di `CutiModal.jsx`
+- **Deskripsi Masalah**:
+  - Di `CutiModal.jsx`, input tanggal mulai dan tanggal selesai belum memiliki validasi klien yang ketat. Pengguna bisa memilih tanggal mulai yang lebih besar daripada tanggal selesai atau memilih tanggal yang tumpang-tindih sebelum mengirimkan request ke server.
+- **Dampak / Risiko**:
+  - Request gagal dengan error dari backend atau data rentang cuti menjadi anomali (tanggal minus) jika lolos, membingungkan pengguna yang sedang mengajukan cuti.
+- **Instruksi Solusi Konkret**:
+  - Di `frontend/src/components/CutiModal.jsx`:
+    1. Tambahkan pengecekan sebelum submit: jika `new Date(startDate) > new Date(endDate)`, segera tampilkan pesan toast peringatan error instan: *"Tanggal mulai cuti tidak boleh melebihi tanggal selesai"*.
+    2. Batasi atribut `min` pada input tanggal selesai agar otomatis bernilai minimal sebesar `startDate`.
 
 ---
 
-## 📝 FORMAT WAJIB PENULISAN LAPORAN ANDA DI `masak/temp/hasil_agent2.md`:
-Setelah selesai mengeksekusi kode dan lulus uji CLI (`npm --prefix frontend run build` dan `node -c backend/src/controllers/deploymentController.js`), tulis laporan hasil kerja Anda dan temuan baru lainnya dengan format berikut:
+### Poin 3: Penguatan Proteksi Mutasi Personel Bertugas Aktif di `personnelController.js`
+- **Deskripsi Masalah**:
+  - Mutasi regu (`team_group`), penonaktifan (`is_active = 0`), atau penghapusan personel berpotensi dilakukan saat personel masih tercatat aktif di ploting kendaraan shift yang sedang berjalan.
+- **Dampak / Risiko**:
+  - Terjadi anomali foreign key dan kekosongan slot kru armada secara tiba-tiba di tengah dinas aktif bandara (*data integrity crash*).
+- **Instruksi Solusi Konkret**:
+  - Di `backend/src/controllers/personnelController.js`:
+    1. Pada handler update/delete personel, lakukan pengecekan ke tabel `shift_assignments` pada shift dinas aktif saat ini.
+    2. Jika personel tersebut sedang aktif bertugas di kendaraan operasional atau posko pada shift yang sedang berjalan dan dicoba diubah regunya atau dinonaktifkan:
+       - Kembalikan HTTP 400 Bad Request dengan pesan: *"Personel sedang aktif bertugas pada shift dinas saat ini. Lepaskan penugasan di menu Ploting terlebih dahulu sebelum melakukan mutasi/penonaktifan."*
 
-```text
-(nomor). (judul) (halaman (ditulis singkat saja)/namafile) .
-(deskripsi masalah)
-(dampak)
-(solusi)
-```
+---
+
+## Instruksi Pelaporan Temuan Tambahan, Bug, Ide, & Saran
+Apabila selama proses audit maupun perbaikan kode Anda menemukan:
+- **Bug / Masalah Baru**: Error, glitch, atau cacat logika tambahan yang belum tercantum di tugas ini.
+- **Risiko Keamanan / Integritas Data**: Celah otentikasi, potensi tabrakan data, atau regresi performa.
+- **Ide / Saran Pengembangan**: Usulan optimasi UI/UX, efisiensi komponen, atau ide fitur yang relevan bagi operasional.
+
+**ATURAN TINDAKAN**:
+1. **Dilarang keras memodifikasi berkas di luar domain eksklusif Agent 2 secara sepihak.**
+2. **Catat seluruh temuan, ide, dan saran tersebut pada seksi khusus di berkas laporan Anda (`masak/temp/hasil_agent2.md`)** menggunakan format poin hierarkis:
+   - **Judul Temuan / Ide**: Ringkasan topik.
+   - **Deskripsi Masalah / Konsep**: Penjelasan detail teknis.
+   - **Dampak / Manfaat**: Urgensi atau keuntungan bagi pengguna.
+   - **Rekomendasi Tindak Lanjut**: Saran perbaikan konkret untuk diorkestrasi selanjutnya.
+
+---
+
+## Verifikasi & Pelaporan
+1. Jalankan `node -c backend/src/controllers/personnelController.js`.
+2. Jalankan `npm run build` di root frontend.
+3. Tuliskan ringkasan hasil eksekusi secara mandiri di `masak/temp/hasil_agent2.md`.

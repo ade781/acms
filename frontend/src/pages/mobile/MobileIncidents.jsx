@@ -9,10 +9,11 @@ import MobileIncidentModal from '../../components/mobile/incidents/MobileInciden
 import MobileIncidentDetailModal from '../../components/mobile/incidents/MobileIncidentDetailModal';
 import MobileIncidentExportModal from '../../components/mobile/incidents/MobileIncidentExportModal';
 
-export default function MobileInsiden() {
+export default function MobileIncidents() {
   const navigate = useNavigate();
-  const { user, isChief, isAdmin, isSupervisor, activeDate, activeShiftNumber, activeTeam } = useAuth();
-  const canManage = isChief || isAdmin || isSupervisor;
+  const { user, activeDate, activeShiftNumber, activeTeam } = useAuth();
+  const isLeader = ['admin', 'chief', 'chief_assistant'].includes(user?.role);
+  const canManage = isLeader;
 
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -91,6 +92,12 @@ export default function MobileInsiden() {
         </div>
 
         <div className="flex items-center gap-1.5">
+          {!isLeader && (
+            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-semibold">
+              Read-Only
+            </span>
+          )}
+
           <button
             type="button"
             onClick={() => setIsReportModalOpen(true)}
@@ -125,6 +132,16 @@ export default function MobileInsiden() {
           )}
         </div>
       </div>
+
+      {/* Banner Ringkas Informatif Mode Pratinjau (Read-Only) */}
+      {!isLeader && (
+        <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2 shadow-2xs">
+          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+          <span className="text-[11px] font-medium leading-tight">
+            Mode Pratinjau (Read-Only) - Pelaporan dan pembaruan status penanganan insiden dikelola oleh Chief / Asisten Regu.
+          </span>
+        </div>
+      )}
 
       {/* Toggle Filter Scope: Shift Ini vs Semua Riwayat */}
       <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-100 text-[10px] font-semibold">

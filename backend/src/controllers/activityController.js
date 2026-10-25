@@ -82,6 +82,14 @@ export const getActivities = async (req, res) => {
 
 export const createActivity = async (req, res) => {
   try {
+    const allowedRoles = ['admin', 'chief', 'chief_assistant'];
+    if (!allowedRoles.includes(req.user?.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Akses ditolak: Hanya Chief, Asisten Chief, atau Admin yang berhak mencatat, mengubah, atau menghapus kegiatan operasional.'
+      });
+    }
+
     const {
       shift_id,
       shift_date,
@@ -161,6 +169,14 @@ export const createActivity = async (req, res) => {
 
 export const updateActivity = async (req, res) => {
   try {
+    const allowedRoles = ['admin', 'chief', 'chief_assistant'];
+    if (!allowedRoles.includes(req.user?.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Akses ditolak: Hanya Chief, Asisten Chief, atau Admin yang berhak mencatat, mengubah, atau menghapus kegiatan operasional.'
+      });
+    }
+
     const { id } = req.params;
     const { activity_type, activity_time, title, description, result_notes, actor_ids, attachment_url } = req.body;
 
@@ -246,6 +262,14 @@ export const updateActivity = async (req, res) => {
 
 export const deleteActivity = async (req, res) => {
   try {
+    const allowedRoles = ['admin', 'chief', 'chief_assistant'];
+    if (!allowedRoles.includes(req.user?.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Akses ditolak: Hanya Chief, Asisten Chief, atau Admin yang berhak mencatat, mengubah, atau menghapus kegiatan operasional.'
+      });
+    }
+
     const { id } = req.params;
     const [existing] = await pool.query('SELECT id, attachment_url FROM daily_shift_activities WHERE id = ?', [id]);
     if (existing.length === 0) {

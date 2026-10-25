@@ -26,7 +26,7 @@ import Button from '../components/common/Button';
 import MobileUnitAuditModal from '../components/mobile/reports/MobileUnitAuditModal';
 import A4DocumentLayout from '../components/reports/A4DocumentLayout';
 
-export default function HalamanLaporan() {
+export default function ShiftReportsPage() {
   const { activeDate, activeShiftNumber, activeTeam } = useAuth();
   const abortControllerRef = useRef(null);
 
@@ -249,7 +249,7 @@ export default function HalamanLaporan() {
               {vehicles.filter((v) => v.status === 'serviceable').length}
             </span>
             <span className="text-xs text-slate-500 font-medium">
-              / {Math.max(vehicles.length, 8)} Siap
+              / {vehicles.length} Siap
             </span>
           </div>
           <p className="text-[10px] font-medium text-slate-600">
@@ -329,10 +329,10 @@ export default function HalamanLaporan() {
         shiftData={shiftData}
         deptHeadData={deptHeadData}
       >
-        {/* BAGIAN 1: Kesiapan Fasilitas Posko & 7 Unit Kendaraan Operasional */}
+        {/* BAGIAN 1: Kesiapan Fasilitas Posko & Kendaraan Operasional */}
         <div>
           <h4 className="font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-1 mb-2.5 flex items-center justify-between">
-            <span>1. Kesiapan Fasilitas Posko & 7 Unit Kendaraan Operasional</span>
+            <span>1. Kesiapan Fasilitas Posko & {vehicles.length} Unit Kendaraan Operasional</span>
             <span className="text-[10px] font-normal text-slate-500 normal-case">
               Audit Kelaikan Unit
             </span>

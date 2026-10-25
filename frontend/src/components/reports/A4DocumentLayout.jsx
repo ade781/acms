@@ -6,6 +6,14 @@ import { formatIndoDate, cleanTeam, formatTeam, SHIFT_DEFINITIONS } from '../../
  * Mengabstraksikan Kop Resmi AP1 YIA, Metadata Shift, Margin A4, dan Tanda Tangan Pejabat
  * Dapat digunakan secara seragam di Desktop (HalamanLaporan) dan Mobile (MobilePdfViewerModal)
  */
+const getAuthorizedUrl = (url) => {
+  if (!url) return null;
+  const token = localStorage.getItem('token') || localStorage.getItem('arff_token');
+  if (!token) return url;
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}token=${encodeURIComponent(token)}`;
+};
+
 export default function A4DocumentLayout({
   shiftDate,
   shiftNumber = 1,
@@ -116,15 +124,17 @@ export default function A4DocumentLayout({
                   AIRPORT RESCUE & FIRE FIGHTING SECTION HEAD
                 </p>
                 {deptHeadData?.signature_url ? (
-                  <div className="h-14 flex items-center justify-center my-1">
+                  <div className="h-16 flex items-center justify-center my-1">
                     <img
-                      src={deptHeadData.signature_url}
+                      src={getAuthorizedUrl(deptHeadData.signature_url)}
                       alt="Tanda Tangan Section Head"
-                      className="max-h-12 object-contain"
+                      className="max-h-14 object-contain"
                     />
                   </div>
                 ) : (
-                  <div className="h-14" aria-hidden="true" />
+                  <div className="h-16 flex items-end justify-center pb-1">
+                    <span className="text-slate-400 font-mono tracking-widest text-xs">( ......................................... )</span>
+                  </div>
                 )}
                 <p className="font-bold text-slate-900 underline mt-1 uppercase">
                   {deptHeadData?.name || 'SECTION HEAD ARFF'}
@@ -143,15 +153,17 @@ export default function A4DocumentLayout({
                   KETUA REGU / SUPERVISOR DINAS ({cleanTeam(currentTeam)})
                 </p>
                 {shiftData?.supervisor_signature_url ? (
-                  <div className="h-14 flex items-center justify-center my-1">
+                  <div className="h-16 flex items-center justify-center my-1">
                     <img
-                      src={shiftData.supervisor_signature_url}
+                      src={getAuthorizedUrl(shiftData.supervisor_signature_url)}
                       alt="Tanda Tangan Ketua Regu"
-                      className="max-h-12 object-contain"
+                      className="max-h-14 object-contain"
                     />
                   </div>
                 ) : (
-                  <div className="h-14" aria-hidden="true" />
+                  <div className="h-16 flex items-end justify-center pb-1">
+                    <span className="text-slate-400 font-mono tracking-widest text-xs">( ......................................... )</span>
+                  </div>
                 )}
                 <p className="font-bold text-slate-900 underline mt-1 uppercase">
                   {shiftData?.supervisor_name || `KETUA REGU ${formatTeam(currentTeam)}`}

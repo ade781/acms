@@ -82,7 +82,7 @@ export default function Sidebar({ isOpen, onClose }) {
       icon: Users2,
     },
     {
-      to: '/readiness/vehicles',
+      to: '/vehicles',
       label: 'Kesiapan Armada',
       icon: Truck,
     },
@@ -129,8 +129,19 @@ export default function Sidebar({ isOpen, onClose }) {
 
   const isItemActive = (itemTo) => {
     if (location.pathname === itemTo) return true;
-    if (itemTo === '/readiness/vehicles' && location.pathname.startsWith('/armada/laporan')) return true;
-    if (itemTo === '/incidents' && (location.pathname.startsWith('/incidents') || location.pathname.startsWith('/insiden/laporan'))) return true;
+    if (
+      itemTo === '/vehicles' &&
+      (location.pathname.startsWith('/vehicles') ||
+        location.pathname.startsWith('/readiness/vehicles') ||
+        location.pathname.startsWith('/armada/laporan'))
+    )
+      return true;
+    if (
+      itemTo === '/incidents' &&
+      (location.pathname.startsWith('/incidents') ||
+        location.pathname.startsWith('/insiden/laporan'))
+    )
+      return true;
     return false;
   };
 

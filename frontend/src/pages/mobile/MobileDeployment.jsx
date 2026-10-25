@@ -8,7 +8,7 @@ import MobileCrewPickerSheet from '../../components/mobile/ploting/MobileCrewPic
 import MobileAbsentCrewSection from '../../components/mobile/ploting/MobileAbsentCrewSection';
 import MobileCancelLeaveConfirmModal from '../../components/mobile/ploting/MobileCancelLeaveConfirmModal';
 
-export default function MobilePloting({ onOpenCutiModal, onOpenAuditModal }) {
+export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) {
   const { user, isAdmin, isDeptHead, activeDate, activeShiftNumber, activeTeam } = useAuth();
 
   // Verifikasi apakah user berhak memploting shift ini
@@ -39,6 +39,7 @@ export default function MobilePloting({ onOpenCutiModal, onOpenAuditModal }) {
   const [vehicles, setVehicles] = useState([]);
   const [personnelList, setPersonnelList] = useState([]);
   const [vehicleSlots, setVehicleSlots] = useState({});
+  const [initialSnapshot, setInitialSnapshot] = useState('');
   const [absentList, setAbsentList] = useState([]);
 
   // Picker Sheet State
@@ -54,6 +55,37 @@ export default function MobilePloting({ onOpenCutiModal, onOpenAuditModal }) {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [targetCancelLeave, setTargetCancelLeave] = useState(null);
   const [cancelingLeave, setCancelingLeave] = useState(false);
+
+  // Status perubahan yang belum disimpan (Dirty state tracking)
+  const hasUnsavedChanges = useMemo(() => {
+    if (!initialSnapshot) return false;
+    return initialSnapshot !== JSON.stringify(vehicleSlots);
+  }, [initialSnapshot, vehicleSlots]);
+
+  // Route & browser tab close guard jika ada perubahan belum disimpan
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (hasUnsavedChanges) {
+        const confirmLeave = window.confirm('Perubahan formasi ploting belum disimpan. Yakin ingin meninggalkan halaman?');
+        if (!confirmLeave) {
+          window.history.pushState(null, '', window.location.href);
+        }
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [hasUnsavedChanges]);
 
 
   // Map of personnel by ID for fast lookup
@@ -101,9 +133,9 @@ export default function MobilePloting({ onOpenCutiModal, onOpenAuditModal }) {
     try {
       const currentTeam = cleanTeam(activeTeam);
 
-      const [pRes, vRes, rRes, depRes] = await Promise.all([
+      // Eliminasi request duplikat /vehicles?is_active=1 (Poin 4)
+      const [pRes, rRes, depRes] = await Promise.all([
         api.get(`/personnel?team_group=${currentTeam}&is_active=1`),
-        api.get('/vehicles?is_active=1'),
         api.get(`/readiness/vehicles?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`),
         api.get(`/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`),
       ]);
@@ -113,29 +145,18 @@ export default function MobilePloting({ onOpenCutiModal, onOpenAuditModal }) {
         : (Array.isArray(pRes.data?.personnel) ? pRes.data.personnel : (Array.isArray(pRes.data) ? pRes.data : []));
       setPersonnelList(rawPersonnel);
 
-      const rawVehicles = Array.isArray(vRes.data?.data)
-        ? vRes.data.data
-        : (Array.isArray(vRes.data?.vehicles) ? vRes.data.vehicles : (Array.isArray(vRes.data) ? vRes.data : []));
-
-      const readinessList = Array.isArray(rRes.data?.data)
-        ? rRes.data.data
+      const readinessPayload = rRes.data?.data || rRes.data;
+      const rawVehicles = Array.isArray(readinessPayload?.vehicles)
+        ? readinessPayload.vehicles
         : (Array.isArray(rRes.data?.vehicles) ? rRes.data.vehicles : (Array.isArray(rRes.data) ? rRes.data : []));
 
-      const readinessMap = {};
-      readinessList.forEach((r) => {
-        const vId = r.vehicle_id || r.id;
-        if (vId) readinessMap[vId] = r;
-      });
-
-      // Merge vehicles with readiness
-      const mergedVehicles = rawVehicles.map((v) => {
-        const r = readinessMap[v.id] || {};
-        return {
-          ...v,
-          readiness: r.status || v.status || 'belum_dilaporkan',
-          justification: r.justification || v.justification || '',
-        };
-      });
+      // Map vehicles with readiness status
+      const mergedVehicles = rawVehicles.map((v) => ({
+        ...v,
+        id: v.id || v.vehicle_id,
+        readiness: v.status || 'belum_dilaporkan',
+        justification: v.justification || '',
+      }));
 
       // Sort vehicles: Utama -> Pendukung -> Posko (Watchroom)
       const sortedVehicles = [...mergedVehicles].sort((a, b) => {
@@ -182,6 +203,7 @@ export default function MobilePloting({ onOpenCutiModal, onOpenAuditModal }) {
         }
       });
       setVehicleSlots(initialSlots);
+      setInitialSnapshot(JSON.stringify(initialSlots));
 
       // Absent personnel list
       const existingAbsent = deploymentsList.filter((d) => d.deployment_type === 'absent');
@@ -349,7 +371,8 @@ export default function MobilePloting({ onOpenCutiModal, onOpenAuditModal }) {
         deployments: payloadDeployments,
       });
 
-      setToastMsg('✓ Ploting penugasan 8 unit armada berhasil disimpan.');
+      setToastMsg('✓ Ploting penugasan armada berhasil disimpan.');
+      setInitialSnapshot(JSON.stringify(vehicleSlots));
     } catch (err) {
       console.error('Error saving deployments:', err);
       setErrorMsg(`Gagal menyimpan ploting: ${err.response?.data?.message || err.message}`);
@@ -529,19 +552,28 @@ export default function MobilePloting({ onOpenCutiModal, onOpenAuditModal }) {
             {vehicles.length} Unit Operasional
           </span>
         </div>
-        <button
-          type="button"
-          onClick={handleSavePloting}
-          disabled={saving || loading}
-          className="px-2 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-xs transition-colors duration-100 disabled:opacity-50"
-        >
-          {saving ? (
-            <RefreshCw className="w-3 h-3 animate-spin" />
-          ) : (
-            <Save className="w-3 h-3" />
+        <div className="flex items-center gap-2">
+          {hasUnsavedChanges && (
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" title="Ada perubahan belum disimpan" />
           )}
-          <span>{saving ? 'Menyimpan...' : 'Simpan'}</span>
-        </button>
+          <button
+            type="button"
+            onClick={handleSavePloting}
+            disabled={saving || loading || !hasUnsavedChanges}
+            className={`px-2.5 py-1 rounded font-bold text-[10px] flex items-center gap-1 shadow-xs transition-colors duration-100 ${
+              hasUnsavedChanges
+                ? 'bg-red-600 hover:bg-red-700 text-white cursor-pointer'
+                : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+            } disabled:opacity-60`}
+          >
+            {saving ? (
+              <RefreshCw className="w-3 h-3 animate-spin" />
+            ) : (
+              <Save className="w-3 h-3" />
+            )}
+            <span>{saving ? 'Menyimpan...' : 'Simpan'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Loading Skeleton */}
@@ -608,7 +640,6 @@ export default function MobilePloting({ onOpenCutiModal, onOpenAuditModal }) {
         reason={targetCancelLeave?.reason || 'cuti'}
         loading={cancelingLeave}
       />
-
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { Layers, BarChart3 } from 'lucide-react';
 import DashboardVariant3 from '../components/dashboard/variants/DashboardVariant3';
 import DashboardVariant5 from '../components/dashboard/variants/DashboardVariant5';
 
-export default function HalamanDashboard() {
+export default function DashboardPage() {
   const [selectedVariant, setSelectedVariant] = useState('variant3'); // Default ke Konsep 3
 
   const variants = [

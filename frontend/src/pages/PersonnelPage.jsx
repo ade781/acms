@@ -28,7 +28,49 @@ function isChiefAssistant(p) {
   return role === 'chief_assistant' || rank.includes('asisten') || rank.includes('assistant') || rank.includes('wakil');
 }
 
-export default function HalamanPersonel() {
+function getStkpBadge(person) {
+  const expiry = person?.cert_expiry_date || person?.stkp_expiry_date;
+  if (!expiry) return null;
+
+  const expiryDate = new Date(expiry);
+  if (isNaN(expiryDate.getTime())) return null;
+
+  const now = new Date();
+  const diffDays = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays <= 0) {
+    return (
+      <span
+        className="text-[10px] bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 font-bold px-1.5 py-0.5 rounded tracking-tight shrink-0"
+        title={`Lisensi STKP telah kedaluwarsa (${expiry.split('T')[0]})`}
+      >
+        Kedaluwarsa
+      </span>
+    );
+  }
+
+  if (diffDays <= 60) {
+    return (
+      <span
+        className="text-[10px] bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold px-1.5 py-0.5 rounded tracking-tight shrink-0"
+        title={`Masa berlaku STKP tersisa ${diffDays} hari (${expiry.split('T')[0]})`}
+      >
+        Hampir Habis ({diffDays} hari)
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className="text-[10px] bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-medium px-1.5 py-0.5 rounded tracking-tight shrink-0"
+      title={`Lisensi STKP aktif hingga ${expiry.split('T')[0]}`}
+    >
+      Aktif
+    </span>
+  );
+}
+
+export default function PersonnelPage() {
   const { isAdmin, isSupervisor, activeTeam } = useAuth();
   const navigate = useNavigate();
 
@@ -464,6 +506,7 @@ export default function HalamanPersonel() {
                               </span>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
+                              {getStkpBadge(person)}
                               {isChief && (
                                 <span className={`text-[10px] ${theme.chiefBadge} font-bold px-1.5 py-0.5 rounded border uppercase tracking-tight`}>
                                   Ketua

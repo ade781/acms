@@ -17,7 +17,7 @@ import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
-import CutiModal from '../components/forms/CutiModal';
+import LeaveModal from '../components/forms/LeaveModal';
 
 // Helper ekstrak rentang tanggal dari catatan cuti
 const extractDateRange = (notes, activeDate) => {
@@ -77,7 +77,7 @@ const MONTH_NAMES = [
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
 ];
 
-export default function HalamanCuti() {
+export default function LeaveManagementPage() {
   const {
     user,
     activeDate,
@@ -800,7 +800,7 @@ export default function HalamanCuti() {
       )}
 
       {/* Modal Pengajuan Cuti / Izin Mandiri Rentang Tanggal (Self-Service Murni) */}
-      <CutiModal
+      <LeaveModal
         isOpen={leaveModalOpen}
         onClose={() => setLeaveModalOpen(false)}
         user={user}

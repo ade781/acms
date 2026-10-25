@@ -17,7 +17,7 @@ import VehicleReadinessModal from '../components/forms/VehicleReadinessModal';
 import WatchroomReadinessModal from '../components/forms/WatchroomReadinessModal';
 import StateView from '../components/common/StateView';
 
-export default function HalamanPenugasan() {
+export default function DeploymentPage() {
   const {
     user,
     activeDate,
@@ -47,6 +47,7 @@ export default function HalamanPenugasan() {
   const [absentList, setAbsentList] = useState([]);
 
   const [saving, setSaving] = useState(false);
+  const [initialSnapshot, setInitialSnapshot] = useState('');
 
   // Auto-dismiss timer untuk notifikasi sukses
   useEffect(() => {
@@ -65,6 +66,37 @@ export default function HalamanPenugasan() {
 
   // Hak edit: Hanya supervisor/admin, dan regu harus terjadwal dinas aktif (kecuali admin)
   const canEditPlot = (isAdmin || isSupervisor) && (isScheduledTeam || isAdmin);
+
+  // Status perubahan yang belum disimpan (Dirty state tracking)
+  const hasUnsavedChanges = useMemo(() => {
+    if (!initialSnapshot) return false;
+    return initialSnapshot !== JSON.stringify(vehicleSlots);
+  }, [initialSnapshot, vehicleSlots]);
+
+  // Route & browser tab close guard jika ada perubahan belum disimpan
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (hasUnsavedChanges) {
+        const confirmLeave = window.confirm('Perubahan formasi ploting belum disimpan. Yakin ingin meninggalkan halaman?');
+        if (!confirmLeave) {
+          window.history.pushState(null, '', window.location.href);
+        }
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [hasUnsavedChanges]);
 
   // ID Personel yang telah ditugaskan di slot armada manapun
   const assignedPersonnelIds = useMemo(() => {
@@ -223,6 +255,7 @@ export default function HalamanPenugasan() {
         }
       });
       setVehicleSlots(initialSlots);
+      setInitialSnapshot(JSON.stringify(initialSlots));
     } catch (err) {
       console.error('Error fetching deployments:', err);
       setError('Gagal memuat data ploting penugasan shift.');
@@ -361,6 +394,7 @@ export default function HalamanPenugasan() {
       });
 
       setSuccessMsg('Ploting penugasan kru berhasil disimpan!');
+      setInitialSnapshot(JSON.stringify(vehicleSlots));
       fetchDeploymentData({ keepSuccessMsg: true });
     } catch (err) {
       const msg = err.response?.data?.message || err.message || 'Gagal menyimpan ploting kru.';
@@ -470,15 +504,27 @@ export default function HalamanPenugasan() {
               </p>
             </div>
             {canEditPlot && (
-              <button
-                type="button"
-                onClick={handleSaveDeployments}
-                disabled={saving}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-arff-primary text-white hover:bg-red-700 text-xs font-semibold shadow-sm transition-colors duration-100 disabled:opacity-50"
-              >
-                <Save className="w-4 h-4" />
-                <span>{saving ? 'Menyimpan...' : 'Simpan Draf Ploting'}</span>
-              </button>
+              <div className="flex items-center gap-2.5">
+                {hasUnsavedChanges && (
+                  <span className="inline-flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-200/60 px-2.5 py-1 rounded-md font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    Belum disimpan
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={handleSaveDeployments}
+                  disabled={saving || !hasUnsavedChanges}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold shadow-xs transition-colors duration-100 ${
+                    hasUnsavedChanges
+                      ? 'bg-arff-primary text-white hover:bg-red-700 cursor-pointer'
+                      : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                  } disabled:opacity-60`}
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{saving ? 'Menyimpan...' : 'Simpan Draf Ploting'}</span>
+                </button>
+              </div>
             )}
           </div>
 

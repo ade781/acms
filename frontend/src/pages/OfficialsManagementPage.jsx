@@ -20,7 +20,7 @@ import InputField from '../components/common/InputField';
 import SelectField from '../components/common/SelectField';
 import StateView from '../components/common/StateView';
 
-export default function HalamanKelolaPejabat() {
+export default function OfficialsManagementPage() {
   const { isAdmin, isSupervisor, token } = useAuth();
   const navigate = useNavigate();
 

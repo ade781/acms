@@ -26,7 +26,7 @@ import Badge from '../components/common/Badge';
 import Modal from '../components/common/Modal';
 import TextareaField from '../components/common/TextareaField';
 
-export default function HalamanDetailInsiden() {
+export default function IncidentDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, isChief, isAdmin, isSupervisor } = useAuth();

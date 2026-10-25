@@ -126,6 +126,14 @@ export const getIncidentById = async (req, res) => {
 };
 
 export const createIncident = async (req, res) => {
+  const allowedRoles = ['admin', 'chief', 'chief_assistant'];
+  if (!allowedRoles.includes(req.user?.role)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Akses ditolak: Hanya Chief, Asisten Chief, atau Admin yang berhak melaporkan atau memperbarui status penanganan insiden.'
+    });
+  }
+
   const connection = await pool.getConnection();
   try {
     const {
@@ -245,6 +253,14 @@ export const createIncident = async (req, res) => {
 
 export const updateIncidentStatus = async (req, res) => {
   try {
+    const allowedRoles = ['admin', 'chief', 'chief_assistant'];
+    if (!allowedRoles.includes(req.user?.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Akses ditolak: Hanya Chief, Asisten Chief, atau Admin yang berhak melaporkan atau memperbarui status penanganan insiden.'
+      });
+    }
+
     const { id } = req.params;
     const { status, action_taken, last_condition } = req.body;
 
@@ -615,3 +631,5 @@ export const getIncidentSummaryReportPdf = async (req, res) => {
   }
 };
 
+export const updateIncident = updateIncidentStatus;
+export const resolveIncident = updateIncidentStatus;

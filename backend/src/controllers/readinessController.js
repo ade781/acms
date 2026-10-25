@@ -98,9 +98,9 @@ export const getVehicleReadiness = async (req, res) => {
             reported_by: prev.prev_pic_name
           };
         } else if (rows[i].status === 'belum_dilaporkan') {
-          // Default status kelaikan armada pada shift berjalan adalah serviceable (GEMINI.md No. 17)
-          rows[i].status = 'serviceable';
-          rows[i].is_default_serviceable = true;
+          // Default status kelaikan armada pada shift berjalan adalah belum_dilaporkan (GEMINI.md No. 17)
+          rows[i].status = 'belum_dilaporkan';
+          rows[i].is_default_serviceable = false;
           rows[i].has_shift_log = false;
         } else {
           rows[i].has_shift_log = true;
@@ -665,16 +665,39 @@ export const calculateVehicleTransitionsData = async ({ period = '1month', start
     grandTotalTransitions += periodCount;
 
     const latestLog = vLogs.length > 0 ? vLogs[vLogs.length - 1] : null;
-    let currentStatus = 'serviceable';
+    let currentStatus = 'belum_dilaporkan';
+
     if (latestLog && latestLog.status && latestLog.status !== 'belum_dilaporkan') {
       currentStatus = latestLog.status;
-    } else if (priorLog && priorLog.status === 'unserviceable' && priorLog.follow_up_status !== 'resolved') {
-      currentStatus = 'unserviceable';
+    } else {
+      // Reverse lookup pada log-log sebelumnya: jika ada kerusakan unserviceable yang belum resolved
+      let foundPreviousStatus = false;
+      for (let idx = vLogs.length - 1; idx >= 0; idx--) {
+        const item = vLogs[idx];
+        if (item.status === 'serviceable') {
+          foundPreviousStatus = true;
+          break;
+        }
+        if (item.status === 'unserviceable' && item.follow_up_status !== 'resolved') {
+          currentStatus = 'unserviceable';
+          foundPreviousStatus = true;
+          break;
+        }
+      }
+
+      if (!foundPreviousStatus) {
+        if (priorLog && priorLog.status === 'unserviceable' && priorLog.follow_up_status !== 'resolved') {
+          currentStatus = 'unserviceable';
+        } else {
+          // Jika tidak ada carry-over kerusakan, maka status armada tetap 'belum_dilaporkan' (Belum Dicek)
+          currentStatus = 'belum_dilaporkan';
+        }
+      }
     }
 
     if (currentStatus === 'unserviceable') {
       currentlyUnserviceableCount++;
-    } else {
+    } else if (currentStatus === 'serviceable') {
       currentlyServiceableCount++;
     }
 

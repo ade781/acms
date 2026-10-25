@@ -47,7 +47,7 @@ function formatBytes(bytes) {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
-export default function HalamanDetailPersonel() {
+export default function PersonnelDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, token, isAdmin, isSupervisor } = useAuth();

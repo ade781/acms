@@ -59,9 +59,10 @@
     - Peran Admin pada modul cuti murni sebagai pengawas & pengelola: **Read (Melihat daftar cuti), Edit (Menyesuaikan status), dan Delete / Batal (Membatalkan/Menghapus)**.
 16. **Autentikasi Pengunduhan / Pratinjau Berkas Lampiran**:
     - Seluruh endpoint file/attachment di backend wajib mendukung autentikasi fleksibel: baik melalui header `Authorization: Bearer <token>` maupun fallback query parameter `?token=...` agar pembukaan berkas via tab baru/link browser tidak menghasilkan error HTTP 401 Unauthorized.
-17. **Default Status Kelaikan Kendaraan Tetap Serviceable**:
-    - Default status kesiapan kendaraan operasional pada shift berjalan MEMANG berstatus `serviceable` (siap operasi penuh).
-    - Status hanya berubah jika ada carry-over kerusakan (*unserviceable*) dari shift sebelumnya yang belum terselesaikan, atau PIC armada secara sadar mengubahnya menjadi `unserviceable` disertai catatan kendala.
+17. **Default Status Kelaikan Kendaraan Berstatus Belum Dicek / Belum Dilaporkan**:
+    - Default status kesiapan kendaraan operasional pada shift berjalan yang belum diperiksa oleh PIC armada adalah berstatus `belum_dilaporkan` (*Belum Dicek*).
+    - Jika ada carry-over kerusakan (*unserviceable*) dari shift sebelumnya yang belum terselesaikan (`follow_up_status != 'resolved'`), status kendaraan otomatis terbawa sebagai `unserviceable` (rusak/kendala).
+    - Kendaraan baru berstatus `serviceable` apabila PIC armada pada shift berjalan telah melakukan pemeriksaan kelaikan fisik operasional.
 18. **Input Struktural Pejabat Department Head (Bukan Memilih dari Regu Operasional)**:
     - Jabatan Department Head (Dept. Head) adalah pimpinan struktural unit di atas 4 regu dinas operasional.
     - Data Department Head wajib DIINPUT mandiri (Nama Lengkap, NIP, Jabatan, dan Tanda Tangan), BUKAN dipilih dari daftar anggota regu operasional.
@@ -118,18 +119,28 @@ Berdasarkan feedback eksplisit pengguna:
    - **Entitas Kesiapan Dinamis Termasuk Posko**: Menampilkan seluruh data operasional riil dari API (termasuk Watch Room / Posko Komunikasi). Data bersifat dinamis mengikuti array database (DILARANG hardcode jumlah kendaraan).
    - **Pemanfaatan Sisa Ruang (Container Ukuran Fix dengan Scroll)**: Sisa ruang kosong dari container armada yang ramping diisi dengan container/panel lain yang berukuran fix (pasti). Jika data di dalamnya panjang, wajib menggunakan container bervolume tetap dengan fitur scroll vertikal (`overflow-y-auto max-h-[...]`).
    - **Keanekaragaman Konsep Antar-Agent (Desain Variatif)**: Konsep Dashboard Agent 1, 2, 4, dan 5 TIDAK HARUS SAMA isinya. Setiap agen wajib menghadirkan keunikan tata letak (*layout*) dan variasi komponen pendukung operasional (misal: quick dispatch, timeline kegiatan, status radio posko, atau visualisasi rasio personel dinamis).
+9. **PERINGATAN KERAS: DILARANG MEMBUAT FLOATING ACTION BAR NORAK / DESAIN UI SLOP**:
+   - **Kasus Evaluasi Nyata**: Fitur dirty state penugasan/ploting yang dibuat melayang di bawah layar (*floating bottom bar* dengan `fixed bottom-6`, dot kedip `animate-ping`, pulse gradient merah-amber mencolok, serta teks bertumpuk *"Terdapat perubahan formasi ploting yang belum disimpan! Simpan Ploting"*) adalah **CONTOH KASUS FATAL DESAIN AI SLOP**.
+   - Desain melayang semacam itu merusak estetika operasional, menutupi konten dan navigasi mobile, serta menciptakan tombol aksi ganda (*action button duplication*) yang melanggar aturan anti-redundansi.
+   - **Standar Baku**: Indikator perubahan formasi/dirty state WAJIB terintegrasi secara alami dan tenang (*grounded*) pada tombol aksi yang SUDAH ADA di header atau toolbar utama (misal: dot aksen amber kecil statis di samping tombol simpan, atau status tombol yang berubah warna tenang).
+   - Proteksi pencegahan data hilang dijalankan secara hening melalui route guard browser (`window.onbeforeunload` dan konfirmasi navigasi), BUKAN dengan memunculkan banner mengambang norak di tengah layar pandang pengguna.
 
 ## Protokol Orkestrasi & Pembagian Tugas 5 Agent (Agent 1 - 5)
 - **Kewenangan Penuh Orkestrator**:
   - Orkestrator bebas membagi butir pekerjaan apa pun kepada Agent 1 s.d. 5, dengan syarat mutlak: pembagian tugas tidak boleh bertabrakan dan berkas terisolasi (*zero file collision*).
 - **Prosedur Wajib Setiap Penugasan Agent**:
-  Setiap kali pengguna menyuruh untuk menugaskan agent, Pengawas WAJIB menjalankan 2 langkah ini:
+  Setiap kali pengguna menyuruh untuk menugaskan agent, Pengawas WAJIB menjalankan 3 langkah ini:
   1. **Ganti total isi berkas `task_agent1.md` s.d. `task_agent5.md` (dan `taskagent.md`) dengan instruksi baru**: Semua instruksi lama WAJIB dihapus bersih, jangan ditumpuk dengan riwayat lama agar agen fokus 100% hanya pada tugas baru saat ini.
   2. **Kosongkan berkas `hasil_agent` di folder temp (`masak/temp/hasil_agent1.md` s.d. `masak/temp/hasil_agent5.md`)**: Berkas lama dikosongkan bersih, dan agen diinstruksikan untuk menuliskan hasil kerjanya secara mandiri di berkas tersebut.
+  3. **Wajib Memuat Deskripsi Masalah & Dampak Risiko**: Setiap butir tugas di dalam `task_agent1.md` s.d. `task_agent5.md` dan `taskagent.md` WAJIB menguraikan:
+     - **Deskripsi Masalah**: Penjelasan teknis mengenai kode/logika/UI yang keliru saat ini.
+     - **Dampak / Risiko**: Dampak nyata terhadap operasional, integritas data, atau pengguna jika masalah dibiarkan.
+     - **Instruksi Solusi Konkret**: Panduan teknis presisi langkah demi langkah perbaikan yang harus dieksekusi agen. Hal ini krusial agar agen memahami konteks penuh dan tidak salah mengambil keputusan teknis.
+  4. **Kanal Terbuka untuk Temuan, Bug, Ide, & Saran Tambahan**: Setiap lembar penugasan WAJIB menginstruksikan agen: Apabila selama proses audit atau eksekusi agen menemukan kelemahan sistem lain, bug tersembunyi, celah logika, ide pengembangan, atau saran optimasi UI/UX di luar tugas utamanya, agen DILARANG mengubah kode di luar domainnya secara sepihak. Agen WAJIB mencatat seluruh temuan, ide, dan saran tersebut pada seksi khusus di berkas laporannya (`masak/temp/hasil_agent*.md`) agar dapat dievaluasi dan ditugaskan oleh Pengawas bersama Pengguna pada iterasi berikutnya.
 - **Protokol 4 Fase Siklus Orkestrasi**:
   1. **Fase 1 (Audit & Inventarisasi)**: Seluruh agen menyisir domain untuk menemukan kesalahan tanpa modifikasi kode produksi, dan mencatatnya ke `masak/temp/hasil_agent*.md`.
   2. **Fase 2 (Persetujuan / ACC Pengguna)**: Pengawas merekap dan mempresentasikan seluruh temuan kepada pengguna untuk disetujui / diselaraskan.
-  3. **Fase 3 (Eksekusi Perbaikan Terisolasi)**: Pengawas memperbarui `taskagent.md` dan `task_agent1.md` s.d. `task_agent5.md` dengan daftar aksi perbaikan konkret baru (menghapus instruksi lama), mengosongkan `masak/temp/hasil_agent*.md`, lalu mengarahkan agen mengeksekusi perbaikan.
+  3. **Fase 3 (Eksekusi Perbaikan Terisolasi)**: Pengawas memperbarui `taskagent.md` dan `task_agent1.md` s.d. `task_agent5.md` dengan daftar aksi perbaikan konkret baru (memuat masalah, dampak, dan solusi), mengosongkan `masak/temp/hasil_agent*.md`, lalu mengarahkan agen mengeksekusi perbaikan.
   4. **Fase 4 (Verifikasi & Laporan Akhir)**: Setiap agen mengisi `masak/temp/hasil_agent*.md` secara mandiri dengan hasil eksekusi dan bukti pengujian CLI (`npm run build`, `node -c`).
 
 ## Peran & Standar Kerja Agent Tipe Pengawas (Supervisor / Orchestrator Agent)

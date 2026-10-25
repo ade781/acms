@@ -27,7 +27,7 @@ import Badge from '../components/common/Badge';
 import Modal from '../components/common/Modal';
 import InputField from '../components/common/InputField';
 
-export default function HalamanLaporanInsiden() {
+export default function IncidentReportsPage() {
   const navigate = useNavigate();
 
   // Filter Periode: '1month' (default), '3months', '1year', 'custom'

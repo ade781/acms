@@ -1,6 +1,7 @@
 import pool from '../config/db.js';
 import { successResponse, errorResponse, createdResponse } from '../utils/responseHelper.js';
 import { calculateDefaultRoster } from './scheduleController.js';
+import { clearPdfCache } from '../services/pdfService.js';
 
 export const getCurrentDeployment = async (req, res) => {
   try {
@@ -431,6 +432,7 @@ export const saveDeploymentBatch = async (req, res) => {
     }
 
     await connection.commit();
+    clearPdfCache();
 
     return successResponse(res, 'Ploting personel dinas shift berhasil disimpan', {
       shift_id: shiftId,
@@ -444,6 +446,8 @@ export const saveDeploymentBatch = async (req, res) => {
     connection.release();
   }
 };
+
+export const saveDeployment = saveDeploymentBatch;
 
 export const requestLeaveRange = async (req, res) => {
   const connection = await pool.getConnection();

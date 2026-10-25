@@ -40,7 +40,7 @@ function formatDateIndo(dateStr) {
   }
 }
 
-export default function HalamanLaporanArmada() {
+export default function VehicleReportsPage() {
   const navigate = useNavigate();
 
   // State Filter Periode
@@ -180,7 +180,7 @@ export default function HalamanLaporanArmada() {
         <div className="space-y-1">
           <button
             type="button"
-            onClick={() => navigate('/readiness/vehicles')}
+            onClick={() => navigate('/vehicles')}
             className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-red-700 transition-colors duration-100 cursor-pointer mb-1"
           >
             <ArrowLeft className="w-4 h-4" />

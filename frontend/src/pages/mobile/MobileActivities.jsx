@@ -6,9 +6,10 @@ import { cleanTeam } from '../../utils/shiftHelper';
 import MobileActivityTimelineItem, { ACTIVITY_CATEGORIES } from '../../components/mobile/activities/MobileActivityTimelineItem';
 import MobileActivityModal from '../../components/mobile/activities/MobileActivityModal';
 
-export default function MobileKegiatan() {
-  const { user, isChief, isAdmin, isSupervisor, activeDate, activeShiftNumber, activeTeam } = useAuth();
-  const canManage = isChief || isAdmin || isSupervisor;
+export default function MobileActivities() {
+  const { user, activeDate, activeShiftNumber, activeTeam } = useAuth();
+  const isLeader = ['admin', 'chief', 'chief_assistant'].includes(user?.role);
+  const canManage = isLeader;
 
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -143,6 +144,16 @@ export default function MobileKegiatan() {
           )}
         </div>
       </div>
+
+      {/* Banner Ringkas Informatif Mode Pratinjau (Read-Only) */}
+      {!isLeader && (
+        <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2 shadow-2xs">
+          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+          <span className="text-[11px] font-medium leading-tight">
+            Mode Pratinjau (Read-Only) - Log kegiatan operasional dikelola oleh Chief / Asisten Regu.
+          </span>
+        </div>
+      )}
 
       {/* Filter Kategori Chips */}
       {activities.length > 0 && (

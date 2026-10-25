@@ -3,30 +3,30 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AppLayout from './components/layout/AppLayout';
 
-// Halaman / Pages Desktop
-import HalamanLogin from './pages/HalamanLogin';
-import HalamanDashboard from './pages/HalamanDashboard';
-import HalamanPersonel from './pages/HalamanPersonel';
-import HalamanDetailPersonel from './pages/HalamanDetailPersonel';
-import HalamanKesiapanKendaraan from './pages/HalamanKesiapanKendaraan';
-import HalamanPenugasan from './pages/HalamanPenugasan';
-import HalamanInsiden from './pages/HalamanInsiden';
-import HalamanDetailInsiden from './pages/HalamanDetailInsiden';
-import HalamanCuti from './pages/HalamanCuti';
-import HalamanKegiatan from './pages/HalamanKegiatan';
-import HalamanLaporan from './pages/HalamanLaporan';
-import HalamanJadwal from './pages/HalamanJadwal';
-import HalamanPengumuman from './pages/HalamanPengumuman';
-import HalamanKelolaPejabat from './pages/HalamanKelolaPejabat';
+// Desktop Pages
+import LoginPage from './pages/LoginPage';
+import DashboardPage from './pages/DashboardPage';
+import PersonnelPage from './pages/PersonnelPage';
+import PersonnelDetailPage from './pages/PersonnelDetailPage';
+import VehicleReadinessPage from './pages/VehicleReadinessPage';
+import DeploymentPage from './pages/DeploymentPage';
+import IncidentsPage from './pages/IncidentsPage';
+import IncidentDetailPage from './pages/IncidentDetailPage';
+import LeaveManagementPage from './pages/LeaveManagementPage';
+import ActivitiesPage from './pages/ActivitiesPage';
+import ShiftReportsPage from './pages/ShiftReportsPage';
+import RosterSchedulePage from './pages/RosterSchedulePage';
+import AnnouncementsPage from './pages/AnnouncementsPage';
+import OfficialsManagementPage from './pages/OfficialsManagementPage';
 
 // Dynamic Loaders untuk Halaman Laporan Khusus
 const pageModules = import.meta.glob([
-  './pages/HalamanLaporanArmada.jsx',
-  './pages/HalamanLaporanInsiden.jsx',
+  './pages/VehicleReportsPage.jsx',
+  './pages/IncidentReportsPage.jsx',
 ]);
 
-const HalamanLaporanArmada = React.lazy(
-  pageModules['./pages/HalamanLaporanArmada.jsx'] ||
+const VehicleReportsPage = React.lazy(
+  pageModules['./pages/VehicleReportsPage.jsx'] ||
     (() =>
       Promise.resolve({
         default: () => (
@@ -38,8 +38,8 @@ const HalamanLaporanArmada = React.lazy(
       }))
 );
 
-const HalamanLaporanInsiden = React.lazy(
-  pageModules['./pages/HalamanLaporanInsiden.jsx'] ||
+const IncidentReportsPage = React.lazy(
+  pageModules['./pages/IncidentReportsPage.jsx'] ||
     (() =>
       Promise.resolve({
         default: () => (
@@ -54,10 +54,10 @@ const HalamanLaporanInsiden = React.lazy(
 // Mobile Layout & Halaman Mobile (Operasional Lapangan)
 import MobileLayout from './components/mobile/MobileLayout';
 import MobileDashboard from './pages/mobile/MobileDashboard';
-import MobilePloting from './pages/mobile/MobilePloting';
-import MobileKegiatan from './pages/mobile/MobileKegiatan';
-import MobileInsiden from './pages/mobile/MobileInsiden';
-import MobileLaporan from './pages/mobile/MobileLaporan';
+import MobileDeployment from './pages/mobile/MobileDeployment';
+import MobileActivities from './pages/mobile/MobileActivities';
+import MobileIncidents from './pages/mobile/MobileIncidents';
+import MobileReports from './pages/mobile/MobileReports';
 
 // Protected Route Component (Mendukung Guard Role Operasional ARFF)
 function ProtectedRoute({ children, adminOnly = false, allowedRoles = null }) {
@@ -132,7 +132,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           {/* Public Route */}
-          <Route path="/login" element={<HalamanLogin />} />
+          <Route path="/login" element={<LoginPage />} />
 
           {/* Root redirect */}
           <Route path="/" element={<RootRedirect />} />
@@ -151,16 +151,16 @@ export default function App() {
             <Route
               path="ploting"
               element={
-                <MobilePloting
+                <MobileDeployment
                   onOpenCutiModal={() =>
                     window.dispatchEvent(new CustomEvent('arff:open-leave-modal'))
                   }
                 />
               }
             />
-            <Route path="kegiatan" element={<MobileKegiatan />} />
-            <Route path="insiden" element={<MobileInsiden />} />
-            <Route path="laporan" element={<MobileLaporan />} />
+            <Route path="kegiatan" element={<MobileActivities />} />
+            <Route path="insiden" element={<MobileIncidents />} />
+            <Route path="laporan" element={<MobileReports />} />
           </Route>
 
           {/* Authenticated Desktop Layout Routes */}
@@ -173,30 +173,40 @@ export default function App() {
               </ProtectedRoute>
             }
           >
-            <Route path="/dashboard" element={<HalamanDashboard />} />
-            <Route path="/schedules" element={<HalamanJadwal />} />
-            <Route path="/announcements" element={<HalamanPengumuman />} />
-            <Route path="/deployment" element={<HalamanPenugasan />} />
-            <Route path="/readiness/vehicles" element={<HalamanKesiapanKendaraan />} />
-            <Route path="/readiness/watchroom" element={<Navigate to="/readiness/vehicles" replace />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/schedules" element={<RosterSchedulePage />} />
+            <Route path="/announcements" element={<AnnouncementsPage />} />
+            <Route path="/deployment" element={<DeploymentPage />} />
+            <Route path="/vehicles" element={<VehicleReadinessPage />} />
             <Route
-              path="/armada/laporan"
+              path="/vehicles/reports"
               element={
                 <React.Suspense fallback={<div className="p-8 text-center text-xs font-semibold text-slate-600">Memuat Laporan Kesiapan Armada...</div>}>
-                  <HalamanLaporanArmada />
+                  <VehicleReportsPage />
                 </React.Suspense>
               }
             />
-            <Route path="/insiden/laporan" element={<Navigate to="/incidents" replace />} />
-            <Route path="/personnel" element={<HalamanPersonel />} />
-            <Route path="/personnel/officials" element={<HalamanKelolaPejabat />} />
-            <Route path="/personnel/:id" element={<HalamanDetailPersonel />} />
-            <Route path="/incidents" element={<HalamanInsiden />} />
-            <Route path="/incidents/:id" element={<HalamanDetailInsiden />} />
-            <Route path="/leave" element={<HalamanCuti />} />
-            <Route path="/activities" element={<HalamanKegiatan />} />
-            <Route path="/reports" element={<HalamanLaporan />} />
-            <Route path="/settings" element={<Navigate to="/readiness/vehicles" replace />} />
+            <Route path="/readiness/vehicles" element={<Navigate to="/vehicles" replace />} />
+            <Route path="/readiness/watchroom" element={<Navigate to="/vehicles" replace />} />
+            <Route path="/armada/laporan" element={<Navigate to="/vehicles/reports" replace />} />
+            <Route path="/personnel" element={<PersonnelPage />} />
+            <Route path="/personnel/officials" element={<OfficialsManagementPage />} />
+            <Route path="/personnel/:id" element={<PersonnelDetailPage />} />
+            <Route path="/incidents" element={<IncidentsPage />} />
+            <Route path="/incidents/:id" element={<IncidentDetailPage />} />
+            <Route
+              path="/incidents/reports"
+              element={
+                <React.Suspense fallback={<div className="p-8 text-center text-xs font-semibold text-slate-600">Memuat Laporan Rekap Insiden...</div>}>
+                  <IncidentReportsPage />
+                </React.Suspense>
+              }
+            />
+            <Route path="/insiden/laporan" element={<Navigate to="/incidents/reports" replace />} />
+            <Route path="/leave" element={<LeaveManagementPage />} />
+            <Route path="/activities" element={<ActivitiesPage />} />
+            <Route path="/reports" element={<ShiftReportsPage />} />
+            <Route path="/settings" element={<Navigate to="/vehicles" replace />} />
           </Route>
 
           {/* Catch-all fallback */}

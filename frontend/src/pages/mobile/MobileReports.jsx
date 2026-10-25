@@ -34,7 +34,7 @@ import MobileSignaturesSection from '../../components/mobile/reports/MobileSigna
  * STRICT GEMINI.md BUTIR 2: Bebas dari tombol "Sahkan Shift" manual.
  * Data ditarik dinamis secara real-time dari database.
  */
-export default function MobileLaporan() {
+export default function MobileReports() {
   const { activeDate, activeShiftNumber, activeTeam } = useAuth();
   const abortControllerRef = useRef(null);
 

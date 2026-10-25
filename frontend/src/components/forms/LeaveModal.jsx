@@ -5,7 +5,7 @@ import Button from '../common/Button';
 import InputField from '../common/InputField';
 import api from '../../services/api';
 
-export default function CutiModal({
+export default function LeaveModal({
   isOpen,
   onClose,
   onSuccess,
@@ -68,7 +68,7 @@ export default function CutiModal({
     }
 
     if (new Date(startDate) > new Date(endDate)) {
-      setError('Tanggal selesai tidak boleh lebih awal dari tanggal mulai cuti.');
+      setError('Tanggal mulai cuti tidak boleh melebihi tanggal selesai.');
       return;
     }
 
@@ -169,14 +169,25 @@ export default function CutiModal({
             label="Tanggal Mulai Cuti"
             type="date"
             value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setStartDate(val);
+              setError(null);
+              if (endDate && val && new Date(val) > new Date(endDate)) {
+                setEndDate(val);
+              }
+            }}
             required
           />
           <InputField
             label="Tanggal Selesai Cuti"
             type="date"
             value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
+            min={startDate}
+            onChange={(e) => {
+              setEndDate(e.target.value);
+              setError(null);
+            }}
             required
           />
         </div>

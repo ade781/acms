@@ -15,7 +15,7 @@ import InputField from '../components/common/InputField';
 import SelectField from '../components/common/SelectField';
 import TextareaField from '../components/common/TextareaField';
 
-export default function HalamanKesiapanKendaraan() {
+export default function VehicleReadinessPage() {
   const navigate = useNavigate();
   const {
     user,
@@ -167,10 +167,10 @@ export default function HalamanKesiapanKendaraan() {
     (v) => (v.status === 'unserviceable' || v.current_log?.status === 'unserviceable')
   ).length;
   const serviceableCount = vehicles.filter(
-    (v) => (v.status === 'serviceable' || v.current_log?.status === 'serviceable' || (!v.status && v.current_log?.status !== 'unserviceable'))
+    (v) => (v.status === 'serviceable' || v.current_log?.status === 'serviceable')
   ).length;
-  const needsPhysicalInspectCount = vehicles.filter(
-    (v) => (v.status === 'serviceable' || !v.status) && (v.is_default_serviceable || !v.has_shift_log)
+  const belumDicekCount = vehicles.filter(
+    (v) => (v.status === 'belum_dilaporkan' || (!v.status && v.current_log?.status !== 'unserviceable' && v.current_log?.status !== 'serviceable'))
   ).length;
 
   return (
@@ -234,7 +234,7 @@ export default function HalamanKesiapanKendaraan() {
             variant="outline"
             size="sm"
             icon={FileBarChart2}
-            onClick={() => navigate('/armada/laporan')}
+            onClick={() => navigate('/vehicles/reports')}
           >
             Laporan Kesiapan
           </Button>
@@ -244,13 +244,13 @@ export default function HalamanKesiapanKendaraan() {
           <span className="px-3 py-1.5 rounded-lg bg-red-50 text-red-800 border border-red-200 text-xs font-bold">
             {unserviceableCount} Unserviceable
           </span>
-          {needsPhysicalInspectCount > 0 && (
+          {belumDicekCount > 0 && (
             <span
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 text-xs font-medium cursor-help"
-              title="Sesuai SOP dinas (GEMINI.md Butir 17): Status kesiapan armada tetap Serviceable (Siap Operasi Penuh), menunggu dokumentasi verifikasi foto fisik oleh PIC armada pada shift ini."
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700/60 text-slate-300 border border-slate-600/50 text-xs font-medium cursor-help"
+              title="Sesuai SOP dinas (GEMINI.md Butir 17): Status kesiapan armada belum diperiksa/dilaporkan oleh PIC armada pada shift ini."
             >
-              <span>{needsPhysicalInspectCount} Menunggu Foto Fisik</span>
-              <HelpCircle className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 transition-colors duration-100" />
+              <span>{belumDicekCount} Belum Dicek</span>
+              <HelpCircle className="w-3.5 h-3.5 text-slate-400 hover:text-slate-200 transition-colors duration-100" />
             </span>
           )}
         </div>
