@@ -3,10 +3,12 @@ import {
   generateShiftReportPdf,
   generateVehicleReadinessReportPdf,
   generateIncidentSummaryReportPdf,
+  generateActivitiesReportPdf,
   getPdfCache,
   setPdfCache,
 } from '../services/pdfService.js';
 import { errorResponse } from '../utils/responseHelper.js';
+import { calculateVehicleTransitionsData } from './readinessController.js';
 
 /**
  * Helper untuk mengambil pejabat penandatangan resmi Section Head / Dept Head secara dinamis
@@ -402,116 +404,64 @@ export const getVehicleIssuesAudit = async (req, res) => {
 };
 
 /**
- * Controller Laporan Kesiapan Armada dalam Format PDF (Mendukung Agent 2 di /armada/laporan)
- * Filter Periode: 1month (default), 3months, 1year, custom
+ * Controller Laporan Kesiapan Armada dalam Format PDF (Mendukung /armada/laporan)
+ * Menggunakan Single Source of Truth dari calculateVehicleTransitionsData (100% sinkron dengan layar web)
  */
 export const getVehiclesReportPdf = async (req, res) => {
   try {
     const { period = '1month', start_date, end_date } = req.query;
 
-    const today = new Date();
-    let calculatedStartDate = '';
-    let calculatedEndDate = today.toISOString().split('T')[0];
+    // Ambil data transisi kesiapan armada (Single Source of Truth dari calculateVehicleTransitionsData)
+    const reportData = await calculateVehicleTransitionsData({ period, start_date, end_date });
 
-    if (period === '1month') {
-      const d = new Date();
-      d.setMonth(d.getMonth() - 1);
-      calculatedStartDate = d.toISOString().split('T')[0];
-    } else if (period === '3months') {
-      const d = new Date();
-      d.setMonth(d.getMonth() - 3);
-      calculatedStartDate = d.toISOString().split('T')[0];
-    } else if (period === '1year') {
-      const d = new Date();
-      d.setFullYear(d.getFullYear() - 1);
-      calculatedStartDate = d.toISOString().split('T')[0];
-    } else if (period === 'custom' && start_date && end_date) {
-      calculatedStartDate = start_date;
-      calculatedEndDate = end_date;
-    } else {
-      const d = new Date();
-      d.setMonth(d.getMonth() - 1);
-      calculatedStartDate = d.toISOString().split('T')[0];
-    }
-
-    // Ambil daftar armada operasional murni (7 armada pemadam)
-    const [allVehicles] = await pool.query(
-      `SELECT id, code_name, vehicle_name, category FROM vehicles 
-       WHERE is_active = 1 AND category != 'posko' AND code_name != 'WATCHROOM'
-       ORDER BY id ASC`
-    );
-
-    // Ambil riwayat kesiapan armada pada rentang periode
-    const [readinessLogs] = await pool.query(
-      `SELECT vrl.*, p.full_name as pic_name
-       FROM vehicle_readiness_logs vrl
-       LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
-       WHERE vrl.shift_date BETWEEN ? AND ?
-       ORDER BY vrl.vehicle_id, vrl.shift_date ASC, vrl.shift_number ASC`,
-      [calculatedStartDate, calculatedEndDate]
-    );
-
-    // Hitung frekuensi transisi status per armada (serviceable <-> unserviceable)
-    const vehicleStats = allVehicles.map((v) => {
-      const logs = readinessLogs.filter((l) => l.vehicle_id === v.id);
-      let transitions = 0;
-      let prevStatus = null;
-      let serviceableCount = 0;
-
-      logs.forEach((log) => {
-        if (prevStatus !== null && prevStatus !== log.status) {
-          transitions++;
-        }
-        prevStatus = log.status;
-        if (log.status === 'serviceable') serviceableCount++;
-      });
-
-      const totalLogs = logs.length;
-      const readinessPct = totalLogs > 0 ? Math.round((serviceableCount / totalLogs) * 100) : 100;
-      const latestLog = logs[logs.length - 1];
-
-      return {
-        id: v.id,
-        code_name: v.code_name,
-        vehicle_name: v.vehicle_name,
-        category: v.category,
-        status: latestLog ? latestLog.status : 'serviceable',
-        readinessPct,
-        transitionCount: transitions,
-        totalLogs,
-      };
-    });
-
-    // Ambil kendala kerusakan pada periode terpilih
-    const [issuesList] = await pool.query(
-      `SELECT vrl.id, vrl.vehicle_id, v.code_name, v.vehicle_name, vrl.shift_date, vrl.shift_number,
-              vrl.team_group, vrl.status, vrl.justification, vrl.follow_up_status, vrl.resolved_at,
-              p.full_name as reported_by_name
-       FROM vehicle_readiness_logs vrl
-       JOIN vehicles v ON v.id = vrl.vehicle_id
-       LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
-       WHERE vrl.shift_date BETWEEN ? AND ? AND vrl.status = 'unserviceable'
-       ORDER BY vrl.shift_date DESC, vrl.shift_number DESC`,
-      [calculatedStartDate, calculatedEndDate]
-    );
-
-    // Ambil data pejabat Section Head / Dept Head secara dinamis
+    // Ambil data pejabat Section Head / Dept Head secara dinamis dari database
     const deptHeadData = await getOfficialSignatory(pool);
 
-    const totalReadiness = vehicleStats.reduce((acc, curr) => acc + curr.readinessPct, 0);
-    const averageReadinessPct = vehicleStats.length > 0 ? Math.round(totalReadiness / vehicleStats.length) : 100;
+    // Kumpulkan seluruh riwayat siklus kendala (issue_periods) dari seluruh armada
+    const allIssuePeriods = [];
+    (reportData.vehicles || []).forEach((v) => {
+      (v.issue_periods || []).forEach((p) => {
+        allIssuePeriods.push({
+          vehicle_id: v.id,
+          code_name: v.code_name,
+          vehicle_name: v.vehicle_name,
+          category: v.category,
+          start_date: p.start_date,
+          start_shift_number: p.start_shift_number,
+          start_team_group: p.start_team_group,
+          justification: p.justification,
+          notes: p.notes,
+          reported_by: p.reported_by,
+          unserviceable_shifts_count: p.unserviceable_shifts_count,
+          is_resolved: p.is_resolved,
+          resolved_date: p.resolved_date,
+          resolved_shift_number: p.resolved_shift_number,
+          resolved_team_group: p.resolved_team_group,
+          resolved_by: p.resolved_by,
+          status: p.status,
+        });
+      });
+    });
+
+    // Urutkan riwayat kendala dari tanggal terbaru
+    allIssuePeriods.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
+
+    let periodLabel = '1 Bulan Terakhir';
+    if (period === '3months') periodLabel = '3 Bulan Terakhir';
+    else if (period === '1year') periodLabel = '1 Tahun Terakhir';
+    else if (period === 'custom' || (start_date && end_date)) periodLabel = 'Rentang Kustom';
 
     const payload = {
-      period,
-      start_date: calculatedStartDate,
-      end_date: calculatedEndDate,
-      vehicles: vehicleStats,
-      issues: issuesList,
-      summary: {
-        averageReadinessPct,
-        totalIssuesCount: issuesList.length,
-      },
-      dept_head_name: deptHeadData?.name || 'Section Head ARFF',
+      periodLabel,
+      period: reportData.period_info.period,
+      startDate: reportData.period_info.start_date,
+      endDate: reportData.period_info.end_date,
+      start_date: reportData.period_info.start_date,
+      end_date: reportData.period_info.end_date,
+      vehicles: reportData.vehicles,
+      summary: reportData.summary,
+      transitionLogs: allIssuePeriods,
+      dept_head_name: deptHeadData?.name || 'Airport Rescue & Fire Fighting Section Head',
       dept_head_nip: deptHeadData?.nip || null,
       dept_head_signature_url: deptHeadData?.signature_url || null,
     };
@@ -521,7 +471,7 @@ export const getVehiclesReportPdf = async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
       'Content-Disposition',
-      `inline; filename="laporan-kesiapan-armada-${calculatedStartDate}-sd-${calculatedEndDate}.pdf"`
+      `inline; filename="laporan-kesiapan-armada-${reportData.period_info.start_date}-sd-${reportData.period_info.end_date}.pdf"`
     );
 
     doc.pipe(res);
@@ -613,4 +563,96 @@ export const getIncidentsReportPdf = async (req, res) => {
     return errorResponse(res, 'Gagal menerbitkan laporan PDF rekap insiden: ' + error.message, 500);
   }
 };
+
+export const getActivitiesReportPdf = async (req, res) => {
+  try {
+    const { period = '1month', start_date, end_date, category, team_group } = req.query;
+
+    let calculatedStartDate = start_date;
+    let calculatedEndDate = end_date;
+    let periodLabel = 'Periode Kustom';
+
+    const now = new Date();
+    if (period === '1week') {
+      periodLabel = '1 Minggu Terakhir';
+      const past = new Date(now);
+      past.setDate(past.getDate() - 7);
+      calculatedStartDate = past.toISOString().split('T')[0];
+      calculatedEndDate = now.toISOString().split('T')[0];
+    } else if (period === '3months') {
+      periodLabel = '3 Bulan Terakhir';
+      const past = new Date(now);
+      past.setMonth(past.getMonth() - 3);
+      calculatedStartDate = past.toISOString().split('T')[0];
+      calculatedEndDate = now.toISOString().split('T')[0];
+    } else if (period === '1year') {
+      periodLabel = '1 Tahun Terakhir';
+      const past = new Date(now);
+      past.setFullYear(past.getFullYear() - 1);
+      calculatedStartDate = past.toISOString().split('T')[0];
+      calculatedEndDate = now.toISOString().split('T')[0];
+    } else if (period === '1month' || (!calculatedStartDate && !calculatedEndDate)) {
+      periodLabel = '1 Bulan Terakhir';
+      const past = new Date(now);
+      past.setMonth(past.getMonth() - 1);
+      calculatedStartDate = past.toISOString().split('T')[0];
+      calculatedEndDate = now.toISOString().split('T')[0];
+    }
+
+    let query = `
+      SELECT a.*, ps.shift_date, ps.shift_number, ps.team_group
+      FROM daily_shift_activities a
+      JOIN personnel_shifts ps ON ps.id = a.shift_id
+      WHERE ps.shift_date BETWEEN ? AND ?
+    `;
+    const params = [calculatedStartDate, calculatedEndDate];
+
+    if (category && category !== 'ALL' && category !== 'all') {
+      query += ` AND a.activity_type = ?`;
+      params.push(category);
+    }
+
+    if (team_group && team_group !== 'ALL' && team_group !== 'all') {
+      query += ` AND ps.team_group = ?`;
+      params.push(team_group);
+    }
+
+    query += ` ORDER BY ps.shift_date DESC, a.activity_time ASC, a.id DESC`;
+
+    const [activitiesList] = await pool.query(query, params);
+
+    // Ambil data pejabat Section Head / Dept Head secara dinamis
+    const deptHeadData = await getOfficialSignatory(pool);
+
+    const payload = {
+      periodLabel,
+      startDate: calculatedStartDate,
+      endDate: calculatedEndDate,
+      activities: activitiesList,
+      summary: {
+        total: activitiesList.length,
+        categoryLabel: category && category !== 'ALL' ? category.replace(/_/g, ' ').toUpperCase() : 'Semua Kategori',
+        teamLabel: team_group && team_group !== 'ALL' ? `Regu ${team_group}` : 'Seluruh Regu (A-D)',
+      },
+      dept_head_name: deptHeadData?.name || 'Airport Rescue & Fire Fighting Section Head',
+      dept_head_nip: deptHeadData?.nip || null,
+      dept_head_signature_url: deptHeadData?.signature_url || null,
+    };
+
+    const doc = generateActivitiesReportPdf(payload);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="laporan-logbook-kegiatan-${calculatedStartDate}-sd-${calculatedEndDate}.pdf"`
+    );
+
+    doc.pipe(res);
+    doc.end();
+  } catch (error) {
+    console.error('Error getActivitiesReportPdf:', error);
+    return errorResponse(res, 'Gagal menerbitkan laporan PDF logbook kegiatan: ' + error.message, 500);
+  }
+};
+
 

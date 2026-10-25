@@ -4,6 +4,7 @@ import {
   getVehicleIssuesAudit,
   getVehiclesReportPdf,
   getIncidentsReportPdf,
+  getActivitiesReportPdf,
 } from '../controllers/reportController.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
 
@@ -16,5 +17,7 @@ router.get('/export/pdf', getShiftReportPdf);
 router.get('/vehicle-issues', getVehicleIssuesAudit);
 router.get('/vehicles/pdf', getVehiclesReportPdf);
 router.get('/incidents/pdf', getIncidentsReportPdf);
+router.get('/activities/pdf', getActivitiesReportPdf);
+router.get('/activities/summary-report/pdf', getActivitiesReportPdf);
 
 export default router;

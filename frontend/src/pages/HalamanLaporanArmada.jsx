@@ -14,9 +14,13 @@ import {
   ChevronRight,
   ShieldCheck,
   ShieldAlert,
-  X
+  X,
+  Eye,
+  Download,
+  ExternalLink,
 } from 'lucide-react';
 import api from '../services/api';
+import { downloadVehicleReportPdf } from '../services/reportService';
 import Button from '../components/common/Button';
 import StateView from '../components/common/StateView';
 import Modal from '../components/common/Modal';
@@ -47,11 +51,65 @@ export default function HalamanLaporanArmada() {
 
   // State Data
   const [loading, setLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState(null);
   const [reportData, setReportData] = useState(null);
 
   // Modal Detail Timeline
   const [selectedVehicleDetail, setSelectedVehicleDetail] = useState(null);
+
+  // State Modal Pratinjau Dokumen PDF
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [previewPdfUrl, setPreviewPdfUrl] = useState(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [previewError, setPreviewError] = useState(null);
+
+  // Bersihkan object URL saat komponen unmount
+  useEffect(() => {
+    return () => {
+      if (previewPdfUrl) {
+        window.URL.revokeObjectURL(previewPdfUrl);
+      }
+    };
+  }, [previewPdfUrl]);
+
+  // Handler Buka Pratinjau PDF
+  const handleOpenPreview = async () => {
+    setIsPreviewModalOpen(true);
+    setIsLoadingPreview(true);
+    setPreviewError(null);
+    try {
+      const query = new URLSearchParams({
+        period: isCustomMode && startDate && endDate ? 'custom' : selectedPeriod,
+      });
+      if (isCustomMode && startDate) query.append('start_date', startDate);
+      if (isCustomMode && endDate) query.append('end_date', endDate);
+
+      const res = await api.get(`/reports/vehicles/pdf?${query.toString()}`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      setPreviewPdfUrl((prev) => {
+        if (prev) window.URL.revokeObjectURL(prev);
+        return url;
+      });
+    } catch (err) {
+      console.error('Error generating PDF preview:', err);
+      setPreviewError('Gagal memuat pratinjau dokumen PDF armada.');
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
+  const handleClosePreview = () => {
+    setIsPreviewModalOpen(false);
+    if (previewPdfUrl) {
+      window.URL.revokeObjectURL(previewPdfUrl);
+      setPreviewPdfUrl(null);
+    }
+    setPreviewError(null);
+  };
 
   // Fetch Report Data
   const fetchReport = useCallback(async () => {
@@ -91,19 +149,19 @@ export default function HalamanLaporanArmada() {
     fetchReport();
   };
 
-  const handlePrint = () => {
-    const token = localStorage.getItem('arff_token') || '';
-    const queryParams = new URLSearchParams();
-    if (isCustomMode && startDate && endDate) {
-      queryParams.set('period', 'custom');
-      queryParams.set('start_date', startDate);
-      queryParams.set('end_date', endDate);
-    } else {
-      queryParams.set('period', selectedPeriod);
+  const handlePrint = async () => {
+    try {
+      setIsExporting(true);
+      await downloadVehicleReportPdf({
+        period: isCustomMode && startDate && endDate ? 'custom' : selectedPeriod,
+        start_date: isCustomMode ? startDate : '',
+        end_date: isCustomMode ? endDate : '',
+      });
+    } catch (err) {
+      console.error('Gagal mengunduh PDF armada:', err);
+    } finally {
+      setIsExporting(false);
     }
-    if (token) queryParams.set('token', token);
-    const pdfUrl = `/api/reports/vehicles/pdf?${queryParams.toString()}`;
-    window.open(pdfUrl, '_blank');
   };
 
   const vehicles = reportData?.vehicles || [];
@@ -136,18 +194,30 @@ export default function HalamanLaporanArmada() {
           </p>
         </div>
 
-        {/* Tombol Cetak / Ekspor */}
-        <div className="flex items-center gap-2 print:hidden">
+        {/* Tombol Aksi: Pratinjau PDF, Cetak/Unduh, Segarkan */}
+        <div className="flex items-center gap-2 print:hidden flex-wrap">
+          <Button
+            variant="primary"
+            size="sm"
+            icon={Eye}
+            onClick={handleOpenPreview}
+            loading={isLoadingPreview}
+            disabled={isLoadingPreview}
+          >
+            {isLoadingPreview ? 'Memuat PDF...' : 'Pratinjau PDF'}
+          </Button>
           <Button
             variant="outline"
             size="sm"
-            icon={Printer}
+            icon={Download}
             onClick={handlePrint}
+            loading={isExporting}
+            disabled={isExporting}
           >
-            Cetak Laporan
+            {isExporting ? 'Mengunduh...' : 'Unduh PDF'}
           </Button>
           <Button
-            variant="primary"
+            variant="ghost"
             size="sm"
             icon={RefreshCw}
             onClick={fetchReport}
@@ -586,6 +656,88 @@ export default function HalamanLaporanArmada() {
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* Modal Pratinjau Dokumen PDF Resmi */}
+      {isPreviewModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-5 bg-slate-900/70 animate-in fade-in duration-150">
+          <div className="bg-white w-full max-w-5xl h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200">
+            {/* Header Modal */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex-wrap gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-red-100 text-arff-primary flex items-center justify-center shrink-0">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Pratinjau Dokumen PDF Laporan Armada
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Dokumen resmi kelaikan armada ARFF YIA • Periode: {isCustomMode ? `${startDate} s/d ${endDate}` : (periodInfo ? `${periodInfo.start_date} s/d ${periodInfo.end_date}` : selectedPeriod)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {previewPdfUrl && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={ExternalLink}
+                      onClick={() => window.open(previewPdfUrl, '_blank')}
+                      title="Buka PDF di tab baru browser"
+                    >
+                      Buka Tab Baru
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon={Download}
+                      onClick={handlePrint}
+                      loading={isExporting}
+                    >
+                      Unduh PDF
+                    </Button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={handleClosePreview}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors duration-100 ml-1 cursor-pointer"
+                  title="Tutup Pratinjau"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Area Pratinjau Dokumen */}
+            <div className="flex-1 bg-slate-100 p-2 sm:p-4 flex flex-col items-center justify-center overflow-hidden">
+              {isLoadingPreview ? (
+                <div className="flex flex-col items-center justify-center gap-3 text-slate-500 text-xs py-16">
+                  <RefreshCw className="w-8 h-8 animate-spin text-red-600" />
+                  <p className="font-semibold text-slate-700 text-sm">Menyusun & Merender Dokumen PDF...</p>
+                  <p className="text-slate-400">Sinkronisasi data kelaikan 8 entitas armada & seluruh log transisi kendala</p>
+                </div>
+              ) : previewError ? (
+                <div className="p-6 text-center text-xs space-y-3">
+                  <AlertTriangle className="w-8 h-8 text-red-500 mx-auto" />
+                  <p className="font-bold text-slate-800 text-sm">{previewError}</p>
+                  <Button variant="outline" size="sm" onClick={handleOpenPreview}>
+                    Coba Muat Ulang
+                  </Button>
+                </div>
+              ) : previewPdfUrl ? (
+                <iframe
+                  src={`${previewPdfUrl}#toolbar=1&navpanes=0`}
+                  title="Pratinjau PDF Laporan Armada"
+                  className="w-full h-full rounded-xl border border-slate-300 shadow-inner bg-white"
+                />
+              ) : null}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

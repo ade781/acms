@@ -120,12 +120,14 @@ export async function downloadVehicleReportPdf({ period = '1month', start_date =
 /**
  * Mengunduh dokumen PDF Laporan Rekapitulasi Insiden Resmi
  */
-export async function downloadIncidentReportPdf({ period = '1month', start_date = '', end_date = '' } = {}) {
+export async function downloadIncidentReportPdf({ period = '1month', start_date = '', end_date = '', category = '', status = '' } = {}) {
   const query = new URLSearchParams({ period });
   if (start_date) query.append('start_date', start_date);
   if (end_date) query.append('end_date', end_date);
+  if (category && category !== 'ALL') query.append('category', category);
+  if (status && status !== 'ALL') query.append('status', status);
 
-  const res = await api.get(`/reports/incidents/pdf?${query.toString()}`, {
+  const res = await api.get(`/incidents/summary-report/pdf?${query.toString()}`, {
     responseType: 'blob',
   });
 
@@ -140,9 +142,35 @@ export async function downloadIncidentReportPdf({ period = '1month', start_date 
   window.URL.revokeObjectURL(url);
 }
 
+/**
+ * Mengunduh dokumen PDF Laporan Rekapitulasi Logbook Kegiatan Resmi
+ */
+export async function downloadActivityReportPdf({ period = '1month', start_date = '', end_date = '', category = '', team = '' } = {}) {
+  const query = new URLSearchParams({ period });
+  if (start_date) query.append('start_date', start_date);
+  if (end_date) query.append('end_date', end_date);
+  if (category && category !== 'ALL') query.append('category', category);
+  if (team && team !== 'ALL') query.append('team_group', team);
+
+  const res = await api.get(`/reports/activities/pdf?${query.toString()}`, {
+    responseType: 'blob',
+  });
+
+  const blob = new Blob([res.data], { type: 'application/pdf' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', `Laporan-Logbook-Kegiatan-${period}.pdf`);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
 export default {
   fetchShiftReportData,
   downloadVehicleReportPdf,
   downloadIncidentReportPdf,
+  downloadActivityReportPdf,
 };
 
