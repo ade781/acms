@@ -138,6 +138,39 @@ export const getPersonnelById = async (req, res) => {
   }
 };
 
+/**
+ * Menghitung waktu operasional shift berjalan (WIB / UTC+7)
+ */
+export function getCurrentOperationalShiftBackend(dateObj = new Date()) {
+  const utc = dateObj.getTime() + (dateObj.getTimezoneOffset() * 60000);
+  const wibDate = new Date(utc + (7 * 3600000));
+
+  const hours = wibDate.getHours();
+  const minutes = wibDate.getMinutes();
+  const timeVal = hours * 60 + minutes;
+
+  let shiftNumber = 1;
+  const shiftDate = new Date(wibDate);
+
+  if (timeVal >= 420 && timeVal < 780) { // 07:00 - 13:00 WIB
+    shiftNumber = 1;
+  } else if (timeVal >= 780 && timeVal < 1200) { // 13:00 - 20:00 WIB
+    shiftNumber = 2;
+  } else { // 20:00 - 07:00 WIB
+    shiftNumber = 3;
+    if (timeVal < 420) {
+      shiftDate.setDate(shiftDate.getDate() - 1);
+    }
+  }
+
+  const year = shiftDate.getFullYear();
+  const month = String(shiftDate.getMonth() + 1).padStart(2, '0');
+  const day = String(shiftDate.getDate()).padStart(2, '0');
+  const dateStr = `${year}-${month}-${day}`;
+
+  return { shiftNumber, dateStr };
+}
+
 export function mapRankPositionToRole(rank) {
   if (!rank) return 'junior_firefighter';
   const r = rank.trim().toLowerCase();
@@ -342,6 +375,62 @@ export const updatePersonnel = async (req, res) => {
     const cleanBirthDate = parseDateOrNull(birth_date, existing[0].birth_date);
     const cleanExpiryDate = parseDateOrNull(cert_expiry_date, existing[0].cert_expiry_date);
 
+    // Proteksi Integritas Mutasi Regu & Status Aktif:
+    // Dilarang memindahkan regu atau menonaktifkan personel yang sedang bertugas aktif di armada/posko pada shift berjalan
+    if (isStaffAdmin && effectiveTeamGroup && effectiveTeamGroup !== existing[0].team_group) {
+      const { shiftNumber: curShiftNum, dateStr: curDateStr } = getCurrentOperationalShiftBackend();
+      const [activeDuties] = await pool.query(
+        `SELECT pd.id, pd.is_pic, pd.deployment_type, ps.shift_date, ps.shift_number, ps.team_group,
+                v.vehicle_name, v.code_name
+         FROM personnel_deployments pd
+         JOIN personnel_shifts ps ON ps.id = pd.shift_id
+         LEFT JOIN vehicles v ON v.id = pd.vehicle_id
+         WHERE pd.personnel_id = ?
+           AND pd.deployment_type IN ('vehicle_utama', 'vehicle_pendukung', 'watchroom')
+           AND ps.shift_date = ?
+           AND ps.shift_number = ?`,
+        [id, curDateStr, curShiftNum]
+      );
+
+      if (activeDuties.length > 0) {
+        const duty = activeDuties[0];
+        const unitName = duty.code_name || duty.vehicle_name || (duty.deployment_type === 'watchroom' ? 'Posko Watch Room' : 'Armada Operasional');
+        const roleName = duty.is_pic ? 'PIC' : 'Kru';
+        return errorResponse(
+          res,
+          `Gagal memindahkan regu: Personel "${existing[0].full_name}" saat ini masih bertugas aktif sebagai ${roleName} di ${unitName} pada shift berjalan (${duty.team_group}, Shift ${duty.shift_number}). Silakan minta Chief melepaskan atau mengganti penugasan personel ini di menu Ploting Dinas terlebih dahulu sebelum memindahkan regu.`,
+          400
+        );
+      }
+    }
+
+    if (isStaffAdmin && effectiveIsActive === 0 && existing[0].is_active === 1) {
+      const { shiftNumber: curShiftNum, dateStr: curDateStr } = getCurrentOperationalShiftBackend();
+      const [activeDuties] = await pool.query(
+        `SELECT pd.id, pd.is_pic, pd.deployment_type, ps.shift_date, ps.shift_number, ps.team_group,
+                v.vehicle_name, v.code_name
+         FROM personnel_deployments pd
+         JOIN personnel_shifts ps ON ps.id = pd.shift_id
+         LEFT JOIN vehicles v ON v.id = pd.vehicle_id
+         WHERE pd.personnel_id = ?
+           AND pd.deployment_type IN ('vehicle_utama', 'vehicle_pendukung', 'watchroom')
+           AND ps.shift_date = ?
+           AND ps.shift_number = ?`,
+        [id, curDateStr, curShiftNum]
+      );
+
+      if (activeDuties.length > 0) {
+        const duty = activeDuties[0];
+        const unitName = duty.code_name || duty.vehicle_name || (duty.deployment_type === 'watchroom' ? 'Posko Watch Room' : 'Armada Operasional');
+        const roleName = duty.is_pic ? 'PIC' : 'Kru';
+        return errorResponse(
+          res,
+          `Gagal menonaktifkan personel: Personel "${existing[0].full_name}" saat ini masih bertugas aktif sebagai ${roleName} di ${unitName} pada shift berjalan (${duty.team_group}, Shift ${duty.shift_number}). Silakan minta Chief melepaskan penugasan di menu Ploting Dinas terlebih dahulu.`,
+          400
+        );
+      }
+    }
+
     await pool.query(
       `UPDATE personnel SET
         nip = ?,
@@ -405,6 +494,33 @@ export const deletePersonnel = async (req, res) => {
     }
 
     const { user_id, full_name, signature_url } = existing[0];
+
+    // Proteksi: Cegah penghapusan personel yang masih bertugas aktif pada shift berjalan
+    const { shiftNumber: curShiftNum, dateStr: curDateStr } = getCurrentOperationalShiftBackend();
+    const [activeDuties] = await connection.query(
+      `SELECT pd.id, pd.is_pic, pd.deployment_type, ps.shift_date, ps.shift_number, ps.team_group,
+              v.vehicle_name, v.code_name
+       FROM personnel_deployments pd
+       JOIN personnel_shifts ps ON ps.id = pd.shift_id
+       LEFT JOIN vehicles v ON v.id = pd.vehicle_id
+       WHERE pd.personnel_id = ?
+         AND pd.deployment_type IN ('vehicle_utama', 'vehicle_pendukung', 'watchroom')
+         AND ps.shift_date = ?
+         AND ps.shift_number = ?`,
+      [id, curDateStr, curShiftNum]
+    );
+
+    if (activeDuties.length > 0) {
+      connection.release();
+      const duty = activeDuties[0];
+      const unitName = duty.code_name || duty.vehicle_name || (duty.deployment_type === 'watchroom' ? 'Posko Watch Room' : 'Armada Operasional');
+      const roleName = duty.is_pic ? 'PIC' : 'Kru';
+      return errorResponse(
+        res,
+        `Gagal menghapus personel: Personel "${full_name}" saat ini masih bertugas aktif sebagai ${roleName} di ${unitName} pada shift berjalan (${duty.team_group}, Shift ${duty.shift_number}). Silakan minta Chief melepaskan penugasan di menu Ploting Dinas terlebih dahulu.`,
+        400
+      );
+    }
 
     await connection.beginTransaction();
 

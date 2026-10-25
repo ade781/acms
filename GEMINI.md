@@ -70,7 +70,10 @@
     - Untuk mengajukan cuti baru di atas kuota tersebut, anggota harus menunggu hingga tanggal cuti sebelumnya selesai terlewati atau membatalkan salah satu pengajuan cuti yang ada.
     - Sistem secara ketat menolak pengajuan tanggal cuti yang beririsan (*anti-overlap*).
     - Seluruh riwayat cuti disajikan dalam format **Paket Pengajuan Terpadu** (rentang tanggal, durasi hari, status berjalan/selesai) sehingga tidak memecah baris harian yang tampak dobel.
-    - Pembatalan cuti pada paket langsung menghapus seluruh hari terkait secara bersih dalam 1 kali aksi.
+20. **Integritas Mutasi Regu & Larangan Pemindahan Personel Bertugas Aktif (Proteksi Data Penugasan)**:
+    - Mutasi atau pemindahan regu personel (`team_group`) idealnya dilakukan saat personel berstatus *Off Duty* / Lepas Piket.
+    - Sistem secara otomatis memblokir pemindahan regu (`team_group`), penonaktifan (`is_active = 0`), atau penghapusan personel jika yang bersangkutan sedang tercatat aktif bertugas di armada operasional atau posko pada shift yang sedang berjalan.
+    - Jika ada kondisi darurat mutasi di tengah jam dinas aktif, Chief Regu wajib terlebih dahulu melepaskan atau mengganti slot penugasan personel tersebut di menu **Ploting Dinas** dan menekan tombol **"Simpan Ploting"**, sebelum Admin dapat memproses pemindahan regu di master data personel.
 
 ## Aturan Pengelolaan Database & Folder Kerja Khusus (`masak/`)
 - **Fungsi Folder `masak/` (Sandbox / Workroom Database & Testing):**
