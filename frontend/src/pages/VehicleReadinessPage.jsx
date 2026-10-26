@@ -220,24 +220,6 @@ export default function VehicleReadinessPage() {
 
         {/* Action & Counter Summary */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          {isAdmin && (
-            <Button
-              variant="primary"
-              size="sm"
-              icon={Plus}
-              onClick={handleOpenAddVehicle}
-            >
-              Tambah Armada
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            icon={FileBarChart2}
-            onClick={() => navigate('/vehicles/reports')}
-          >
-            Laporan Kesiapan
-          </Button>
           <span className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold">
             {serviceableCount} Serviceable
           </span>
@@ -252,6 +234,24 @@ export default function VehicleReadinessPage() {
               <span>{belumDicekCount} Belum Dicek</span>
               <HelpCircle className="w-3.5 h-3.5 text-slate-400 hover:text-slate-200 transition-colors duration-100" />
             </span>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            icon={FileBarChart2}
+            onClick={() => navigate('/vehicles/reports')}
+          >
+            Laporan Kesiapan
+          </Button>
+          {isAdmin && (
+            <Button
+              variant="primary"
+              size="sm"
+              icon={Plus}
+              onClick={handleOpenAddVehicle}
+            >
+              Tambah Armada
+            </Button>
           )}
         </div>
       </div>

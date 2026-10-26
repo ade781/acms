@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
-  Calendar,
   Truck,
   AlertTriangle,
   CheckCircle2,
@@ -18,6 +17,8 @@ import {
   Eye,
   Download,
   ExternalLink,
+  HelpCircle,
+  AlertCircle,
 } from 'lucide-react';
 import api from '../services/api';
 import { downloadVehicleReportPdf } from '../services/reportService';
@@ -48,6 +49,16 @@ export default function VehicleReportsPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isCustomMode, setIsCustomMode] = useState(false);
+
+  // State Feedback Notifikasi Visual (Toast)
+  const [toastMsg, setToastMsg] = useState(null);
+
+  // Auto-dismiss Toast setelah 4 detik
+  useEffect(() => {
+    if (!toastMsg) return;
+    const timer = setTimeout(() => setToastMsg(null), 4000);
+    return () => clearTimeout(timer);
+  }, [toastMsg]);
 
   // State Data
   const [loading, setLoading] = useState(true);
@@ -142,11 +153,38 @@ export default function VehicleReportsPage() {
     setSelectedPeriod(periodKey);
   };
 
+  const handleOpenCustomMode = () => {
+    setIsCustomMode(true);
+    if (!startDate && reportData?.period_info?.start_date) {
+      setStartDate(reportData.period_info.start_date);
+    }
+    if (!endDate && reportData?.period_info?.end_date) {
+      setEndDate(reportData.period_info.end_date);
+    }
+  };
+
   const handleApplyCustomDate = (e) => {
     e.preventDefault();
-    if (!startDate || !endDate) return;
+    if (!startDate || !endDate) {
+      setToastMsg({
+        type: 'error',
+        text: 'Silakan tentukan tanggal awal (Dari) dan tanggal akhir (Sampai).'
+      });
+      return;
+    }
+    if (new Date(startDate) > new Date(endDate)) {
+      setToastMsg({
+        type: 'error',
+        text: 'Tanggal awal (Dari) tidak boleh lebih besar dari tanggal akhir (Sampai).'
+      });
+      return;
+    }
     setIsCustomMode(true);
     fetchReport();
+    setToastMsg({
+      type: 'success',
+      text: `Menampilkan laporan armada untuk rentang kustom: ${startDate} s/d ${endDate}.`
+    });
   };
 
   const handlePrint = async () => {
@@ -157,8 +195,16 @@ export default function VehicleReportsPage() {
         start_date: isCustomMode ? startDate : '',
         end_date: isCustomMode ? endDate : '',
       });
+      setToastMsg({
+        type: 'success',
+        text: 'Dokumen PDF Laporan Kesiapan Armada berhasil diunduh.'
+      });
     } catch (err) {
       console.error('Gagal mengunduh PDF armada:', err);
+      setToastMsg({
+        type: 'error',
+        text: 'Gagal mengunduh dokumen PDF armada. Pastikan koneksi server aktif dan coba kembali.'
+      });
     } finally {
       setIsExporting(false);
     }
@@ -169,12 +215,49 @@ export default function VehicleReportsPage() {
     total_vehicles: 0,
     total_transitions: 0,
     currently_serviceable: 0,
-    currently_unserviceable: 0
+    currently_unserviceable: 0,
+    currently_unreported: 0,
   };
+  const currentlyUnreported =
+    summary.currently_unreported ??
+    Math.max(
+      0,
+      (summary.total_vehicles || 0) -
+        (summary.currently_serviceable || 0) -
+        (summary.currently_unserviceable || 0)
+    );
   const periodInfo = reportData?.period_info;
 
   return (
     <div className="space-y-6">
+      {/* Toast Feedback Notifikasi Visual */}
+      {toastMsg && (
+        <div
+          className={`flex items-center justify-between p-3.5 rounded-xl border text-xs font-semibold shadow-xs transition-colors duration-100 ${
+            toastMsg.type === 'error'
+              ? 'bg-red-50 border-red-200 text-red-800'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            {toastMsg.type === 'error' ? (
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            )}
+            <span>{toastMsg.text}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setToastMsg(null)}
+            className="p-1 rounded-md hover:bg-black/5 text-current cursor-pointer transition-colors duration-100"
+            title="Tutup Notifikasi"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Tombol Kembali & Header Halaman */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div className="space-y-1">
@@ -275,7 +358,7 @@ export default function VehicleReportsPage() {
             </button>
             <button
               type="button"
-              onClick={() => setIsCustomMode(true)}
+              onClick={handleOpenCustomMode}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-100 cursor-pointer ${
                 isCustomMode
                   ? 'bg-red-600 text-white shadow-xs'
@@ -353,36 +436,55 @@ export default function VehicleReportsPage() {
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
           </div>
           <p className="text-2xl font-black text-emerald-700">{summary.currently_serviceable}</p>
-          <p className="text-[11px] text-emerald-600 font-medium">Serviceable</p>
+          <p className="text-[11px] text-emerald-600 font-medium">Serviceable Terverifikasi</p>
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-1">
           <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
-            <span>Kondisi Rusak (Saat Ini)</span>
-            <AlertTriangle className="w-4 h-4 text-red-500" />
+            <span>
+              {summary.currently_unserviceable > 0
+                ? 'Kondisi Rusak (Saat Ini)'
+                : currentlyUnreported > 0
+                ? 'Belum Dicek (Shift Ini)'
+                : 'Kondisi Rusak (Saat Ini)'}
+            </span>
+            {summary.currently_unserviceable > 0 ? (
+              <AlertTriangle className="w-4 h-4 text-red-500" />
+            ) : currentlyUnreported > 0 ? (
+              <HelpCircle className="w-4 h-4 text-slate-400" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            )}
           </div>
-          <p className="text-2xl font-black text-red-700">{summary.currently_unserviceable}</p>
-          <p className="text-[11px] text-red-600 font-medium">Unserviceable</p>
+          <p
+            className={`text-2xl font-black ${
+              summary.currently_unserviceable > 0
+                ? 'text-red-700'
+                : currentlyUnreported > 0
+                ? 'text-slate-700'
+                : 'text-emerald-700'
+            }`}
+          >
+            {summary.currently_unserviceable > 0
+              ? summary.currently_unserviceable
+              : currentlyUnreported > 0
+              ? currentlyUnreported
+              : 0}
+          </p>
+          <p className="text-[11px] font-medium text-slate-500">
+            {summary.currently_unserviceable > 0 ? (
+              <span className="text-red-600">
+                Unserviceable {currentlyUnreported > 0 && `(dan ${currentlyUnreported} belum dicek)`}
+              </span>
+            ) : currentlyUnreported > 0 ? (
+              <span className="text-slate-500">Menunggu inspeksi PIC</span>
+            ) : (
+              <span className="text-emerald-600">Nihil Kendala (100% Siap)</span>
+            )}
+          </p>
         </div>
       </div>
 
-      {/* Info Periode Aktif */}
-      {periodInfo && (
-        <div className="px-3.5 py-2 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-600 flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-slate-500" />
-            <span>
-              Periode Data:{' '}
-              <strong className="text-slate-800 font-semibold">
-                {formatDateIndo(periodInfo.start_date)} s.d. {formatDateIndo(periodInfo.end_date)}
-              </strong>
-            </span>
-          </div>
-          <span className="text-[11px] text-slate-400 font-mono">
-            Mode: {periodInfo.period === 'custom' ? 'Rentang Tanggal Kustom' : `Preset ${periodInfo.period}`}
-          </span>
-        </div>
-      )}
 
       {/* Tabel Data Rekapitulasi Armada */}
       <StateView
@@ -410,9 +512,11 @@ export default function VehicleReportsPage() {
               <tbody className="divide-y divide-slate-100">
                 {vehicles.map((v) => {
                   const isPosko = v.category === 'posko' || v.code_name === 'WATCHROOM';
-                  const isCurrentUnserviceable = v.current_status === 'unserviceable';
+                  const rawStatus = v.current_status || v.status || 'belum_dilaporkan';
+                  const isCurrentUnserv = rawStatus === 'unserviceable';
+                  const isCurrentServ = rawStatus === 'serviceable';
                   const periodCount = Number(v.period_count ?? v.transition_count ?? 0);
-                  const ongoingCount = Number(v.ongoing_issues_count ?? (isCurrentUnserviceable ? 1 : 0));
+                  const ongoingCount = Number(v.ongoing_issues_count ?? (isCurrentUnserv ? 1 : 0));
 
                   return (
                     <tr
@@ -446,18 +550,30 @@ export default function VehicleReportsPage() {
                       {/* Status Terkini */}
                       <td className="py-3 px-4 text-center">
                         <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                            isCurrentUnserviceable
-                              ? 'bg-red-50 text-red-700 border border-red-200'
-                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                            isCurrentUnserv
+                              ? 'bg-red-50 text-red-700 border-red-200'
+                              : isCurrentServ
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-slate-50 text-slate-600 border-slate-200'
                           }`}
                         >
                           <span
                             className={`w-1.5 h-1.5 rounded-full ${
-                              isCurrentUnserviceable ? 'bg-red-600' : 'bg-emerald-600'
+                              isCurrentUnserv
+                                ? 'bg-red-600'
+                                : isCurrentServ
+                                ? 'bg-emerald-600'
+                                : 'bg-slate-400'
                             }`}
                           />
-                          <span>{isCurrentUnserviceable ? 'Unserviceable' : 'Serviceable'}</span>
+                          <span>
+                            {isCurrentUnserv
+                              ? 'Unserviceable'
+                              : isCurrentServ
+                              ? 'Serviceable'
+                              : 'Belum Dicek'}
+                          </span>
                         </span>
                       </td>
 
@@ -547,10 +663,38 @@ export default function VehicleReportsPage() {
             {/* Header Ringkas Kendaraan */}
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between">
               <div>
-                <span className="font-mono text-xs font-bold text-slate-800">
-                  {selectedVehicleDetail.code_name}
-                </span>
-                <p className="text-[11px] text-slate-500">{selectedVehicleDetail.vehicle_name}</p>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold text-slate-800">
+                    {selectedVehicleDetail.code_name}
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                      selectedVehicleDetail.current_status === 'unserviceable'
+                        ? 'bg-red-50 text-red-700 border-red-200'
+                        : selectedVehicleDetail.current_status === 'serviceable'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-slate-100 text-slate-600 border-slate-200'
+                    }`}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        selectedVehicleDetail.current_status === 'unserviceable'
+                          ? 'bg-red-600'
+                          : selectedVehicleDetail.current_status === 'serviceable'
+                          ? 'bg-emerald-600'
+                          : 'bg-slate-400'
+                      }`}
+                    />
+                    <span>
+                      {selectedVehicleDetail.current_status === 'unserviceable'
+                        ? 'Unserviceable'
+                        : selectedVehicleDetail.current_status === 'serviceable'
+                        ? 'Serviceable'
+                        : 'Belum Dicek'}
+                    </span>
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5">{selectedVehicleDetail.vehicle_name}</p>
               </div>
               <div className="text-right">
                 <span className="text-[10px] text-slate-400 block">Total Periode Kendala:</span>

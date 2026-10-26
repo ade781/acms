@@ -85,7 +85,6 @@ export default function PersonnelPage() {
   const [selectedTeam, setSelectedTeam] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  const [selectedCert, setSelectedCert] = useState('ALL');
 
   // Debounce input pencarian nama/NIP personel 350ms (Anti-Lag Form Input Rule)
   useEffect(() => {
@@ -122,7 +121,6 @@ export default function PersonnelPage() {
     try {
       let queryParams = [];
       if (selectedTeam !== 'ALL') queryParams.push(`team_group=${selectedTeam}`);
-      if (selectedCert !== 'ALL') queryParams.push(`cert_level=${selectedCert}`);
       if (debouncedSearchQuery.trim()) queryParams.push(`search=${encodeURIComponent(debouncedSearchQuery.trim())}`);
 
       const url = `/personnel${queryParams.length > 0 ? '?' + queryParams.join('&') : ''}`;
@@ -130,8 +128,8 @@ export default function PersonnelPage() {
       const list = Array.isArray(res.data?.data)
         ? res.data.data
         : (Array.isArray(res.data?.personnel)
-        ? res.data.personnel
-        : (Array.isArray(res.data) ? res.data : []));
+          ? res.data.personnel
+          : (Array.isArray(res.data) ? res.data : []));
       setPersonnelList(list);
     } catch (err) {
       console.error('Error fetching personnel:', err);
@@ -139,7 +137,7 @@ export default function PersonnelPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedTeam, selectedCert, debouncedSearchQuery]);
+  }, [selectedTeam, debouncedSearchQuery]);
 
   useEffect(() => {
     fetchPersonnel();
@@ -218,8 +216,8 @@ export default function PersonnelPage() {
   const teamsToDisplay = selectedTeam === 'ALL'
     ? ['Alpha', 'Bravo', 'Charlie', 'Delta']
     : ['Alpha', 'Bravo', 'Charlie', 'Delta'].filter(
-        (t) => cleanTeam(t).toLowerCase() === cleanTeam(selectedTeam).toLowerCase()
-      );
+      (t) => cleanTeam(t).toLowerCase() === cleanTeam(selectedTeam).toLowerCase()
+    );
 
   return (
     <div>
@@ -322,19 +320,6 @@ export default function PersonnelPage() {
               ]}
             />
           </div>
-          <div className="w-full sm:w-52">
-            <SelectField
-              id="filterCertLevel"
-              value={selectedCert}
-              onChange={(e) => setSelectedCert(e.target.value)}
-              options={[
-                { value: 'ALL', label: 'Semua STKP' },
-                { value: 'Basic', label: 'Basic Fire Fighter' },
-                { value: 'Junior', label: 'Junior Fire Fighter' },
-                { value: 'Senior', label: 'Senior Fire Fighter' },
-              ]}
-            />
-          </div>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
           <div className="text-xs text-slate-500 font-medium">
@@ -383,7 +368,7 @@ export default function PersonnelPage() {
                 chiefRow: 'bg-red-50/70 border-red-200 text-slate-900',
                 chiefStar: 'text-red-600',
                 chiefBadge: 'bg-red-100 text-red-800 border-red-200',
-                beamGradient: 'conic-gradient(from 0deg, transparent 0deg, transparent 280deg, #ef4444 330deg, transparent 360deg)',
+                beamGradient: 'conic-gradient(from 0deg, transparent 0deg, transparent 90deg, #ef4444 145deg, transparent 180deg, transparent 270deg, #ef4444 325deg, transparent 360deg)',
               },
               bravo: {
                 border: 'border-blue-500',
@@ -391,7 +376,7 @@ export default function PersonnelPage() {
                 chiefRow: 'bg-blue-50/70 border-blue-200 text-slate-900',
                 chiefStar: 'text-blue-600',
                 chiefBadge: 'bg-blue-100 text-blue-800 border-blue-200',
-                beamGradient: 'conic-gradient(from 0deg, transparent 0deg, transparent 280deg, #3b82f6 330deg, transparent 360deg)',
+                beamGradient: 'conic-gradient(from 0deg, transparent 0deg, transparent 90deg, #3b82f6 145deg, transparent 180deg, transparent 270deg, #3b82f6 325deg, transparent 360deg)',
               },
               charlie: {
                 border: 'border-emerald-500',
@@ -399,7 +384,7 @@ export default function PersonnelPage() {
                 chiefRow: 'bg-emerald-50/70 border-emerald-200 text-slate-900',
                 chiefStar: 'text-emerald-600',
                 chiefBadge: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-                beamGradient: 'conic-gradient(from 0deg, transparent 0deg, transparent 280deg, #10b981 330deg, transparent 360deg)',
+                beamGradient: 'conic-gradient(from 0deg, transparent 0deg, transparent 90deg, #10b981 145deg, transparent 180deg, transparent 270deg, #10b981 325deg, transparent 360deg)',
               },
               delta: {
                 border: 'border-purple-500',
@@ -407,7 +392,7 @@ export default function PersonnelPage() {
                 chiefRow: 'bg-purple-50/70 border-purple-200 text-slate-900',
                 chiefStar: 'text-purple-600',
                 chiefBadge: 'bg-purple-100 text-purple-800 border-purple-200',
-                beamGradient: 'conic-gradient(from 0deg, transparent 0deg, transparent 280deg, #a855f7 330deg, transparent 360deg)',
+                beamGradient: 'conic-gradient(from 0deg, transparent 0deg, transparent 90deg, #a855f7 145deg, transparent 180deg, transparent 270deg, #a855f7 325deg, transparent 360deg)',
               },
             };
             const theme = teamThemes[teamKey] || teamThemes.alpha;
@@ -451,7 +436,7 @@ export default function PersonnelPage() {
                   {/* Header Nama Regu */}
                   <div className="text-center pb-3 mb-3 border-b border-slate-100">
                     <h3 className={`text-base font-extrabold tracking-wider uppercase ${theme.title}`}>
-                      REGU {teamName.toUpperCase()}
+                      {teamName.toUpperCase()}
                     </h3>
                     <span className="text-xs font-medium text-slate-500 block mt-0.5">
                       {members.length} Personel
@@ -477,51 +462,48 @@ export default function PersonnelPage() {
                             ? '★'
                             : String(hasChief ? globalIdx : globalIdx + 1).padStart(2, '0');
 
-                        return (
-                          <div
-                            key={person.id}
-                            onClick={() => navigate(`/personnel/${person.id}`)}
-                            className={`group px-2.5 py-1.5 rounded transition-colors duration-100 cursor-pointer flex items-center justify-between gap-2 border ${
-                              isChief
-                                ? `${theme.chiefRow} font-semibold shadow-xs`
-                                : isAssistant
-                                ? 'bg-amber-50/50 border-amber-200/60 hover:bg-amber-50 text-slate-800'
-                                : 'border-transparent hover:bg-slate-50 text-slate-800 hover:text-slate-900'
-                            }`}
-                            title={`Klik untuk melihat detail profil ${person.full_name}`}
-                          >
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                              <span
-                                className={`text-xs font-mono shrink-0 ${
-                                  isChief ? `${theme.chiefStar} font-bold` : 'text-slate-400'
+                          return (
+                            <div
+                              key={person.id}
+                              onClick={() => navigate(`/personnel/${person.id}`)}
+                              className={`group px-2.5 py-1.5 rounded transition-colors duration-100 cursor-pointer flex items-center justify-between gap-2 border ${isChief
+                                  ? `${theme.chiefRow} font-semibold shadow-xs`
+                                  : isAssistant
+                                    ? 'bg-amber-50/50 border-amber-200/60 hover:bg-amber-50 text-slate-800'
+                                    : 'border-transparent hover:bg-slate-50 text-slate-800 hover:text-slate-900'
                                 }`}
-                              >
-                                {memberNumber}
-                              </span>
-                              <span
-                                className={`truncate text-xs ${
-                                  isChief ? 'font-bold text-slate-900' : 'font-medium'
-                                }`}
-                              >
-                                {person.full_name}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                              {getStkpBadge(person)}
-                              {isChief && (
-                                <span className={`text-[10px] ${theme.chiefBadge} font-bold px-1.5 py-0.5 rounded border uppercase tracking-tight`}>
-                                  Ketua
+                              title={`Klik untuk melihat detail profil ${person.full_name}`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <span
+                                  className={`text-xs font-mono shrink-0 ${isChief ? `${theme.chiefStar} font-bold` : 'text-slate-400'
+                                    }`}
+                                >
+                                  {memberNumber}
                                 </span>
-                              )}
-                              {isAssistant && !isChief && (
-                                <span className="text-[10px] bg-amber-100 text-amber-800 border border-amber-300 font-semibold px-1.5 py-0.5 rounded uppercase tracking-tight">
-                                  Asisten
+                                <span
+                                  className={`truncate text-xs ${isChief ? 'font-bold text-slate-900' : 'font-medium'
+                                    }`}
+                                >
+                                  {person.full_name}
                                 </span>
-                              )}
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                {getStkpBadge(person)}
+                                {isChief && (
+                                  <span className={`text-[10px] ${theme.chiefBadge} font-bold px-1.5 py-0.5 rounded border uppercase tracking-tight`}>
+                                    Ketua
+                                  </span>
+                                )}
+                                {isAssistant && !isChief && (
+                                  <span className="text-[10px] bg-amber-100 text-amber-800 border border-amber-300 font-semibold px-1.5 py-0.5 rounded uppercase tracking-tight">
+                                    Asisten
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
                     </div>
                   )}
                 </div>

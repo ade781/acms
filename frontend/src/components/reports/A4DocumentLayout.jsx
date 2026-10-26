@@ -59,19 +59,9 @@ export default function A4DocumentLayout({
         }
       `}</style>
 
-      {/* 1. KOP RESMI DOKUMEN PT ANGKASA PURA INDONESIA */}
-      <div className="text-center pb-5 border-b-2 border-slate-900 mb-5">
-        <h3 className="text-sm sm:text-base font-black uppercase tracking-wider text-slate-900 leading-tight">
-          PT ANGKASA PURA INDONESIA
-        </h3>
-        <p className="text-xs font-bold text-slate-800 leading-tight mt-0.5">
-          KANTOR CABANG BANDARA INTERNASIONAL YOGYAKARTA (YIA)
-        </p>
-        <p className="text-[11px] text-slate-600 font-medium leading-tight mt-0.5">
-          AIRPORT RESCUE & FIRE FIGHTING (ARFF) SECTION • KODE WAHI • KATEGORI 8
-        </p>
-
-        <div className="mt-4 pt-2 border-t border-slate-200">
+      {/* Header Dokumen Laporan Dinas */}
+      <div className="text-center pb-4 border-b border-slate-200 mb-5">
+        <div>
           <h4 className="text-xs sm:text-sm font-black uppercase text-slate-900 tracking-wide underline">
             {reportTitle}
           </h4>

@@ -13,6 +13,7 @@ import {
   Radio,
   Truck,
   UserCheck,
+  HelpCircle,
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { cleanTeam } from '../../../utils/shiftHelper';
@@ -328,7 +329,10 @@ export default function DashboardVariant3() {
               ) : (
                 filteredVehicles.map((vehicle) => {
                   const vId = vehicle.id || vehicle.vehicle_id;
-                  const isUnserviceable = (vehicle.status || vehicle.readiness) === 'unserviceable';
+                  const rawStatus = vehicle.status || vehicle.readiness;
+                  const status = rawStatus || 'belum_dilaporkan';
+                  const isUnserviceable = status === 'unserviceable';
+                  const isServiceable = status === 'serviceable';
                   const isPosko = vehicle.category === 'posko' || vehicle.code_name === 'WATCHROOM';
                   const picName = isPosko
                     ? (vehiclePicMap['watchroom'] || vehiclePicMap[vId] || 'Operator Komunikasi')
@@ -345,9 +349,9 @@ export default function DashboardVariant3() {
                           className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
                             isUnserviceable
                               ? 'bg-red-50 text-red-700'
-                              : isPosko
-                              ? 'bg-slate-100 text-slate-700'
-                              : 'bg-slate-100 text-slate-700'
+                              : isServiceable
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : 'bg-slate-100 text-slate-600'
                           }`}
                         >
                           {isPosko ? <Radio className="w-3.5 h-3.5" /> : <Truck className="w-3.5 h-3.5" />}
@@ -362,17 +366,22 @@ export default function DashboardVariant3() {
                         </div>
                       </div>
 
-                      {/* Sisi Kanan: HANYA Status Kelaikan (Serviceable / Unserviceable) */}
+                      {/* Sisi Kanan: Status Kelaikan (Serviceable / Unserviceable / Belum Dicek) */}
                       <div className="flex-shrink-0">
                         {isUnserviceable ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-800 border border-red-200">
                             <AlertTriangle className="w-3 h-3 text-red-600" />
                             <span>Unserviceable</span>
                           </span>
-                        ) : (
+                        ) : isServiceable ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                             <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                             <span>Serviceable</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-200">
+                            <HelpCircle className="w-3 h-3 text-slate-400" />
+                            <span>Belum Dicek</span>
                           </span>
                         )}
                       </div>

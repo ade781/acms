@@ -16,13 +16,12 @@ export default function VehicleMetricCard({
   const isPosko = vehicle.category === 'posko' || vehicle.code_name === 'WATCHROOM';
 
   const log = vehicle.current_log || vehicle;
-  // Default status kelaikan adalah serviceable (GEMINI.md No. 17)
+  // Default status kelaikan adalah belum_dilaporkan sebelum diinspeksi PIC (GEMINI.md No. 17)
   const rawStatus = vehicle.status || log?.status;
-  const status = (rawStatus && rawStatus !== 'belum_dilaporkan') ? rawStatus : 'serviceable';
+  const status = rawStatus || 'belum_dilaporkan';
   const justification = vehicle.justification || log?.justification;
   const notes = vehicle.notes || log?.notes;
   const isCarriedOver = Boolean(vehicle.is_carried_over);
-  const isDefaultServiceable = Boolean(vehicle.is_default_serviceable || (!vehicle.has_shift_log && status === 'serviceable'));
 
   const statusConfig = {
     serviceable: {
@@ -40,15 +39,15 @@ export default function VehicleMetricCard({
       iconBg: 'bg-red-100 text-red-800',
     },
     belum_dilaporkan: {
-      badge: 'pending',
-      label: 'Serviceable (Shift)',
-      icon: CheckCircle2,
-      cardBorder: 'border-emerald-200',
-      iconBg: 'bg-emerald-100 text-emerald-800',
+      badge: 'default',
+      label: 'Belum Dicek',
+      icon: HelpCircle,
+      cardBorder: 'border-slate-200',
+      iconBg: 'bg-slate-100 text-slate-600',
     },
   };
 
-  const cfg = statusConfig[status] || statusConfig.serviceable;
+  const cfg = statusConfig[status] || statusConfig.belum_dilaporkan;
   const StatusIcon = cfg.icon;
 
   return (
@@ -92,15 +91,15 @@ export default function VehicleMetricCard({
                   Carry-Over Shift Lalu
                 </span>
               )}
-              {!isCarriedOver && status === 'serviceable' && isDefaultServiceable && (
-                <span className="text-[10px] text-slate-500 font-medium">
-                  Siap Operasi (Standar Shift)
-                </span>
-              )}
-              {!isCarriedOver && status === 'serviceable' && !isDefaultServiceable && (
+              {!isCarriedOver && status === 'serviceable' && (
                 <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-0.5">
                   <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                   Terverifikasi Fisik
+                </span>
+              )}
+              {!isCarriedOver && status === 'belum_dilaporkan' && (
+                <span className="text-[10px] text-slate-400 font-medium">
+                  Menunggu Inspeksi PIC
                 </span>
               )}
             </div>

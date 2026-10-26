@@ -490,7 +490,7 @@ export const submitWatchroomReadiness = async (req, res) => {
 export const calculateVehicleTransitionsData = async ({ period = '1month', start_date, end_date } = {}) => {
   let startDate, endDate;
   const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
+  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(now);
 
   if (start_date && end_date) {
     startDate = start_date;
@@ -499,13 +499,13 @@ export const calculateVehicleTransitionsData = async ({ period = '1month', start
     endDate = todayStr;
     const d = new Date(now);
     if (period === '3months') {
-      d.setMonth(d.getMonth() - 3);
+      d.setDate(d.getDate() - 90);
     } else if (period === '1year') {
-      d.setFullYear(d.getFullYear() - 1);
+      d.setDate(d.getDate() - 365);
     } else {
-      d.setMonth(d.getMonth() - 1);
+      d.setDate(d.getDate() - 30);
     }
-    startDate = d.toISOString().split('T')[0];
+    startDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(d);
   }
 
   const [vehicles] = await pool.query(
@@ -560,6 +560,7 @@ export const calculateVehicleTransitionsData = async ({ period = '1month', start
   let grandTotalTransitions = 0;
   let currentlyServiceableCount = 0;
   let currentlyUnserviceableCount = 0;
+  let currentlyUnreportedCount = 0;
 
   const vehiclesReport = vehicles.map(v => {
     const vLogs = logsByVehicle.get(v.id) || [];
@@ -699,6 +700,8 @@ export const calculateVehicleTransitionsData = async ({ period = '1month', start
       currentlyUnserviceableCount++;
     } else if (currentStatus === 'serviceable') {
       currentlyServiceableCount++;
+    } else {
+      currentlyUnreportedCount++;
     }
 
     const totalServiceableShifts = vLogs.filter(l => l.status === 'serviceable').length;
@@ -738,6 +741,7 @@ export const calculateVehicleTransitionsData = async ({ period = '1month', start
       total_transitions: grandTotalTransitions,
       currently_serviceable: currentlyServiceableCount,
       currently_unserviceable: currentlyUnserviceableCount,
+      currently_unreported: currentlyUnreportedCount,
     },
     vehicles: vehiclesReport
   };

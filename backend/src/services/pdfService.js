@@ -782,16 +782,17 @@ export const generateVehicleReadinessReportPdf = (data = {}) => {
   const infoY2 = infoY + 14;
   doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0f172a');
   doc.text('Kondisi Fisik Saat Ini: ', startX + 10, infoY2);
+  let statusSummaryText = `${summary.currently_serviceable || 0} Siap (Serviceable)`;
+  if ((summary.currently_unserviceable || 0) > 0) {
+    statusSummaryText += ` • ${summary.currently_unserviceable} Rusak`;
+  }
+  if ((summary.currently_unreported || 0) > 0) {
+    statusSummaryText += ` • ${summary.currently_unreported} Belum Dicek`;
+  }
   doc.font('Helvetica-Bold').fillColor('#15803d').text(
-    `${summary.currently_serviceable || 0} Siap (Serviceable)`,
+    statusSummaryText,
     startX + 115, infoY2
   );
-  if ((summary.currently_unserviceable || 0) > 0) {
-    doc.font('Helvetica-Bold').fillColor('#b91c1c').text(
-      ` • ${summary.currently_unserviceable} Rusak`,
-      startX + 235, infoY2
-    );
-  }
 
   doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0f172a').text('Total Siklus Kendala: ', startX + 330, infoY2);
   doc.font('Helvetica-Bold').fillColor('#b91c1c').text(`${summary.total_transitions || 0} Siklus`, startX + 445, infoY2);
@@ -838,10 +839,14 @@ export const generateVehicleReadinessReportPdf = (data = {}) => {
     );
     doc.fontSize(7.5).font('Helvetica').fillColor('#475569').text(v.category || 'utama', startX + 175, rowY + 5, { width: 55, align: 'center' });
 
-    const currentStatus = v.current_status || v.status || 'serviceable';
-    const isServ = (currentStatus === 'serviceable');
-    doc.fontSize(7.5).font('Helvetica-Bold').fillColor(isServ ? '#15803d' : '#b91c1c').text(
-      isServ ? 'SERVICEABLE' : 'UNSERVICEABLE',
+    const currentStatus = v.current_status || v.status || 'belum_dilaporkan';
+    const isServ = currentStatus === 'serviceable';
+    const isUnserv = currentStatus === 'unserviceable';
+    const statusLabel = isServ ? 'SERVICEABLE' : isUnserv ? 'UNSERVICEABLE' : 'BELUM DICEK';
+    const statusColor = isServ ? '#15803d' : isUnserv ? '#b91c1c' : '#64748b';
+
+    doc.fontSize(7.5).font('Helvetica-Bold').fillColor(statusColor).text(
+      statusLabel,
       startX + 232, rowY + 5, { width: 85, align: 'center' }
     );
 
@@ -853,9 +858,12 @@ export const generateVehicleReadinessReportPdf = (data = {}) => {
 
     let statusDesc = 'Siap Operasi Penuh (Nihil)';
     let statusDescColor = '#15803d';
-    if (!isServ) {
+    if (isUnserv) {
       statusDesc = 'Dalam Perbaikan Kendala';
       statusDescColor = '#b91c1c';
+    } else if (!isServ) {
+      statusDesc = 'Menunggu Laporan Inspeksi PIC';
+      statusDescColor = '#64748b';
     } else if (periodCount > 0) {
       statusDesc = `${periodCount}x Kendala (Telah Pulih)`;
       statusDescColor = '#475569';

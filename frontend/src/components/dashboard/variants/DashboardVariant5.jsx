@@ -13,6 +13,7 @@ import {
   UserX,
   PhoneCall,
   Activity,
+  HelpCircle,
 } from 'lucide-react';
 import api from '../../../services/api';
 import {
@@ -219,15 +220,15 @@ export default function DashboardVariant5() {
 
                       <div className="shrink-0">
                         <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-bold text-[10px] border ${
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold text-[10px] border ${
                             isServ
                               ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                               : isUnserv
                               ? 'bg-red-50 text-red-800 border-red-300'
-                              : 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                              : 'bg-slate-50 text-slate-600 border-slate-300'
                           }`}
                         >
-                          {isUnserv ? 'Unserviceable' : 'Serviceable'}
+                          {isUnserv ? 'Unserviceable' : isServ ? 'Serviceable' : 'Belum Dicek'}
                         </span>
                       </div>
                     </div>

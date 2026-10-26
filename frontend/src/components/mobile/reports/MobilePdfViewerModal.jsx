@@ -155,18 +155,7 @@ export default function MobilePdfViewerModal({
         {/* In-App Visual Document Sheet Preview (Simulasi Lembar Standar A4) */}
         <div className="flex-1 overflow-y-auto border border-slate-200 rounded-xl bg-slate-100 p-2 text-xs">
           <div className="bg-white rounded-lg border border-slate-300 shadow-xs p-3 space-y-2.5 min-h-[380px] text-[9.5px] text-slate-800 font-sans">
-            {/* Kop Dokumen Resmi PT Angkasa Pura Indonesia */}
-            <div className="text-center border-b-2 border-slate-900 pb-1.5 mb-1.5">
-              <h3 className="text-[11px] font-black uppercase tracking-wider text-slate-900 leading-tight">
-                PT ANGKASA PURA INDONESIA
-              </h3>
-              <p className="text-[9px] font-bold text-slate-800 leading-tight">
-                KANTOR CABANG BANDARA INTERNASIONAL YOGYAKARTA (YIA)
-              </p>
-              <p className="text-[8px] text-slate-600 font-medium leading-tight">
-                AIRPORT RESCUE & FIRE FIGHTING (ARFF) SECTION • KODE WAHI • KATEGORI 8
-              </p>
-            </div>
+
 
             {/* Judul & Nomor Surat */}
             <div className="text-center py-0.5">
