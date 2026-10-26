@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Users, Search, Plus, Filter, UserCheck, ChevronRight, Download, Settings, FileText } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { TEAMS, cleanTeam, formatTeam, OPERATIONAL_ROLES } from '../utils/shiftHelper';
+import { downloadBlob } from '../utils/fileHelper';
 import api from '../services/api';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
@@ -195,16 +196,9 @@ export default function PersonnelPage() {
       });
 
       const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
       const now = new Date().toISOString().split('T')[0];
       const reguSuffix = selectedTeam !== 'ALL' ? `_Regu_${selectedTeam}` : '';
-      link.setAttribute('download', `Daftar_Akun_Personel_ARFF_YIA${reguSuffix}_${now}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      downloadBlob(blob, `Daftar_Akun_Personel_ARFF_YIA${reguSuffix}_${now}.pdf`);
     } catch (err) {
       console.error('Error downloading personnel PDF:', err);
       setErrorNotification('Gagal mengunduh dokumen PDF akun personel.');

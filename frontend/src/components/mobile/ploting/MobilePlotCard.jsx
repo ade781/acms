@@ -8,6 +8,7 @@ export default function MobilePlotCard({
   onOpenPicker,
   onAddCrew,
   onOpenDetailKendala,
+  onInspect,
 }) {
   const readiness = unit.readiness || 'belum_dilaporkan';
   let badgeColor = 'bg-slate-100 text-slate-700 border-slate-300';
@@ -36,16 +37,27 @@ export default function MobilePlotCard({
         <h4 className="text-xs font-bold text-slate-900 leading-tight">
           {unit.vehicle_name || unit.name || unit.code_name}
         </h4>
-        <button
-          type="button"
-          onClick={() => isUnserv && onOpenDetailKendala && onOpenDetailKendala(unit)}
-          className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border ${badgeColor} leading-none flex items-center gap-1 transition-colors duration-100 ${
-            isUnserv ? 'cursor-pointer hover:bg-red-100' : ''
-          }`}
-        >
-          <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`}></span>
-          <span>{badgeText}</span>
-        </button>
+        <div className="flex items-center gap-1.5">
+          {onInspect && (
+            <button
+              type="button"
+              onClick={() => onInspect(unit)}
+              className="text-[9px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded transition-colors duration-100"
+            >
+              Periksa
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => isUnserv && onOpenDetailKendala && onOpenDetailKendala(unit)}
+            className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border ${badgeColor} leading-none flex items-center gap-1 transition-colors duration-100 ${
+              isUnserv ? 'cursor-pointer hover:bg-red-100' : ''
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`}></span>
+            <span>{badgeText}</span>
+          </button>
+        </div>
       </div>
 
       {/* Flat Divided Rows: Slot 0 (PIC) + Slot Kru */}

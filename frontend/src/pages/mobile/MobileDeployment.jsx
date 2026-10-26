@@ -7,6 +7,8 @@ import MobilePlotCard from '../../components/mobile/ploting/MobilePlotCard';
 import MobileCrewPickerSheet from '../../components/mobile/ploting/MobileCrewPickerSheet';
 import MobileAbsentCrewSection from '../../components/mobile/ploting/MobileAbsentCrewSection';
 import MobileCancelLeaveConfirmModal from '../../components/mobile/ploting/MobileCancelLeaveConfirmModal';
+import WatchroomReadinessModal from '../../components/forms/WatchroomReadinessModal';
+import VehicleReadinessModal from '../../components/forms/VehicleReadinessModal';
 
 export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) {
   const { user, isAdmin, isDeptHead, activeDate, activeShiftNumber, activeTeam } = useAuth();
@@ -55,6 +57,10 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [targetCancelLeave, setTargetCancelLeave] = useState(null);
   const [cancelingLeave, setCancelingLeave] = useState(false);
+
+  // Inspection Modal State (Dukungan Posko Watchroom & Armada Bermotor)
+  const [inspectionModalOpen, setInspectionModalOpen] = useState(false);
+  const [selectedUnitForInspection, setSelectedUnitForInspection] = useState(null);
 
   // Status perubahan yang belum disimpan (Dirty state tracking)
   const hasUnsavedChanges = useMemo(() => {
@@ -602,6 +608,10 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
               onOpenPicker={(slotIdx, isPic) => handleOpenPicker(unit.id, slotIdx, isPic)}
               onAddCrew={() => handleAddCrew(unit.id)}
               onOpenDetailKendala={onOpenAuditModal}
+              onInspect={(targetUnit) => {
+                setSelectedUnitForInspection(targetUnit);
+                setInspectionModalOpen(true);
+              }}
             />
           ))}
         </div>
@@ -640,6 +650,53 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
         reason={targetCancelLeave?.reason || 'cuti'}
         loading={cancelingLeave}
       />
+
+      {/* Modal Pemeriksaan Kesiapan Fisik Armada / Posko Watchroom Mobile */}
+      {inspectionModalOpen && selectedUnitForInspection && (
+        (selectedUnitForInspection.category === 'posko' || selectedUnitForInspection.code_name === 'WATCHROOM') ? (
+          <WatchroomReadinessModal
+            isOpen={inspectionModalOpen}
+            onClose={() => {
+              setInspectionModalOpen(false);
+              setSelectedUnitForInspection(null);
+            }}
+            logItem={selectedUnitForInspection}
+            activeDate={activeDate}
+            activeShiftNumber={activeShiftNumber}
+            activeTeam={activeTeam}
+            onSuccess={(customMsg) => {
+              loadPlotingData();
+              setToastMsg(
+                customMsg ||
+                `Kesiapan fasilitas posko ${
+                  selectedUnitForInspection.code_name || selectedUnitForInspection.vehicle_name
+                } berhasil diperbarui.`
+              );
+            }}
+          />
+        ) : (
+          <VehicleReadinessModal
+            isOpen={inspectionModalOpen}
+            onClose={() => {
+              setInspectionModalOpen(false);
+              setSelectedUnitForInspection(null);
+            }}
+            vehicle={selectedUnitForInspection}
+            activeDate={activeDate}
+            activeShiftNumber={activeShiftNumber}
+            activeTeam={activeTeam}
+            onSuccess={(customMsg) => {
+              loadPlotingData();
+              setToastMsg(
+                customMsg ||
+                `Kesiapan fisik kendaraan ${
+                  selectedUnitForInspection.code_name || selectedUnitForInspection.vehicle_name
+                } berhasil diperbarui.`
+              );
+            }}
+          />
+        )
+      )}
     </div>
   );
 }
