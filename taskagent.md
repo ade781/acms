@@ -1,60 +1,59 @@
-# MASTER ORKESTRASI PERBAIKAN SISTEM ACMS (ARFF YIA) - FASE 3 EKSEKUSI
+# MASTER ORKESTRASI PERBAIKAN SISTEM ACMS (ARFF YIA) - FASE 4 SELESAI
 
-Dokumen ini memuat master rencana perbaikan sistem terpadu (*Zero File Collision*) untuk Agent 1 sampai dengan Agent 5 dengan menyertakan konteks penuh: **Deskripsi Masalah**, **Dampak / Risiko**, dan **Instruksi Solusi Konkret**.
+Dokumen ini memuat master catatan penyelesaian sistem terpadu (*Zero File Collision*) dan resolusi seluruh temuan audit mendalam, termasuk fitur kompetensi personel, modal kesiapan posko, dan integritas data operasional.
 
 ---
 
-## Ringkasan Matriks Domain & Penugasan Agen
+## Ringkasan Resolusi Domain & Perbaikan Sistem
 
-### 1. Agent 1: URL Routing, Navigasi RESTful, & Mobile Shell
+### 1. Modul Personel & Fitur Input Kompetensi User
 - **Domain Berkas**:
-  - `frontend/src/App.jsx`
-  - `frontend/src/components/layout/Sidebar.jsx`
-  - `frontend/src/components/layout/MobileBottomNav.jsx`
-- **Fokus Utama**: Menstandarisasi URL hirarkis `/vehicles` dan `/vehicles/reports`, mengaktifkan `/incidents/reports`, memasang redirect otomatis dari path lama, menyinkronkan active route sidebar, dan memastikan tab bottom bar mobile kru hanya berisi 3 tab baku (Dashboard, Kegiatan, Laporan).
-
-### 2. Agent 2: Modul Personel, Validasi Cuti, & Lencana STKP
-- **Domain Berkas**:
-  - `frontend/src/pages/HalamanPersonel.jsx`
-  - `frontend/src/components/CutiModal.jsx`
+  - `backend/src/utils/competencyHelper.js` (Modul baru)
   - `backend/src/controllers/personnelController.js`
-- **Fokus Utama**: Menambahkan lencana peringatan kedaluwarsa lisensi STKP (amber ≤ 60 hari, merah expired), validasi tanggal cuti bentrok di frontend, dan memperkuat proteksi mutasi/penonaktifan personel saat bertugas aktif di backend.
+  - `backend/src/controllers/authController.js`
+  - `frontend/src/components/profile/DesktopProfileModal.jsx`
+- **Tindakan Perbaikan**:
+  1. **Whitelist & Anti-XSS**: Menambahkan validasi ketat terhadap 11 kompetensi baku ARFF YIA (`ALL_ADDITIONAL_COMPETENCIES`). Injeksi skrip, HTML, atau teks di luar domain keselamatan disaring bersih sebelum masuk ke database.
+  2. **Eliminasi Crash HTTP 500**: Mengonversi input teks string (misal `"SAR, TOT"`) menjadi array JSON valid sebelum disimpan ke kolom `JSON` MySQL.
+  3. **Konsistensi Serialisasi Data**: Memastikan endpoint `GET /personnel`, `GET /personnel/:id`, `PUT /personnel/:id`, dan `GET /auth/me` selalu mengembalikan `additional_competencies` sebagai Array murni (`Array<string>`).
+  4. **Dukungan Profil Admin**: Menghilangkan error HTTP 404 pada `PUT /auth/profile` bagi pengguna yang tidak memiliki baris personel (seperti akun administrator murni).
+  5. **Akses Langsung Desktop**: Menambahkan tombol langsung *"Edit Kualifikasi & Kompetensi"* pada toolbar Card 1 di `DesktopProfileModal.jsx` untuk navigasi 1-tap ke editor kompetensi.
 
-### 3. Agent 3: Kesiapan Armada, Carry-Over Status, & Ploting Dirty State
+### 2. Modul Ploting & Posko Watchroom Mobile
+- **Domain Berkas**:
+  - `frontend/src/pages/mobile/MobileDeployment.jsx`
+  - `frontend/src/components/mobile/ploting/MobilePlotCard.jsx`
+- **Tindakan Perbaikan**:
+  1. Menambahkan tombol *"Periksa"* pada setiap kartu armada/posko di mobile ploting.
+  2. Mengintegrasikan percabangan modal: jika unit yang diperiksa adalah unit posko (`category === 'posko' || code_name === 'WATCHROOM'`), sistem secara otomatis membuka `WatchroomReadinessModal` (fasilitas radio VHF, hotline ATC, crash bell, PC CCTV) alih-alih modal kendaraan bermotor.
+  3. Mempertahankan desain *grounded* indikator dirty state di header toolbar atas (tanpa floating bar norak, sesuai Aturan 9 GEMINI.md).
+
+### 3. Modul Kesiapan Armada & Dashboard
 - **Domain Berkas**:
   - `backend/src/controllers/readinessController.js`
-  - `frontend/src/pages/HalamanKesiapanKendaraan.jsx`
-  - `frontend/src/pages/HalamanPenugasan.jsx`
-  - `frontend/src/pages/mobile/MobilePloting.jsx`
-- **Fokus Utama**: Memperbaiki transisi status armada agar log baru berstatus `belum_dilaporkan` (badge abu-abu netral) dengan tetap membawa carry-over unserviceable dari shift sebelumnya, memasang pelacakan dirty state (`hasUnsavedChanges`) dengan floating bar berdenyut dan route guard peringatan, serta menghapus request ganda di mobile.
+  - `frontend/src/components/dashboard/VehicleMetricCard.jsx`
+- **Tindakan Perbaikan**:
+  1. Mempertahankan status default `belum_dilaporkan` (*Belum Dicek*) pada shift baru.
+  2. Membawa *carry-over* status unserviceable dari shift terdahulu yang belum *resolved*.
+  3. Memastikan `VehicleMetricCard.jsx` tidak menormalisasi paksa status `belum_dilaporkan` menjadi `serviceable`.
 
-### 4. Agent 4: Modul Kegiatan, Insiden, & Proteksi Read-Only Kru Non-Pimpinan (Nomor 8)
+### 4. Modul Kegiatan, Insiden, & Dokumen PDF
 - **Domain Berkas**:
   - `backend/src/controllers/activityController.js`
   - `backend/src/controllers/incidentController.js`
-  - `frontend/src/pages/HalamanKegiatan.jsx`
-  - `frontend/src/pages/HalamanInsiden.jsx`
-  - `frontend/src/pages/mobile/MobileKegiatan.jsx`
-  - `frontend/src/pages/mobile/MobileInsiden.jsx`
-- **Fokus Utama**: Memproteksi backend endpoint (HTTP 403 Forbidden) untuk Create/Update/Delete jika bukan Admin, Chief, atau Asisten Chief; menerapkan mode Read-Only murni di UI frontend mobile bagi kru biasa; menambahkan tombol "Rekap Laporan" di header insiden; dan membersihkan dead code unused import.
-
-### 5. Agent 5: Laporan Operasional, Pratinjau PDF, Tanda Tangan Digital, & Invalidation Cache
-- **Domain Berkas**:
-  - `frontend/src/pages/HalamanLaporanArmada.jsx`
-  - `frontend/src/pages/HalamanLaporan.jsx`
-  - `frontend/src/components/A4DocumentLayout.jsx`
   - `backend/src/services/pdfService.js`
   - `backend/src/controllers/deploymentController.js`
-- **Fokus Utama**: Menghubungkan token otentikasi pada `src` gambar tanda tangan digital di layout A4 PDF guna mengatasi HTTP 401 Unauthorized, format garis tanda tangan basah bila belum ada tanda tangan digital, menghapus angka hardcode 8 dan "7 Unit Kendaraan" di laporan dinas, dan memanggil `clearPdfCache()` saat penyimpanan ploting.
+- **Tindakan Perbaikan**:
+  1. Role guard backend HTTP 403 terverifikasi aman untuk kru biasa.
+  2. Mode Read-Only murni di UI mobile kru lapangan.
+  3. Generator PDF A4 resmi (`/api/reports/pdf`) dan audit kendala armada (`/api/reports/vehicle-issues`) terverifikasi aktif dengan respon HTTP 200.
+  4. Invalidation cache PDF saat simpan ploting formasi kru.
 
 ---
 
-## Protokol Eksekusi & Pelaporan Temuan Tambahan
-1. Setiap agen membaca lembar tugas spesifiknya (`task_agent1.md` s.d. `task_agent5.md`).
-2. Dilarang menyentuh berkas di luar domain eksklusif masing-masing (*Zero File Collision*).
-3. Seluruh pengujian kode wajib dilakukan via CLI (`npm run build` dan `node -c`). Dilarang membuka browser otomatis (`browser_subagent`).
-4. **Kanal Temuan, Bug, Ide, & Saran Tambahan**:
-   - Apabila selama inspeksi/eksekusi agen menemukan bug baru, anomali logika, celah keamanan/performa, ide inovasi, atau saran peningkatan UI/UX di luar tugas utamanya:
-   - **DILARANG mengubah kode di luar domain/tugas secara sepihak.**
-   - Agen **WAJIB mencatat seluruh temuan, ide, dan saran tersebut di berkas laporannya (`masak/temp/hasil_agent*.md`)** menggunakan format hierarkis: Judul Temuan/Ide, Deskripsi Masalah/Konsep, Dampak/Manfaat, dan Rekomendasi Solusi agar dapat dievaluasi bersama oleh Pengawas dan Pengguna.
-5. Setelah eksekusi tuntas dan lulus verifikasi CLI, agen menuliskan laporannya secara mandiri di `masak/temp/hasil_agent*.md`.
+## Bukti Verifikasi Akhir CLI Terminal
+1. `node -c backend/src/utils/competencyHelper.js`: Exit Code 0
+2. `node -c backend/src/controllers/personnelController.js`: Exit Code 0
+3. `node -c backend/src/controllers/authController.js`: Exit Code 0
+4. `npm --prefix frontend run build`: Exit Code 0 (Vite build selesai tanpa error)
+5. `node masak/test_audit_suite.mjs`: Exit Code 0 (Seluruh 5 suite audit backend lulus 100%)
