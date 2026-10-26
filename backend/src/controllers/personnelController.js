@@ -5,6 +5,9 @@ import bcrypt from 'bcryptjs';
 import pool from '../config/db.js';
 import { successResponse, errorResponse, createdResponse } from '../utils/responseHelper.js';
 import { generatePersonnelAccountsPdf } from '../services/pdfService.js';
+import { sanitizeAndValidateCompetencies, parseCompetenciesArray } from '../utils/competencyHelper.js';
+import { getOfficialSignatory } from '../utils/officialHelper.js';
+import { mapRankPositionToRole, cleanTeam } from '../utils/roleMapper.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -45,11 +48,15 @@ export const getPersonnelList = async (req, res) => {
     query += ` ORDER BY p.team_group ASC, p.id ASC`;
 
     const [rows] = await pool.query(query, params);
+    const formattedRows = rows.map((p) => ({
+      ...p,
+      additional_competencies: parseCompetenciesArray(p.additional_competencies),
+    }));
     return res.status(200).json({
       success: true,
       message: 'Daftar personel berhasil diambil',
-      data: rows,
-      personnel: rows
+      data: formattedRows,
+      personnel: formattedRows
     });
   } catch (error) {
     console.error('Error getPersonnelList:', error);
@@ -78,16 +85,8 @@ export const exportPersonnelPdf = async (req, res) => {
 
     const [rows] = await pool.query(query, params);
 
-    // Ambil pejabat Dept Head resmi untuk tanda tangan pengesahan
-    const [deptHeads] = await pool.query(
-      `SELECT p.full_name as name, p.nip, p.rank_position, COALESCE(u.signature_url, p.signature_url) as signature_url
-       FROM personnel p
-       LEFT JOIN users u ON u.id = p.user_id
-       WHERE u.role = 'dept_head' OR p.rank_position LIKE '%Dept%Head%' OR p.full_name LIKE '%TAMSUL%'
-       ORDER BY p.id ASC
-       LIMIT 1`
-    );
-    const signatory = deptHeads.length > 0 ? deptHeads[0] : null;
+    // Ambil pejabat Dept Head / Section Head resmi untuk tanda tangan pengesahan
+    const signatory = await getOfficialSignatory(pool);
 
     const doc = generatePersonnelAccountsPdf(rows, signatory);
 
@@ -136,6 +135,7 @@ export const getPersonnelById = async (req, res) => {
       view_url: `/api/documents/${doc.id}/view`,
       download_url: `/api/documents/${doc.id}/download`,
     }));
+    personnel.additional_competencies = parseCompetenciesArray(personnel.additional_competencies);
 
     return res.status(200).json({
       success: true,
@@ -182,29 +182,7 @@ export function getCurrentOperationalShiftBackend(dateObj = new Date()) {
   return { shiftNumber, dateStr };
 }
 
-export function mapRankPositionToRole(rank) {
-  if (!rank) return 'junior_firefighter';
-  const r = rank.trim().toLowerCase();
-  if (r.includes('dept. head') || r.includes('dept head') || r.includes('department head')) {
-    return 'dept_head';
-  }
-  if (r.includes('section head') || r.includes('seksi')) {
-    return 'section_head';
-  }
-  if (r.includes('chief assistant') || r.includes('asisten chief') || r.includes('wakil')) {
-    return 'chief_assistant';
-  }
-  if (r.includes('chief') || r.includes('ketua regu')) {
-    return 'chief';
-  }
-  if (r.includes('senior')) {
-    return 'senior_firefighter';
-  }
-  if (r.includes('admin')) {
-    return 'admin';
-  }
-  return 'junior_firefighter';
-}
+export { mapRankPositionToRole } from '../utils/roleMapper.js';
 
 /**
  * Helper untuk mendeteksi apakah jabatan merupakan Ketua Regu (Chief) murni
@@ -454,9 +432,7 @@ export const updatePersonnel = async (req, res) => {
 
     let cleanCompetencies = existing[0].additional_competencies;
     if (additional_competencies !== undefined) {
-      cleanCompetencies = Array.isArray(additional_competencies)
-        ? JSON.stringify(additional_competencies)
-        : (typeof additional_competencies === 'string' ? additional_competencies : JSON.stringify([]));
+      cleanCompetencies = sanitizeAndValidateCompetencies(additional_competencies, existing[0].additional_competencies);
     }
 
     // Proteksi Integritas Mutasi Regu & Status Aktif:
@@ -599,9 +575,7 @@ export const updatePersonnel = async (req, res) => {
 
     const [updated] = await pool.query('SELECT * FROM personnel WHERE id = ?', [id]);
     const resPers = updated[0];
-    if (typeof resPers.additional_competencies === 'string') {
-      try { resPers.additional_competencies = JSON.parse(resPers.additional_competencies); } catch (e) { resPers.additional_competencies = []; }
-    }
+    resPers.additional_competencies = parseCompetenciesArray(resPers.additional_competencies);
     return successResponse(res, 'Data personel berhasil diperbarui', resPers);
   } catch (error) {
     console.error('Error updatePersonnel:', error);
@@ -699,713 +673,26 @@ export const deletePersonnel = async (req, res) => {
   }
 };
 
-export const uploadSignature = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    if (!req.file) {
-      return errorResponse(res, 'Berkas tanda tangan belum dipilih atau format tidak sesuai', 400);
-    }
-
-    const [rows] = await pool.query(
-      `SELECT p.*, u.role as user_role
-       FROM personnel p
-       LEFT JOIN users u ON p.user_id = u.id
-       WHERE p.id = ?`,
-      [id]
-    );
-
-    if (rows.length === 0) {
-      if (req.file.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-      return errorResponse(res, 'Personel tidak ditemukan', 404);
-    }
-
-    const target = rows[0];
-    const targetRole = target.user_role || mapRankPositionToRole(target.rank_position);
-
-    // HANYA dept_head, section_head, chief, dan chief_assistant yang berhak memiliki & mengunggah tanda tangan
-    const allowedSignatureRoles = ['dept_head', 'section_head', 'chief', 'chief_assistant'];
-    const isTargetEligible = allowedSignatureRoles.includes(targetRole);
-
-    if (!isTargetEligible) {
-      if (req.file.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-      return errorResponse(
-        res,
-        'Akses ditolak: Opsi tanda tangan hanya diperuntukkan bagi Department Head, Section Head, Chief, dan Chief Assistant.',
-        403
-      );
-    }
-
-    // Pengecekan user yang mengunggah (hanya dept_head, section_head, chief, chief_assistant, atau admin)
-    const currentUserRole = req.user.role;
-    const isUploaderEligible = ['admin', 'dept_head', 'section_head', 'chief', 'chief_assistant'].includes(currentUserRole);
-
-    if (!isUploaderEligible) {
-      if (req.file.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-      return errorResponse(res, 'Anda tidak memiliki hak untuk mengunggah tanda tangan.', 403);
-    }
-
-    // Jika bukan admin, pastikan yang mengunggah adalah pemilik akun itu sendiri atau sesama pimpinan
-    if (
-      currentUserRole !== 'admin' &&
-      target.user_id &&
-      target.user_id !== req.user.id &&
-      !['dept_head', 'section_head', 'chief'].includes(currentUserRole)
-    ) {
-      if (req.file.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-      return errorResponse(res, 'Anda hanya dapat mengunggah tanda tangan untuk akun Anda sendiri.', 403);
-    }
-
-    // Hapus berkas tanda tangan lama jika ada
-    if (target.signature_url) {
-      const oldPath = path.resolve(__dirname, '../../', target.signature_url.replace(/^\//, ''));
-      if (fs.existsSync(oldPath)) {
-        try {
-          fs.unlinkSync(oldPath);
-        } catch (e) {
-          console.warn('Gagal menghapus tanda tangan lama:', e.message);
-        }
-      }
-    }
-
-    const signatureUrl = `/uploads/${req.file.filename}`;
-
-    // Update signature_url di tabel personnel
-    await pool.query('UPDATE personnel SET signature_url = ? WHERE id = ?', [signatureUrl, id]);
-
-    // Update signature_url di tabel users jika terhubung
-    if (target.user_id) {
-      await pool.query('UPDATE users SET signature_url = ? WHERE id = ?', [signatureUrl, target.user_id]);
-    }
-
-    return successResponse(res, 'Tanda tangan digital resmi berhasil diunggah', {
-      signature_url: signatureUrl
-    });
-  } catch (error) {
-    if (req.file && req.file.path && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
-    console.error('Error uploadSignature:', error);
-    return errorResponse(res, 'Gagal mengunggah tanda tangan: ' + error.message, 500);
-  }
-};
-
-export const deleteSignature = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const [rows] = await pool.query(
-      `SELECT p.*, u.role as user_role
-       FROM personnel p
-       LEFT JOIN users u ON p.user_id = u.id
-       WHERE p.id = ?`,
-      [id]
-    );
-
-    if (rows.length === 0) {
-      return errorResponse(res, 'Personel tidak ditemukan', 404);
-    }
-
-    const target = rows[0];
-    const currentUserRole = req.user.role;
-
-    if (!['admin', 'dept_head', 'section_head', 'chief', 'chief_assistant'].includes(currentUserRole)) {
-      return errorResponse(res, 'Anda tidak memiliki hak untuk menghapus tanda tangan.', 403);
-    }
-
-    if (target.signature_url) {
-      const oldPath = path.resolve(__dirname, '../../', target.signature_url.replace(/^\//, ''));
-      if (fs.existsSync(oldPath)) {
-        try {
-          fs.unlinkSync(oldPath);
-        } catch (e) {}
-      }
-    }
-
-    await pool.query('UPDATE personnel SET signature_url = NULL WHERE id = ?', [id]);
-    if (target.user_id) {
-      await pool.query('UPDATE users SET signature_url = NULL WHERE id = ?', [target.user_id]);
-    }
-
-    return successResponse(res, 'Tanda tangan digital berhasil dihapus');
-  } catch (error) {
-    console.error('Error deleteSignature:', error);
-    return errorResponse(res, 'Gagal menghapus tanda tangan', 500);
-  }
-};
-
-export const getPersonnelDocuments = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const [rows] = await pool.query(
-      `SELECT p.id, p.user_id FROM personnel p WHERE p.id = ?`,
-      [id]
-    );
-
-    if (rows.length === 0) {
-      return errorResponse(res, 'Personel tidak ditemukan', 404);
-    }
-
-    const target = rows[0];
-    const currentUserRole = req.user.role;
-    const isLeadership = ['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor', 'operation_chief'].includes(currentUserRole);
-    const isOwner = (req.user.personnel_id && Number(req.user.personnel_id) === Number(id)) ||
-                    (target.user_id && Number(req.user.id) === Number(target.user_id));
-
-    if (!isLeadership && !isOwner) {
-      return errorResponse(res, 'Akses ditolak: Anda tidak memiliki wewenang untuk melihat berkas dokumen personel ini', 403);
-    }
-
-    const [docs] = await pool.query(
-      `SELECT pd.*, u.name as uploader_name
-       FROM personnel_documents pd
-       LEFT JOIN users u ON u.id = pd.uploaded_by
-       WHERE pd.personnel_id = ?
-       ORDER BY pd.created_at DESC`,
-      [id]
-    );
-
-    const formattedDocs = (docs || []).map((doc) => ({
-      ...doc,
-      view_url: `/api/documents/${doc.id}/view`,
-      download_url: `/api/documents/${doc.id}/download`,
-    }));
-
-    return successResponse(res, 'Daftar dokumen personel berhasil diambil', formattedDocs);
-  } catch (error) {
-    console.error('Error getPersonnelDocuments:', error);
-    return errorResponse(res, 'Gagal mengambil dokumen personel', 500);
-  }
-};
-
-export const uploadPersonnelDocument = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { title, document_type = 'dokumen_lain' } = req.body;
-
-    if (!req.file) {
-      return errorResponse(res, 'Berkas dokumen wajib diunggah (PDF, PNG, JPG, WebP)', 400);
-    }
-
-    const [rows] = await pool.query(
-      `SELECT p.*, u.id as user_acc_id FROM personnel p
-       LEFT JOIN users u ON u.id = p.user_id
-       WHERE p.id = ?`,
-      [id]
-    );
-
-    if (rows.length === 0) {
-      if (req.file.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-      return errorResponse(res, 'Personel tidak ditemukan', 404);
-    }
-
-    const target = rows[0];
-    const currentUserRole = req.user.role;
-    const isLeadership = ['admin', 'dept_head', 'chief', 'chief_assistant'].includes(currentUserRole);
-    const isSelf = (req.user.personnel_id && Number(req.user.personnel_id) === Number(id)) ||
-                   (target.user_id && Number(req.user.id) === Number(target.user_id));
-
-    if (!isLeadership && !isSelf) {
-      if (req.file.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-      return errorResponse(res, 'Akses ditolak: Anda tidak memiliki wewenang untuk mengunggah dokumen personel ini', 403);
-    }
-
-    const docTitle = title && title.trim().length > 0 ? title.trim() : req.file.originalname;
-    const fileUrl = `/uploads/${req.file.filename}`;
-    const fileSize = req.file.size || 0;
-    const mimeType = req.file.mimetype || 'application/octet-stream';
-
-    const [result] = await pool.query(
-      `INSERT INTO personnel_documents (
-        personnel_id, title, document_type, file_name, file_url, file_size, mime_type, uploaded_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, docTitle, document_type, req.file.originalname, fileUrl, fileSize, mimeType, req.user.id]
-    );
-
-    const [newDocRows] = await pool.query(
-      `SELECT pd.*, u.name as uploader_name
-       FROM personnel_documents pd
-       LEFT JOIN users u ON u.id = pd.uploaded_by
-       WHERE pd.id = ?`,
-      [result.insertId]
-    );
-
-    const createdDoc = {
-      ...newDocRows[0],
-      view_url: `/api/documents/${newDocRows[0].id}/view`,
-      download_url: `/api/documents/${newDocRows[0].id}/download`,
-    };
-
-    return successResponse(res, 'Dokumen personel berhasil diunggah', createdDoc, 201);
-  } catch (error) {
-    if (req.file && req.file.path && fs.existsSync(req.file.path)) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (e) {}
-    }
-    console.error('Error uploadPersonnelDocument:', error);
-    return errorResponse(res, 'Gagal mengunggah dokumen: ' + error.message, 500);
-  }
-};
-
-export const deletePersonnelDocument = async (req, res) => {
-  try {
-    const { id, docId } = req.params;
-
-    const [docRows] = await pool.query(
-      `SELECT pd.*, p.user_id
-       FROM personnel_documents pd
-       JOIN personnel p ON p.id = pd.personnel_id
-       WHERE pd.id = ? AND pd.personnel_id = ?`,
-      [docId, id]
-    );
-
-    if (docRows.length === 0) {
-      return errorResponse(res, 'Dokumen tidak ditemukan', 404);
-    }
-
-    const doc = docRows[0];
-    const currentUserRole = req.user.role;
-    const isLeadership = ['admin', 'dept_head'].includes(currentUserRole);
-    const isUploader = doc.uploaded_by && Number(doc.uploaded_by) === Number(req.user.id);
-    const isSelf = (req.user.personnel_id && Number(req.user.personnel_id) === Number(id)) ||
-                   (doc.user_id && Number(req.user.id) === Number(doc.user_id));
-
-    if (!isLeadership && !isUploader && !isSelf) {
-      return errorResponse(res, 'Akses ditolak: Anda tidak memiliki wewenang untuk menghapus dokumen ini', 403);
-    }
-
-    // Hapus file fisik dari storage jika ada
-    if (doc.file_url) {
-      const filePath = path.resolve(__dirname, '../../', doc.file_url.replace(/^\//, ''));
-      if (fs.existsSync(filePath)) {
-        try {
-          fs.unlinkSync(filePath);
-        } catch (e) {}
-      }
-    }
-
-    await pool.query('DELETE FROM personnel_documents WHERE id = ?', [docId]);
-
-    return successResponse(res, 'Dokumen personel berhasil dihapus');
-  } catch (error) {
-    console.error('Error deletePersonnelDocument:', error);
-    return errorResponse(res, 'Gagal menghapus dokumen', 500);
-  }
-};
-
-export const getOfficials = async (req, res) => {
-  try {
-    // 1. Dept Head (Airport Technology & ARFF Dept. Head)
-    const [deptHeads] = await pool.query(
-      `SELECT p.*, u.username, u.email as user_email, u.role as user_role,
-              COALESCE(u.signature_url, p.signature_url) as signature_url
-       FROM personnel p
-       LEFT JOIN users u ON u.id = p.user_id
-       WHERE (p.rank_position LIKE '%Dept%Head%' OR p.rank_position LIKE '%Department Head%' OR u.role = 'dept_head')
-         AND p.rank_position NOT LIKE '%Section%'
-       ORDER BY p.id ASC
-       LIMIT 1`
-    );
-    const deptHead = deptHeads.length > 0 ? deptHeads[0] : null;
-
-    // 2. Section Head (Airport Technology & ARFF Section Head)
-    const [sectionHeads] = await pool.query(
-      `SELECT p.*, u.username, u.email as user_email, u.role as user_role,
-              COALESCE(u.signature_url, p.signature_url) as signature_url
-       FROM personnel p
-       LEFT JOIN users u ON u.id = p.user_id
-       WHERE p.rank_position LIKE '%Section%Head%' OR p.rank_position LIKE '%Seksi%' OR u.role = 'section_head'
-       ORDER BY p.id ASC
-       LIMIT 1`
-    );
-    const sectionHead = sectionHeads.length > 0 ? sectionHeads[0] : null;
-
-    // 3. 4 Chiefs for Alpha, Bravo, Charlie, Delta (Case-Insensitive Normalization)
-    const [chiefs] = await pool.query(
-      `SELECT p.*, u.username, u.email as user_email, u.role as user_role,
-              COALESCE(u.signature_url, p.signature_url) as signature_url
-       FROM personnel p
-       LEFT JOIN users u ON u.id = p.user_id
-       WHERE (u.role IN ('chief', 'supervisor') OR p.rank_position LIKE '%Chief%' OR p.rank_position LIKE '%Ketua%')
-         AND p.rank_position NOT LIKE '%Assistant%'
-         AND p.rank_position NOT LIKE '%Asisten%'
-         AND p.rank_position NOT LIKE '%Wakil%'
-         AND u.role != 'chief_assistant'
-       ORDER BY p.team_group ASC, p.id ASC`
-    );
-
-    const chiefsByTeam = {
-      Alpha: chiefs.find((c) => (c.team_group || '').toLowerCase().trim() === 'alpha') || null,
-      Bravo: chiefs.find((c) => (c.team_group || '').toLowerCase().trim() === 'bravo') || null,
-      Charlie: chiefs.find((c) => (c.team_group || '').toLowerCase().trim() === 'charlie') || null,
-      Delta: chiefs.find((c) => (c.team_group || '').toLowerCase().trim() === 'delta') || null,
-    };
-
-    // 4. Staf Administrasi (Personel Non-Shift / Role Admin)
-    const [administrasi] = await pool.query(
-      `SELECT p.*, u.username, u.email as user_email, u.role as user_role,
-              COALESCE(u.signature_url, p.signature_url) as signature_url
-       FROM personnel p
-       LEFT JOIN users u ON u.id = p.user_id
-       WHERE (p.team_group = 'Non-Shift' OR p.team_group IS NULL)
-         AND (p.rank_position NOT LIKE '%Dept%Head%' AND (u.role IS NULL OR u.role != 'dept_head'))
-       ORDER BY p.id ASC`
-    );
-
-    return successResponse(res, 'Data pejabat berhasil diambil', {
-      dept_head: deptHead,
-      chiefs: chiefsByTeam,
-      administrasi: administrasi,
-      raw_chiefs: chiefs,
-    });
-  } catch (error) {
-    console.error('Error getOfficials:', error);
-    return errorResponse(res, 'Gagal mengambil data pejabat', 500);
-  }
-};
-
-export const replaceDeptHead = async (req, res) => {
-  const connection = await pool.getConnection();
-  try {
-    const { full_name, nip, rank_position, new_personnel_id } = req.body;
-
-    await connection.beginTransaction();
-
-    // 1. Ambil data Dept Head lama
-    const [currentDeptHeads] = await connection.query(
-      `SELECT p.*, u.id as u_id
-       FROM personnel p
-       LEFT JOIN users u ON u.id = p.user_id
-       WHERE p.rank_position LIKE '%Dept%Head%' OR p.rank_position LIKE '%Department Head%' OR u.role = 'dept_head'`
-    );
-
-    // KASUS A: Input Data Mandiri (Sesuai Aturan GEMINI.md Rule 18 & task_agent1.md)
-    if (full_name && full_name.trim()) {
-      const cleanName = full_name.trim();
-      const cleanNip = nip && nip.trim() && nip.trim() !== '-' ? nip.trim() : null;
-      const cleanRank = rank_position && rank_position.trim() ? rank_position.trim() : 'Airport Technology & ARFF Dept. Head';
-
-      let deptHeadId;
-      if (currentDeptHeads.length > 0) {
-        const existingDh = currentDeptHeads[0];
-        deptHeadId = existingDh.id;
-        await connection.query(
-          `UPDATE personnel 
-           SET full_name = ?, nip = ?, rank_position = ?, team_group = 'Non-Shift' 
-           WHERE id = ?`,
-          [cleanName, cleanNip, cleanRank, deptHeadId]
-        );
-        if (existingDh.u_id) {
-          await connection.query(
-            `UPDATE users SET name = ?, role = 'dept_head' WHERE id = ? AND role != 'admin'`,
-            [cleanName, existingDh.u_id]
-          );
-        }
-      } else {
-        const accountUsername = await generateUniqueUsername(cleanNip, cleanName);
-        const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash('123456', salt);
-
-        const [uRes] = await connection.query(
-          'INSERT INTO users (username, name, password_hash, role, must_change_password) VALUES (?, ?, ?, ?, 1)',
-          [accountUsername, cleanName, passwordHash, 'dept_head']
-        );
-        const [pRes] = await connection.query(
-          `INSERT INTO personnel (
-            user_id, nip, full_name, rank_position,
-            employment_status, team_group, cert_level, is_active
-          ) VALUES (?, ?, ?, ?, 'organik', 'Non-Shift', 'Senior', 1)`,
-          [uRes.insertId, cleanNip, cleanName, cleanRank]
-        );
-        deptHeadId = pRes.insertId;
-      }
-
-      await connection.commit();
-      return successResponse(res, `Data Dept. Head berhasil disimpan atas nama ${cleanName}.`, { id: deptHeadId });
-    }
-
-    // KASUS B: Penunjukan via ID Personel (Fallback kompatibilitas)
-    if (new_personnel_id) {
-      for (const oldDh of currentDeptHeads) {
-        if (oldDh.id === Number(new_personnel_id)) continue;
-
-        if (oldDh.signature_url) {
-          const sigPath = path.resolve(__dirname, '../../', oldDh.signature_url.replace(/^\//, ''));
-          if (fs.existsSync(sigPath)) {
-            try { fs.unlinkSync(sigPath); } catch (e) {}
-          }
-        }
-
-        await connection.query(
-          `UPDATE personnel 
-           SET rank_position = 'Staf Non-Operasional', team_group = 'Non-Shift', signature_url = NULL 
-           WHERE id = ?`,
-          [oldDh.id]
-        );
-        if (oldDh.u_id) {
-          await connection.query(
-            `UPDATE users 
-             SET role = 'junior_firefighter', signature_url = NULL 
-             WHERE id = ? AND role = 'dept_head'`,
-            [oldDh.u_id]
-          );
-        }
-      }
-
-      const [newCandidate] = await connection.query(
-        `SELECT p.*, u.id as u_id FROM personnel p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?`,
-        [new_personnel_id]
-      );
-
-      if (newCandidate.length === 0) {
-        await connection.rollback();
-        return errorResponse(res, 'Personel baru tidak ditemukan', 404);
-      }
-
-      const candidate = newCandidate[0];
-      await connection.query(
-        `UPDATE personnel 
-         SET rank_position = 'Airport Technology & ARFF Dept. Head', team_group = 'Non-Shift' 
-         WHERE id = ?`,
-        [candidate.id]
-      );
-
-      if (candidate.u_id) {
-        await connection.query(
-          `UPDATE users SET role = 'dept_head' WHERE id = ? AND role != 'admin'`,
-          [candidate.u_id]
-        );
-      }
-
-      await connection.commit();
-      return successResponse(res, `Dept. Head berhasil diperbarui menjadi ${candidate.full_name}.`, { id: candidate.id });
-    }
-
-    await connection.rollback();
-    return errorResponse(res, 'Nama lengkap Dept. Head wajib diisi', 400);
-  } catch (error) {
-    await connection.rollback();
-    console.error('Error replaceDeptHead:', error);
-    return errorResponse(res, 'Gagal memperbarui Dept Head: ' + error.message, 500);
-  } finally {
-    connection.release();
-  }
-};
-
-export const replaceChief = async (req, res) => {
-  const connection = await pool.getConnection();
-  try {
-    const { team_group, new_chief_id, old_chief_target_role } = req.body;
-    if (!team_group || !new_chief_id) {
-      return errorResponse(res, 'Regu dan Ketua Regu baru wajib dipilih', 400);
-    }
-
-    const validTargetRoles = [
-      'ARFF Operation Senior Fire Fighter',
-      'ARFF Operation Chief Assistant',
-      'ARFF Operation Junior Fire Fighter',
-    ];
-    const demoteRole = validTargetRoles.includes(old_chief_target_role)
-      ? old_chief_target_role
-      : 'ARFF Operation Senior Fire Fighter';
-
-    const demoteUserRole =
-      demoteRole === 'ARFF Operation Chief Assistant'
-        ? 'chief_assistant'
-        : demoteRole === 'ARFF Operation Senior Fire Fighter'
-        ? 'senior_firefighter'
-        : 'junior_firefighter';
-
-    await connection.beginTransaction();
-
-    // 1. Ambil Chief lama untuk regu ini
-    const [currentChiefs] = await connection.query(
-      `SELECT p.*, u.id as u_id
-       FROM personnel p
-       LEFT JOIN users u ON u.id = p.user_id
-       WHERE p.team_group = ? 
-         AND (u.role IN ('chief', 'supervisor') OR p.rank_position LIKE '%Chief%' OR p.rank_position LIKE '%Ketua%')
-         AND p.rank_position NOT LIKE '%Assistant%'
-         AND p.rank_position NOT LIKE '%Asisten%'
-         AND u.role != 'chief_assistant'`,
-      [team_group]
-    );
-
-    const isAlreadyChief = currentChiefs.some((c) => c.id === Number(new_chief_id));
-    if (isAlreadyChief) {
-      await connection.rollback();
-      connection.release();
-      return errorResponse(
-        res,
-        `Personel tersebut saat ini sudah menjabat sebagai Ketua Regu ${team_group}. Silakan pilih anggota regu lain untuk melakukan pergantian Ketua Regu.`,
-        400
-      );
-    }
-
-    for (const oldChief of currentChiefs) {
-      if (oldChief.id === Number(new_chief_id)) continue;
-
-      // Hapus file tanda tangan lama jika ada
-      if (oldChief.signature_url) {
-        const sigPath = path.resolve(__dirname, '../../', oldChief.signature_url.replace(/^\//, ''));
-        if (fs.existsSync(sigPath)) {
-          try {
-            fs.unlinkSync(sigPath);
-          } catch (e) {}
-        }
-      }
-
-      // Demote Chief lama ke target posisi sesuai Opsi C, tanda tangan otomatis terhapus
-      await connection.query(
-        `UPDATE personnel 
-         SET rank_position = ?, signature_url = NULL 
-         WHERE id = ?`,
-        [demoteRole, oldChief.id]
-      );
-      if (oldChief.u_id) {
-        await connection.query(
-          `UPDATE users 
-           SET role = ?, signature_url = NULL 
-           WHERE id = ? AND role != 'admin'`,
-          [demoteUserRole, oldChief.u_id]
-        );
-      }
-    }
-
-    // 2. Angkat Chief baru untuk regu ini
-    const [newCandidate] = await connection.query(
-      `SELECT p.*, u.id as u_id FROM personnel p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?`,
-      [new_chief_id]
-    );
-
-    if (newCandidate.length === 0) {
-      await connection.rollback();
-      return errorResponse(res, 'Personel baru tidak ditemukan', 404);
-    }
-
-    const candidate = newCandidate[0];
-    await connection.query(
-      `UPDATE personnel 
-       SET rank_position = 'ARFF Operation Chief', team_group = ? 
-       WHERE id = ?`,
-      [team_group, candidate.id]
-    );
-
-    if (candidate.u_id) {
-      await connection.query(
-        `UPDATE users SET role = 'chief' WHERE id = ? AND role != 'admin'`,
-        [candidate.u_id]
-      );
-    }
-
-    await connection.commit();
-    return successResponse(res, `Ketua Regu ${team_group} berhasil diganti menjadi ${candidate.full_name}.`);
-  } catch (error) {
-    await connection.rollback();
-    console.error('Error replaceChief:', error);
-    return errorResponse(res, 'Gagal mengganti Ketua Regu: ' + error.message, 500);
-  } finally {
-    connection.release();
-  }
-};
-
-export const replaceSectionHead = async (req, res) => {
-  const connection = await pool.getConnection();
-  try {
-    const { new_personnel_id } = req.body;
-    if (!new_personnel_id) {
-      return errorResponse(res, 'Personel Section Head baru wajib dipilih', 400);
-    }
-
-    await connection.beginTransaction();
-
-    // 1. Ambil data Section Head lama
-    const [currentSectionHeads] = await connection.query(
-      `SELECT p.*, u.id as u_id
-       FROM personnel p
-       LEFT JOIN users u ON u.id = p.user_id
-       WHERE p.rank_position LIKE '%Section%Head%' OR p.rank_position LIKE '%Seksi%' OR u.role = 'section_head'`
-    );
-
-    for (const oldSh of currentSectionHeads) {
-      if (oldSh.id === Number(new_personnel_id)) continue;
-
-      // Hapus file tanda tangan lama jika ada
-      if (oldSh.signature_url) {
-        const sigPath = path.resolve(__dirname, '../../', oldSh.signature_url.replace(/^\//, ''));
-        if (fs.existsSync(sigPath)) {
-          try {
-            fs.unlinkSync(sigPath);
-          } catch (e) {}
-        }
-      }
-
-      await connection.query(
-        `UPDATE personnel 
-         SET rank_position = 'Staf Non-Operasional', team_group = 'Non-Shift', signature_url = NULL 
-         WHERE id = ?`,
-        [oldSh.id]
-      );
-
-      if (oldSh.u_id) {
-        await connection.query(
-          `UPDATE users 
-           SET role = 'junior_firefighter', signature_url = NULL 
-           WHERE id = ? AND role = 'section_head'`,
-          [oldSh.u_id]
-        );
-      }
-    }
-
-    // 2. Angkat Section Head baru
-    const [newCandidate] = await connection.query(
-      `SELECT p.*, u.id as u_id FROM personnel p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?`,
-      [new_personnel_id]
-    );
-
-    if (newCandidate.length === 0) {
-      await connection.rollback();
-      return errorResponse(res, 'Personel baru tidak ditemukan', 404);
-    }
-
-    const candidate = newCandidate[0];
-    await connection.query(
-      `UPDATE personnel 
-       SET rank_position = 'Airport Technology & ARFF Section Head', team_group = 'Non-Shift' 
-       WHERE id = ?`,
-      [candidate.id]
-    );
-
-    if (candidate.u_id) {
-      await connection.query(
-        `UPDATE users SET role = 'section_head' WHERE id = ? AND role != 'admin'`,
-        [candidate.u_id]
-      );
-    }
-
-    await connection.commit();
-    return successResponse(res, `Section Head berhasil diperbarui menjadi ${candidate.full_name}.`);
-  } catch (error) {
-    await connection.rollback();
-    console.error('Error replaceSectionHead:', error);
-    return errorResponse(res, 'Gagal memperbarui Section Head: ' + error.message, 500);
-  } finally {
-    connection.release();
-  }
-};
+// ==========================================
+// Re-export Dokumen & Tanda Tangan Digital (personnelDocumentController)
+// ==========================================
+export {
+  getPersonnelDocuments,
+  uploadPersonnelDocument,
+  deletePersonnelDocument,
+  uploadSignature,
+  deleteSignature
+} from './personnelDocumentController.js';
+
+// ==========================================
+// Re-export Pengelolaan Pejabat Struktural (officialsController)
+// ==========================================
+export {
+  getOfficials,
+  replaceDeptHead,
+  replaceSectionHead,
+  replaceChief
+} from './officialsController.js';
 
 export const resetPersonnelPassword = async (req, res) => {
   try {

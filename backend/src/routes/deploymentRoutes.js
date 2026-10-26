@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import {
   getCurrentDeployment,
-  saveDeploymentBatch,
+  saveDeploymentBatch
+} from '../controllers/deploymentController.js';
+import {
   requestLeaveRange,
   cancelLeave,
   getLeaveHistory
-} from '../controllers/deploymentController.js';
+} from '../controllers/leaveController.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
 import { requireRole } from '../middleware/roleMiddleware.js';
 import { uploadSingleDocument } from '../middleware/uploadMiddleware.js';

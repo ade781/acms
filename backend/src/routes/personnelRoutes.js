@@ -6,17 +6,21 @@ import {
   createPersonnel,
   updatePersonnel,
   deletePersonnel,
+  resetPersonnelPassword
+} from '../controllers/personnelController.js';
+import {
   uploadSignature,
   deleteSignature,
   getPersonnelDocuments,
   uploadPersonnelDocument,
-  deletePersonnelDocument,
+  deletePersonnelDocument
+} from '../controllers/personnelDocumentController.js';
+import {
   getOfficials,
   replaceDeptHead,
   replaceSectionHead,
-  replaceChief,
-  resetPersonnelPassword
-} from '../controllers/personnelController.js';
+  replaceChief
+} from '../controllers/officialsController.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
 import { requireRole } from '../middleware/roleMiddleware.js';
 import { uploadSingleImage, uploadSingleDocument } from '../middleware/uploadMiddleware.js';

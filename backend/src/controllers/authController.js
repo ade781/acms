@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import pool from '../config/db.js';
 import { successResponse, errorResponse } from '../utils/responseHelper.js';
+import { sanitizeAndValidateCompetencies, parseCompetenciesArray } from '../utils/competencyHelper.js';
 
 export const login = async (req, res) => {
   try {
@@ -88,10 +89,7 @@ export const getMe = async (req, res) => {
     }
 
     const user = users[0];
-    let parsedCompetencies = user.additional_competencies;
-    if (typeof parsedCompetencies === 'string') {
-      try { parsedCompetencies = JSON.parse(parsedCompetencies); } catch (e) { parsedCompetencies = []; }
-    }
+    const parsedCompetencies = parseCompetenciesArray(user.additional_competencies);
 
     const safeProfile = {
       id: user.id,
@@ -204,7 +202,22 @@ export const updateProfile = async (req, res) => {
 
     const [personnelRows] = await pool.query('SELECT * FROM personnel WHERE user_id = ?', [req.user.id]);
     if (personnelRows.length === 0) {
-      return errorResponse(res, 'Data profil personel terkait akun tidak ditemukan', 404);
+      const { name, email } = req.body;
+      if (name || email) {
+        await pool.query(
+          'UPDATE users SET name = COALESCE(?, name), email = COALESCE(?, email) WHERE id = ?',
+          [name ? String(name).trim() : null, email ? String(email).trim() : null, req.user.id]
+        );
+      }
+      const [userRows] = await pool.query(
+        'SELECT id, username, name, email, role, must_change_password FROM users WHERE id = ?',
+        [req.user.id]
+      );
+      return successResponse(res, 'Profil akun berhasil diperbarui', {
+        ...userRows[0],
+        must_change_password: Boolean(userRows[0].must_change_password),
+        additional_competencies: []
+      });
     }
 
     const pers = personnelRows[0];
@@ -238,9 +251,7 @@ export const updateProfile = async (req, res) => {
 
     let cleanCompetencies = pers.additional_competencies;
     if (additional_competencies !== undefined) {
-      cleanCompetencies = Array.isArray(additional_competencies)
-        ? JSON.stringify(additional_competencies)
-        : (typeof additional_competencies === 'string' ? additional_competencies : JSON.stringify([]));
+      cleanCompetencies = sanitizeAndValidateCompetencies(additional_competencies, pers.additional_competencies);
     }
 
     await pool.query(
@@ -297,9 +308,7 @@ export const updateProfile = async (req, res) => {
 
     const [updated] = await pool.query('SELECT * FROM personnel WHERE id = ?', [pers.id]);
     const resPers = updated[0];
-    if (typeof resPers.additional_competencies === 'string') {
-      try { resPers.additional_competencies = JSON.parse(resPers.additional_competencies); } catch (e) { resPers.additional_competencies = []; }
-    }
+    resPers.additional_competencies = parseCompetenciesArray(resPers.additional_competencies);
     return successResponse(res, 'Profil berhasil diperbarui', resPers);
   } catch (error) {
     console.error('Error updateProfile:', error);
