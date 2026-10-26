@@ -1,103 +1,85 @@
-# LEMBAR TUGAS AGENT 3: KESIAPAN ARMADA, CARRY-OVER STATUS, & DIRTY STATE PLOTING
+# PENUGASAN AGENT 3: KEAMANAN, OTORISASI RBAC, PENCEGAHAN IDOR & RATE LIMITING
 
-## Domain Berkas Eksklusif
-- `backend/src/controllers/readinessController.js`
-- `frontend/src/pages/HalamanKesiapanKendaraan.jsx`
-- `frontend/src/pages/HalamanPenugasan.jsx`
-- `frontend/src/pages/mobile/MobilePloting.jsx`
-
----
-
-## Rincian Butir Tugas
-
-### Poin 1: Koreksi Transisi Status & Carry-Over Kendaraan di `readinessController.js`
-- **Deskripsi Masalah**:
-  - Saat ploting disimpan, sistem membuat record log baru dengan `status = 'belum_dilaporkan'` di tabel `vehicle_readiness_logs`.
-  - Di `readinessController.js` pada fungsi `calculateVehicleTransitionsData` (baris 667-674), pembacaan `latestLog` yang bernilai `'belum_dilaporkan'` tidak memiliki penanganan carry-over status sebelumnya, sehingga transisi statusnya langsung jatuh ke fallback default `'serviceable'`.
-  - Hal ini menyebabkan armada yang sebenarnya rusak (*unserviceable*) di shift kemarin mendadak tampil sebagai *serviceable* (siap operasi) di laporan dan pratinjau PDF shift saat ini!
-- **Dampak / Risiko**:
-  - Bahaya fatal keselamatan operasional penerbangan: kendaraan yang pompa airnya rusak atau mesin mogok tercatat siap beroperasi di dokumen resmi bandara tanpa pernah dicek oleh teknisi/PIC.
-- **Instruksi Solusi Konkret**:
-  - Di `backend/src/controllers/readinessController.js`:
-    1. Pada pembacaan status kendaraan shift saat ini: jika log terbaru berstatus `'belum_dilaporkan'`, lakukan reverse lookup pada log shift sebelumnya.
-    2. Jika shift sebelumnya berstatus `'unserviceable'` dan belum ada tindak lanjut selesai (`follow_up_status != 'resolved'`), maka status armada tersebut WAJIB tetap `'unserviceable'`.
-    3. Jika tidak ada carry-over kerusakan, maka status armada tetap `'belum_dilaporkan'` (*Belum Dicek*). JANGAN dipaksa berubah menjadi `'serviceable'` sebelum ada laporan fisik dari PIC.
+**Domain Berkas Eksklusif**:
+- `backend/src/routes/activityRoutes.js`
+- `backend/src/controllers/activityController.js`
+- `backend/src/routes/authRoutes.js`
+- `backend/src/controllers/authController.js`
+- `backend/src/middleware/authMiddleware.js`
+- `backend/src/middleware/errorHandler.js`
+*(DILARANG memodifikasi berkas di luar domain ini untuk mencegah tabrakan berkas / zero file collision)*
 
 ---
 
-### Poin 2: Visual Badge & Rute Navigasi di `HalamanKesiapanKendaraan.jsx`
-- **Deskripsi Masalah**:
-  - Tombol *"Laporan"* di header `HalamanKesiapanKendaraan.jsx` masih menautkan user ke rute lama `/armada/laporan`.
-  - Tampilan UI belum memiliki styling khusus untuk status `'belum_dilaporkan'`.
-- **Dampak / Risiko**:
-  - Navigasi tidak sinkron dengan rute RESTful baru. Status armada yang belum dicek tampak membingungkan atau dianggap error.
-- **Instruksi Solusi Konkret**:
-  - Di `frontend/src/pages/HalamanKesiapanKendaraan.jsx`:
-    1. Arahkan tombol *"Laporan"* ke rute baru `/vehicles/reports`.
-    2. Tambahkan pemetaan styling badge untuk status `'belum_dilaporkan'`:
-       - Gunakan warna abu-abu netral: `bg-slate-700/60 text-slate-300 border border-slate-600/50`.
-       - Label tampilan: *"Belum Dicek"*.
+### BUTIR TUGAS 1: Proteksi Autentikasi Berkas Sensitif `/uploads/*` (Temuan #26)
+* **Lokasi Berkas**: `backend/src/middleware/authMiddleware.js`
+* **Deskripsi Masalah**: Seluruh foto bukti investigasi insiden darurat dan dokumen kepegawaian dapat diakses siapa saja di internet jika URL berkas diketahui tanpa memerlukan login atau token JWT.
+* **Dampak / Risiko**: Kebocoran data sensitif operasional dan kerahasiaan insiden bandara ke publik.
+* **Instruksi Solusi Konkret**:
+  1. Siapkan fungsi middleware verifikasi berkas `verifyUploadAccess` di `authMiddleware.js` yang mendukung otentikasi fleksibel: membaca token dari header `Authorization: Bearer <token>` maupun query string `?token=...` (sesuai aturan GEMINI.md Butir 16).
+  2. Tolak akses tanpa token valid dengan status HTTP 401 Unauthorized.
 
 ---
 
-### Poin 3: Dirty State Tracking, Floating Save Bar, & Route Guard di `HalamanPenugasan.jsx` & `MobilePloting.jsx`
-- **Deskripsi Masalah**:
-  - Di halaman ploting desktop maupun mobile, saat pengguna mengubah formasi penempatan personel armada, tidak ada indikator visual bahwa data tersebut sedang dalam kondisi "belum disimpan" (*dirty state*).
-  - Jika pengguna tidak sengaja berpindah halaman atau me-refresh browser, seluruh penataan kru hilang tanpa peringatan.
-- **Dampak / Risiko**:
-  - Chief atau asisten sering lupa menekan tombol "Simpan Ploting", mengira data sudah otomatis tersimpan, sehingga formasi dinas shift aktif menjadi kosong/hilang di database.
-- **Instruksi Solusi Konkret**:
-  - Di `frontend/src/pages/HalamanPenugasan.jsx` & `frontend/src/pages/mobile/MobilePloting.jsx`:
-    1. Simpan snapshot formasi awal saat data pertama kali dimuat (`initialSlotsRef` atau state `initialSlots`).
-    2. Buat computed flag `hasUnsavedChanges = JSON.stringify(initialSlots) !== JSON.stringify(vehicleSlots)`.
-    3. Jika `hasUnsavedChanges === true`:
-       - Tampilkan **Floating Bottom Bar** mengambang di bawah layar:
-         Teks: *"Terdapat perubahan formasi ploting yang belum disimpan!"*
-         Tombol: *"Simpan Ploting"* dengan efek animasi denyut halus (`animate-pulse ring-2 ring-amber-500/50`).
-       - Pasang proteksi browser `window.onbeforeunload`:
-         ```javascript
-         useEffect(() => {
-           const handleBeforeUnload = (e) => {
-             if (hasUnsavedChanges) {
-               e.preventDefault();
-               e.returnValue = '';
-             }
-           };
-           window.addEventListener('beforeunload', handleBeforeUnload);
-           return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-         }, [hasUnsavedChanges]);
-         ```
-       - Pasang dialog konfirmasi instan `window.confirm("Perubahan ploting belum disimpan. Yakin ingin meninggalkan halaman?")` jika user mencoba bernavigasi keluar sebelum menyimpan.
+### BUTIR TUGAS 2: Penutupan Celah IDOR pada Logbook Kegiatan (Temuan #27)
+* **Lokasi Berkas**: `backend/src/controllers/activityController.js` (pada method `updateActivity` dan `deleteActivity`)
+* **Deskripsi Masalah**: Handler hanya memeriksa `WHERE id = ?` tanpa memverifikasi apakah personel/regu yang melakukan edit/delete adalah pemilik sah catatan kegiatan atau berstatus admin/chief yang berwenang.
+* **Dampak / Risiko**: Kerentanan *Insecure Direct Object Reference* (IDOR) & Horizontal Privilege Escalation; kru regu lain dapat mengubah atau menghapus catatan kegiatan shift yang bukan wewenangnya.
+* **Instruksi Solusi Konkret**:
+  1. Ambil data kegiatan dari database terlebih dahulu.
+  2. Tambahkan validasi otorisasi: Izinkan mutasi data HANYA jika `req.user.role === 'admin'`, atau `req.user.role === 'chief'` pada regu yang sama, atau `activity.created_by === req.user.id`.
+  3. Kembalikan status HTTP 403 Forbidden dengan pesan jelas jika di luar wewenang.
 
 ---
 
-### Poin 4: Eliminasi Request Duplikat di `MobilePloting.jsx`
-- **Deskripsi Masalah**:
-  - `MobilePloting.jsx` memanggil dua endpoint API secara berurutan: `/vehicles?is_active=1` dan `/readiness/vehicles`. Padahal `/readiness/vehicles` sudah mengembalikan data master armada lengkap dengan status kesiapannya.
-- **Dampak / Risiko**:
-  - Pemborosan bandwidth jaringan dan peningkatan *Total Blocking Time* (TBT) di perangkat mobile.
-- **Instruksi Solusi Konkret**:
-  - Hapus pemanggilan duplikat `/vehicles?is_active=1` di `MobilePloting.jsx` dan gunakan data dari respons `/readiness/vehicles` secara langsung.
+### BUTIR TUGAS 3: Penyelarasan Otorisasi RBAC Middleware vs Controller (Temuan #28)
+* **Lokasi Berkas**: `backend/src/routes/activityRoutes.js` & `backend/src/controllers/activityController.js`
+* **Deskripsi Masalah**: Pada file rute `activityRoutes.js`, middleware `requireRole(['admin', 'chief'])` membatasi hak akses, namun komentar atau logika di controller membolehkan kru mencatat kegiatan dinas.
+* **Dampak / Risiko**: Inkonsistensi izin akses; kru operasional sah yang ditugaskan mencatat kegiatan lapangan terblokir dengan HTTP 403.
+* **Instruksi Solusi Konkret**: Selaraskan definisi hak akses peran (*Role-Based Access Control*). Izinkan peran `crew` untuk membuat kegiatan baru (`createActivity`), namun batasi hak hapus hanya untuk `admin` dan `chief`.
 
 ---
 
-## Instruksi Pelaporan Temuan Tambahan, Bug, Ide, & Saran
-Apabila selama proses audit maupun perbaikan kode Anda menemukan:
-- **Bug / Masalah Baru**: Error, glitch, atau cacat logika tambahan yang belum tercantum di tugas ini.
-- **Risiko Keamanan / Integritas Data**: Celah otentikasi, potensi tabrakan data, atau regresi performa.
-- **Ide / Saran Pengembangan**: Usulan optimasi UI/UX, efisiensi komponen, atau ide fitur yang relevan bagi operasional.
-
-**ATURAN TINDAKAN**:
-1. **Dilarang keras memodifikasi berkas di luar domain eksklusif Agent 3 secara sepihak.**
-2. **Catat seluruh temuan, ide, dan saran tersebut pada seksi khusus di berkas laporan Anda (`masak/temp/hasil_agent3.md`)** menggunakan format poin hierarkis:
-   - **Judul Temuan / Ide**: Ringkasan topik.
-   - **Deskripsi Masalah / Konsep**: Penjelasan detail teknis.
-   - **Dampak / Manfaat**: Urgensi atau keuntungan bagi pengguna.
-   - **Rekomendasi Tindak Lanjut**: Saran perbaikan konkret untuk diorkestrasi selanjutnya.
+### BUTIR TUGAS 4: Pemasangan Rate Limiting pada Endpoint Login (Temuan #29)
+* **Lokasi Berkas**: `backend/src/routes/authRoutes.js` (atau middleware terkait)
+* **Deskripsi Masalah**: Endpoint `/api/auth/login` tidak memiliki pembatasan frekuensi percobaan (*rate limiter*).
+* **Dampak / Risiko**: Rentan terhadap serangan brute-force tebakan password NIP secara massal dan CPU exhaustion akibat hashing bcrypt berulang.
+* **Instruksi Solusi Konkret**:
+  1. Pasang package `express-rate-limit` pada rute `/api/auth/login`.
+  2. Terapkan konfigurasi: maksimal 10 percobaan gagal per 15 menit per IP address.
+  3. Berikan respon HTTP 429 Too Many Requests jika batas terlampaui: "Terlalu banyak percobaan masuk yang gagal. Silakan coba lagi dalam 15 menit."
 
 ---
 
-## Verifikasi & Pelaporan
-1. Jalankan `node -c backend/src/controllers/readinessController.js`.
-2. Jalankan `npm run build` di root frontend.
-3. Tuliskan ringkasan hasil kerja secara mandiri di `masak/temp/hasil_agent3.md`.
+### BUTIR TUGAS 5: Mekanisme Revokasi Token JWT saat Ganti Password & Logout (Temuan #30)
+* **Lokasi Berkas**: `backend/src/controllers/authController.js` & `backend/src/middleware/authMiddleware.js`
+* **Deskripsi Masalah**: Saat pengguna mengganti password atau mengklik logout, token JWT lama tetap valid hingga masa kedaluwarsa habis karena tidak ada validasi versi token atau revocation tracking.
+* **Dampak / Risiko**: Sesi lama pada perangkat yang hilang atau dicuri tetap dapat mengakses sistem meskipun kredensial sudah diubah oleh admin.
+* **Instruksi Solusi Konkret**:
+  1. Manfaatkan kolom `token_version` atau kolom `updated_at` password pada tabel `users`.
+  2. Saat ganti password berhasil di `changePassword`, naikkan nilai `token_version = token_version + 1`.
+  3. Di middleware `authMiddleware.js`, verifikasi apakah `payload.token_version === user.token_version`. Jika tidak cocok, tolak request dengan HTTP 401 Unauthorized (token hangus).
+
+---
+
+### BUTIR TUGAS 6: Sanitasi Respons Error HTTP 500 Global (Temuan #39)
+* **Lokasi Berkas**: `backend/src/middleware/errorHandler.js`
+* **Deskripsi Masalah**: Ketika terjadi error runtime database atau server, middleware error mengembalikan objek error mentah (`err.message`, `err.stack`, dan query SQL internal) ke respon klien.
+* **Dampak / Risiko**: Kebocoran informasi arsitektur database (*Information Disclosure*) yang dapat dimanfaatkan penyerang untuk merancang injeksi SQL.
+* **Instruksi Solusi Konkret**:
+  1. Buka `errorHandler.js`.
+  2. Pada kondisi `NODE_ENV === 'production'`, pastikan respon HTTP 500 HANYA mengembalikan pesan generik aman:
+     `{ success: false, message: "Terjadi kesalahan internal pada server operasional." }`.
+  3. Catat detail stack trace dan query SQL hanya ke log terminal server (`console.error`), jangan pernah bocorkan ke payload klien.
+
+---
+
+### KANAL TERBUKA TEMUAN, BUG, IDE & SARAN TAMBAHAN
+Apabila selama proses eksekusi Agent 3 menemukan kelemahan sistem lain, bug tersembunyi, celah logika, ide pengembangan, atau saran optimasi UI/UX di luar tugas utamanya, **Agent 3 DILARANG mengubah kode di luar domainnya secara sepihak**. Agent 3 WAJIB mencatat seluruh temuan, ide, dan saran tersebut pada seksi khusus di berkas laporannya (`masak/temp/hasil_agent3.md`) agar dapat dievaluasi oleh Pengawas.
+
+### INSTRUKSI AKHIR & VALIDASI
+* Validasi sintaks backend melalui CLI terminal:
+  `node -c backend/src/controllers/activityController.js backend/src/controllers/authController.js backend/src/middleware/authMiddleware.js backend/src/middleware/errorHandler.js`.
+* Tuliskan hasil pekerjaan dan bukti verifikasi CLI di `masak/temp/hasil_agent3.md`.
+* DILARANG melakukan `git commit` atau `git push` otomatis.
+* DILARANG menggunakan tool `browser_subagent`.

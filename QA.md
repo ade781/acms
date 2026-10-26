@@ -10,7 +10,7 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 1. Anomali Favicon `shield-alert.svg` Mengembalikan File HTML Ganda
 * **Lokasi Berkas / URL**:
-  * Pemanggil: [`frontend/index.html:5`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/index.html#L5)
+  * Pemanggil: `frontend/index.html:5`
   * Target Aset: `http://localhost:4173/shield-alert.svg` (atau `/shield-alert.svg` pada URL root)
 * **Deskripsi Masalah**:
   * Pada pemantauan lalu lintas jaringan (Network Waterfall) saat memuat halaman aplikasi, berkas favicon `shield-alert.svg` berstatus HTTP 200 namun dengan MIME Type `text/html` dan berukuran 1.1 kB, bukan berkas grafis vektor `image/svg+xml`.
@@ -32,14 +32,14 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 2. Hardcoded Nama Pejabat Pimpinan pada Placeholder Input Form
 * **Lokasi Berkas / Halaman**:
-  * [`frontend/src/pages/OfficialsManagementPage.jsx:562`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/OfficialsManagementPage.jsx#L562)
+  * `frontend/src/pages/OfficialsManagementPage.jsx:562`
   * Halaman: Kelola Pejabat Struktural (`/personnel/officials`)
 * **Deskripsi Masalah**:
   * Pada input nama Department Head di modal penggantian pejabat, placeholder input form tertulis secara eksplisit: `placeholder="Contoh: Tamsul Sadikin"`.
 * **Penyebab Masalah**:
   * Penulisan teks petunjuk (*placeholder*) menyertakan nama pejabat riil pimpinan unit sebagai contoh teks statis.
 * **Dampak / Risiko**:
-  * Melanggar aturan ketat pada [GEMINI.md](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/GEMINI.md) Butir 4 (*Dilarang Hardcode Data Pejabat / Pimpinan*) dan Butir 18 (*Input Struktural Pejabat Department Head*).
+  * Melanggar aturan ketat pada `GEMINI.md` Butir 4 (*Dilarang Hardcode Data Pejabat / Pimpinan*) dan Butir 18 (*Input Struktural Pejabat Department Head*).
   * Apabila terjadi mutasi pejabat struktural baru di masa mendatang, tampilan placeholder lama yang menyebut nama pejabat sebelumnya tampak tidak profesional dan membingungkan administrator.
 * **Rekomendasi Solusi Konkret**:
   * Ubah placeholder menjadi generik dan baku kedinasan tanpa mencatut nama riil:
@@ -49,8 +49,8 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 3. Pelanggaran Rasio Kontras Warna Teks Keterangan (WCAG Accessibility)
 * **Lokasi Berkas / Halaman**:
-  * Desktop: [`frontend/src/pages/ShiftReportsPage.jsx:609`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/ShiftReportsPage.jsx#L609)
-  * Mobile: [`frontend/src/components/mobile/reports/MobileSignaturesSection.jsx:135,168`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/mobile/reports/MobileSignaturesSection.jsx#L135)
+  * Desktop: `frontend/src/pages/ShiftReportsPage.jsx:609`
+  * Mobile: `frontend/src/components/mobile/reports/MobileSignaturesSection.jsx:135,168`
 * **Deskripsi Masalah**:
   * Teks keterangan catatan kendala kosong dan teks tanggal tanda tangan digital menggunakan warna `text-slate-400` di atas latar belakang terang (`bg-slate-50` / `bg-white`).
   * Rasio kontras yang dihasilkan adalah 2.45:1 s.d. 2.53:1, jauh di bawah standar kepatuhan aksesibilitas WCAG AA (minimal 4.5:1 untuk teks normal).
@@ -66,10 +66,10 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 4. Accessible Name Mismatch pada Tombol Profil Mandiri Desktop
 * **Lokasi Berkas / Halaman**:
-  * [`frontend/src/components/layout/Navbar.jsx:98`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/layout/Navbar.jsx#L98)
+  * `frontend/src/components/layout/Navbar.jsx:98`
   * Komponen: Header Navigasi Atas (*Top App Bar Desktop*)
 * **Deskripsi Masalah**:
-  * Tombol profil pengguna memiliki atribut `aria-label="Buka Profil Pribadi"`, namun secara visual menampilkan teks nama dan jabatan pengguna (misal: "Ade7 Asli • Administrasi").
+  * Tombol profil pengguna memiliki atribut `aria-label="Buka Profil Pribadi"`, namun secara visual menampilkan teks nama dan jabatan pengguna (misal: "Ade7 Asli â€¢ Administrasi").
 * **Penyebab Masalah**:
   * Atribut `aria-label` yang kaku menimpa (*override*) seluruh teks anak yang terlihat di layar, sehingga teks yang didengar pembaca layar (*screen reader*) tidak cocok dengan teks yang terlihat di mata pengguna (*Accessible Name Mismatch*).
 * **Dampak / Risiko**:
@@ -83,7 +83,7 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 5. Ketiadaan Meta Description pada Dokumen HTML Utama
 * **Lokasi Berkas**:
-  * [`frontend/index.html`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/index.html)
+  * `frontend/index.html`
 * **Deskripsi Masalah**:
   * Berkas `index.html` belum memiliki tag `<meta name="description" content="...">`.
 * **Penyebab Masalah**:
@@ -98,13 +98,13 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 6. Potensi Lonjakan Ukuran Berkas Kamera Ponsel Tanpa Kompresi Klien
 * **Lokasi Berkas / Halaman**:
-  * [`frontend/src/components/mobile/activities/MobileActivityModal.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/mobile/activities/MobileActivityModal.jsx)
-  * [`frontend/src/components/mobile/incidents/MobileIncidentModal.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/mobile/incidents/MobileIncidentModal.jsx)
+  * `frontend/src/components/mobile/activities/MobileActivityModal.jsx`
+  * `frontend/src/components/mobile/incidents/MobileIncidentModal.jsx`
   * Halaman: Modal Dokumentasi Kegiatan & Insiden Lapangan
 * **Deskripsi Masalah**:
   * Pada modul mobile kegiatan dan insiden, foto yang diambil langsung dari kamera ponsel (berukuran 5MB s.d. 12MB) dikirimkan mentah ke server backend tanpa kompresi kanvas di sisi peramban.
 * **Penyebab Masalah**:
-  * Fungsi utilitas kompresi kanvas WebP ([`imageCompressor.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/utils/imageCompressor.js)) baru diterapkan pada modul inspeksi kendaraan fisik, namun belum diintegrasikan ke formulir unggah kegiatan dan insiden mobile.
+  * Fungsi utilitas kompresi kanvas WebP (`imageCompressor.js`) baru diterapkan pada modul inspeksi kendaraan fisik, namun belum diintegrasikan ke formulir unggah kegiatan dan insiden mobile.
 * **Dampak / Risiko**:
   * Pengunggahan foto berukuran besar di area apron bandara dengan sinyal seluler terbatas berisiko memicu *network timeout* dan gagal simpan.
   * Membebani kapasitas penyimpanan disk server secara cepat dan memperlambat waktu pemuatan linimasa di perangkat kru lain.
@@ -115,12 +115,12 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 7. Duplikasi Payload Raksasa pada Endpoint API Personel (`GET /api/personnel`)
 * **Lokasi Berkas / API**:
-  * Backend Controller: [`backend/src/controllers/personnelController.js:18,56-57`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/personnelController.js#L56)
+  * Backend Controller: `backend/src/controllers/personnelController.js:18,56-57`
   * Endpoint: `GET /api/personnel` dan `GET /api/personnel?is_active=1`
 * **Deskripsi Masalah**:
   * Ukuran payload respon JSON untuk daftar katalog personel mencapai **185.94 kB** pada setiap kali request dilakukan.
 * **Penyebab Masalah**:
-  * Pada baris 56–57 `personnelController.js`, array 95 data personel dikembalikan dua kali secara duplikat dalam satu objek respon JSON yang sama: `{ data: formattedRows, personnel: formattedRows }`.
+  * Pada baris 56â€“57 `personnelController.js`, array 95 data personel dikembalikan dua kali secara duplikat dalam satu objek respon JSON yang sama: `{ data: formattedRows, personnel: formattedRows }`.
   * Selain itu, query `SELECT p.*` mengekstrak seluruh 36 kolom lengkap (termasuk riwayat detail diklat, nomor sertifikat refreshing, dll.) yang tidak diperlukan untuk tampilan ringkasan tabel/kartu personel.
 * **Dampak / Risiko**:
   * Pemborosan kuota data jaringan seluler hingga 2 kali lipat bagi personel di area apron bandara.
@@ -133,7 +133,7 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 8. Ketiadaan Header Caching (`Cache-Control`) pada Berkas Unggahan (`/uploads`)
 * **Lokasi Berkas / Server**:
-  * Backend Server: [`backend/src/app.js:165`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/app.js#L165)
+  * Backend Server: `backend/src/app.js:165`
   * Endpoint: `GET /uploads/*`
 * **Deskripsi Masalah**:
   * Seluruh aset gambar (foto fisik inspeksi kendaraan, foto dokumentasi insiden, dan avatar) disajikan tanpa instruksi *header* HTTP `Cache-Control` (`Cache: None`).
@@ -160,19 +160,19 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
   * **Memory Leak**: Jika pengguna berpindah menu sebelum data selesai diunduh, promise yang selesai mencoba memanggil `setState` pada komponen yang telah dilepas (*unmounted*).
 * **Rekomendasi Solusi Konkret**:
   * Terapkan pola `AbortController` terstandarisasi di setiap hook `useEffect` pengambilan data:
-    ```javascript
+    `javascript
     useEffect(() => {
       const controller = new AbortController();
       fetchData({ signal: controller.signal });
       return () => controller.abort();
     }, [...dependencies]);
-    ```
+    `
 
 ---
 
 ### 10. Kurangnya Pemisahan Kode Rute (*Route Code Splitting*) di `App.jsx`
 * **Lokasi Berkas**:
-  * Router Utama: [`frontend/src/App.jsx:7-20, 56-60`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/App.jsx#L7)
+  * Router Utama: `frontend/src/App.jsx:7-20, 56-60`
 * **Deskripsi Masalah**:
   * 15 halaman desktop dan 5 halaman mobile diimpor secara statis (*static import*) di awal berkas `App.jsx`.
   * Hanya 2 halaman (`VehicleReportsPage` dan `IncidentReportsPage`) yang menggunakan `React.lazy()`.
@@ -189,7 +189,7 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 11. Permintaan Jaringan Simultan (*Concurrent Burst Requests*) pada Halaman Cuti
 * **Lokasi Berkas / Halaman**:
-  * [`frontend/src/pages/LeaveManagementPage.jsx:184-215`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/LeaveManagementPage.jsx#L184)
+  * `frontend/src/pages/LeaveManagementPage.jsx:184-215`
   * Halaman: Manajemen Cuti & Izin Dinas (`/leave`)
 * **Deskripsi Masalah**:
   * Saat pertama kali membuka halaman `/leave`, browser secara otomatis memicu 4 request jaringan independen secara bersamaan:
@@ -209,7 +209,7 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 12. Ketiadaan Kompresi HTTP (Gzip/Brotli) pada Respons API Backend Express
 * **Lokasi Berkas / Server**:
-  * [`backend/package.json`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/package.json) & [`backend/src/app.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/app.js)
+  * `backend/package.json` & `backend/src/app.js`
 * **Deskripsi Masalah**:
   * Seluruh data respon JSON yang dikirimkan oleh API Express dikirimkan dalam format teks mentah tanpa kompresi HTTP (`Content-Encoding` kosong).
 * **Penyebab Masalah**:
@@ -218,18 +218,18 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
   * Mengonsumsi kuota data jaringan lebih boros 70% s.d. 85% untuk setiap respon data tabel dinas, jadwal roster bulanan, dan logbook kegiatan.
 * **Rekomendasi Solusi Konkret**:
   * Pasang paket `compression` di backend (`npm install compression`) dan aktifkan di `app.js`:
-    ```javascript
+    `javascript
     import compression from 'compression';
     app.use(compression());
-    ```
+    `
   * Atau pastikan reverse proxy web server produksi (Nginx/Cloudflare) mengaktifkan `gzip on;` dan `brotli on;`.
 
 ---
 
 ### 13. Pengambilan Data Badge Pengumuman Sidebar Boros Bandwidth (Polling Full List vs Badge Count)
 * **Lokasi Berkas / Komponen**:
-  * Frontend: [`frontend/src/components/layout/Sidebar.jsx:44,54`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/layout/Sidebar.jsx#L44)
-  * Backend Controller: [`backend/src/controllers/announcementController.js:10-53`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/announcementController.js#L10)
+  * Frontend: `frontend/src/components/layout/Sidebar.jsx:44,54`
+  * Backend Controller: `backend/src/controllers/announcementController.js:10-53`
 * **Deskripsi Masalah**:
   * Bilah navigasi samping (*Sidebar*) melakukan pengecekan berkala (*polling*) setiap 90 detik dengan memanggil `GET /api/announcements` hanya untuk membaca angka lencana merah (*unread count*).
 * **Penyebab Masalah**:
@@ -247,9 +247,9 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 14. Overhead Jaringan Rekapitulasi Laporan Shift: 6 Roundtrip HTTP Simultan
 * **Lokasi Berkas / Halaman**:
-  * Service Terpadu: [`frontend/src/services/reportService.js:16-30`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/services/reportService.js#L16)
-  * Desktop: [`frontend/src/pages/ShiftReportsPage.jsx:82-97`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/ShiftReportsPage.jsx#L82)
-  * Mobile: [`frontend/src/pages/mobile/MobileReports.jsx:86-95`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/mobile/MobileReports.jsx#L86)
+  * Service Terpadu: `frontend/src/services/reportService.js:16-30`
+  * Desktop: `frontend/src/pages/ShiftReportsPage.jsx:82-97`
+  * Mobile: `frontend/src/pages/mobile/MobileReports.jsx:86-95`
 * **Deskripsi Masalah**:
   * Saat pengguna membuka halaman Rekapitulasi Laporan Dinas Shift (baik di desktop maupun mobile), modul frontend memicu **6 permintaan HTTP GET terpisah secara serentak**:
     1. `GET /deployments/current?date=...&shift=...&team_group=...`
@@ -271,7 +271,7 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 15. Pemborosan Payload Mobile Dashboard untuk Perhitungan Jumlah Personel Tim
 * **Lokasi Berkas / Halaman**:
-  * [`frontend/src/pages/mobile/MobileDashboard.jsx:46, 149`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/mobile/MobileDashboard.jsx#L46)
+  * `frontend/src/pages/mobile/MobileDashboard.jsx:46, 149`
   * Halaman: Dashboard Operasional Petugas Lapangan Mobile (`/m/dashboard`)
 * **Deskripsi Masalah**:
   * Saat pertama kali memuat Dashboard Mobile, sistem memanggil `api.get('/personnel?team_group=${currentTeam}&is_active=1')`.
@@ -289,7 +289,7 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 16. Dropdown Modal Ganti Chief Mengunduh Seluruh Katalog Personel Penuh Sejak Awal
 * **Lokasi Berkas / Halaman**:
-  * [`frontend/src/pages/OfficialsManagementPage.jsx:74, 84-87`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/OfficialsManagementPage.jsx#L74)
+  * `frontend/src/pages/OfficialsManagementPage.jsx:74, 84-87`
   * Halaman: Kelola Pejabat Struktural (`/personnel/officials`)
 * **Deskripsi Masalah**:
   * Saat halaman Kelola Pejabat dibuka, sistem langsung mengunduh seluruh 95 personel via `api.get('/personnel?is_active=1')` (185 kB).
@@ -305,7 +305,7 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 17. Ketiadaan Header Caching (`Cache-Control`) pada Endpoint Berkas Lampiran Surat Edaran
 * **Lokasi Berkas / Server**:
-  * Backend Controller: [`backend/src/controllers/announcementController.js:230-233`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/announcementController.js#L230)
+  * Backend Controller: `backend/src/controllers/announcementController.js:230-233`
   * Endpoint: `GET /api/announcements/:id/attachment`
 * **Deskripsi Masalah**:
   * Endpoint pengunduhan dan pratinjau dokumen PDF lampiran surat edaran menyajikan berkas tanpa menyertakan *header* HTTP `Cache-Control` dan `ETag`.
@@ -322,12 +322,12 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 18. Tombol Non-Fungsional (*Dead Control*) Insiden pada `ShiftHeaderCard` di 5 Halaman Utama
 * **Lokasi Berkas / Komponen**:
-  * Komponen Bersama: [`frontend/src/components/dashboard/ShiftHeaderCard.jsx:79-97`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/dashboard/ShiftHeaderCard.jsx#L79)
-  * Pemanggil 1: [`frontend/src/pages/DeploymentPage.jsx:443`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/DeploymentPage.jsx#L443)
-  * Pemanggil 2: [`frontend/src/pages/VehicleReadinessPage.jsx:178`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/VehicleReadinessPage.jsx#L178)
-  * Pemanggil 3: [`frontend/src/pages/ShiftReportsPage.jsx:170`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/ShiftReportsPage.jsx#L170)
-  * Pemanggil 4: [`frontend/src/pages/LeaveManagementPage.jsx:326`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/LeaveManagementPage.jsx#L326)
-  * Pemanggil 5: [`frontend/src/pages/ActivitiesPage.jsx:436`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/ActivitiesPage.jsx#L436)
+  * Komponen Bersama: `frontend/src/components/dashboard/ShiftHeaderCard.jsx:79-97`
+  * Pemanggil 1: `frontend/src/pages/DeploymentPage.jsx:443`
+  * Pemanggil 2: `frontend/src/pages/VehicleReadinessPage.jsx:178`
+  * Pemanggil 3: `frontend/src/pages/ShiftReportsPage.jsx:170`
+  * Pemanggil 4: `frontend/src/pages/LeaveManagementPage.jsx:326`
+  * Pemanggil 5: `frontend/src/pages/ActivitiesPage.jsx:436`
 * **Deskripsi Masalah**:
   * Pada komponen `ShiftHeaderCard`, terdapat tombol status insiden (`[0 Insiden]` atau `[N Insiden Aktif]`) yang memiliki styling interaktif lengkap (`cursor-pointer`, efek `hover:bg-slate-50`, shadow, border, dan icon). Namun saat diklik oleh pengguna, tombol tersebut **sama sekali tidak bereaksi apa pun**.
 * **Penyebab Masalah**:
@@ -343,29 +343,29 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 19. Redundansi Informasi Shift Bertumpuk antara Header Navigasi dan Konten Halaman
 * **Lokasi Berkas / Komponen**:
-  * Desktop Header: [`frontend/src/components/layout/Navbar.jsx:58-87`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/layout/Navbar.jsx#L58)
-  * Mobile Header: [`frontend/src/components/mobile/MobileHeader.jsx:72-74`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/mobile/MobileHeader.jsx#L72)
-  * Sub-Header Desktop: [`frontend/src/components/dashboard/ShiftHeaderCard.jsx:21-49`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/dashboard/ShiftHeaderCard.jsx#L21)
-  * Sub-Header Mobile: [`frontend/src/pages/mobile/MobileDashboard.jsx:164-167`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/mobile/MobileDashboard.jsx#L164)
+  * Desktop Header: `frontend/src/components/layout/Navbar.jsx:58-87`
+  * Mobile Header: `frontend/src/components/mobile/MobileHeader.jsx:72-74`
+  * Sub-Header Desktop: `frontend/src/components/dashboard/ShiftHeaderCard.jsx:21-49`
+  * Sub-Header Mobile: `frontend/src/pages/mobile/MobileDashboard.jsx:164-167`
 * **Deskripsi Masalah**:
   * Terjadi pengulangan data operasional shift (Regu, Shift ke-1/2/3, Tanggal) secara bertumpuk dan berulang-ulang di layar pandang yang sama.
   * Di desktop: `Navbar` di bagian atas sudah menampilkan pemilih Tanggal dan Jam Shift aktif. Tepat 20px di bawahnya, kartu `ShiftHeaderCard` kembali menampilkan teks besar nama Regu, tanggal dinas, dan jam shift yang persis sama.
-  * Di mobile: `MobileHeader` di baris atas menuliskan `Alpha • Shift 1`. Tepat di bawahnya, baris pertama konten `MobileDashboard` menuliskan kembali `Regu Alpha • Shift 1`.
+  * Di mobile: `MobileHeader` di baris atas menuliskan `Alpha â€¢ Shift 1`. Tepat di bawahnya, baris pertama konten `MobileDashboard` menuliskan kembali `Regu Alpha â€¢ Shift 1`.
 * **Penyebab Masalah**:
   * Pemasangan container metadata dinas ganda antara layout shell global (*AppLayout / MobileLayout*) dan masing-masing komponen sub-view halaman.
 * **Dampak / Risiko**:
-  * Melanggar aturan baku [GEMINI.md](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/GEMINI.md) Butir 1 (*Anti-Redundansi UI & Dilarang Mengulang Teks Petunjuk*) dan prinsip layout `/antislop-ui`.
+  * Melanggar aturan baku `GEMINI.md` Butir 1 (*Anti-Redundansi UI & Dilarang Mengulang Teks Petunjuk*) dan prinsip layout `/antislop-ui`.
   * Memakan ruang vertikal layar (*vertical screen real estate*) yang sangat berharga di laptop 13-14 inch dan smartphone lapangan, memaksa pengguna melakukan scrolling yang tidak perlu.
 * **Rekomendasi Solusi Konkret**:
   * Sederhanakan `ShiftHeaderCard`: Jadikan ringkas (*compact single line*) atau leburkan kontrol tanggal/shift sepenuhnya ke dalam Navbar atas, sehingga area konten halaman dapat langsung difokuskan pada tabel data operasional (Ploting, Armada, Cuti).
-  * Di Mobile Dashboard, hilangkan teks pengulang `Regu Alpha • Shift 1` di atas tombol segarkan dan cukup pertahankan tombol segarkan yang tenang.
+  * Di Mobile Dashboard, hilangkan teks pengulang `Regu Alpha â€¢ Shift 1` di atas tombol segarkan dan cukup pertahankan tombol segarkan yang tenang.
 
 ---
 
 ### 20. Duplikasi Pemasangan Komponen Modal Cuti Mandiri (`MobileLeaveModal`)
 * **Lokasi Berkas / Komponen**:
-  * Level Shell Global: [`frontend/src/components/mobile/MobileLayout.jsx:100-110`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/mobile/MobileLayout.jsx#L100)
-  * Level Halaman Lokal: [`frontend/src/pages/mobile/MobileDashboard.jsx:235-244`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/mobile/MobileDashboard.jsx#L235)
+  * Level Shell Global: `frontend/src/components/mobile/MobileLayout.jsx:100-110`
+  * Level Halaman Lokal: `frontend/src/pages/mobile/MobileDashboard.jsx:235-244`
 * **Deskripsi Masalah**:
   * Komponen formulir cuti mobile `<MobileLeaveModal>` dipasang sebanyak **dua kali** pada pohon DOM aplikasi mobile yang sama.
 * **Penyebab Masalah**:
@@ -381,8 +381,8 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 21. Duplikasi Permintaan Jaringan Pengumuman Simultan pada Pemuatan Mobile Dashboard
 * **Lokasi Berkas / Komponen**:
-  * Header Mobile: [`frontend/src/components/mobile/MobileHeader.jsx:27, 41`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/mobile/MobileHeader.jsx#L27)
-  * Dashboard Mobile: [`frontend/src/pages/mobile/MobileDashboard.jsx:45`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/mobile/MobileDashboard.jsx#L45)
+  * Header Mobile: `frontend/src/components/mobile/MobileHeader.jsx:27, 41`
+  * Dashboard Mobile: `frontend/src/pages/mobile/MobileDashboard.jsx:45`
 * **Deskripsi Masalah**:
   * Saat rute `/m/dashboard` dibuka, peramban mengirimkan **dua permintaan HTTP `GET /api/announcements` yang persis sama ke backend pada milidetik yang bersamaan**.
 * **Penyebab Masalah**:
@@ -397,19 +397,19 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 22. Duplikasi Logika Format Tanggal Lokal di 9 Komponen Mengabaikan Helper Terpadu
 * **Lokasi Berkas Tersebar**:
-  1. [`frontend/src/pages/VehicleReportsPage.jsx:34`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/VehicleReportsPage.jsx#L34)
-  2. [`frontend/src/pages/AnnouncementsPage.jsx:56`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/AnnouncementsPage.jsx#L56)
-  3. [`frontend/src/components/profile/DesktopProfileModal.jsx:49`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/profile/DesktopProfileModal.jsx#L49)
-  4. [`frontend/src/components/personnel/PersonnelDossier.jsx:80`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/personnel/PersonnelDossier.jsx#L80)
-  5. [`frontend/src/components/mobile/profile/MobileProfileView.jsx:44`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/mobile/profile/MobileProfileView.jsx#L44)
-  6. [`frontend/src/components/mobile/profile/MobilePersonnelAccordion.jsx:79`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/mobile/profile/MobilePersonnelAccordion.jsx#L79)
-  7. [`frontend/src/components/mobile/announcements/MobileAnnouncementsModal.jsx:12`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/mobile/announcements/MobileAnnouncementsModal.jsx#L12)
-  8. [`frontend/src/components/forms/WatchroomReadinessModal.jsx:68`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/forms/WatchroomReadinessModal.jsx#L68)
-  9. [`frontend/src/components/forms/VehicleReadinessModal.jsx:130`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/forms/VehicleReadinessModal.jsx#L130)
+  1. `frontend/src/pages/VehicleReportsPage.jsx:34`
+  2. `frontend/src/pages/AnnouncementsPage.jsx:56`
+  3. `frontend/src/components/profile/DesktopProfileModal.jsx:49`
+  4. `frontend/src/components/personnel/PersonnelDossier.jsx:80`
+  5. `frontend/src/components/mobile/profile/MobileProfileView.jsx:44`
+  6. `frontend/src/components/mobile/profile/MobilePersonnelAccordion.jsx:79`
+  7. `frontend/src/components/mobile/announcements/MobileAnnouncementsModal.jsx:12`
+  8. `frontend/src/components/forms/WatchroomReadinessModal.jsx:68`
+  9. `frontend/src/components/forms/VehicleReadinessModal.jsx:130`
 * **Deskripsi Masalah**:
   * Terdapat setidaknya 9 fungsi pembantu format tanggal yang ditulis ulang (*reinventing the wheel*) secara berulang-ulang di masing-masing komponen.
 * **Penyebab Masalah**:
-  * Pengembang tidak mengimpor helper baku `formatIndoDate` yang sudah tersedia di [`frontend/src/utils/shiftHelper.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/utils/shiftHelper.js).
+  * Pengembang tidak mengimpor helper baku `formatIndoDate` yang sudah tersedia di `frontend/src/utils/shiftHelper.js`.
 * **Dampak / Risiko**:
   * Melanggar aturan baku `GEMINI.md` Butir 14 (*Single Source of Truth / DRY: Dilarang membuat fungsi terpisah untuk hal yang tujuannya sama*).
   * Format penyajian tanggal di dokumen cetak, modal, dan tabel menjadi tidak seragam (sebagian menulis "26 Okt 2026", sebagian "26 Oktober 2026", dan sebagian menampilkan timestamp ISO mentah jika terjadi error parsing).
@@ -421,9 +421,9 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 23. Animasi Berkedip Tanpa Henti (*Endless Pulse Loops*) pada Elemen Non-Darurat
 * **Lokasi Berkas / Komponen**:
-  * [`frontend/src/components/forms/DeploymentSlotCard.jsx:317`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/forms/DeploymentSlotCard.jsx#L317)
-  * [`frontend/src/components/mobile/dashboard/MobilePicReadinessForm.jsx:170`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/mobile/dashboard/MobilePicReadinessForm.jsx#L170)
-  * [`frontend/src/components/mobile/incidents/MobileIncidentModal.jsx:182`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/mobile/incidents/MobileIncidentModal.jsx#L182)
+  * `frontend/src/components/forms/DeploymentSlotCard.jsx:317`
+  * `frontend/src/components/mobile/dashboard/MobilePicReadinessForm.jsx:170`
+  * `frontend/src/components/mobile/incidents/MobileIncidentModal.jsx:182`
 * **Deskripsi Masalah**:
   * Dot status hijau/merah di samping label formulir dipasangi animasi CSS `animate-pulse` yang berkedip tanpa henti (*endless loop*).
 * **Penyebab Masalah**:
@@ -439,14 +439,14 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 24. Teks Jargon Filler "Rekapitulasi Berjalan (Real-Time)" pada Badge `ShiftHeaderCard`
 * **Lokasi Berkas / Komponen**:
-  * [`frontend/src/components/dashboard/ShiftHeaderCard.jsx:30-33`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/dashboard/ShiftHeaderCard.jsx#L30)
+  * `frontend/src/components/dashboard/ShiftHeaderCard.jsx:30-33`
 * **Deskripsi Masalah**:
   * Pada kartu header shift dinas, terpasang badge statis permanen bertuliskan:
     `<Badge variant="serviceable" size="md"><CheckCircle className="w-3.5 h-3.5" /> Rekapitulasi Berjalan (Real-Time)</Badge>`.
 * **Penyebab Masalah**:
   * Badge ini merupakan teks sisa masa pengembangan yang dipasang secara statis di header komponen bersama.
 * **Dampak / Risiko**:
-  * Melanggar prinsip *Teks & Konten UI (Anti-Asumsi / Anti-Slop)* pada [GEMINI.md](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/GEMINI.md) ("Jangan menambahkan slogan, jargon, atau teks filler yang tidak diminta pengguna").
+  * Melanggar prinsip *Teks & Konten UI (Anti-Asumsi / Anti-Slop)* pada `GEMINI.md` ("Jangan menambahkan slogan, jargon, atau teks filler yang tidak diminta pengguna").
   * Teks ini membingungkan dan tidak relevan saat komponen dirender di halaman Ploting Dinas atau Manajemen Cuti.
 * **Rekomendasi Solusi Konkret**:
   * Hapus badge jargon "Rekapitulasi Berjalan (Real-Time)" dari header. Cukup tampilkan badge status dinas aktif murni: `<Badge variant="team{Team}">Regu {Team} Aktif</Badge>`.
@@ -455,9 +455,9 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 25. Fragmentasi Penamaan & Relasi Pejabat Struktural antara Database `users` dan `personnel`
 * **Lokasi Berkas / Database**:
-  * Skema Database: [`backend/src/config/schema.sql:10, 22`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/config/schema.sql#L10)
-  * Backend Controller: [`backend/src/controllers/reportController.js:20-62`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/reportController.js#L20)
-  * Backend Controller: [`backend/src/controllers/deploymentController.js:30-38`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/deploymentController.js#L30)
+  * Skema Database: `backend/src/config/schema.sql:10, 22`
+  * Backend Controller: `backend/src/controllers/reportController.js:20-62`
+  * Backend Controller: `backend/src/controllers/deploymentController.js:30-38`
 * **Deskripsi Masalah**:
   * Terdapat ambiguitas data penandatangan resmi Section Head / Dept Head di laporan PDF.
   * Tabel `users` menggunakan kolom `role` berbentuk ENUM kaku (`dept_head`, `chief`, dsb.), sedangkan tabel `personnel` menggunakan kolom teks bebas `rank_position` (`Airport Technology & ARFF Dept. Head`, `Section Head`, dsb.).
@@ -467,7 +467,7 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
   * Ketiadaan tabel relasional khusus pejabat penandatangan definitif (*official signatories mapping*), sehingga sistem menebak identitas pimpinan dari teks string jabatan.
 * **Dampak / Risiko**:
   * Apabila Administrator memperbarui jabatan pimpinan dengan ejaan yang sedikit berbeda (misal: "Kepala Seksi ARFF" atau "Dept. Head"), query pencocokan dapat meleset dan sistem jatuh ke fallback akun administrator default (`aaa`).
-  * Melanggar aturan [GEMINI.md](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/GEMINI.md) Butir 4 & 18 (*Dilarang Hardcode Data Pejabat & Input Struktural Pejabat Department Head*).
+  * Melanggar aturan `GEMINI.md` Butir 4 & 18 (*Dilarang Hardcode Data Pejabat & Input Struktural Pejabat Department Head*).
 * **Rekomendasi Solusi Konkret**:
   * Manfaatkan tabel `system_settings` dengan kunci permanen `official_dept_head_user_id` atau tambahkan kolom referensi `is_official_dept_head TINYINT(1)` di database, sehingga pencarian pejabat penandatangan resmi selalu merujuk pada Foreign Key ID yang pasti tanpa pencocokan teks liar (*wildcard string matching*).
 
@@ -479,7 +479,7 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 26. Eksposur Dokumentasi & Foto Insiden Sensitif Bandara Tanpa Autentikasi (`/uploads/*`)
 * **Lokasi Berkas / Komponen**:
-  * [`backend/src/app.js:49-60`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/app.js#L49)
+  * `backend/src/app.js:49-60`
 * **Deskripsi Masalah**:
   * Middleware pengaman unggahan di `backend/src/app.js` membedakan file privat hanya berdasarkan nama awalan file:
     `const isPrivateDoc = filename.startsWith('document-') || filename.startsWith('signature-') || ...`.
@@ -497,7 +497,7 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 27. Kerentanan IDOR & Horizontal Privilege Escalation pada Modifikasi/Penghapusan Logbook Kegiatan (`/api/activities/:id`)
 * **Lokasi Berkas / Komponen**:
-  * [`backend/src/controllers/activityController.js:170-300`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/activityController.js#L170)
+  * `backend/src/controllers/activityController.js:170-300`
 * **Deskripsi Masalah**:
   * Endpoint `PUT /api/activities/:id` dan `DELETE /api/activities/:id` hanya memvalidasi apakah peran user termasuk ke dalam `['admin', 'chief', 'chief_assistant']`.
   * Fungsi sama sekali tidak memvalidasi apakah kegiatan (`id`) tersebut tercatat pada regu (`team_group`) atau shift dinas milik Chief yang sedang login.
@@ -515,8 +515,8 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 28. Inkonsistensi Otorisasi RBAC antara Rute Middleware dan Logika Controller (`activityRoutes.js` vs `activityController.js`)
 * **Lokasi Berkas / Komponen**:
-  * Rute: [`backend/src/routes/activityRoutes.js:20, 26, 30`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/routes/activityRoutes.js#L20)
-  * Controller: [`backend/src/controllers/activityController.js:85-91, 172-178, 265-271`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/activityController.js#L85)
+  * Rute: `backend/src/routes/activityRoutes.js:20, 26, 30`
+  * Controller: `backend/src/controllers/activityController.js:85-91, 172-178, 265-271`
 * **Deskripsi Masalah**:
   * Pada rute `activityRoutes.js`, middleware mengizinkan:
     `requireRole(['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor'])`.
@@ -534,8 +534,8 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 29. Ketiadaan Rate Limiting pada Endpoint Login (`/api/auth/login`) Rentan Brute-Force & CPU Exhaustion
 * **Lokasi Berkas / Komponen**:
-  * [`backend/src/routes/authRoutes.js:9`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/routes/authRoutes.js#L9)
-  * [`backend/src/controllers/authController.js:7-74`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/authController.js#L7)
+  * `backend/src/routes/authRoutes.js:9`
+  * `backend/src/controllers/authController.js:7-74`
 * **Deskripsi Masalah**:
   * Endpoint autentikasi login `/api/auth/login` tidak dipasangi batasan frekuensi percobaan (*rate limiter*).
   * Penyerang dapat mengirimkan puluhan ribu tebakan kombinasi NIP/username dan password per menit tanpa ada hambatan penundaan atau pemblokiran IP sementara.
@@ -551,8 +551,8 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 30. Ketiadaan Mekanisme Revokasi Token JWT saat Perubahan Password atau Logout Pengguna
 * **Lokasi Berkas / Komponen**:
-  * [`backend/src/controllers/authController.js:139-174`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/authController.js#L139)
-  * [`backend/src/middleware/authMiddleware.js:15-54`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/middleware/authMiddleware.js#L15)
+  * `backend/src/controllers/authController.js:139-174`
+  * `backend/src/middleware/authMiddleware.js:15-54`
 * **Deskripsi Masalah**:
   * Ketika pengguna mengubah kata sandi melalui fungsi `changePassword`, sistem hanya memperbarui hash password di tabel `users`.
   * Token JWT yang sebelumnya telah diterbitkan tetap berstatus valid hingga masa kedaluwarsanya habis (24 jam). Tidak ada tabel sesi aktif (*session store*) atau nomor versi token (*token versioning*).
@@ -574,14 +574,14 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 31. Race Condition & Ledakan Crash Fatal `ER_DUP_ENTRY` pada Penomoran Laporan Insiden (`generateNextReportNumber`)
 * **Lokasi Berkas / Komponen**:
-  * [`backend/src/controllers/incidentController.js:6-23, 174`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/incidentController.js#L6)
-  * Skema Database: [`backend/src/config/schema.sql:121`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/config/schema.sql#L121)
+  * `backend/src/controllers/incidentController.js:6-23, 174`
+  * Skema Database: `backend/src/config/schema.sql:121`
 * **Deskripsi Masalah**:
   * Penomoran otomatis laporan insiden (`INC-0001`, `INC-0002`, dst.) digenerate menggunakan fungsi:
     `SELECT report_number FROM incidents WHERE report_number LIKE 'INC-%' ORDER BY id DESC LIMIT 1`.
   * Query ini dieksekusi tanpa klausa penguncian baris (*row-level locking* `FOR UPDATE`).
   * Pada skema database, kolom `report_number` memiliki konstrain indeks unik:
-    `` `report_number` VARCHAR(50) NOT NULL UNIQUE ``.
+    ` `report_number` VARCHAR(50) NOT NULL UNIQUE `.
 * **Penyebab Masalah**:
   * Pembacaan data urutan terakhir secara bebas tanpa *pessimistic lock*, sehingga dua transaksi yang dieksekusi di mikrodetik yang sama membaca nomor terakhir yang identik.
 * **Dampak / Risiko**:
@@ -596,7 +596,7 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 32. Celah Concurrency Double-Submission Pengajuan Cuti Menerobos Batas Kuota & Validasi Anti-Overlap
 * **Lokasi Berkas / Komponen**:
-  * [`backend/src/controllers/deploymentController.js:498-567`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/deploymentController.js#L498)
+  * `backend/src/controllers/deploymentController.js:498-567`
 * **Deskripsi Masalah**:
   * Pada fungsi `requestLeaveRange`, validasi anti-overlap tanggal cuti (baris 498) dan validasi kuota maksimal 2 cuti aktif (baris 523) dieksekusi SEBELUM transaksi database dimulai (`connection.beginTransaction()` baru dipanggil pada baris 567).
   * Validasi dilakukan menggunakan query `SELECT` biasa tanpa penguncian transaksi.
@@ -604,7 +604,7 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
   * Penempatan pengecekan integritas bisnis di luar blok transaksi atomik (*unprotected read before transaction*).
 * **Dampak / Risiko**:
   * Jika personel melakukan klik cepat ganda (*double click*) pada tombol "Ajukan Cuti", atau mengirimkan dua permintaan cuti paralel dari perangkat berbeda, kedua thread membaca state database lama yang sama (keduanya melihat kuota masih < 2 dan tidak ada overlap).
-  * Kedua thread berhasil lolos verifikasi, lalu keduanya melakukan insert bertahap secara bersamaan. Akibatnya, personel memiliki 3 hingga 4 pengajuan cuti aktif atau memiliki jadwal cuti yang saling bertabrakan pada rentang hari yang sama, melanggar aturan [GEMINI.md](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/GEMINI.md) Butir 19 secara telak.
+  * Kedua thread berhasil lolos verifikasi, lalu keduanya melakukan insert bertahap secara bersamaan. Akibatnya, personel memiliki 3 hingga 4 pengajuan cuti aktif atau memiliki jadwal cuti yang saling bertabrakan pada rentang hari yang sama, melanggar aturan `GEMINI.md` Butir 19 secara telak.
 * **Rekomendasi Solusi Konkret**:
   * Pindahkan `await connection.beginTransaction()` ke awal fungsi sebelum query validasi dijalankan.
   * Tambahkan penguncian row baris cuti personel: `SELECT ... FOR UPDATE` saat memeriksa data cuti aktif yang ada, sehingga permintaan konkuren kedua wajib menunggu hingga transaksi pertama selesai di-commit.
@@ -613,8 +613,8 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 33. Missing Transaction & Potensi Crash Concurrency `ER_DUP_ENTRY` pada Pelaporan Kesiapan Armada (`submitVehicleReadiness`)
 * **Lokasi Berkas / Komponen**:
-  * [`backend/src/controllers/readinessController.js:236-307`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/readinessController.js#L236)
-  * Skema Database: [`backend/src/config/schema.sql:80`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/config/schema.sql#L80)
+  * `backend/src/controllers/readinessController.js:236-307`
+  * Skema Database: `backend/src/config/schema.sql:80`
 * **Deskripsi Masalah**:
   * Fungsi `submitVehicleReadiness` memeriksa keberadaan log melalui query:
     `SELECT id, photo_webp_url FROM vehicle_readiness_logs WHERE vehicle_id = ? AND shift_date = ? AND shift_number = ? AND team_group = ?`.
@@ -636,7 +636,7 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 34. Ketiadaan Transaksi Database Atomik pada Manajemen Siklus Rotasi Jadwal Dinas (`saveScheduleCycle` & `resetScheduleCycles`)
 * **Lokasi Berkas / Komponen**:
-  * [`backend/src/controllers/scheduleController.js:290-322`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/scheduleController.js#L290)
+  * `backend/src/controllers/scheduleController.js:290-322`
 * **Deskripsi Masalah**:
   * Pada fungsi `saveScheduleCycle`, penyimpanan setting pola siklus ke `system_settings` dan penghapusan override manual usang di `schedule_rosters` dijalankan sebagai dua query pool terpisah:
     1. `await pool.query('INSERT INTO system_settings ... ON DUPLICATE KEY UPDATE ...')`
@@ -657,7 +657,7 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 35. Missing Database Transaction & Inkonsistensi Rollback pada Pembatalan Cuti (`cancelLeave`)
 * **Lokasi Berkas / Komponen**:
-  * [`backend/src/controllers/deploymentController.js:680-780`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/deploymentController.js#L680)
+  * `backend/src/controllers/deploymentController.js:680-780`
 * **Deskripsi Masalah**:
   * Pada fungsi `cancelLeave`, koneksi database diambil secara manual:
     `const connection = await pool.getConnection();`.
@@ -679,8 +679,8 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 36. Ketiadaan Indeks Kolom pada Tabel `incidents` Memicu Full Table Scan Berulang
 * **Lokasi Berkas / Database**:
-  * Skema Database: [`backend/src/config/schema.sql:119-145`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/config/schema.sql#L119)
-  * Controller: [`backend/src/controllers/incidentController.js:25-72`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/incidentController.js#L25)
+  * Skema Database: `backend/src/config/schema.sql:119-145`
+  * Controller: `backend/src/controllers/incidentController.js:25-72`
 * **Deskripsi Masalah**:
   * Tabel `incidents` hanya memiliki indeks pada Primary Key `id` dan Unique Key `report_number`.
   * Endpoint `getIncidents` selalu melakukan filtering berdasarkan kombinasi kolom:
@@ -701,8 +701,8 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 37. Ketiadaan Indeks Komposit pada `personnel_deployments` untuk Riwayat Cuti & Ploting Armada
 * **Lokasi Berkas / Database**:
-  * Skema Database: [`backend/src/config/schema.sql:100-117`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/config/schema.sql#L100)
-  * Controller: [`backend/src/controllers/deploymentController.js:79-89, 498-531`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/deploymentController.js#L79)
+  * Skema Database: `backend/src/config/schema.sql:100-117`
+  * Controller: `backend/src/controllers/deploymentController.js:79-89, 498-531`
 * **Deskripsi Masalah**:
   * Tabel `personnel_deployments` hanya memiliki constraint indeks unik:
     `UNIQUE KEY unique_shift_personnel (shift_id, personnel_id)`.
@@ -723,8 +723,8 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 38. Ketiadaan Indeks Pencarian Berkas pada `personnel_documents` untuk Middleware Proteksi Unggahan
 * **Lokasi Berkas / Database**:
-  * Skema Database: [`backend/src/config/schema.sql:172-186`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/config/schema.sql#L172)
-  * Middleware Proteksi: [`backend/src/app.js:123-130`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/app.js#L123)
+  * Skema Database: `backend/src/config/schema.sql:172-186`
+  * Middleware Proteksi: `backend/src/app.js:123-130`
 * **Deskripsi Masalah**:
   * Setiap kali ada permintaan akses berkas fisik dokumen di `/uploads/*`, middleware `app.js` mengeksekusi query:
     `SELECT pd.id, pd.personnel_id, pd.uploaded_by, p.user_id FROM personnel_documents pd LEFT JOIN personnel p ON p.id = pd.personnel_id WHERE pd.file_url LIKE ?`.
@@ -746,9 +746,9 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 39. Kebocoran Stack Trace & Skema Database Internal MySQL ke Respons Klien pada Error HTTP 500
 * **Lokasi Berkas / Komponen**:
-  * [`backend/src/controllers/activityController.js:166, 259, 299`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/activityController.js#L166)
-  * [`backend/src/controllers/incidentController.js:248, 321`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/incidentController.js#L248)
-  * [`backend/src/controllers/deploymentController.js:444, 674`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/deploymentController.js#L444)
+  * `backend/src/controllers/activityController.js:166, 259, 299`
+  * `backend/src/controllers/incidentController.js:248, 321`
+  * `backend/src/controllers/deploymentController.js:444, 674`
 * **Deskripsi Masalah**:
   * Di berbagai blok `catch (error)`, server mengembalikan respons error dengan menyambungkan string pesan internal database mentah:
     `return errorResponse(res, 'Gagal mencatat aktivitas: ' + error.message, 500);`
@@ -766,8 +766,8 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 40. Ketiadaan React Error Boundary Memicu Fatal White Screen Crash pada Kesalahan Rendering Klien
 * **Lokasi Berkas / Komponen**:
-  * [`frontend/src/App.jsx:129-219`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/App.jsx#L129)
-  * [`frontend/src/main.jsx:6-10`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/main.jsx#L6)
+  * `frontend/src/App.jsx:129-219`
+  * `frontend/src/main.jsx:6-10`
 * **Deskripsi Masalah**:
   * Seluruh aplikasi frontend React tidak dibungkus oleh komponen `ErrorBoundary`.
   * Jika salah satu sub-komponen melempar unhandled JavaScript runtime error (misalnya membaca properti dari objek `null`/`undefined` saat mem-parsing tanggal dinas atau saat response API gagal), pohon komponen React akan unmount secara total.
@@ -784,8 +784,8 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 41. Ketiadaan Deteksi Status Jaringan Offline pada Operasional Lapangan Bergerak
 * **Lokasi Berkas / Komponen**:
-  * [`frontend/src/components/layout/AppLayout.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/layout/AppLayout.jsx)
-  * [`frontend/src/components/mobile/MobileLayout.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/mobile/MobileLayout.jsx)
+  * `frontend/src/components/layout/AppLayout.jsx`
+  * `frontend/src/components/mobile/MobileLayout.jsx`
 * **Deskripsi Masalah**:
   * Sistem monitoring ARFF dioperasikan oleh kru di area bandara (apron, runway, watchroom posko) di mana sinyal seluler atau koneksi WiFi sering mengalami *dead zone* sementara.
   * Frontend saat ini tidak memantau event `window.addEventListener('online' / 'offline')` dan tidak memiliki indikator visual status koneksi jaringan.
@@ -805,7 +805,7 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 42. Kegagalan Rendering Tanda Tangan Digital Berformat WebP pada Generator Dokumen Resmi PDF
 * **Lokasi Berkas / Komponen**:
-  * [`backend/src/services/pdfService.js:24-34`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/services/pdfService.js#L24)
+  * `backend/src/services/pdfService.js:24-34`
 * **Deskripsi Masalah**:
   * Engine PDFKit tidak mendukung format gambar `.webp` secara native (hanya mendukung PNG dan JPEG).
   * Pada helper `resolveSignatureFile`, terdapat logika penanganan WebP:
@@ -814,7 +814,7 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 * **Penyebab Masalah**:
   * Keterbatasan native image decoder dari library `pdfkit` terhadap format WebP modern tanpa adanya konversi balik ke format PNG di memori saat kompilasi dokumen PDF.
 * **Dampak / Risiko**:
-  * Pelanggaran berat aturan [GEMINI.md](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/GEMINI.md) Butir 7 (*Integrasi Menyeluruh Dokumen & Aset Digital: No Half-Baked Features*).
+  * Pelanggaran berat aturan `GEMINI.md` Butir 7 (*Integrasi Menyeluruh Dokumen & Aset Digital: No Half-Baked Features*).
   * Tanda tangan resmi Department Head atau Chief Regu yang sudah berhasil diunggah di profil tidak muncul pada lembar cetak dokumen resmi (PDF tetap mencetak ruang kosong atau nama teks tanpa paraf digital).
 * **Rekomendasi Solusi Konkret**:
   * Tambahkan helper konversi otomatis menggunakan Sharp di dalam `pdfService.js` (atau saat upload tanda tangan):
@@ -824,15 +824,15 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 43. Ketiadaan Mekanisme Batas Ukuran Memori (LRU Size Limit) pada Cache PDF dalam Memori Server
 * **Lokasi Berkas / Komponen**:
-  * [`backend/src/services/pdfService.js:41-65`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/services/pdfService.js#L41)
+  * `backend/src/services/pdfService.js:41-65`
 * **Deskripsi Masalah**:
   * Sistem mengimplementasikan cache dokumen PDF di dalam memori Node.js (`pdfMemoryCache = new Map()`).
   * Batas penghapusan cache hanya berdasarkan jumlah entri: `if (pdfMemoryCache.size > 50) { ... delete oldestKey; }`.
   * Tidak ada batasan ukuran byte memori (*byte size limit*).
 * **Penyebab Masalah**:
-  * Mengasumsikan ukuran file PDF selalu kecil, padahal PDF laporan shift lengkap yang memuat foto armada beresolusi tinggi dapat berukuran 5–15 MB per dokumen.
+  * Mengasumsikan ukuran file PDF selalu kecil, padahal PDF laporan shift lengkap yang memuat foto armada beresolusi tinggi dapat berukuran 5â€“15 MB per dokumen.
 * **Dampak / Risiko**:
-  * Jika 50 entri dokumen PDF laporan lengkap tersimpan di dalam memori RAM, konsumsi heap Node.js dapat melonjak hingga 500 MB – 1 GB secara tiba-tiba, memicu peringatan *High Memory Usage* atau memicu proses dibunuh oleh sistem operasi (*Out Of Memory / OOM Killer*).
+  * Jika 50 entri dokumen PDF laporan lengkap tersimpan di dalam memori RAM, konsumsi heap Node.js dapat melonjak hingga 500 MB â€“ 1 GB secara tiba-tiba, memicu peringatan *High Memory Usage* atau memicu proses dibunuh oleh sistem operasi (*Out Of Memory / OOM Killer*).
 * **Rekomendasi Solusi Konkret**:
   * Batasi ukuran cache dokumen PDF maksimal 10 dokumen atau maksimal 50 MB total buffer memori, dan prioritaskan streaming dokumen langsung ke klien dengan header HTTP caching (`Cache-Control: private, max-age=60`) daripada menyimpan buffer raksasa di RAM server.
 
@@ -840,7 +840,7 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ### 44. Risiko Overflow Halaman & Truncation Teks Kronologi Panjang pada Ekspor PDF Laporan Shift
 * **Lokasi Berkas / Komponen**:
-  * [`backend/src/services/pdfService.js:450-520`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/services/pdfService.js#L450)
+  * `backend/src/services/pdfService.js:450-520`
 * **Deskripsi Masalah**:
   * Pada lembar laporan shift harian, seksi ringkasan insiden dan aktivitas operasional di-render dengan koordinat vertikal manual statis (`currentY += ...`).
   * Jika terdapat deskripsi kronologi darurat yang sangat panjang (beberapa paragraf detail insiden pesawat), teks dapat bertabrakan dengan garis tabel di bawahnya atau terpotong (*truncated*) di batas margin bawah sebelum memicu `doc.addPage()`.
@@ -853,82 +853,7 @@ Dokumen ini memuat hasil audit mendalam (*Deep Audit*) menyeluruh terhadap selur
 
 ---
 
-## BAGIAN 10: HASIL REFAKTORISASI BERKAS PADAT (MODULAR REFACTORING LOG)
-
-### Rekapitulasi Pemecahan Berkas Monolitik Menjadi Arsitektur Modular Bersih
-
-* **1. Backend Modul Penugasan & Cuti (`deploymentController.js`)**:
-  * **Ukuran Asal**: 936 baris monolitik yang mencampur aduk ploting formasi armada dengan logika pengajuan cuti berrentang hari.
-  * **Modul Hasil Refaktor**:
-    * [`backend/src/controllers/deploymentController.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/deploymentController.js): Berkurang drastis menjadi ~460 baris yang fokus murni pada slot ploting kendaraan & watch room.
-    * [`backend/src/controllers/leaveController.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/leaveController.js): Modul baru berkapasitas ~360 baris menampung `requestLeaveRange`, `cancelLeave`, dan `getLeaveHistory` dengan transaksi atomik `FOR UPDATE`.
-  * **Status & Verifikasi**: Kompatibel penuh (*zero breaking changes*), lulus syntax test `node -c`.
-
-* **2. Backend Modul Personel, Dokumen, & Pejabat (`personnelController.js`)**:
-  * **Ukuran Asal**: 1.442 baris monolitik yang menampung CRUD personel, berkas PDF dokumen, spesimen tanda tangan, serta pergantian pejabat struktural.
-  * **Modul Hasil Refaktor**:
-    * [`backend/src/controllers/personnelController.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/personnelController.js): Berkurang menjadi ~700 baris yang fokus pada profil inti dan akun personel.
-    * [`backend/src/controllers/personnelDocumentController.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/personnelDocumentController.js): Modul baru berkapasitas ~300 baris untuk upload/view/delete berkas kepegawaian dan spesimen tanda tangan.
-    * [`backend/src/controllers/officialsController.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/controllers/officialsController.js): Modul baru berkapasitas ~380 baris untuk pergantian Dept Head, Section Head, dan Ketua Regu berotasi.
-    * [`backend/src/routes/personnelRoutes.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/routes/personnelRoutes.js): Rute telah disambungkan langsung ke controller masing-masing.
-  * **Status & Verifikasi**: Kompatibel penuh, lulus syntax test `node -c`.
-
-* **3. Backend Layanan Generator PDF (`pdfService.js`)**:
-  * **Ukuran Asal**: 1.333 baris dalam satu berkas raksasa untuk seluruh jenis laporan resmi.
-  * **Modul Hasil Refaktor**:
-    * [`backend/src/services/pdf/pdfHelpers.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/services/pdf/pdfHelpers.js): Manajemen in-memory cache, watermark transparan, dan resolusi file tanda tangan.
-    * [`backend/src/services/pdf/shiftReportPdf.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/services/pdf/shiftReportPdf.js): Generator laporan shift operasional harian A4.
-    * [`backend/src/services/pdf/personnelReportPdf.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/services/pdf/personnelReportPdf.js): Generator buku induk akun & kredensial personel A4 Landscape.
-    * [`backend/src/services/pdf/vehicleReportPdf.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/services/pdf/vehicleReportPdf.js): Generator rekapitulasi kelaikan armada A4.
-    * [`backend/src/services/pdf/incidentReportPdf.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/services/pdf/incidentReportPdf.js): Generator rekapitulasi insiden airside A4.
-    * [`backend/src/services/pdf/activitiesReportPdf.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/services/pdf/activitiesReportPdf.js): Generator logbook kegiatan rutin dinas A4.
-    * [`backend/src/services/pdfService.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/services/pdfService.js): Façade re-export terpadu yang menjamin 100% *backward compatibility*.
-  * **Status & Verifikasi**: Lulus syntax test `node -c` untuk seluruh 7 berkas service.
-
-* **4. Frontend Halaman Logbook Kegiatan (`ActivitiesPage.jsx`)**:
-  * **Ukuran Asal**: 1.022 baris monolitik mencampur timeline, validasi kompresi foto, modal create/edit, modal delete, dan modal export PDF.
-  * **Modul Hasil Refaktor**:
-    * [`frontend/src/utils/activityCategories.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/utils/activityCategories.js): Metadata dan ikon kategori resmi kegiatan.
-    * [`frontend/src/components/activities/ActivityTimelineList.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/activities/ActivityTimelineList.jsx): Komponen timeline visual kronologis dan pagination.
-    * [`frontend/src/components/activities/ActivityFormModal.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/activities/ActivityFormModal.jsx): Komponen modal form tambah/edit kegiatan dan upload foto WebP.
-    * [`frontend/src/components/activities/ActivityDeleteModal.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/activities/ActivityDeleteModal.jsx): Komponen modal konfirmasi hapus kegiatan dinas.
-    * [`frontend/src/components/activities/ActivityExportModal.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/activities/ActivityExportModal.jsx): Komponen modal filter periode dan unduh berkas PDF logbook.
-    * [`frontend/src/components/activities/ActivityPhotoModal.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/activities/ActivityPhotoModal.jsx): Komponen lightbox pratinjau gambar penuh.
-    * [`frontend/src/pages/ActivitiesPage.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/ActivitiesPage.jsx): Berkurang menjadi 380 baris controller page yang elegan.
-  * **Status & Verifikasi**: Lulus kompilasi produksi Vite (`npm run build`).
-
-* **5. Frontend Halaman Kelola Cuti (`LeaveManagementPage.jsx`)**:
-  * **Ukuran Asal**: 879 baris monolitik mencampur 3 tab views dan modal pembatalan cuti.
-  * **Modul Hasil Refaktor**:
-    * [`frontend/src/utils/leaveHelpers.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/utils/leaveHelpers.jsx): Helper parsing rentang tanggal, pembersih catatan, badge kategori, dan nama bulan.
-    * [`frontend/src/components/leave/OngoingLeavesView.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/leave/OngoingLeavesView.jsx): Komponen tab status berjalan (cuti aktif & upcoming).
-    * [`frontend/src/components/leave/CurrentShiftAbsentsView.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/leave/CurrentShiftAbsentsView.jsx): Komponen tab cuti & ketidakhadiran shift berjalan saat ini.
-    * [`frontend/src/components/leave/MonthlyLeaveHistoryView.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/leave/MonthlyLeaveHistoryView.jsx): Komponen tab riwayat cuti bulanan dengan filter bulan, tahun, dan regu.
-    * [`frontend/src/components/leave/CancelLeaveModal.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/leave/CancelLeaveModal.jsx): Komponen modal konfirmasi pembatalan izin/cuti dinas.
-    * [`frontend/src/pages/LeaveManagementPage.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/LeaveManagementPage.jsx): Berkurang menjadi 350 baris controller page yang bersih dan mudah dirawat.
-  * **Status & Verifikasi**: Lulus kompilasi produksi Vite (`npm run build`).
-
----
-
-## BAGIAN 11: HASIL UNIFIKASI FUNGSI REDUNDAN (PONYTAIL DRY LOG) & PEMBERSIHAN MASAK
-
-### Rekapitulasi Eksekusi Penyatuan Fungsi Dobel & Pembersihan Folder Masak
-
-* **1. Pembersihan Menyeluruh Folder Kerja Khusus `masak/`**:
-  * Seluruh skrip eksekusi dan pengujian sementara (`clean_split_pdf.cjs`, `refactor_personnel.cjs`, `split_pdf_service.cjs`, `complete_page_tester.mjs`, `comprehensive_page_audit.mjs`, `network_deep_audit.mjs`, `page_by_page_deep_audit.mjs`) telah dihapus secara bersih dari folder `masak/`.
-  * Folder `masak/` kini murni hanya menyisakan subdirektori data kerja tanpa file eksekusi tertinggal.
-
-* **2. Unifikasi Utilitas Unduh Berkas Blob di Frontend (`fileHelper.js`)**:
-  * Dibuat modul tunggal [`frontend/src/utils/fileHelper.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/utils/fileHelper.js) yang mengekspor fungsi `downloadBlob(blob, filename)`.
-  * Seluruh duplikasi kode manipulasi DOM `document.createElement('a')`, `createObjectURL`, dan `revokeObjectURL` di 7 berkas ([`reportService.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/services/reportService.js), [`ShiftReportsPage.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/ShiftReportsPage.jsx), [`MobileReports.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/mobile/MobileReports.jsx), [`PersonnelPage.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/pages/PersonnelPage.jsx), dll.) kini terpadu memanggil `downloadBlob`.
-  * Ditambahkan fungsi `downloadShiftReportPdf({ date, shift, team })` di `reportService.js` sehingga halaman desktop dan mobile memiliki *Single Source of Truth*.
-
-* **3. Pembersihan Dead Code Alias Dwibahasa & Pengayaan `formatIndoDate`**:
-  * Dihapus 6 alias mati yang tidak pernah dipanggil di [`frontend/src/utils/shiftHelper.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/utils/shiftHelper.js) (`bersihkanNamaRegu`, `formatNamaRegu`, `ambilReguTerjadwal`, `ambilJadwalHarian`, `ambilShiftOperasionalSaatIni`, `formatTanggalIndonesia`).
-  * Fungsi `formatIndoDate` diperkaya dengan try-catch dan opsi kustom, menggantikan implementasi duplikat `formatDate` di [`DesktopProfileModal.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/profile/DesktopProfileModal.jsx), [`MobileProfileView.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/mobile/profile/MobileProfileView.jsx), dan [`MobilePersonnelAccordion.jsx`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/frontend/src/components/mobile/profile/MobilePersonnelAccordion.jsx).
-
-* **4. Unifikasi Backend: `roleMapper.js` & `officialHelper.js`**:
-  * Dibuat modul utilitas terpusat [`backend/src/utils/roleMapper.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/utils/roleMapper.js) yang menampung `mapRankPositionToRole`, `isLeadershipRole`, `isPrivilegedRole`, dan `cleanTeam`.
-  * Dibuat modul [`backend/src/utils/officialHelper.js`](file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/backend/src/utils/officialHelper.js) yang menyatukan query pencarian penandatangan resmi `getOfficialSignatory()`, mengeliminasi duplikasi query SQL manual di `reportController.js`, `deploymentController.js`, dan `personnelController.js`.
-  * Digunakan `cleanTeam` secara seragam di `dashboardController.js` untuk mencegah anomali query SQL case sensitivity pada database.
+> [!NOTE]
+> Seluruh hasil pekerjaan, log refaktorisasi arsitektur modular, unifikasi fungsi Ponytail, dan riwayat implementasi fitur yang telah selesai dikerjakan telah dipindahkan secara permanen ke dokumen riwayat **`RQA.md`** sesuai aturan baku `GEMINI.md`.
+> Dokumen QA.md ini murni difokuskan untuk melacak **44 Temuan Audit Aktif** di atas yang sedang dan akan diselesaikan oleh para agen pelaksana.
 

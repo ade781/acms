@@ -1,71 +1,92 @@
-# LEMBAR TUGAS AGENT 2: MODUL PERSONEL, CUTI, & LENCANA STKP
+# PENUGASAN AGENT 2: ANTARMUKA MOBILE, KOMPRESI KAMERA, EFISIENSI PAYLOAD & KETAHANAN OFFLINE
 
-## Domain Berkas Eksklusif
-- `frontend/src/pages/HalamanPersonel.jsx`
-- `frontend/src/components/CutiModal.jsx`
-- `backend/src/controllers/personnelController.js`
-
----
-
-## Rincian Butir Tugas
-
-### Poin 1: Lencana Indikator Kedaluwarsa Lisensi STKP di `HalamanPersonel.jsx`
-- **Deskripsi Masalah**:
-  - Pada katalog personel (`HalamanPersonel.jsx`), masa berlaku lisensi STKP (`stkp_expiry_date`) hanya ditampilkan sebagai tanggal teks polos tanpa indikator visual urgensi jika lisensi mendekati habis atau sudah kedaluwarsa.
-- **Dampak / Risiko**:
-  - Pimpinan regu dan admin gagal mengantisipasi masa berlaku lisensi kru yang akan habis, berisiko menugaskan personel dengan lisensi kedaluwarsa yang melanggar regulasi keselamatan penerbangan (KP / ICAO).
-- **Instruksi Solusi Konkret**:
-  - Di `frontend/src/pages/HalamanPersonel.jsx`:
-    1. Hitung sisa hari dari hari ini: `const diffDays = Math.ceil((new Date(person.stkp_expiry_date) - new Date()) / (1000 * 60 * 60 * 24));`.
-    2. Tampilkan badge status STKP yang jelas dan kontras:
-       - **Expired / Kedaluwarsa** (jika `diffDays <= 0`): Badge merah pekat (`bg-red-500/20 text-red-400 border border-red-500/30`) bertuliskan *"Kedaluwarsa"*.
-       - **Hampir Kedaluwarsa** (jika `0 < diffDays <= 60`): Badge amber/kuning (`bg-amber-500/20 text-amber-400 border border-amber-500/30`) bertuliskan `Hampir Habis (${diffDays} hari)`.
-       - **Aktif / Berlaku** (jika `diffDays > 60`): Badge hijau netral (`bg-emerald-500/20 text-emerald-400 border border-emerald-500/30`) bertuliskan *"Aktif"*.
+**Domain Berkas Eksklusif**:
+- `frontend/src/pages/mobile/MobileDashboard.jsx`
+- `frontend/src/pages/mobile/MobileDeployment.jsx`
+- `frontend/src/pages/mobile/MobileActivities.jsx`
+- `frontend/src/pages/mobile/MobileIncidents.jsx`
+- `frontend/src/pages/mobile/MobileReports.jsx`
+- `frontend/src/components/mobile/reports/MobileSignaturesSection.jsx`
+- `frontend/src/components/mobile/activities/MobileActivityModal.jsx`
+- `frontend/src/components/mobile/incidents/MobileIncidentModal.jsx`
+- `frontend/src/components/mobile/ploting/MobilePlotCard.jsx`
+- `frontend/src/components/common/OfflineBanner.jsx`
+*(DILARANG memodifikasi berkas di luar domain ini untuk mencegah tabrakan berkas / zero file collision)*
 
 ---
 
-### Poin 2: Validasi Tanggal Bentrok pada Pengajuan Cuti di `CutiModal.jsx`
-- **Deskripsi Masalah**:
-  - Di `CutiModal.jsx`, input tanggal mulai dan tanggal selesai belum memiliki validasi klien yang ketat. Pengguna bisa memilih tanggal mulai yang lebih besar daripada tanggal selesai atau memilih tanggal yang tumpang-tindih sebelum mengirimkan request ke server.
-- **Dampak / Risiko**:
-  - Request gagal dengan error dari backend atau data rentang cuti menjadi anomali (tanggal minus) jika lolos, membingungkan pengguna yang sedang mengajukan cuti.
-- **Instruksi Solusi Konkret**:
-  - Di `frontend/src/components/CutiModal.jsx`:
-    1. Tambahkan pengecekan sebelum submit: jika `new Date(startDate) > new Date(endDate)`, segera tampilkan pesan toast peringatan error instan: *"Tanggal mulai cuti tidak boleh melebihi tanggal selesai"*.
-    2. Batasi atribut `min` pada input tanggal selesai agar otomatis bernilai minimal sebesar `startDate`.
+### BUTIR TUGAS 1: Peningkatan Kontras Warna Teks Tanda Tangan Mobile (Temuan #3)
+* **Lokasi Berkas**: `frontend/src/components/mobile/reports/MobileSignaturesSection.jsx:135,168`
+* **Deskripsi Masalah**: Teks tanggal tanda tangan digital dan label peran menggunakan `text-slate-400` di atas kartu latar putih/slate (kontras 2.53:1).
+* **Dampak / Risiko**: Sulit dibaca oleh kru lapangan di bawah sinar matahari apron bandara.
+* **Instruksi Solusi Konkret**: Ubah warna teks dari `text-slate-400` menjadi `text-slate-600` (atau `text-slate-500 font-medium`).
 
 ---
 
-### Poin 3: Penguatan Proteksi Mutasi Personel Bertugas Aktif di `personnelController.js`
-- **Deskripsi Masalah**:
-  - Mutasi regu (`team_group`), penonaktifan (`is_active = 0`), atau penghapusan personel berpotensi dilakukan saat personel masih tercatat aktif di ploting kendaraan shift yang sedang berjalan.
-- **Dampak / Risiko**:
-  - Terjadi anomali foreign key dan kekosongan slot kru armada secara tiba-tiba di tengah dinas aktif bandara (*data integrity crash*).
-- **Instruksi Solusi Konkret**:
-  - Di `backend/src/controllers/personnelController.js`:
-    1. Pada handler update/delete personel, lakukan pengecekan ke tabel `shift_assignments` pada shift dinas aktif saat ini.
-    2. Jika personel tersebut sedang aktif bertugas di kendaraan operasional atau posko pada shift yang sedang berjalan dan dicoba diubah regunya atau dinonaktifkan:
-       - Kembalikan HTTP 400 Bad Request dengan pesan: *"Personel sedang aktif bertugas pada shift dinas saat ini. Lepaskan penugasan di menu Ploting terlebih dahulu sebelum melakukan mutasi/penonaktifan."*
+### BUTIR TUGAS 2: Integrasi Kompresi Kanvas WebP Foto Kamera Kru Mobile (Temuan #6)
+* **Lokasi Berkas**: `frontend/src/components/mobile/activities/MobileActivityModal.jsx` & `frontend/src/components/mobile/incidents/MobileIncidentModal.jsx`
+* **Deskripsi Masalah**: Foto kamera resolusi tinggi dari smartphone kru (5 MB s.d. 12 MB) langsung dimasukkan ke `FormData` tanpa kompresi.
+* **Dampak / Risiko**: Gagal upload / timeout jaringan apron, konsumsi bandwidth boros, disk server cepat penuh.
+* **Instruksi Solusi Konkret**: Impor `compressImageToWebp` dari `../../../utils/imageCompressor` dan jalankan kompresi otomatis sebelum berkas dimasukkan ke state form:
+  ```javascript
+  const compressed = await compressImageToWebp(file, { maxWidth: 1280, maxHeight: 1280, quality: 0.8 });
+  ```
 
 ---
 
-## Instruksi Pelaporan Temuan Tambahan, Bug, Ide, & Saran
-Apabila selama proses audit maupun perbaikan kode Anda menemukan:
-- **Bug / Masalah Baru**: Error, glitch, atau cacat logika tambahan yang belum tercantum di tugas ini.
-- **Risiko Keamanan / Integritas Data**: Celah otentikasi, potensi tabrakan data, atau regresi performa.
-- **Ide / Saran Pengembangan**: Usulan optimasi UI/UX, efisiensi komponen, atau ide fitur yang relevan bagi operasional.
-
-**ATURAN TINDAKAN**:
-1. **Dilarang keras memodifikasi berkas di luar domain eksklusif Agent 2 secara sepihak.**
-2. **Catat seluruh temuan, ide, dan saran tersebut pada seksi khusus di berkas laporan Anda (`masak/temp/hasil_agent2.md`)** menggunakan format poin hierarkis:
-   - **Judul Temuan / Ide**: Ringkasan topik.
-   - **Deskripsi Masalah / Konsep**: Penjelasan detail teknis.
-   - **Dampak / Manfaat**: Urgensi atau keuntungan bagi pengguna.
-   - **Rekomendasi Tindak Lanjut**: Saran perbaikan konkret untuk diorkestrasi selanjutnya.
+### BUTIR TUGAS 3: Penerapan `AbortController` pada Fetch Hook Mobile (Temuan #9)
+* **Lokasi Berkas**: Halaman mobile (`MobileDashboard.jsx`, `MobileDeployment.jsx`, `MobileActivities.jsx`, `MobileIncidents.jsx`, `MobileReports.jsx`)
+* **Deskripsi Masalah**: Panggilan API dalam `useEffect` tidak menyertakan sinyal pembatalan.
+* **Dampak / Risiko**: Race condition data saat kru berpindah tab navigasi bawah dengan cepat, dan memory leak.
+* **Instruksi Solusi Konkret**: Terapkan `const controller = new AbortController()` dan sertakan `{ signal: controller.signal }` pada pemanggilan `api.get`, serta lakukan `controller.abort()` pada return cleanup effect.
 
 ---
 
-## Verifikasi & Pelaporan
-1. Jalankan `node -c backend/src/controllers/personnelController.js`.
-2. Jalankan `npm run build` di root frontend.
-3. Tuliskan ringkasan hasil eksekusi secara mandiri di `masak/temp/hasil_agent2.md`.
+### BUTIR TUGAS 4: Pemangkasan Payload Mobile Dashboard untuk Hitungan Personel (Temuan #15)
+* **Lokasi Berkas**: `frontend/src/pages/mobile/MobileDashboard.jsx`
+* **Deskripsi Masalah**: Untuk menampilkan jumlah total kru yang hadir, halaman mobile memicu `GET /api/personnel` yang mengunduh 36 kolom lengkap 95 personel (186 kB).
+* **Dampak / Risiko**: Memperlambat rendering mobile dashboard awal sebesar 1.5 - 2 detik pada koneksi 3G/4G apron.
+* **Instruksi Solusi Konkret**: Manfaatkan data ringkasan personel yang sudah ada di respon `GET /api/deployments/current` (array ploting kru dinas) atau gunakan query ringkas parameter `?compact=true` agar mobile dashboard tidak memuat full dossier.
+
+---
+
+### BUTIR TUGAS 5: Optimasi Dropdown Modal Ganti Chief (Temuan #16)
+* **Lokasi Berkas**: `frontend/src/components/mobile/ploting/MobilePlotCard.jsx`
+* **Deskripsi Masalah**: Dropdown modal ganti Chief mengunduh seluruh personel unit sejak inisialisasi awal layar, bukan saat tombol ganti diklik.
+* **Dampak / Risiko**: Pemuatan awal halaman ploting menjadi lambat karena request tambahan yang belum tentu dibuka pengguna.
+* **Instruksi Solusi Konkret**: Terapkan *lazy-fetch*: panggil data kandidat pengganti Chief HANYA saat modal / sheet pemilihan pengganti Chief dibuka (`if (isOpen) fetchCandidates()`).
+
+---
+
+### BUTIR TUGAS 6: Eliminasi Duplikasi Pemasangan Komponen `MobileLeaveModal` (Temuan #20)
+* **Lokasi Berkas**: `frontend/src/pages/mobile/MobileDashboard.jsx` & komponen anak mobile
+* **Deskripsi Masalah**: Modal pengajuan izin/cuti mandiri di-mount dua kali di level layout/dashboard dan di level kartu ploting.
+* **Dampak / Risiko**: Potensi double state, duplikasi DOM modal tersembunyi, dan event listener ganda.
+* **Instruksi Solusi Konkret**: Satukan pemanggilan `MobileLeaveModal` ke satu pintu di level halaman induk (`MobileDashboard.jsx`), hapus instance duplikat di komponen anak.
+
+---
+
+### BUTIR TUGAS 7: Eliminasi Permintaan Jaringan Pengumuman Ganda pada Mobile Dashboard (Temuan #21)
+* **Lokasi Berkas**: `frontend/src/pages/mobile/MobileDashboard.jsx`
+* **Deskripsi Masalah**: `MobileDashboard` memanggil `GET /api/announcements` di hook halaman utama dan komponen widget anak `MobileRecentAnnouncements` memanggilnya kembali secara terpisah.
+* **Dampak / Risiko**: Terjadi 2 request HTTP yang meminta data persis sama secara bersamaan di awal buka aplikasi mobile.
+* **Instruksi Solusi Konkret**: Ambil data pengumuman satu kali di `MobileDashboard.jsx`, lalu operkan (*pass as props*) ke komponen widget `MobileRecentAnnouncements`.
+
+---
+
+### BUTIR TUGAS 8: Pemasangan Banner Deteksi Jaringan Offline (Temuan #41)
+* **Lokasi Berkas**: Buat `frontend/src/components/common/OfflineBanner.jsx` dan pasang di `frontend/src/components/mobile/MobileLayout.jsx`
+* **Deskripsi Masalah**: Kru yang bergerak di area apron sering kehilangan sinyal seluler (*blind spot*), namun aplikasi tidak memberi indikator status offline. Form yang disubmit saat offline langsung error tanpa penjelasan.
+* **Dampak / Risiko**: Kru frustrasi mengira sistem rusak saat mengisi kesiapan kendaraan di lokasi apron tanpa sinyal.
+* **Instruksi Solusi Konkret**: Buat komponen `OfflineBanner.jsx` yang memantau event browser `window.addEventListener('offline')` dan `'online'`. Tampilkan banner amber tenang di atas layar: *"Mode Offline: Koneksi internet terputus. Pastikan sinyal stabil sebelum menyimpan data."*.
+
+---
+
+### KANAL TERBUKA TEMUAN, BUG, IDE & SARAN TAMBAHAN
+Apabila selama proses eksekusi Agent 2 menemukan kelemahan sistem lain, bug tersembunyi, celah logika, ide pengembangan, atau saran optimasi UI/UX di luar tugas utamanya, **Agent 2 DILARANG mengubah kode di luar domainnya secara sepihak**. Agent 2 WAJIB mencatat seluruh temuan, ide, dan saran tersebut pada seksi khusus di berkas laporannya (`masak/temp/hasil_agent2.md`) agar dapat dievaluasi oleh Pengawas.
+
+### INSTRUKSI AKHIR & VALIDASI
+* Validasi seluruh perubahan melalui terminal CLI: jalankan `npm run build` di folder `frontend/`.
+* Tuliskan hasil pekerjaan dan bukti build di `masak/temp/hasil_agent2.md`.
+* DILARANG melakukan `git commit` atau `git push` otomatis.
+* DILARANG menggunakan tool `browser_subagent`.

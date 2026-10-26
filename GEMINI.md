@@ -13,6 +13,18 @@
 - DILARANG KERAS melakukan `git commit` dan `git push` secara otomatis.
 - Jalankan commit dan push HANYA jika ada perintah/permintaan eksplisit dari pengguna.
 
+## Aturan Dokumentasi QA (`QA.md`) vs Riwayat QA (`RQA.md`)
+- **Fungsi `QA.md` (Active Quality Assurance Tracker)**:
+  - Berkas `QA.md` HANYA memuat daftar temuan audit aktif, bug terbuka (*open/pending*), atau item perbaikan teknis yang belum/sedang dikerjakan.
+  - Setiap kali ada butir QA atau perbaikan arsitektur yang telah selesai dikerjakan, diuji, dan stabil, butir tersebut **WAJIB DIHAPUS dari `QA.md`** agar `QA.md` tetap ringkas, bersih, dan fokus pada sisa pekerjaan yang belum selesai.
+- **Fungsi `RQA.md` (Riwayat Quality Assurance & Resolved Changelog)**:
+  - Berkas `RQA.md` adalah arsip permanen untuk seluruh pekerjaan QA, refaktorisasi, unifikasi, dan resolusi bug yang telah selesai dikerjakan (*resolved / completed*).
+  - Setiap butir temuan atau pekerjaan yang selesai dikerjakan dan dihapus dari `QA.md` **WAJIB DIPINDAHKAN dan dicatat ke dalam `RQA.md`** secara rapi, lengkap dengan konteks masalah, solusi konkret yang diambil, dan berkas/commit yang terpengaruh.
+
+## Aturan Format Penulisan Nama File di Dokumentasi (Anti-Path Panjang)
+- DILARANG menuliskan tautan path file absolut yang panjang dan berisik seperti `(file:///c:/Users/ad/OneDrive/Dokumen/ad/MAGANG/acms/...)`.
+- Cukup tuliskan **nama file saja** (misal: `pdfService.js` atau `backend/src/services/pdfService.js`) menggunakan format backtick kode markdown.
+
 ## Koreksi Diri & Aturan Anti-Kesalahan (Lessons Learned)
 1. **Dilarang Menuliskan Tombol Aksi / Keterangan Dobel (Anti-Redundansi UI)**:
    - Dilarang membuat tombol aksi yang sama dua kali dalam satu halaman (misal: tombol "Simpan Draf Ploting" di dalam banner info dan di header tabel sekaligus). Satu aksi wajib memiliki tepat satu tempat yang jelas dan intuitif.
@@ -137,6 +149,9 @@ Berdasarkan feedback eksplisit pengguna:
      - **Dampak / Risiko**: Dampak nyata terhadap operasional, integritas data, atau pengguna jika masalah dibiarkan.
      - **Instruksi Solusi Konkret**: Panduan teknis presisi langkah demi langkah perbaikan yang harus dieksekusi agen. Hal ini krusial agar agen memahami konteks penuh dan tidak salah mengambil keputusan teknis.
   4. **Kanal Terbuka untuk Temuan, Bug, Ide, & Saran Tambahan**: Setiap lembar penugasan WAJIB menginstruksikan agen: Apabila selama proses audit atau eksekusi agen menemukan kelemahan sistem lain, bug tersembunyi, celah logika, ide pengembangan, atau saran optimasi UI/UX di luar tugas utamanya, agen DILARANG mengubah kode di luar domainnya secara sepihak. Agen WAJIB mencatat seluruh temuan, ide, dan saran tersebut pada seksi khusus di berkas laporannya (`masak/temp/hasil_agent*.md`) agar dapat dievaluasi dan ditugaskan oleh Pengawas bersama Pengguna pada iterasi berikutnya.
+  5. **Wajib Menugaskan Seluruh Butir Temuan Secara Lengkap & Menyeluruh (Anti-Penugasan Singkat / Anti-Sampel Parsial)**:
+     - Saat mendistribusikan tugas audit dari `QA.md`, Supervisor DILARANG KERAS hanya memilih sebagian kecil temuan (sampel singkat) dan meninggalkan temuan lainnya tanpa kejelasan.
+     - Seluruh butir temuan yang masih terbuka (*open/pending*) di `QA.md` WAJIB dipetakan dan ditugaskan secara tuntas, rinci, dan berbobot ke dalam 5 domain agent pelaksana (Agent 1 s.d. 5) sehingga tidak ada item QA yang tercecer atau terbengkalai.
 - **Protokol 4 Fase Siklus Orkestrasi**:
   1. **Fase 1 (Audit & Inventarisasi)**: Seluruh agen menyisir domain untuk menemukan kesalahan tanpa modifikasi kode produksi, dan mencatatnya ke `masak/temp/hasil_agent*.md`.
   2. **Fase 2 (Persetujuan / ACC Pengguna)**: Pengawas merekap dan mempresentasikan seluruh temuan kepada pengguna untuk disetujui / diselaraskan.
