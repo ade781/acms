@@ -19,6 +19,7 @@ import MobileEditProfileModal from './MobileEditProfileModal';
 import MobileChangePasswordModal from './MobileChangePasswordModal';
 import MobilePersonnelAccordion from './MobilePersonnelAccordion';
 import PersonnelDossierEditModal from '../../personnel/PersonnelDossierEditModal';
+import { formatIndoDate } from '../../../utils/shiftHelper';
 
 const DOCUMENT_TYPE_LABELS = {
   lisensi_stkp: 'Lisensi STKP',
@@ -36,20 +37,8 @@ function formatBytes(bytes) {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
-function formatDateIndo(dateStr) {
-  if (!dateStr) return '-';
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return dateStr;
-  }
-}
+const formatDateIndo = (dateStr) => formatIndoDate(dateStr, { day: 'numeric', month: 'short', year: 'numeric' });
+
 
 export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
   const { user, token, logout, refreshUser } = useAuth();

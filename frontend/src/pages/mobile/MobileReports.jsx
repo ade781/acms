@@ -22,7 +22,7 @@ import {
   SHIFT_DEFINITIONS,
 } from '../../utils/shiftHelper';
 import api from '../../services/api';
-import { fetchShiftReportData } from '../../services/reportService';
+import { fetchShiftReportData, downloadShiftReportPdf } from '../../services/reportService';
 import MobileReportSummaryCard from '../../components/mobile/reports/MobileReportSummaryCard';
 import MobileUnitAuditModal from '../../components/mobile/reports/MobileUnitAuditModal';
 import MobilePdfViewerModal from '../../components/mobile/reports/MobilePdfViewerModal';
@@ -122,29 +122,17 @@ export default function MobileReports() {
     };
   }, [fetchReportData]);
 
-  // Handler Download PDF Langsung
+  // Handler Download PDF Langsung via Service Terpadu
   const handleDownloadPdf = async () => {
     try {
       setDownloading(true);
       setErrorMessage(null);
 
-      const url = `/reports/pdf?date=${activeDate}&shift=${activeShiftNumber}&team_group=${cleanTeam(
-        activeTeam
-      )}`;
-      const res = await api.get(url, { responseType: 'blob' });
-
-      const blob = new Blob([res.data], { type: 'application/pdf' });
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.setAttribute(
-        'download',
-        `Laporan-Shift-${activeShiftNumber}-${cleanTeam(activeTeam)}-${activeDate}.pdf`
-      );
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(downloadUrl);
+      await downloadShiftReportPdf({
+        date: activeDate,
+        shift: activeShiftNumber,
+        team: activeTeam,
+      });
     } catch (err) {
       console.error('Download PDF error:', err);
       setErrorMessage('Gagal mengunduh berkas PDF laporan dinas. Pastikan data shift valid.');
@@ -152,6 +140,7 @@ export default function MobileReports() {
       setDownloading(false);
     }
   };
+
 
   // Handler Klik Unit untuk Buka Audit Modal
   const handleOpenUnitAudit = (unit) => {

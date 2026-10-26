@@ -16,6 +16,7 @@ import {
   GraduationCap,
 } from 'lucide-react';
 import Badge from '../../common/Badge';
+import { formatIndoDate, formatTeam, formatRoleName } from '../../../utils/shiftHelper';
 
 const ALL_ADDITIONAL_COMPETENCIES = [
   'SAR',
@@ -71,39 +72,9 @@ function calculateTenure(tmtDateStr) {
   }
 }
 
-function formatDateIndo(dateStr) {
-  if (!dateStr) return '-';
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return String(dateStr);
-    return d.toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return String(dateStr);
-  }
-}
+const formatDateIndo = (dateStr) => formatIndoDate(dateStr, { day: 'numeric', month: 'short', year: 'numeric' });
 
-function formatTeam(team) {
-  if (!team) return '-';
-  const clean = team.toUpperCase();
-  return ['ALPHA', 'BRAVO', 'CHARLIE', 'DELTA'].includes(clean) ? `Regu ${clean}` : team;
-}
 
-function formatRoleName(role) {
-  const map = {
-    admin: 'Administrator',
-    dept_head: 'Dept. Head',
-    chief: 'Chief ARFF',
-    assistant_chief: 'Assistant Chief',
-    danru: 'Komandan Regu',
-    pic: 'Person In Charge',
-    staff: 'Personel Rescue',
-  };
-  return map[role] || (role ? role.toUpperCase() : 'Personel');
-}
 
 export default function MobilePersonnelAccordion({
   personnel,

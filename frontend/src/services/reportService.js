@@ -94,6 +94,25 @@ export async function fetchShiftReportData({ date, shift, team, signal }) {
   };
 }
 
+import { downloadBlob } from '../utils/fileHelper';
+
+export { downloadBlob };
+
+/**
+ * Mengunduh berkas PDF Dokumen Resmi Laporan Shift Operasional Harian
+ * Single Source of Truth untuk Desktop & Mobile (DRY)
+ */
+export async function downloadShiftReportPdf({ date, shift, team } = {}) {
+  const currentTeam = cleanTeam(team || 'Alpha');
+  const res = await api.get(
+    `/reports/pdf?date=${date}&shift=${shift}&team_group=${currentTeam}`,
+    { responseType: 'blob' }
+  );
+
+  const blob = new Blob([res.data], { type: 'application/pdf' });
+  downloadBlob(blob, `Laporan-Shift-${shift}-${currentTeam}-${date}.pdf`);
+}
+
 /**
  * Mengunduh dokumen PDF Laporan Kesiapan Armada Resmi
  */
@@ -107,14 +126,7 @@ export async function downloadVehicleReportPdf({ period = '1month', start_date =
   });
 
   const blob = new Blob([res.data], { type: 'application/pdf' });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.setAttribute('download', `Laporan-Kesiapan-Armada-${period}.pdf`);
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
+  downloadBlob(blob, `Laporan-Kesiapan-Armada-${period}.pdf`);
 }
 
 /**
@@ -132,14 +144,7 @@ export async function downloadIncidentReportPdf({ period = '1month', start_date 
   });
 
   const blob = new Blob([res.data], { type: 'application/pdf' });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.setAttribute('download', `Laporan-Rekap-Insiden-${period}.pdf`);
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
+  downloadBlob(blob, `Laporan-Rekap-Insiden-${period}.pdf`);
 }
 
 /**
@@ -157,20 +162,16 @@ export async function downloadActivityReportPdf({ period = '1month', start_date 
   });
 
   const blob = new Blob([res.data], { type: 'application/pdf' });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.setAttribute('download', `Laporan-Logbook-Kegiatan-${period}.pdf`);
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
+  downloadBlob(blob, `Laporan-Logbook-Kegiatan-${period}.pdf`);
 }
 
 export default {
   fetchShiftReportData,
+  downloadShiftReportPdf,
   downloadVehicleReportPdf,
   downloadIncidentReportPdf,
   downloadActivityReportPdf,
+  downloadBlob,
 };
+
 

@@ -178,24 +178,26 @@ export function getCurrentOperationalShift(now = new Date()) {
  * Format date to Indonesian localized string
  * @param {string|Date} dateStr
  */
-export function formatIndoDate(dateStr) {
+export function formatIndoDate(dateStr, options = null) {
   if (!dateStr) return '-';
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('id-ID', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return String(dateStr);
+    return d.toLocaleDateString(
+      'id-ID',
+      options || {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      }
+    );
+  } catch {
+    return String(dateStr);
+  }
 }
 
-// Alias fungsi dalam Bahasa Indonesia
-export const bersihkanNamaRegu = cleanTeam;
-export const formatNamaRegu = formatTeam;
-export const ambilReguTerjadwal = getScheduledTeam;
-export const ambilJadwalHarian = getDailyRoster;
-export const ambilShiftOperasionalSaatIni = getCurrentOperationalShift;
-export const formatTanggalIndonesia = formatIndoDate;
+
 
 /**
  * Daftar Jabatan Operasional ARFF YIA riil beserta pemetaan rolenya

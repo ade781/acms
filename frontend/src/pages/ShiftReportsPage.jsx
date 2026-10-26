@@ -25,7 +25,7 @@ import {
   formatTeam,
 } from '../utils/shiftHelper';
 import api from '../services/api';
-import { fetchShiftReportData } from '../services/reportService';
+import { fetchShiftReportData, downloadShiftReportPdf } from '../services/reportService';
 import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import Button from '../components/common/Button';
 import MobileUnitAuditModal from '../components/mobile/reports/MobileUnitAuditModal';
@@ -121,25 +121,11 @@ export default function ShiftReportsPage() {
       setDownloadError(null);
       setDownloadSuccess(null);
 
-      const res = await api.get(
-        `/reports/pdf?date=${activeDate}&shift=${activeShiftNumber}&team_group=${cleanTeam(
-          activeTeam
-        )}`,
-        { responseType: 'blob' }
-      );
-
-      const blob = new Blob([res.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute(
-        'download',
-        `Laporan-Shift-${activeShiftNumber}-${cleanTeam(activeTeam)}-${activeDate}.pdf`
-      );
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      await downloadShiftReportPdf({
+        date: activeDate,
+        shift: activeShiftNumber,
+        team: activeTeam,
+      });
 
       setDownloadSuccess('Berkas PDF dokumen dinas resmi berhasil diunduh.');
       setTimeout(() => setDownloadSuccess(null), 4000);
@@ -152,6 +138,7 @@ export default function ShiftReportsPage() {
       setDownloading(false);
     }
   };
+
 
   const presentDeployments = deployments.filter((d) => d.deployment_type !== 'absent');
   const serviceableCount =

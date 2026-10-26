@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { formatTeam, formatRoleName } from '../../utils/shiftHelper';
+import { formatTeam, formatRoleName, formatIndoDate } from '../../utils/shiftHelper';
 import PersonnelDossier from '../personnel/PersonnelDossier';
 import PersonnelDossierEditModal from '../personnel/PersonnelDossierEditModal';
 
@@ -41,20 +41,7 @@ function formatBytes(bytes) {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
-function formatDateIndo(dateStr) {
-  if (!dateStr) return '-';
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return dateStr;
-  }
-}
+const formatDateIndo = (dateStr) => formatIndoDate(dateStr, { day: 'numeric', month: 'short', year: 'numeric' });
 
 export default function DesktopProfileModal({ isOpen, onClose }) {
   const { user, token, refreshUser } = useAuth();
@@ -611,23 +598,37 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+                <div className="flex justify-between items-center gap-2 pt-2 border-t border-slate-200">
                   <button
                     type="button"
-                    onClick={() => setIsEditingProfile(false)}
-                    disabled={savingProfile}
-                    className="px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors duration-100"
+                    onClick={() => {
+                      setIsEditingProfile(false);
+                      setIsEditingDossier(true);
+                    }}
+                    className="px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold flex items-center gap-1.5 transition-colors duration-100"
                   >
-                    Batal
+                    <Award className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Edit 11 Kompetensi & Diklat (Dossier Lengkap) →</span>
                   </button>
-                  <button
-                    type="submit"
-                    disabled={savingProfile}
-                    className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-semibold text-xs shadow-xs transition-colors duration-100 flex items-center gap-1.5"
-                  >
-                    <Save className="w-3.5 h-3.5" />
-                    <span>{savingProfile ? 'Menyimpan...' : 'Simpan Data'}</span>
-                  </button>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingProfile(false)}
+                      disabled={savingProfile}
+                      className="px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors duration-100"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={savingProfile}
+                      className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-semibold text-xs shadow-xs transition-colors duration-100 flex items-center gap-1.5"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>{savingProfile ? 'Menyimpan...' : 'Simpan Data'}</span>
+                    </button>
+                  </div>
                 </div>
               </form>
             </div>
@@ -646,6 +647,16 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
               </div>
 
               <div className="flex items-center gap-2">
+                {!isPureAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingDossier(true)}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 hover:bg-emerald-100 text-xs font-semibold flex items-center gap-1.5 transition-colors duration-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer"
+                  >
+                    <Award className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Edit Kualifikasi & Kompetensi</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
