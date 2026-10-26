@@ -1,5 +1,6 @@
 import pool from '../config/db.js';
 import { successResponse, errorResponse } from '../utils/responseHelper.js';
+import { cleanTeam } from '../utils/roleMapper.js';
 
 export const getDashboardSummary = async (req, res) => {
   try {
@@ -7,7 +8,7 @@ export const getDashboardSummary = async (req, res) => {
 
     const shiftDate = date || new Date().toISOString().split('T')[0];
     const shiftNumber = shift ? Number(shift) : 1;
-    const cleanTeamGroup = (team_group || 'Alpha').replace(/^regu\s+/i, '').trim();
+    const cleanTeamGroup = cleanTeam(team_group || 'Alpha');
 
     // 1. Data shift aktif
     let shiftQuery = `
