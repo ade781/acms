@@ -14,7 +14,6 @@ export default function Navbar({ onToggleSidebar }) {
     setActiveDate,
     activeShiftNumber,
     setActiveShiftNumber,
-    activeTeam,
   } = useAuth();
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -27,50 +26,42 @@ export default function Navbar({ onToggleSidebar }) {
     };
   }, []);
 
-  const currentShiftDef = SHIFT_DEFINITIONS.find((s) => s.number === Number(activeShiftNumber));
-
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-slate-200 print:hidden">
-      <div className="flex items-center justify-between px-4 sm:px-6 h-16">
-        {/* Left: Mobile hamburger & Logo */}
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-3 px-4 sm:px-6 h-16">
+        {/* Left: Mobile Hamburger & Logo (Hidden on Desktop) */}
+        <div className="flex items-center gap-2.5 md:hidden">
           <button
             type="button"
             onClick={onToggleSidebar}
-            className="md:hidden p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 min-h-[44px] min-w-[44px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-red-500"
+            className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 min-h-[44px] min-w-[44px] flex items-center justify-center flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-red-500"
             aria-label="Buka menu navigasi"
           >
             <Menu className="w-5 h-5" />
           </button>
 
-          <div className="md:hidden">
+          <div className="flex-shrink-0">
             <Logo className="h-7 w-7" withText={false} />
-          </div>
-
-          <div className="hidden lg:flex items-center gap-2 pl-2">
-            <span className="font-bold text-slate-900 text-sm tracking-wide">ARFF YIA</span>
-            <span className="text-xs text-slate-400">|</span>
-            <span className="text-xs font-medium text-slate-600">Bandara Internasional Yogyakarta</span>
           </div>
         </div>
 
-        {/* Center: Operational Shift Controls (Date, Shift 1-3) */}
-        <div className="hidden sm:flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-1">
+        {/* Operational Date & Shift Control Strip */}
+        <div className="hidden sm:flex items-center bg-slate-100/80 border border-slate-200/90 rounded-lg p-1 gap-1.5 flex-shrink-0">
           {/* Date Picker */}
-          <div className="flex items-center gap-1.5 px-2 py-1 bg-white border border-slate-200 rounded text-xs font-medium text-slate-700">
-            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200/80 rounded-md text-xs font-medium text-slate-700 hover:border-slate-300 transition-colors duration-100">
+            <Calendar className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
             <input
               type="date"
               value={activeDate}
               onChange={(e) => setActiveDate(e.target.value)}
-              className="bg-transparent border-none text-xs text-slate-800 focus:outline-none cursor-pointer"
+              className="bg-transparent border-none text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer tabular-nums"
               aria-label="Pilih tanggal shift dinas"
             />
           </div>
 
           {/* Shift Select */}
-          <div className="flex items-center gap-1.5 px-2 py-1 bg-white border border-slate-200 rounded text-xs font-medium text-slate-700">
-            <Clock className="w-3.5 h-3.5 text-slate-400" />
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200/80 rounded-md text-xs font-medium text-slate-700 hover:border-slate-300 transition-colors duration-100">
+            <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
             <select
               value={activeShiftNumber}
               onChange={(e) => setActiveShiftNumber(Number(e.target.value))}
@@ -79,25 +70,25 @@ export default function Navbar({ onToggleSidebar }) {
             >
               {SHIFT_DEFINITIONS.map((s) => (
                 <option key={s.number} value={s.number}>
-                  {s.name} ({s.startTime} s.d. {s.endTime})
+                  {s.name} ({s.startTime} - {s.endTime})
                 </option>
               ))}
             </select>
           </div>
         </div>
 
-        {/* Right: User identity & logout */}
-        <div className="flex items-center gap-3">
+        {/* Right: User Identity & Logout */}
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 ml-auto md:ml-0">
           {user ? (
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setIsProfileOpen(true)}
-                className="hidden sm:flex flex-col text-right hover:opacity-80 transition-opacity focus:outline-none cursor-pointer"
-                title="Buka Profil Mandiri & Kredensial STKP"
-                aria-label="Buka Profil Pribadi"
+                className="hidden lg:flex flex-col text-right hover:opacity-80 transition-opacity focus:outline-none cursor-pointer"
+                title={`Buka Profil ${user.name || user.username}`}
+                aria-label={`Profil ${user?.name || user?.username || 'Pengguna'}`}
               >
-                <span className="text-xs font-bold text-slate-900 leading-tight">
+                <span className="text-xs font-bold text-slate-900 leading-tight truncate max-w-[160px]">
                   {user.name || user.username}
                 </span>
                 <span className="text-[10px] text-slate-500 font-medium">
@@ -109,8 +100,8 @@ export default function Navbar({ onToggleSidebar }) {
                 type="button"
                 onClick={() => setIsProfileOpen(true)}
                 className="w-9 h-9 rounded-full bg-slate-100 hover:bg-red-50 hover:border-red-400 border border-slate-300 flex items-center justify-center text-slate-700 hover:text-red-600 font-semibold text-xs select-none transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-red-500 cursor-pointer"
-                title={`Profil Mandiri: ${user.name || user.username}`}
-                aria-label="Profil Pengguna"
+                title={`Profil ${user.name || user.username}`}
+                aria-label={`Profil ${user?.name || user?.username || 'Pengguna'}`}
               >
                 {user.name ? user.name.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
               </button>
@@ -118,7 +109,7 @@ export default function Navbar({ onToggleSidebar }) {
               <button
                 type="button"
                 onClick={logout}
-                className="p-2 text-slate-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors duration-100 min-h-[44px] min-w-[44px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-red-400"
+                className="p-2 text-slate-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors duration-100 min-h-[44px] min-w-[44px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-red-400 cursor-pointer"
                 title="Keluar dari sistem"
                 aria-label="Keluar dari sistem"
               >
@@ -131,14 +122,27 @@ export default function Navbar({ onToggleSidebar }) {
         </div>
       </div>
 
-      {/* Mobile subheader bar showing active shift and team */}
-      <div className="sm:hidden flex items-center justify-between px-4 py-2 bg-slate-100 border-t border-slate-200 text-xs">
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-slate-800">{formatTeam(activeTeam)}</span>
-          <span className="text-slate-400">|</span>
-          <span className="text-slate-600">{currentShiftDef?.name}</span>
-        </div>
-        <span className="text-[11px] text-slate-500">{activeDate}</span>
+      {/* Mobile Interactive Subheader Bar (< sm) */}
+      <div className="sm:hidden flex items-center justify-end gap-1.5 px-4 py-2 bg-slate-50 border-t border-slate-200 text-xs">
+        <input
+          type="date"
+          value={activeDate}
+          onChange={(e) => setActiveDate(e.target.value)}
+          className="px-2 py-1 bg-white border border-slate-200 rounded text-[11px] font-semibold text-slate-800 focus:outline-none tabular-nums"
+          aria-label="Pilih tanggal shift dinas (mobile)"
+        />
+        <select
+          value={activeShiftNumber}
+          onChange={(e) => setActiveShiftNumber(Number(e.target.value))}
+          className="px-2 py-1 bg-white border border-slate-200 rounded text-[11px] font-semibold text-slate-800 focus:outline-none"
+          aria-label="Pilih shift dinas (mobile)"
+        >
+          {SHIFT_DEFINITIONS.map((s) => (
+            <option key={s.number} value={s.number}>
+              {s.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Sub-view Modal Profil Mandiri Desktop (GEMINI.md Butir 9) */}

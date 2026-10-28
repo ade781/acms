@@ -1,5 +1,6 @@
 import React from 'react';
-import { Clock, Calendar, Users, Shield, CheckCircle, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Clock, Calendar, Users, Shield, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { SHIFT_DEFINITIONS, formatIndoDate, cleanTeam } from '../../utils/shiftHelper';
 import Badge from '../common/Badge';
 
@@ -12,8 +13,17 @@ export default function ShiftHeaderCard({
   openIncidentsCount = 0,
   onOpenIncidentModal,
 }) {
+  const navigate = useNavigate();
   const currentDef = SHIFT_DEFINITIONS.find((s) => s.number === Number(shiftNumber)) || SHIFT_DEFINITIONS[0];
   const team = cleanTeam(teamGroup);
+
+  const handleIncidentClick = () => {
+    if (typeof onOpenIncidentModal === 'function') {
+      onOpenIncidentModal();
+    } else {
+      navigate('/incidents');
+    }
+  };
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 mb-6">
@@ -27,10 +37,9 @@ export default function ShiftHeaderCard({
             <Badge variant={`team${team}`} size="md">
               Dinas Aktif
             </Badge>
-            <Badge variant="serviceable" size="md">
-              <CheckCircle className="w-3.5 h-3.5" />
-              Rekapitulasi Berjalan (Real-Time)
-            </Badge>
+            <span className="text-xs font-semibold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md">
+              Pukul {currentDef.startTime} - {currentDef.endTime} WIB
+            </span>
           </div>
 
           <div className="flex items-center gap-4 text-xs text-slate-600 flex-wrap pt-1">
@@ -73,17 +82,16 @@ export default function ShiftHeaderCard({
           </div>
         </div>
 
-        {/* Right: Actions (Incident Status Badge/Button & Approve Shift) */}
+        {/* Right: Actions (Incident Status Badge/Button navigasi ke /incidents) */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          {/* Status Insiden */}
           <button
             type="button"
-            onClick={onOpenIncidentModal}
-            title={openIncidentsCount > 0 ? `${openIncidentsCount} Insiden Aktif` : '0 Insiden'}
-            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-colors duration-100 min-h-[40px] shadow-sm border ${
+            onClick={handleIncidentClick}
+            title={openIncidentsCount > 0 ? `${openIncidentsCount} Insiden Aktif - Klik untuk buka insiden` : '0 Insiden - Klik untuk buka daftar insiden'}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-colors duration-100 min-h-[40px] shadow-sm border cursor-pointer ${
               openIncidentsCount > 0
                 ? 'bg-red-600 border-red-700 text-white hover:bg-red-700 animate-pulse'
-                : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
             {openIncidentsCount > 0 ? (
@@ -95,7 +103,6 @@ export default function ShiftHeaderCard({
               {openIncidentsCount > 0 ? `${openIncidentsCount} Insiden Aktif` : '0 Insiden'}
             </span>
           </button>
-
         </div>
       </div>
     </div>
