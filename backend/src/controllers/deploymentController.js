@@ -30,6 +30,9 @@ export const getCurrentDeployment = async (req, res) => {
 
     // Ambil data Section Head / Dept Head resmi via utilitas terpadu
     const deptHeadData = await getOfficialSignatory(pool);
+    const targetTeam = cleanTeam(team_group || (shifts.length > 0 ? shifts[0].team_group : 'Alpha'));
+    const [teamCountRows] = await pool.query('SELECT COUNT(*) as total_team_members FROM personnel WHERE team_group = ? AND is_active = 1', [targetTeam]);
+    const totalTeamMembers = Number(teamCountRows[0]?.total_team_members || 0);
 
     if (shifts.length === 0) {
       return successResponse(res, 'Sesi shift belum dibuat, form ploting dimulai dari kondisi kosong', {
@@ -37,6 +40,7 @@ export const getCurrentDeployment = async (req, res) => {
         shift_date: shiftDate,
         shift_number: shiftNumber,
         team_group: team_group || null,
+        total_team_members: totalTeamMembers,
         dept_head: deptHeadData,
         deployments: [],
         vehicles: [],
@@ -72,7 +76,7 @@ export const getCurrentDeployment = async (req, res) => {
 
     const [deployments] = await pool.query(
       `SELECT pd.*,
-              p.nip, p.full_name, p.rank_position, p.cert_level, p.team_group as personnel_team,
+              p.nip, p.full_name, p.rank_position, p.employment_status, p.cert_level, p.team_group as personnel_team,
               v.code_name as vehicle_code, v.vehicle_name, v.category as vehicle_category
        FROM personnel_deployments pd
        JOIN personnel p ON p.id = pd.personnel_id
@@ -113,6 +117,7 @@ export const getCurrentDeployment = async (req, res) => {
 
     return successResponse(res, 'Data ploting shift berhasil diambil', {
       shift: currentShift,
+      total_team_members: totalTeamMembers,
       dept_head: deptHeadData,
       vehicles: Object.values(vehicleDeploymentsMap),
       watchroom: watchroomDeployments,

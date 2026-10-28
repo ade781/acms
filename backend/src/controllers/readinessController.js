@@ -175,150 +175,166 @@ export const submitVehicleReadiness = async (req, res) => {
 
     const targetTeam = team_group || req.user.team_group || 'Alpha';
 
-    // 1. Cek izin akses: Apakah user adalah Admin, Supervisor, Chief, Chief Assistant, Dept Head, atau PIC kendaraan di shift tersebut?
-    const isSuper = ['admin', 'supervisor', 'chief', 'chief_assistant', 'operation_chief', 'dept_head'].includes(req.user.role);
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
 
-    let isAuthorizedPic = false;
-    let picPersonnelId = null;
+      // 1. Cek izin akses: Apakah user adalah Admin, Supervisor, Chief, Chief Assistant, Dept Head, atau PIC kendaraan di shift tersebut?
+      const isSuper = ['admin', 'supervisor', 'chief', 'chief_assistant', 'operation_chief', 'dept_head'].includes(req.user.role);
 
-    // Periksa dari ploting shift aktif
-    const [deployRows] = await pool.query(
-      `SELECT pd.personnel_id, pd.is_pic, p.user_id
-       FROM personnel_deployments pd
-       JOIN personnel_shifts ps ON ps.id = pd.shift_id
-       JOIN personnel p ON p.id = pd.personnel_id
-       WHERE pd.vehicle_id = ? AND ps.shift_date = ? AND ps.shift_number = ? AND ps.team_group = ? AND pd.is_pic = 1`,
-      [vehicle_id, shift_date, shift_number, targetTeam]
-    );
+      let isAuthorizedPic = false;
+      let picPersonnelId = null;
 
-    if (deployRows.length > 0) {
-      picPersonnelId = deployRows[0].personnel_id;
-      if (
-        (req.user.personnel_id && req.user.personnel_id === deployRows[0].personnel_id) ||
-        (deployRows[0].user_id && deployRows[0].user_id === req.user.id)
-      ) {
-        isAuthorizedPic = true;
-      }
-    } else {
-      // Periksa dari log kesiapan sebelumnya jika ploting belum terdaftar
-      const [existingLog] = await pool.query(
-        `SELECT pic_personnel_id FROM vehicle_readiness_logs
-         WHERE vehicle_id = ? AND shift_date = ? AND shift_number = ? AND team_group = ?`,
+      // Periksa dari ploting shift aktif
+      const [deployRows] = await connection.query(
+        `SELECT pd.personnel_id, pd.is_pic, p.user_id
+         FROM personnel_deployments pd
+         JOIN personnel_shifts ps ON ps.id = pd.shift_id
+         JOIN personnel p ON p.id = pd.personnel_id
+         WHERE pd.vehicle_id = ? AND ps.shift_date = ? AND ps.shift_number = ? AND ps.team_group = ? AND pd.is_pic = 1`,
         [vehicle_id, shift_date, shift_number, targetTeam]
       );
-      if (existingLog.length > 0 && existingLog[0].pic_personnel_id) {
-        picPersonnelId = existingLog[0].pic_personnel_id;
-        if (req.user.personnel_id === picPersonnelId) {
+
+      if (deployRows.length > 0) {
+        picPersonnelId = deployRows[0].personnel_id;
+        if (
+          (req.user.personnel_id && req.user.personnel_id === deployRows[0].personnel_id) ||
+          (deployRows[0].user_id && deployRows[0].user_id === req.user.id)
+        ) {
           isAuthorizedPic = true;
         }
+      } else {
+        // Periksa dari log kesiapan sebelumnya jika ploting belum terdaftar
+        const [existingLog] = await connection.query(
+          `SELECT pic_personnel_id FROM vehicle_readiness_logs
+           WHERE vehicle_id = ? AND shift_date = ? AND shift_number = ? AND team_group = ?`,
+          [vehicle_id, shift_date, shift_number, targetTeam]
+        );
+        if (existingLog.length > 0 && existingLog[0].pic_personnel_id) {
+          picPersonnelId = existingLog[0].pic_personnel_id;
+          if (req.user.personnel_id === picPersonnelId) {
+            isAuthorizedPic = true;
+          }
+        }
       }
-    }
 
-    if (!isSuper && !isAuthorizedPic) {
-      return errorResponse(
-        res,
-        'Akses ditolak: Hanya Penanggung Jawab (PIC) yang ditunjuk pada shift aktif yang berhak melaporkan kesiapan armada ini',
-        403
+      if (!isSuper && !isAuthorizedPic) {
+        await connection.rollback();
+        connection.release();
+        return errorResponse(
+          res,
+          'Akses ditolak: Hanya Penanggung Jawab (PIC) yang ditunjuk pada shift aktif yang berhak melaporkan kesiapan armada ini',
+          403
+        );
+      }
+
+      if (!picPersonnelId && req.user.personnel_id) {
+        picPersonnelId = req.user.personnel_id;
+      }
+
+      let photoWebpUrl = null;
+      if (req.file) {
+        photoWebpUrl = `/uploads/${req.file.filename}`;
+      }
+
+      // Ambil log kesiapan saat ini dengan row locking FOR UPDATE
+      const [existing] = await connection.query(
+        `SELECT id, photo_webp_url FROM vehicle_readiness_logs
+         WHERE vehicle_id = ? AND shift_date = ? AND shift_number = ? AND team_group = ?
+         FOR UPDATE`,
+        [vehicle_id, shift_date, shift_number, targetTeam]
       );
-    }
 
-    if (!picPersonnelId && req.user.personnel_id) {
-      picPersonnelId = req.user.personnel_id;
-    }
+      const finalPhoto = photoWebpUrl || (existing.length > 0 ? existing[0].photo_webp_url : null);
+      if (!finalPhoto) {
+        await connection.rollback();
+        connection.release();
+        return errorResponse(
+          res,
+          'Foto bukti fisik kelaikan armada wajib disertakan untuk verifikasi kondisi lapangan',
+          400
+        );
+      }
 
-    let photoWebpUrl = null;
-    if (req.file) {
-      photoWebpUrl = `/uploads/${req.file.filename}`;
-    }
+      const resolvedAt = status === 'serviceable' && follow_up_status === 'resolved' ? new Date() : null;
 
-    // Ambil log kesiapan saat ini
-    const [existing] = await pool.query(
-      `SELECT id, photo_webp_url FROM vehicle_readiness_logs
-       WHERE vehicle_id = ? AND shift_date = ? AND shift_number = ? AND team_group = ?`,
-      [vehicle_id, shift_date, shift_number, targetTeam]
-    );
+      if (existing.length > 0) {
+        await connection.query(
+          `UPDATE vehicle_readiness_logs SET
+            pic_personnel_id = COALESCE(?, pic_personnel_id),
+            status = ?,
+            justification = ?,
+            photo_webp_url = ?,
+            follow_up_status = ?,
+            resolved_at = ?,
+            notes = ?
+           WHERE id = ?`,
+          [
+            picPersonnelId || null,
+            status,
+            status === 'unserviceable' ? justification : null,
+            finalPhoto,
+            follow_up_status,
+            resolvedAt,
+            notes || null,
+            existing[0].id
+          ]
+        );
+      } else {
+        await connection.query(
+          `INSERT INTO vehicle_readiness_logs (
+            vehicle_id, shift_date, shift_number, team_group,
+            pic_personnel_id, status, justification, photo_webp_url,
+            follow_up_status, resolved_at, notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            vehicle_id,
+            shift_date,
+            shift_number,
+            targetTeam,
+            picPersonnelId,
+            status,
+            status === 'unserviceable' ? justification : null,
+            finalPhoto,
+            follow_up_status,
+            resolvedAt,
+            notes || null
+          ]
+        );
+      }
 
-    const finalPhoto = photoWebpUrl || (existing.length > 0 ? existing[0].photo_webp_url : null);
-    if (!finalPhoto) {
-      return errorResponse(
-        res,
-        'Foto bukti fisik kelaikan armada wajib disertakan untuk verifikasi kondisi lapangan',
-        400
+      // Jika armada dinyatakan serviceable, tandai backlog unserviceable sebelumnya sebagai resolved
+      if (status === 'serviceable') {
+        await connection.query(
+          `UPDATE vehicle_readiness_logs SET
+             follow_up_status = 'resolved',
+             resolved_at = CURRENT_TIMESTAMP
+           WHERE vehicle_id = ? AND status = 'unserviceable' AND follow_up_status != 'resolved'`,
+          [vehicle_id]
+        );
+      }
+
+      const [updatedRow] = await connection.query(
+        `SELECT vrl.*, v.code_name, v.vehicle_name, p.full_name as pic_name
+         FROM vehicle_readiness_logs vrl
+         JOIN vehicles v ON v.id = vrl.vehicle_id
+         LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
+         WHERE vrl.vehicle_id = ? AND vrl.shift_date = ? AND vrl.shift_number = ? AND vrl.team_group = ?`,
+        [vehicle_id, shift_date, shift_number, targetTeam]
       );
+
+      await connection.commit();
+      return successResponse(res, 'Status kesiapan armada berhasil disimpan', updatedRow[0]);
+    } catch (error) {
+      await connection.rollback();
+      console.error('Error submitVehicleReadiness:', error);
+      return errorResponse(res, 'Gagal menyimpan status kesiapan kendaraan: ' + error.message, 500);
+    } finally {
+      connection.release();
     }
-
-    const resolvedAt = status === 'serviceable' && follow_up_status === 'resolved' ? new Date() : null;
-
-    if (existing.length > 0) {
-      await pool.query(
-        `UPDATE vehicle_readiness_logs SET
-          pic_personnel_id = COALESCE(?, pic_personnel_id),
-          status = ?,
-          justification = ?,
-          photo_webp_url = ?,
-          follow_up_status = ?,
-          resolved_at = ?,
-          notes = ?
-         WHERE id = ?`,
-        [
-          picPersonnelId || null,
-          status,
-          status === 'unserviceable' ? justification : null,
-          finalPhoto,
-          follow_up_status,
-          resolvedAt,
-          notes || null,
-          existing[0].id
-        ]
-      );
-    } else {
-      await pool.query(
-        `INSERT INTO vehicle_readiness_logs (
-          vehicle_id, shift_date, shift_number, team_group,
-          pic_personnel_id, status, justification, photo_webp_url,
-          follow_up_status, resolved_at, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          vehicle_id,
-          shift_date,
-          shift_number,
-          targetTeam,
-          picPersonnelId,
-          status,
-          status === 'unserviceable' ? justification : null,
-          finalPhoto,
-          follow_up_status,
-          resolvedAt,
-          notes || null
-        ]
-      );
-    }
-
-
-    // Jika armada dinyatakan serviceable, tandai backlog unserviceable sebelumnya sebagai resolved
-    if (status === 'serviceable') {
-      await pool.query(
-        `UPDATE vehicle_readiness_logs SET
-           follow_up_status = 'resolved',
-           resolved_at = CURRENT_TIMESTAMP
-         WHERE vehicle_id = ? AND status = 'unserviceable' AND follow_up_status != 'resolved'`,
-        [vehicle_id]
-      );
-    }
-
-    const [updatedRow] = await pool.query(
-      `SELECT vrl.*, v.code_name, v.vehicle_name, p.full_name as pic_name
-       FROM vehicle_readiness_logs vrl
-       JOIN vehicles v ON v.id = vrl.vehicle_id
-       LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
-       WHERE vrl.vehicle_id = ? AND vrl.shift_date = ? AND vrl.shift_number = ? AND vrl.team_group = ?`,
-      [vehicle_id, shift_date, shift_number, targetTeam]
-    );
-
-    return successResponse(res, 'Status kesiapan armada berhasil disimpan', updatedRow[0]);
-  } catch (error) {
-    console.error('Error submitVehicleReadiness:', error);
-    return errorResponse(res, 'Gagal menyimpan status kesiapan kendaraan: ' + error.message, 500);
+  } catch (outerErr) {
+    console.error('Error submitVehicleReadiness outer:', outerErr);
+    return errorResponse(res, 'Gagal memproses kesiapan armada: ' + outerErr.message, 500);
   }
 };
 

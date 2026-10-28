@@ -1,12 +1,12 @@
 import PDFDocument from 'pdfkit';
-import { resolveSignatureFile, applyWatermarkAndPageNumbers } from './pdfHelpers.js';
+import { resolveSignatureBuffer, applyWatermarkAndPageNumbers } from './pdfHelpers.js';
 
 /**
  * Membuat stream PDF Dokumen Resmi Laporan Shift ARFF (Format A4)
  * @param {Object} reportData Data lengkap shift, personel, kesiapan kendaraan, watchroom, aktivitas
- * @returns {PDFDocument} Stream dokumen PDF
+ * @returns {Promise<PDFDocument>} Stream dokumen PDF
  */
-export const generateShiftReportPdf = (reportData) => {
+export const generateShiftReportPdf = async (reportData) => {
   const doc = new PDFDocument({
     size: 'A4',
     margins: { top: 35, bottom: 35, left: 40, right: 40 },
@@ -225,20 +225,34 @@ export const generateShiftReportPdf = (reportData) => {
     doc.y += 24;
   } else {
     incidents.forEach((inc, idx) => {
-      checkPageBreak(30);
-      doc.rect(startX, doc.y, contentWidth, 24).fillAndStroke('#fef2f2', '#fecaca');
-      const incBoxY = doc.y + 5;
+      const titleText = `${idx + 1}. [${inc.report_number || 'INSIDEN'}] ${inc.title} (Waktu: ${inc.incident_time || '-'})`;
+      const detailText = `Lokasi: ${inc.location || '-'} | Tindakan: ${inc.action_taken || '-'}`;
+
+      doc.fontSize(8).font('Helvetica-Bold');
+      const titleH = doc.heightOfString(titleText, { width: contentWidth - 20 });
+
+      doc.fontSize(7.5).font('Helvetica');
+      const detailH = doc.heightOfString(detailText, { width: contentWidth - 20 });
+
+      const totalBoxH = Math.max(26, titleH + detailH + 10);
+      checkPageBreak(totalBoxH + 4);
+
+      const incBoxY = doc.y;
+      doc.rect(startX, incBoxY, contentWidth, totalBoxH).fillAndStroke('#fef2f2', '#fecaca');
+
       doc.fontSize(8).font('Helvetica-Bold').fillColor('#991b1b').text(
-        `${idx + 1}. [${inc.report_number}] ${inc.title} (Waktu: ${inc.incident_time || '-'})`,
+        titleText,
         startX + 10,
-        incBoxY
+        incBoxY + 5,
+        { width: contentWidth - 20 }
       );
       doc.fontSize(7.5).font('Helvetica').fillColor('#7f1d1d').text(
-        `Lokasi: ${inc.location} | Tindakan: ${inc.action_taken || '-'}`,
+        detailText,
         startX + 10,
-        incBoxY + 11
+        incBoxY + 5 + titleH + 2,
+        { width: contentWidth - 20 }
       );
-      doc.y += 28;
+      doc.y = incBoxY + totalBoxH + 4;
     });
   }
 
@@ -252,22 +266,26 @@ export const generateShiftReportPdf = (reportData) => {
     doc.moveDown(0.6);
   } else {
     activities.forEach((act, idx) => {
-      checkPageBreak(20);
+      const prefix = `${idx + 1}. [${act.activity_time || '-'}] ${act.title}: `;
+      const fullText = `${prefix}${act.description || '-'}`;
+
+      doc.fontSize(8).font('Helvetica');
+      const actHeight = doc.heightOfString(fullText, { width: contentWidth }) + 4;
+
+      checkPageBreak(actHeight);
+
       doc.fontSize(8).font('Helvetica-Bold').fillColor('#0f172a').text(
-        `${idx + 1}. [${act.activity_time}] ${act.title}: `,
+        prefix,
         { continued: true }
       ).font('Helvetica').fillColor('#475569').text(act.description || '-');
+      doc.moveDown(0.3);
     });
-    doc.moveDown(0.8);
+    doc.moveDown(0.5);
   }
 
   // Tanda Tangan Pengesahan Pejabat (Pindah halaman jika ruang di bawah tidak cukup)
-  if (doc.y + 105 > 740) {
-    doc.addPage();
-    doc.y = 45;
-  } else {
-    doc.moveDown(1.5);
-  }
+  checkPageBreak(115);
+  doc.moveDown(1.5);
 
   const signY = doc.y;
   doc.fontSize(8.5).font('Helvetica').fillColor('#0f172a');
@@ -278,21 +296,21 @@ export const generateShiftReportPdf = (reportData) => {
   doc.text('AIRPORT RESCUE & FIRE FIGHTING SECTION HEAD', startX + 20, signY + 12, { width: 200, align: 'center' });
   doc.text('KETUA REGU / SUPERVISOR DINAS', startX + 295, signY + 12, { width: 200, align: 'center' });
 
-  // Sematkan tanda tangan digital Dept Head jika tersedia
-  const deptSigFile = resolveSignatureFile(dept_head_signature_url);
-  if (deptSigFile) {
+  // Sematkan tanda tangan digital Dept Head jika tersedia (mendukung PNG, JPEG, dan transcoding otomatis WebP)
+  const deptSigBuffer = await resolveSignatureBuffer(dept_head_signature_url);
+  if (deptSigBuffer) {
     try {
-      doc.image(deptSigFile, startX + 70, signY + 25, { fit: [100, 38], align: 'center' });
+      doc.image(deptSigBuffer, startX + 70, signY + 25, { fit: [100, 38], align: 'center' });
     } catch (e) {
       console.warn('Gagal memuat tanda tangan Dept Head:', e.message);
     }
   }
 
-  // Sematkan tanda tangan digital Supervisor dinas jika tersedia
-  const supSigFile = resolveSignatureFile(supervisor_signature_url);
-  if (supSigFile) {
+  // Sematkan tanda tangan digital Supervisor dinas jika tersedia (mendukung PNG, JPEG, dan transcoding otomatis WebP)
+  const supSigBuffer = await resolveSignatureBuffer(supervisor_signature_url);
+  if (supSigBuffer) {
     try {
-      doc.image(supSigFile, startX + 345, signY + 25, { fit: [100, 38], align: 'center' });
+      doc.image(supSigBuffer, startX + 345, signY + 25, { fit: [100, 38], align: 'center' });
     } catch (e) {
       console.warn('Gagal memuat tanda tangan Supervisor:', e.message);
     }

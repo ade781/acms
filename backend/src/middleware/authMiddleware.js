@@ -24,7 +24,7 @@ export const requireAuth = async (req, res, next) => {
     const decoded = jwt.verify(token, secret);
 
     const [rows] = await pool.query(
-      `SELECT u.id, u.username, u.name, u.email, u.role, p.id as personnel_id, p.team_group
+      `SELECT u.id, u.username, u.name, u.email, u.role, u.token_version, p.id as personnel_id, p.team_group
        FROM users u
        LEFT JOIN personnel p ON p.user_id = u.id
        WHERE u.id = ?`,
@@ -35,7 +35,18 @@ export const requireAuth = async (req, res, next) => {
       return errorResponse(res, 'Sesi tidak valid: Pengguna tidak ditemukan', 401);
     }
 
-    req.user = rows[0];
+    const user = rows[0];
+
+    // BUTIR TUGAS 5: Verifikasi token_version (Mekanisme Revokasi Token JWT)
+    if (
+      decoded.token_version !== undefined &&
+      user.token_version !== undefined &&
+      Number(decoded.token_version) !== Number(user.token_version)
+    ) {
+      return errorResponse(res, 'Sesi telah kedaluwarsa atau kata sandi telah diubah. Silakan masuk kembali.', 401);
+    }
+
+    req.user = user;
     next();
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
@@ -44,3 +55,10 @@ export const requireAuth = async (req, res, next) => {
     return errorResponse(res, 'Token autentikasi tidak valid', 401);
   }
 };
+
+/**
+ * BUTIR TUGAS 1: Middleware verifikasi akses berkas sensitif (/uploads/*)
+ * Mendukung autentikasi fleksibel: membaca dari header 'Authorization: Bearer <token>'
+ * maupun query string '?token=...' (sesuai aturan GEMINI.md Butir 16)
+ */
+export const verifyUploadAccess = requireAuth;

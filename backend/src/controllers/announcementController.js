@@ -229,11 +229,38 @@ export const getAnnouncementAttachment = async (req, res) => {
 
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `inline; filename="${downloadName}"`);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
 
     return res.sendFile(filePath);
   } catch (err) {
     console.error('Error getAnnouncementAttachment:', err);
     return errorResponse(res, 'Gagal mengambil lampiran pengumuman: ' + err.message, 500);
+  }
+};
+
+/**
+ * Endpoint ringan penghitungan jumlah pengumuman yang belum dibaca (untuk polling badge)
+ */
+export const getUnreadCount = async (req, res) => {
+  try {
+    const userId = req.user?.id || 0;
+
+    const [unreadRows] = await pool.query(
+      `SELECT COUNT(*) as unread_count
+       FROM announcements a
+       LEFT JOIN announcement_reads ar ON ar.announcement_id = a.id AND ar.user_id = ?
+       WHERE ar.read_at IS NULL`,
+      [userId]
+    );
+
+    const unreadCount = Number(unreadRows[0]?.unread_count || 0);
+
+    return successResponse(res, 'Jumlah pengumuman belum dibaca berhasil diambil', {
+      unread_count: unreadCount
+    });
+  } catch (err) {
+    console.error('Error getUnreadCount:', err);
+    return errorResponse(res, 'Gagal memuat jumlah pengumuman belum dibaca', 500);
   }
 };
 

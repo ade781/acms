@@ -1,10 +1,10 @@
 import PDFDocument from 'pdfkit';
-import { resolveSignatureFile, applyWatermarkAndPageNumbers } from './pdfHelpers.js';
+import { resolveSignatureBuffer, applyWatermarkAndPageNumbers } from './pdfHelpers.js';
 
 /**
  * Membuat stream PDF Laporan Rekapitulasi Logbook Kegiatan Rutin Operasional ARFF (A4 Portrait)
  */
-export const generateActivitiesReportPdf = (reportData) => {
+export const generateActivitiesReportPdf = async (reportData) => {
   const doc = new PDFDocument({
     size: 'A4',
     margins: { top: 35, bottom: 35, left: 40, right: 40 },
@@ -143,10 +143,10 @@ export const generateActivitiesReportPdf = (reportData) => {
   doc.fontSize(8.5).font('Helvetica').fillColor('#0f172a').text('Mengetahui / Mengesahkan,', startX + contentWidth - 220, signY, { width: 220, align: 'center' });
   doc.fontSize(8).font('Helvetica-Bold').text('AIRPORT RESCUE & FIRE FIGHTING SECTION HEAD', startX + contentWidth - 220, signY + 12, { width: 220, align: 'center' });
 
-  const deptSigFile = resolveSignatureFile(dept_head_signature_url);
-  if (deptSigFile) {
+  const deptSigBuffer = await resolveSignatureBuffer(dept_head_signature_url);
+  if (deptSigBuffer) {
     try {
-      doc.image(deptSigFile, startX + contentWidth - 165, signY + 25, { fit: [110, 40], align: 'center' });
+      doc.image(deptSigBuffer, startX + contentWidth - 165, signY + 25, { fit: [110, 40], align: 'center' });
     } catch (e) {
       console.warn('Gagal memuat tanda tangan Dept Head:', e.message);
     }

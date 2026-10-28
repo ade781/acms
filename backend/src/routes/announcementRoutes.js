@@ -3,6 +3,7 @@ import {
   getAnnouncements,
   getAnnouncementById,
   getAnnouncementAttachment,
+  getUnreadCount,
   createAnnouncement,
   markAsRead,
   deleteAnnouncement
@@ -15,6 +16,7 @@ const router = Router();
 
 router.use(requireAuth);
 
+router.get('/unread-count', getUnreadCount);
 router.get('/', getAnnouncements);
 router.get('/:id', getAnnouncementById);
 router.get('/:id/attachment', getAnnouncementAttachment);

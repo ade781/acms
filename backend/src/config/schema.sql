@@ -9,9 +9,10 @@ CREATE TABLE IF NOT EXISTS `users` (
   `password_hash` VARCHAR(255) NOT NULL,
   `role` ENUM('admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor', 'senior_firefighter', 'junior_firefighter', 'operator') NOT NULL DEFAULT 'junior_firefighter',
   `must_change_password` TINYINT(1) NOT NULL DEFAULT 1,
+  `token_version` INT NOT NULL DEFAULT 1,
   `signature_url` VARCHAR(255) NULL DEFAULT NULL,
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `personnel` (
@@ -110,6 +111,8 @@ CREATE TABLE IF NOT EXISTS `personnel_deployments` (
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY `unique_shift_personnel` (`shift_id`, `personnel_id`),
+  INDEX `idx_deployments_personnel_shift` (`personnel_id`, `shift_id`),
+  INDEX `idx_deployments_personnel_type` (`personnel_id`, `deployment_type`),
   CONSTRAINT `fk_pd_shift` FOREIGN KEY (`shift_id`) REFERENCES `personnel_shifts` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_pd_personnel` FOREIGN KEY (`personnel_id`) REFERENCES `personnel` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_pd_vehicle` FOREIGN KEY (`vehicle_id`) REFERENCES `vehicles` (`id`) ON DELETE SET NULL,
@@ -140,6 +143,7 @@ CREATE TABLE IF NOT EXISTS `incidents` (
   `status` ENUM('dalam_proses', 'selesai', 'menunggu_tindak_lanjut') NOT NULL DEFAULT 'dalam_proses',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX `idx_incidents_date_shift_team` (`incident_date`, `shift_number`, `team_group`),
   CONSTRAINT `fk_inc_reporter` FOREIGN KEY (`reporter_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_inc_supervisor` FOREIGN KEY (`supervisor_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -164,9 +168,12 @@ CREATE TABLE IF NOT EXISTS `daily_shift_activities` (
   `result_notes` TEXT NULL,
   `actor_ids` JSON NULL,
   `attachment_url` VARCHAR(255) NULL,
+  `created_by` INT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT `fk_dsa_shift` FOREIGN KEY (`shift_id`) REFERENCES `personnel_shifts` (`id`) ON DELETE CASCADE
+  INDEX `idx_dsa_shift_type` (`shift_id`, `activity_type`),
+  CONSTRAINT `fk_dsa_shift` FOREIGN KEY (`shift_id`) REFERENCES `personnel_shifts` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_dsa_creator` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `personnel_documents` (
@@ -181,6 +188,8 @@ CREATE TABLE IF NOT EXISTS `personnel_documents` (
   `uploaded_by` INT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX `idx_personnel_documents_filename` (`file_name`),
+  INDEX `idx_personnel_documents_url` (`file_url`(255)),
   CONSTRAINT `fk_pdoc_personnel` FOREIGN KEY (`personnel_id`) REFERENCES `personnel` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_pdoc_uploader` FOREIGN KEY (`uploaded_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

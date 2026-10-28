@@ -1,11 +1,15 @@
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 import fs from 'fs';
 import jwt from 'jsonwebtoken';
 import pool from './config/db.js';
+import { requireAuth } from './middleware/authMiddleware.js';
+import { errorHandler } from './middleware/errorHandler.js';
+import { getShiftSummaryReport } from './controllers/reportController.js';
 
 import authRoutes from './routes/authRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
@@ -24,6 +28,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// Middleware kompresi respons HTTP (Gzip/Brotli)
+app.use(compression());
 
 // Middleware dasar
 app.use(cors({
@@ -54,6 +61,7 @@ app.use('/uploads', async (req, res, next) => {
   if (!isPrivateDoc) {
     const publicFilePath = path.resolve(uploadsDir, filename);
     if (fs.existsSync(publicFilePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
       return res.sendFile(publicFilePath);
     }
     return next();
@@ -124,8 +132,8 @@ app.use('/uploads', async (req, res, next) => {
           `SELECT pd.id, pd.personnel_id, pd.uploaded_by, p.user_id
            FROM personnel_documents pd
            LEFT JOIN personnel p ON p.id = pd.personnel_id
-           WHERE pd.file_url LIKE ?`,
-          [`%${filename}`]
+           WHERE pd.file_name = ? OR pd.file_url = ?`,
+          [filename, `/uploads/${filename}`]
         );
 
         if (docRows.length > 0) {
@@ -161,8 +169,8 @@ app.use('/uploads', async (req, res, next) => {
   }
 });
 
-// Fallback untuk berkas statis
-app.use('/uploads', express.static(uploadsDir));
+// Fallback untuk berkas statis dengan Cache-Control 7 hari
+app.use('/uploads', express.static(uploadsDir, { maxAge: '7d', etag: true, lastModified: true }));
 
 // Route cek kesehatan server
 app.get('/api/health', (req, res) => {
@@ -182,6 +190,7 @@ app.use('/api/readiness', readinessRoutes);
 app.use('/api/deployments', deploymentRoutes);
 app.use('/api/incidents', incidentRoutes);
 app.use('/api/activities', activityRoutes);
+app.get('/api/reports/shift-summary', requireAuth, getShiftSummaryReport);
 app.use('/api/reports', reportRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/announcements', announcementRoutes);
@@ -195,21 +204,7 @@ app.use((req, res) => {
   });
 });
 
-// Handler error terpusat
-app.use((err, req, res, next) => {
-  console.error('Unhandled server error:', err);
-
-  if (err.name === 'MulterError') {
-    return res.status(400).json({
-      success: false,
-      message: 'Kesalahan unggah berkas: ' + err.message
-    });
-  }
-
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || 'Terjadi kesalahan internal pada server'
-  });
-});
+// Handler error terpusat (Sanitasi HTTP 500 & MulterError)
+app.use(errorHandler);
 
 export default app;

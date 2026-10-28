@@ -1,12 +1,12 @@
 import PDFDocument from 'pdfkit';
-import { resolveSignatureFile, applyWatermarkAndPageNumbers } from './pdfHelpers.js';
+import { resolveSignatureBuffer, applyWatermarkAndPageNumbers } from './pdfHelpers.js';
 
 
 /**
  * Membuat dokumen PDF Laporan Rekapitulasi Kesiapan & Kelaikan Armada ARFF YIA (Format A4 Portrait)
  * Mendukung Halaman Laporan Armada (Agent 2) dengan filter 1 Bulan, 3 Bulan, 1 Tahun, atau Rentang Kustom
  */
-export const generateVehicleReadinessReportPdf = (data = {}) => {
+export const generateVehicleReadinessReportPdf = async (data = {}) => {
   const doc = new PDFDocument({
     size: 'A4',
     margins: { top: 35, bottom: 35, left: 40, right: 40 },
@@ -231,10 +231,10 @@ export const generateVehicleReadinessReportPdf = (data = {}) => {
   doc.fontSize(8.5).font('Helvetica').fillColor('#0f172a').text('Mengetahui / Mengesahkan,', startX + contentWidth - 220, signY, { width: 220, align: 'center' });
   doc.fontSize(8).font('Helvetica-Bold').text('AIRPORT RESCUE & FIRE FIGHTING SECTION HEAD', startX + contentWidth - 220, signY + 12, { width: 220, align: 'center' });
 
-  const deptSigFile = resolveSignatureFile(dept_head_signature_url);
-  if (deptSigFile) {
+  const deptSigBuffer = await resolveSignatureBuffer(dept_head_signature_url);
+  if (deptSigBuffer) {
     try {
-      doc.image(deptSigFile, startX + contentWidth - 165, signY + 25, { fit: [110, 40], align: 'center' });
+      doc.image(deptSigBuffer, startX + contentWidth - 165, signY + 25, { fit: [110, 40], align: 'center' });
     } catch (e) {
       console.warn('Gagal memuat tanda tangan Dept Head:', e.message);
     }

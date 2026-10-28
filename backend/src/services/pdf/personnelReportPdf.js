@@ -1,12 +1,12 @@
 import PDFDocument from 'pdfkit';
-import { resolveSignatureFile, applyWatermarkAndPageNumbers } from './pdfHelpers.js';
+import { resolveSignatureBuffer, applyWatermarkAndPageNumbers } from './pdfHelpers.js';
 
 /**
  * Membuat dokumen PDF Daftar Akun & Kredensial Personel ARFF YIA (Format A4 Landscape)
  * @param {Array} personnelList Daftar personel beserta akun dan status sandi
- * @returns {PDFDocument} Stream dokumen PDF
+ * @returns {Promise<PDFDocument>} Stream dokumen PDF
  */
-export const generatePersonnelAccountsPdf = (personnelList = [], signatory = null) => {
+export const generatePersonnelAccountsPdf = async (personnelList = [], signatory = null) => {
   const doc = new PDFDocument({
     size: 'A4',
     layout: 'landscape',
@@ -127,7 +127,7 @@ export const generatePersonnelAccountsPdf = (personnelList = [], signatory = nul
       title: 'BAGIAN I : PIMPINAN UNIT (DEPARTMENT HEAD)',
       subtitle: 'Pimpinan Struktural Airport Technology & ARFF',
       items: personnelList.filter(
-        (p) => (p.user_role === 'dept_head' || (p.rank_position && p.rank_position.toLowerCase().includes('dept')) || (p.full_name && p.full_name.includes('TAMSUL')))
+        (p) => (p.user_role === 'dept_head' || (p.rank_position && p.rank_position.toLowerCase().includes('dept')))
       ),
     },
     {
@@ -136,7 +136,7 @@ export const generatePersonnelAccountsPdf = (personnelList = [], signatory = nul
       subtitle: 'Staf Administrasi, Keselamatan & Teknisi Pemeliharaan Fasilitas',
       items: personnelList.filter(
         (p) => (p.team_group === 'Non-Shift' || !p.team_group) &&
-               !(p.user_role === 'dept_head' || (p.rank_position && p.rank_position.toLowerCase().includes('dept')) || (p.full_name && p.full_name.includes('TAMSUL')))
+               !(p.user_role === 'dept_head' || (p.rank_position && p.rank_position.toLowerCase().includes('dept')))
       ),
     },
     {
@@ -247,9 +247,9 @@ export const generatePersonnelAccountsPdf = (personnelList = [], signatory = nul
   const signWidth = 230;
   const signX = startX + contentWidth - signWidth - 20;
 
-  const deptHeadName = signatory?.name || 'TAMSUL SADIKIN';
-  const deptHeadNip = signatory?.nip && signatory.nip !== '-' ? signatory.nip : '20246200';
-  const deptHeadRank = signatory?.rank_position || 'Pgs Airport Rescue & Fire Fighting Operation Dept Head';
+  const deptHeadName = signatory?.name || 'Department Head ARFF';
+  const deptHeadNip = signatory?.nip && signatory.nip !== '-' ? signatory.nip : '-';
+  const deptHeadRank = signatory?.rank_position || 'Airport Rescue & Fire Fighting Operation Dept Head';
   const deptHeadSig = signatory?.signature_url;
 
   doc.fontSize(8).font('Helvetica').fillColor('#0f172a').text(
@@ -265,10 +265,10 @@ export const generatePersonnelAccountsPdf = (personnelList = [], signatory = nul
     { width: signWidth, align: 'center' }
   );
 
-  const sigFile = resolveSignatureFile(deptHeadSig);
-  if (sigFile) {
+  const sigBuffer = await resolveSignatureBuffer(deptHeadSig);
+  if (sigBuffer) {
     try {
-      doc.image(sigFile, signX + (signWidth - 110) / 2, currentY + 23, { fit: [110, 36], align: 'center' });
+      doc.image(sigBuffer, signX + (signWidth - 110) / 2, currentY + 23, { fit: [110, 36], align: 'center' });
     } catch (e) {
       console.warn('Gagal memuat tanda tangan:', e.message);
     }

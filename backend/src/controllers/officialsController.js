@@ -138,11 +138,33 @@ export const replaceDeptHead = async (req, res) => {
            WHERE id = ?`,
           [cleanName, cleanNip, cleanRank, deptHeadId]
         );
-        if (existingDh.u_id) {
+
+        let dhUserId = existingDh.u_id;
+        if (!dhUserId && cleanNip) {
+          const [uByNip] = await connection.query(
+            'SELECT id FROM users WHERE username = ? LIMIT 1',
+            [cleanNip]
+          );
+          if (uByNip.length > 0) {
+            dhUserId = uByNip[0].id;
+            await connection.query('UPDATE personnel SET user_id = ? WHERE id = ?', [dhUserId, deptHeadId]);
+          }
+        }
+
+        if (dhUserId) {
           await connection.query(
             `UPDATE users SET name = ?, role = 'dept_head' WHERE id = ? AND role != 'admin'`,
-            [cleanName, existingDh.u_id]
+            [cleanName, dhUserId]
           );
+        } else {
+          const accountUsername = await generateUniqueUsername(cleanNip, cleanName);
+          const salt = await bcrypt.genSalt(10);
+          const passwordHash = await bcrypt.hash('123456', salt);
+          const [uRes] = await connection.query(
+            'INSERT INTO users (username, name, password_hash, role, must_change_password) VALUES (?, ?, ?, ?, 1)',
+            [accountUsername, cleanName, passwordHash, 'dept_head']
+          );
+          await connection.query('UPDATE personnel SET user_id = ? WHERE id = ?', [uRes.insertId, deptHeadId]);
         }
       } else {
         const accountUsername = await generateUniqueUsername(cleanNip, cleanName);
@@ -213,10 +235,19 @@ export const replaceDeptHead = async (req, res) => {
         [candidate.id]
       );
 
-      if (candidate.u_id) {
+      let candidateUserId = candidate.u_id;
+      if (!candidateUserId && candidate.nip) {
+        const [uByNip] = await connection.query('SELECT id FROM users WHERE username = ? LIMIT 1', [candidate.nip]);
+        if (uByNip.length > 0) {
+          candidateUserId = uByNip[0].id;
+          await connection.query('UPDATE personnel SET user_id = ? WHERE id = ?', [candidateUserId, candidate.id]);
+        }
+      }
+
+      if (candidateUserId) {
         await connection.query(
-          `UPDATE users SET role = 'dept_head' WHERE id = ? AND role != 'admin'`,
-          [candidate.u_id]
+          `UPDATE users SET role = 'dept_head', name = ? WHERE id = ? AND role != 'admin'`,
+          [candidate.full_name, candidateUserId]
         );
       }
 
@@ -334,10 +365,19 @@ export const replaceChief = async (req, res) => {
       [team_group, candidate.id]
     );
 
-    if (candidate.u_id) {
+    let chiefUserId = candidate.u_id;
+    if (!chiefUserId && candidate.nip) {
+      const [uByNip] = await connection.query('SELECT id FROM users WHERE username = ? LIMIT 1', [candidate.nip]);
+      if (uByNip.length > 0) {
+        chiefUserId = uByNip[0].id;
+        await connection.query('UPDATE personnel SET user_id = ? WHERE id = ?', [chiefUserId, candidate.id]);
+      }
+    }
+
+    if (chiefUserId) {
       await connection.query(
-        `UPDATE users SET role = 'chief' WHERE id = ? AND role != 'admin'`,
-        [candidate.u_id]
+        `UPDATE users SET role = 'chief', name = ? WHERE id = ? AND role != 'admin'`,
+        [candidate.full_name, chiefUserId]
       );
     }
 
@@ -419,10 +459,19 @@ export const replaceSectionHead = async (req, res) => {
       [candidate.id]
     );
 
-    if (candidate.u_id) {
+    let sectionUserId = candidate.u_id;
+    if (!sectionUserId && candidate.nip) {
+      const [uByNip] = await connection.query('SELECT id FROM users WHERE username = ? LIMIT 1', [candidate.nip]);
+      if (uByNip.length > 0) {
+        sectionUserId = uByNip[0].id;
+        await connection.query('UPDATE personnel SET user_id = ? WHERE id = ?', [sectionUserId, candidate.id]);
+      }
+    }
+
+    if (sectionUserId) {
       await connection.query(
-        `UPDATE users SET role = 'section_head' WHERE id = ? AND role != 'admin'`,
-        [candidate.u_id]
+        `UPDATE users SET role = 'section_head', name = ? WHERE id = ? AND role != 'admin'`,
+        [candidate.full_name, sectionUserId]
       );
     }
 

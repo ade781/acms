@@ -2,12 +2,13 @@ import pool from '../config/db.js';
 import { successResponse, errorResponse, createdResponse } from '../utils/responseHelper.js';
 import PDFDocument from 'pdfkit';
 
-// Fungsi bantuan nomor laporan berurutan: INC-0001, INC-0002, dst.
+// Fungsi bantuan nomor laporan berurutan: INC-0001, INC-0002, dst. dengan proteksi penguncian atomik (FOR UPDATE)
 async function generateNextReportNumber(connection) {
   const [rows] = await connection.query(
     `SELECT report_number FROM incidents
      WHERE report_number LIKE 'INC-%'
-     ORDER BY id DESC LIMIT 1`
+     ORDER BY id DESC LIMIT 1
+     FOR UPDATE`
   );
 
   let nextSeq = 1;
@@ -171,7 +172,6 @@ export const createIncident = async (req, res) => {
 
     await connection.beginTransaction();
 
-    const reportNumber = await generateNextReportNumber(connection);
     const nowTime = new Date().toTimeString().split(' ')[0];
     const PRIORITY_MAP = {
       rendah: 'low',
@@ -188,36 +188,52 @@ export const createIncident = async (req, res) => {
     const VALID_CATEGORIES = ['aircraft_accident', 'aircraft_incident', 'fire', 'medical_emergency', 'hazmat', 'other'];
     const finalCategory = VALID_CATEGORIES.includes(category) ? category : 'other';
 
-    const [result] = await connection.query(
-      `INSERT INTO incidents (
-        report_number, incident_date, incident_time, report_time,
-        team_group, shift_number, reporter_id, category,
-        title, location, chronology, source_info, aircraft_info,
-        priority_level, activation_time, action_taken, last_condition,
-        coordinated_parties, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        reportNumber,
-        incident_date,
-        incident_time,
-        report_time || nowTime,
-        team_group || req.user.team_group || 'Alpha',
-        shift_number ? Number(shift_number) : 1,
-        req.user.id,
-        finalCategory,
-        title,
-        location,
-        chronology,
-        source_info || null,
-        aircraft_info || null,
-        mappedPriority,
-        activation_time || null,
-        action_taken || null,
-        last_condition || null,
-        coordinated_parties || null,
-        status
-      ]
-    );
+    let result;
+    let reportNumber;
+    let insertAttempts = 0;
+    while (insertAttempts < 3) {
+      try {
+        reportNumber = await generateNextReportNumber(connection);
+        const [res] = await connection.query(
+          `INSERT INTO incidents (
+            report_number, incident_date, incident_time, report_time,
+            team_group, shift_number, reporter_id, category,
+            title, location, chronology, source_info, aircraft_info,
+            priority_level, activation_time, action_taken, last_condition,
+            coordinated_parties, status
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            reportNumber,
+            incident_date,
+            incident_time,
+            report_time || nowTime,
+            team_group || req.user.team_group || 'Alpha',
+            shift_number ? Number(shift_number) : 1,
+            req.user.id,
+            finalCategory,
+            title,
+            location,
+            chronology,
+            source_info || null,
+            aircraft_info || null,
+            mappedPriority,
+            activation_time || null,
+            action_taken || null,
+            last_condition || null,
+            coordinated_parties || null,
+            status
+          ]
+        );
+        result = res;
+        break;
+      } catch (insertErr) {
+        if (insertErr.code === 'ER_DUP_ENTRY' && insertAttempts < 2) {
+          insertAttempts++;
+          continue;
+        }
+        throw insertErr;
+      }
+    }
 
     const incidentId = result.insertId;
 

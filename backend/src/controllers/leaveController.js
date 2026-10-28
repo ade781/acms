@@ -38,14 +38,6 @@ export const requestLeaveRange = async (req, res) => {
       return errorResponse(res, 'ID Personel tidak valid atau belum ditentukan. Harap tentukan nama personel.', 400);
     }
 
-    const [pRows] = await connection.query('SELECT * FROM personnel WHERE id = ?', [targetPersonnelId]);
-    if (pRows.length === 0) {
-      connection.release();
-      return errorResponse(res, 'Data personel tidak ditemukan', 404);
-    }
-    const person = pRows[0];
-    const teamGroup = person.team_group || 'Alpha';
-
     const startDateObj = new Date(start_date);
     const endDateObj = new Date(end_date);
     if (startDateObj > endDateObj) {
@@ -55,6 +47,16 @@ export const requestLeaveRange = async (req, res) => {
 
     // MULAI TRANSAKSI ATOMIK (Mencegah Race Condition Double-Click Cuti - Temuan No. 32)
     await connection.beginTransaction();
+
+    // 0. Kunci baris personel terkait dengan FOR UPDATE untuk memblokir double submission serentak
+    const [pRows] = await connection.query('SELECT * FROM personnel WHERE id = ? FOR UPDATE', [targetPersonnelId]);
+    if (pRows.length === 0) {
+      await connection.rollback();
+      connection.release();
+      return errorResponse(res, 'Data personel tidak ditemukan', 404);
+    }
+    const person = pRows[0];
+    const teamGroup = person.team_group || 'Alpha';
 
     // 1. Validasi Anti-Overlap dengan Row Locking FOR UPDATE
     const [overlapRows] = await connection.query(`
@@ -257,6 +259,15 @@ export const cancelLeave = async (req, res) => {
 
     // Skenario A: Diberikan array deployment_ids eksplisit (misal dari paket cuti di UI)
     if (Array.isArray(deployment_ids) && deployment_ids.length > 0) {
+      const [pIdRows] = await connection.query(
+        'SELECT DISTINCT personnel_id FROM personnel_deployments WHERE id IN (?) AND deployment_type = "absent"',
+        [deployment_ids]
+      );
+      if (pIdRows.length > 0) {
+        const pIds = pIdRows.map((r) => r.personnel_id);
+        await connection.query('SELECT id FROM personnel WHERE id IN (?) FOR UPDATE', [pIds]);
+      }
+
       let delQuery = 'DELETE FROM personnel_deployments WHERE id IN (?) AND deployment_type = "absent"';
       let delParams = [deployment_ids];
       if (!isPrivileged) {
@@ -273,7 +284,6 @@ export const cancelLeave = async (req, res) => {
         FROM personnel_deployments pd
         JOIN personnel_shifts ps ON pd.shift_id = ps.id
         WHERE pd.id = ? AND pd.deployment_type = 'absent'
-        FOR UPDATE
       `, [deploymentId]);
 
       if (targetRows.length === 0) {
@@ -288,6 +298,9 @@ export const cancelLeave = async (req, res) => {
         connection.release();
         return errorResponse(res, 'Anda tidak berwenang membatalkan cuti personel lain', 403);
       }
+
+      // Kunci baris personel terlebih dahulu (konsisten dengan requestLeaveRange untuk mencegah deadlock)
+      await connection.query('SELECT id FROM personnel WHERE id = ? FOR UPDATE', [target.personnel_id]);
 
       // Periksa apakah entri cuti ini merupakan bagian dari paket rentang tanggal
       const match = (target.notes || '').match(/\((?:Rentang:\s*)?([0-9]{4}-[0-9]{2}-[0-9]{2})\s*s\/?d\s*([0-9]{4}-[0-9]{2}-[0-9]{2})\)/i);
@@ -313,6 +326,7 @@ export const cancelLeave = async (req, res) => {
     }
     // Skenario C: Diberikan shift_id & targetPersonnelId
     else if (targetPersonnelId && shift_id) {
+      await connection.query('SELECT id FROM personnel WHERE id = ? FOR UPDATE', [targetPersonnelId]);
       const [resDel] = await connection.query(
         'DELETE FROM personnel_deployments WHERE shift_id = ? AND personnel_id = ? AND deployment_type = "absent"',
         [shift_id, targetPersonnelId]
@@ -321,6 +335,7 @@ export const cancelLeave = async (req, res) => {
     }
     // Skenario D: Diberikan shift_date & targetPersonnelId
     else if (targetPersonnelId && shift_date) {
+      await connection.query('SELECT id FROM personnel WHERE id = ? FOR UPDATE', [targetPersonnelId]);
       const shiftNum = shift_number ? Number(shift_number) : 1;
       const [pRows] = await connection.query('SELECT team_group FROM personnel WHERE id = ?', [targetPersonnelId]);
       const pTeam = pRows.length > 0 ? pRows[0].team_group : null;

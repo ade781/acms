@@ -15,7 +15,7 @@ export const login = async (req, res) => {
     const cleanUsername = String(username).trim();
 
     const [users] = await pool.query(
-      `SELECT u.id, u.username, u.name, u.email, u.password_hash, u.role, u.must_change_password,
+      `SELECT u.id, u.username, u.name, u.email, u.password_hash, u.role, u.must_change_password, u.token_version,
               p.id as personnel_id, p.team_group, p.rank_position, p.is_active
        FROM users u
        LEFT JOIN personnel p ON p.user_id = u.id
@@ -45,7 +45,8 @@ export const login = async (req, res) => {
       {
         id: user.id,
         username: user.username,
-        role: user.role
+        role: user.role,
+        token_version: user.token_version || 1
       },
       secret,
       { expiresIn }
@@ -164,12 +165,32 @@ export const changePassword = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const newHash = await bcrypt.hash(new_password, salt);
 
-    await pool.query('UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?', [newHash, req.user.id]);
+    // BUTIR TUGAS 5: Naikkan token_version agar sesi lama di perangkat lain otomatis hangus
+    await pool.query(
+      'UPDATE users SET password_hash = ?, must_change_password = 0, token_version = token_version + 1 WHERE id = ?',
+      [newHash, req.user.id]
+    );
 
     return successResponse(res, 'Password berhasil diperbarui');
   } catch (error) {
     console.error('Error changePassword:', error);
     return errorResponse(res, 'Gagal memperbarui password', 500);
+  }
+};
+
+/**
+ * BUTIR TUGAS 5: Logout & Revokasi Sesi Token JWT
+ * Menaikkan token_version pada database sehingga token JWT yang beredar seketika tidak valid
+ */
+export const logout = async (req, res) => {
+  try {
+    if (req.user?.id) {
+      await pool.query('UPDATE users SET token_version = token_version + 1 WHERE id = ?', [req.user.id]);
+    }
+    return successResponse(res, 'Berhasil keluar dan sesi telah dicabut');
+  } catch (error) {
+    console.error('Error logout:', error);
+    return errorResponse(res, 'Gagal memproses keluar sesi', 500);
   }
 };
 

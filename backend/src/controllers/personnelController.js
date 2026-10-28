@@ -14,12 +14,17 @@ const __dirname = path.dirname(__filename);
 
 export const getPersonnelList = async (req, res) => {
   try {
-    const { team_group, search, cert_level, is_active } = req.query;
+    const { team_group, search, cert_level, is_active, compact } = req.query;
+    const isCompact = compact === 'true' || compact === true;
+
+    const selectColumns = isCompact
+      ? `p.id, p.nip, p.full_name, p.team_group, p.rank_position, p.employment_status, p.cert_level, p.cert_expiry_date, p.is_active`
+      : `p.*, u.username, u.email as user_email, u.role as user_role, u.must_change_password`;
 
     let query = `
-      SELECT p.*, u.username, u.email as user_email, u.role as user_role, u.must_change_password
+      SELECT ${selectColumns}
       FROM personnel p
-      LEFT JOIN users u ON u.id = p.user_id
+      ${isCompact ? '' : 'LEFT JOIN users u ON u.id = p.user_id'}
       WHERE 1=1
     `;
     const params = [];
@@ -48,15 +53,17 @@ export const getPersonnelList = async (req, res) => {
     query += ` ORDER BY p.team_group ASC, p.id ASC`;
 
     const [rows] = await pool.query(query, params);
-    const formattedRows = rows.map((p) => ({
-      ...p,
-      additional_competencies: parseCompetenciesArray(p.additional_competencies),
-    }));
+    const formattedRows = isCompact
+      ? rows
+      : rows.map((p) => ({
+          ...p,
+          additional_competencies: parseCompetenciesArray(p.additional_competencies),
+        }));
+
     return res.status(200).json({
       success: true,
       message: 'Daftar personel berhasil diambil',
-      data: formattedRows,
-      personnel: formattedRows
+      data: formattedRows
     });
   } catch (error) {
     console.error('Error getPersonnelList:', error);
@@ -88,7 +95,7 @@ export const exportPersonnelPdf = async (req, res) => {
     // Ambil pejabat Dept Head / Section Head resmi untuk tanda tangan pengesahan
     const signatory = await getOfficialSignatory(pool);
 
-    const doc = generatePersonnelAccountsPdf(rows, signatory);
+    const doc = await generatePersonnelAccountsPdf(rows, signatory);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(

@@ -241,10 +241,12 @@ export const getScheduleCyclePreview = async (req, res) => {
  * Menyimpan pergantian jadwal siklus 8 hari ke depan secara keseluruhan
  */
 export const saveScheduleCycle = async (req, res) => {
+  const connection = await pool.getConnection();
   try {
     const { start_date, pattern, notes } = req.body;
 
     if (!start_date || !Array.isArray(pattern) || pattern.length !== 8) {
+      connection.release();
       return errorResponse(res, 'Tanggal mulai dan pola 8 hari lengkap wajib diisi', 400);
     }
 
@@ -258,11 +260,13 @@ export const saveScheduleCycle = async (req, res) => {
       const s3 = dayItem.shift_3 || dayItem[3];
 
       if (!validTeams.includes(s1) || !validTeams.includes(s2) || !validTeams.includes(s3)) {
+        connection.release();
         return errorResponse(res, `Hari ke-${i + 1}: Nama regu tidak valid`, 400);
       }
 
       const uniqueCheck = new Set([s1, s2, s3]);
       if (uniqueCheck.size !== 3) {
+        connection.release();
         return errorResponse(res, `Hari ke-${i + 1}: Shift 1, 2, dan 3 harus regu yang berbeda`, 400);
       }
 
@@ -287,7 +291,10 @@ export const saveScheduleCycle = async (req, res) => {
       notes: notes || null
     };
 
-    await pool.query(
+    // MULAI TRANSAKSI ATOMIK (Temuan No. 34)
+    await connection.beginTransaction();
+
+    await connection.query(
       `INSERT INTO system_settings (setting_key, setting_value)
        VALUES ('schedule_custom_cycle', ?)
        ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
@@ -295,29 +302,39 @@ export const saveScheduleCycle = async (req, res) => {
     );
 
     // Bersihkan override manual dari start_date ke depan agar pola baru langsung efektif tanpa terhalang override usang
-    await pool.query('DELETE FROM schedule_rosters WHERE roster_date >= ?', [start_date]);
+    await connection.query('DELETE FROM schedule_rosters WHERE roster_date >= ?', [start_date]);
 
+    await connection.commit();
     return successResponse(
       res,
       `Pergantian siklus jadwal 8 hari berhasil disimpan dan diterapkan secara keseluruhan mulai ${start_date}.`
     );
   } catch (error) {
+    await connection.rollback();
     console.error('Error saveScheduleCycle:', error);
     return errorResponse(res, 'Gagal menyimpan siklus rotasi: ' + error.message, 500);
+  } finally {
+    connection.release();
   }
 };
 
 /**
- * Mereset semua siklus rotasi kustom ke pola bawaan awal
+ * Mereset semua siklus rotasi kustom ke pola bawaan awal (Transaksi Atomik)
  */
 export const resetScheduleCycles = async (req, res) => {
+  const connection = await pool.getConnection();
   try {
-    await pool.query("DELETE FROM system_settings WHERE setting_key = 'schedule_custom_cycle'");
-    await pool.query('DELETE FROM schedule_rosters');
+    await connection.beginTransaction();
+    await connection.query("DELETE FROM system_settings WHERE setting_key = 'schedule_custom_cycle'");
+    await connection.query('DELETE FROM schedule_rosters');
+    await connection.commit();
     return successResponse(res, 'Seluruh jadwal telah dikembalikan ke pola rotasi standar otomatis.');
   } catch (error) {
+    await connection.rollback();
     console.error('Error resetScheduleCycles:', error);
     return errorResponse(res, 'Gagal mereset jadwal: ' + error.message, 500);
+  } finally {
+    connection.release();
   }
 };
 

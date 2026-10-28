@@ -82,12 +82,9 @@ export const getActivities = async (req, res) => {
 
 export const createActivity = async (req, res) => {
   try {
-    const allowedRoles = ['admin', 'chief', 'chief_assistant'];
-    if (!allowedRoles.includes(req.user?.role)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Akses ditolak: Hanya Chief, Asisten Chief, atau Admin yang berhak mencatat, mengubah, atau menghapus kegiatan operasional.'
-      });
+    // BUTIR TUGAS 3: Selaraskan RBAC - seluruh personel dinas terautentikasi (termasuk kru) dapat mencatat kegiatan
+    if (!req.user) {
+      return errorResponse(res, 'Autentikasi diperlukan untuk mencatat kegiatan', 401);
     }
 
     const {
@@ -142,11 +139,12 @@ export const createActivity = async (req, res) => {
 
     const finalAttachmentUrl = req.file ? `/uploads/${req.file.filename}` : (attachment_url || null);
 
+    // Simpan data kegiatan beserta created_by (ID personel pencatat)
     const [result] = await pool.query(
       `INSERT INTO daily_shift_activities (
         shift_id, activity_type, activity_time, title, description,
-        result_notes, actor_ids, attachment_url
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        result_notes, actor_ids, attachment_url, created_by
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         targetShiftId,
         activity_type,
@@ -155,7 +153,8 @@ export const createActivity = async (req, res) => {
         description || null,
         result_notes || null,
         formattedActorIds,
-        finalAttachmentUrl
+        finalAttachmentUrl,
+        req.user.id
       ]
     );
 
@@ -169,23 +168,45 @@ export const createActivity = async (req, res) => {
 
 export const updateActivity = async (req, res) => {
   try {
-    const allowedRoles = ['admin', 'chief', 'chief_assistant'];
-    if (!allowedRoles.includes(req.user?.role)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Akses ditolak: Hanya Chief, Asisten Chief, atau Admin yang berhak mencatat, mengubah, atau menghapus kegiatan operasional.'
-      });
-    }
-
     const { id } = req.params;
     const { activity_type, activity_time, title, description, result_notes, actor_ids, attachment_url } = req.body;
 
-    const [existing] = await pool.query('SELECT * FROM daily_shift_activities WHERE id = ?', [id]);
+    // BUTIR TUGAS 2: Ambil data kegiatan beserta info shift regunya (Pencegahan Celah IDOR)
+    const [existing] = await pool.query(
+      `SELECT a.*, ps.team_group, ps.supervisor_id
+       FROM daily_shift_activities a
+       JOIN personnel_shifts ps ON ps.id = a.shift_id
+       WHERE a.id = ?`,
+      [id]
+    );
+
     if (existing.length === 0) {
       return errorResponse(res, 'Aktivitas tidak ditemukan', 404);
     }
 
     const currentActivity = existing[0];
+
+    // Validasi Otorisasi (Anti-IDOR):
+    // Izinkan HANYA jika:
+    // 1. Role adalah Admin atau Dept Head
+    // 2. Role adalah Chief / Supervisor pada regu yang sama
+    // 3. User adalah pemilik sah/pencatat kegiatan tersebut (created_by === req.user.id)
+    const isAdmin = ['admin', 'dept_head'].includes(req.user?.role);
+    const isTeamChief =
+      ['chief', 'chief_assistant', 'supervisor', 'operation_chief'].includes(req.user?.role) &&
+      (!req.user?.team_group ||
+       !currentActivity.team_group ||
+       String(req.user?.team_group).toLowerCase() === String(currentActivity.team_group).toLowerCase());
+    const isOwner = currentActivity.created_by && Number(currentActivity.created_by) === Number(req.user?.id);
+
+    if (!isAdmin && !isTeamChief && !isOwner) {
+      return errorResponse(
+        res,
+        'Akses ditolak: Anda tidak memiliki wewenang untuk mengubah catatan kegiatan ini',
+        403
+      );
+    }
+
     let finalAttachmentUrl = currentActivity.attachment_url;
 
     if (req.file) {
@@ -262,21 +283,38 @@ export const updateActivity = async (req, res) => {
 
 export const deleteActivity = async (req, res) => {
   try {
-    const allowedRoles = ['admin', 'chief', 'chief_assistant'];
-    if (!allowedRoles.includes(req.user?.role)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Akses ditolak: Hanya Chief, Asisten Chief, atau Admin yang berhak mencatat, mengubah, atau menghapus kegiatan operasional.'
-      });
-    }
-
     const { id } = req.params;
-    const [existing] = await pool.query('SELECT id, attachment_url FROM daily_shift_activities WHERE id = ?', [id]);
+
+    // BUTIR TUGAS 2 & 3: Ambil data kegiatan terlebih dahulu dan verifikasi otorisasi regu (Anti-IDOR)
+    const [existing] = await pool.query(
+      `SELECT a.id, a.attachment_url, a.created_by, ps.team_group, ps.supervisor_id
+       FROM daily_shift_activities a
+       JOIN personnel_shifts ps ON ps.id = a.shift_id
+       WHERE a.id = ?`,
+      [id]
+    );
+
     if (existing.length === 0) {
       return errorResponse(res, 'Aktivitas tidak ditemukan', 404);
     }
 
     const activity = existing[0];
+
+    // Validasi Otorisasi: Hanya Admin, Dept Head, atau Chief/Pimpinan pada regu yang sama yang berhak menghapus
+    const isAdmin = ['admin', 'dept_head'].includes(req.user?.role);
+    const isTeamChief =
+      ['chief', 'chief_assistant', 'supervisor', 'operation_chief'].includes(req.user?.role) &&
+      (!req.user?.team_group ||
+       !activity.team_group ||
+       String(req.user?.team_group).toLowerCase() === String(activity.team_group).toLowerCase());
+
+    if (!isAdmin && !isTeamChief) {
+      return errorResponse(
+        res,
+        'Akses ditolak: Hanya Admin atau Chief regu terkait yang berhak menghapus catatan kegiatan',
+        403
+      );
+    }
 
     await pool.query('DELETE FROM daily_shift_activities WHERE id = ?', [id]);
 
@@ -299,3 +337,4 @@ export const deleteActivity = async (req, res) => {
     return errorResponse(res, 'Gagal menghapus aktivitas', 500);
   }
 };
+
