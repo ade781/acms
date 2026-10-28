@@ -4,7 +4,7 @@ import Modal from '../common/Modal';
 import Button from '../common/Button';
 import SelectField from '../common/SelectField';
 import TextareaField from '../common/TextareaField';
-import { cleanTeam, formatTeam } from '../../utils/shiftHelper';
+import { cleanTeam, formatTeam, formatIndoDate } from '../../utils/shiftHelper';
 import api from '../../services/api';
 
 export default function WatchroomReadinessModal({
@@ -64,13 +64,7 @@ export default function WatchroomReadinessModal({
     }
   };
 
-  const formattedDate = activeDate
-    ? new Date(activeDate.includes('T') ? activeDate : `${activeDate}T00:00:00`).toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      })
-    : '-';
+  const formattedDate = formatIndoDate(activeDate);
 
   return (
     <Modal

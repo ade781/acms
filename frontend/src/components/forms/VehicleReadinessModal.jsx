@@ -5,7 +5,7 @@ import Button from '../common/Button';
 import SelectField from '../common/SelectField';
 import TextareaField from '../common/TextareaField';
 import { compressImageToWebP } from '../../utils/imageCompressor';
-import { cleanTeam, formatTeam } from '../../utils/shiftHelper';
+import { cleanTeam, formatTeam, formatIndoDate } from '../../utils/shiftHelper';
 import api from '../../services/api';
 
 export default function VehicleReadinessModal({
@@ -126,13 +126,7 @@ export default function VehicleReadinessModal({
     }
   };
 
-  const formattedDate = activeDate
-    ? new Date(activeDate.includes('T') ? activeDate : `${activeDate}T00:00:00`).toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      })
-    : '-';
+  const formattedDate = formatIndoDate(activeDate);
 
   return (
     <Modal

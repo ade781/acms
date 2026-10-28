@@ -6,12 +6,10 @@ import {
   Download,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { cleanTeam } from '../utils/shiftHelper';
+import { cleanTeam, formatTeam, formatIndoDate } from '../utils/shiftHelper';
 import api from '../services/api';
 import { downloadActivityReportPdf } from '../services/reportService';
-import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import Button from '../components/common/Button';
-import InputField from '../components/common/InputField';
 import { compressImageToWebP } from '../utils/imageCompressor';
 
 // Import Modular Components & Utilities
@@ -81,7 +79,7 @@ export default function ActivitiesPage() {
   const [exportTeam, setExportTeam] = useState('ALL');
   const [isExporting, setIsExporting] = useState(false);
 
-  const fetchActivities = useCallback(async () => {
+  const fetchActivities = useCallback(async (signal) => {
     setLoading(true);
     setError(null);
     try {
@@ -96,11 +94,12 @@ export default function ActivitiesPage() {
         }
       }
 
-      const res = await api.get(endpoint);
+      const res = await api.get(endpoint, { signal });
       const raw = res.data?.data ?? res.data?.activities ?? res.data;
       const list = Array.isArray(raw) ? raw : [];
       setActivities(list);
     } catch (err) {
+      if (err.name === 'CanceledError' || err.name === 'AbortError') return;
       console.error('Error fetching activities:', err);
       setError('Gagal memuat logbook kegiatan.');
     } finally {
@@ -109,7 +108,9 @@ export default function ActivitiesPage() {
   }, [viewMode, activeDate, activeShiftNumber, activeTeam, rangePeriod, rangeStartDate, rangeEndDate]);
 
   useEffect(() => {
-    fetchActivities();
+    const controller = new AbortController();
+    fetchActivities(controller.signal);
+    return () => controller.abort();
   }, [fetchActivities]);
 
   const handleExportPdf = async () => {
@@ -286,135 +287,53 @@ export default function ActivitiesPage() {
   const paginatedActivities = filteredActivities.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
-    <div className="space-y-6">
-      {/* Mode Switcher: Shift Ini vs Riwayat Periode */}
-      <div className="flex items-center justify-between border-b border-slate-200 pb-3 gap-3 flex-wrap">
-        <div className="inline-flex rounded-lg bg-slate-100 p-1 text-xs font-semibold">
-          <button
-            type="button"
-            onClick={() => {
-              setViewMode('shift');
-              setCurrentPage(1);
-            }}
-            className={`px-3 py-1.5 rounded-md transition-colors duration-100 ${
-              viewMode === 'shift'
-                ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Shift Berjalan ({activeTeam})
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setViewMode('range');
-              setCurrentPage(1);
-            }}
-            className={`px-3 py-1.5 rounded-md transition-colors duration-100 ${
-              viewMode === 'range'
-                ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Riwayat & Arsip Periode
-          </button>
-        </div>
-
-        {viewMode === 'range' && (
-          <span className="text-xs text-slate-500 font-medium hidden sm:inline">
-            Menampilkan aktivitas lintas sesi dinas
-          </span>
-        )}
-      </div>
-
-      {/* Kondisional Header: ShiftHeaderCard (Mode Shift) vs Filter Rentang Waktu (Mode Range) */}
-      {viewMode === 'shift' ? (
-        <ShiftHeaderCard
-          shiftNumber={activeShiftNumber}
-          shiftDate={activeDate}
-          teamGroup={activeTeam}
-        />
-      ) : (
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs space-y-3">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-              Pilih Rentang Periode Aktivitas:
-            </span>
-            <div className="inline-flex gap-1.5 flex-wrap">
-              {[
-                { id: '1week', label: '7 Hari Terakhir' },
-                { id: '1month', label: '30 Hari Terakhir' },
-                { id: '3months', label: '3 Bulan (Triwulan)' },
-                { id: 'custom', label: 'Rentang Kustom' },
-              ].map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => {
-                    setRangePeriod(p.id);
-                    setCurrentPage(1);
-                  }}
-                  className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors duration-100 ${
-                    rangePeriod === p.id
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {rangePeriod === 'custom' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
-              <InputField
-                label="Tanggal Mulai"
-                type="date"
-                value={rangeStartDate}
-                onChange={(e) => setRangeStartDate(e.target.value)}
-              />
-              <InputField
-                label="Tanggal Selesai"
-                type="date"
-                value={rangeEndDate}
-                onChange={(e) => setRangeEndDate(e.target.value)}
-              />
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Toast Feedback */}
-      {toastMsg && (
-        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-2">
-            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span className="font-semibold">{toastMsg}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setToastMsg(null)}
-            className="text-emerald-500 hover:text-emerald-700 p-0.5"
-            aria-label="Tutup Notifikasi"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* Top Header & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-4">
+      {/* Row 1: Compact Header, Mode Switcher, & Action Buttons in One Line */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold tracking-tight text-slate-900">
             Logbook Kegiatan Rutin
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Pencatatan dan dokumentasi dinas operasional ARFF YIA
+          <p className="text-xs text-slate-500 font-medium mt-0.5">
+            {viewMode === 'shift'
+              ? `Shift ${activeShiftNumber} • ${formatTeam(activeTeam)} • ${formatIndoDate(activeDate, { shortMonth: true })}`
+              : 'Menampilkan riwayat & arsip aktivitas lintas sesi dinas'}
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Segmented Switcher: Shift Berjalan vs Riwayat Periode */}
+          <div className="inline-flex rounded-lg bg-slate-200/70 p-1 text-xs font-semibold border border-slate-200">
+            <button
+              type="button"
+              onClick={() => {
+                setViewMode('shift');
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-1.5 rounded-md transition-colors duration-100 cursor-pointer ${
+                viewMode === 'shift'
+                  ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Shift Berjalan ({activeTeam})
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setViewMode('range');
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-1.5 rounded-md transition-colors duration-100 cursor-pointer ${
+                viewMode === 'range'
+                  ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Riwayat & Arsip Periode
+            </button>
+          </div>
+
           <Button
             variant="outline"
             icon={Download}
@@ -435,7 +354,121 @@ export default function ActivitiesPage() {
         </div>
       </div>
 
-      {/* Komponen Timeline & Daftar Kegiatan */}
+      {/* Toast Feedback */}
+      {toastMsg && (
+        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="font-semibold">{toastMsg}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setToastMsg(null)}
+            className="text-emerald-500 hover:text-emerald-700 p-0.5"
+            aria-label="Tutup Notifikasi"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Row 2: Unified Compact Filter Toolbar (Range Controls + Category Chips) */}
+      <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-2xs space-y-2.5">
+        {viewMode === 'range' && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1">
+                Periode:
+              </span>
+              {[
+                { id: '1week', label: '7 Hari Terakhir' },
+                { id: '1month', label: '30 Hari Terakhir' },
+                { id: '3months', label: '3 Bulan (Triwulan)' },
+                { id: 'custom', label: 'Rentang Kustom' },
+              ].map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    setRangePeriod(p.id);
+                    setCurrentPage(1);
+                  }}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors duration-100 cursor-pointer ${
+                    rangePeriod === p.id
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            {rangePeriod === 'custom' && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  type="date"
+                  value={rangeStartDate}
+                  onChange={(e) => setRangeStartDate(e.target.value)}
+                  className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-md text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-red-500 tabular-nums"
+                  aria-label="Tanggal Mulai"
+                />
+                <span className="text-xs text-slate-400">s/d</span>
+                <input
+                  type="date"
+                  value={rangeEndDate}
+                  onChange={(e) => setRangeEndDate(e.target.value)}
+                  className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-md text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-red-500 tabular-nums"
+                  aria-label="Tanggal Selesai"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Category Filter Chips */}
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1 flex-shrink-0">
+            Kategori:
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedFilterCategory('ALL');
+              setCurrentPage(1);
+            }}
+            className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors duration-100 flex-shrink-0 cursor-pointer ${
+              selectedFilterCategory === 'ALL'
+                ? 'bg-slate-900 text-white'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            Semua ({categoryCounts.ALL || 0})
+          </button>
+          {OFFICIAL_ACTIVITY_CATEGORIES.map((cat) => {
+            const count = categoryCounts[cat.value] || 0;
+            return (
+              <button
+                key={cat.value}
+                type="button"
+                onClick={() => {
+                  setSelectedFilterCategory(cat.value);
+                  setCurrentPage(1);
+                }}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors duration-100 flex-shrink-0 cursor-pointer ${
+                  selectedFilterCategory === cat.value
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                {cat.label.split('(')[0].trim()} {count > 0 && `(${count})`}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Row 3: Immediate Timeline & Daftar Kegiatan Content */}
       <ActivityTimelineList
         activities={filteredActivities}
         paginatedActivities={paginatedActivities}
@@ -448,12 +481,6 @@ export default function ActivitiesPage() {
         onOpenEditModal={handleOpenEditModal}
         onOpenDeleteModal={handleOpenDeleteModal}
         onPreviewPhoto={(url) => setPreviewImageUrl(url)}
-        selectedFilterCategory={selectedFilterCategory}
-        onSelectCategory={(cat) => {
-          setSelectedFilterCategory(cat);
-          setCurrentPage(1);
-        }}
-        categoryCounts={categoryCounts}
         currentPage={currentPage}
         totalPages={totalPages}
         pageSize={pageSize}

@@ -59,7 +59,7 @@ export default function IncidentReportsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
-  const fetchSummaryReport = useCallback(async () => {
+  const fetchSummaryReport = useCallback(async (signal) => {
     setLoading(true);
     setError(null);
     try {
@@ -73,12 +73,13 @@ export default function IncidentReportsPage() {
       if (filterCategory !== 'ALL') params.category = filterCategory;
       if (filterStatus !== 'ALL') params.status = filterStatus;
 
-      const res = await api.get('/incidents/summary-report', { params });
+      const res = await api.get('/incidents/summary-report', { params, signal });
       const data = res.data?.data || res.data;
       if (data) {
         setReportData(data);
       }
     } catch (err) {
+      if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
       console.error('Error fetching incident summary report:', err);
       setError('Gagal memuat rekapitulasi laporan insiden operasional.');
     } finally {
@@ -87,7 +88,9 @@ export default function IncidentReportsPage() {
   }, [period, startDate, endDate, filterCategory, filterStatus]);
 
   useEffect(() => {
-    fetchSummaryReport();
+    const controller = new AbortController();
+    fetchSummaryReport(controller.signal);
+    return () => controller.abort();
   }, [fetchSummaryReport]);
 
   // Handler Download PDF Rekapitulasi Resmi

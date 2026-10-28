@@ -116,7 +116,7 @@ export default function PersonnelPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
 
-  const fetchPersonnel = useCallback(async () => {
+  const fetchPersonnel = useCallback(async (signal) => {
     setLoading(true);
     setError(null);
     try {
@@ -125,7 +125,7 @@ export default function PersonnelPage() {
       if (debouncedSearchQuery.trim()) queryParams.push(`search=${encodeURIComponent(debouncedSearchQuery.trim())}`);
 
       const url = `/personnel${queryParams.length > 0 ? '?' + queryParams.join('&') : ''}`;
-      const res = await api.get(url);
+      const res = await api.get(url, { signal });
       const list = Array.isArray(res.data?.data)
         ? res.data.data
         : (Array.isArray(res.data?.personnel)
@@ -133,6 +133,7 @@ export default function PersonnelPage() {
           : (Array.isArray(res.data) ? res.data : []));
       setPersonnelList(list);
     } catch (err) {
+      if (err.name === 'CanceledError' || err.name === 'AbortError') return;
       console.error('Error fetching personnel:', err);
       setError('Gagal memuat katalog personel.');
     } finally {
@@ -141,8 +142,10 @@ export default function PersonnelPage() {
   }, [selectedTeam, debouncedSearchQuery]);
 
   useEffect(() => {
-    fetchPersonnel();
+    const controller = new AbortController();
+    fetchPersonnel(controller.signal);
     setCurrentPage(1);
+    return () => controller.abort();
   }, [fetchPersonnel]);
 
   const handleAddPersonnel = async (e) => {

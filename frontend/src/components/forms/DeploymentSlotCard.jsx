@@ -314,7 +314,7 @@ export default function DeploymentSlotCard({
         <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
           {isUserThePic ? (
             <span className="inline-flex items-center gap-1.5 text-emerald-700 font-bold">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
               {isPosko ? 'PIC Watchroom' : 'PIC Kendaraan'}
             </span>
           ) : isUserKru ? (

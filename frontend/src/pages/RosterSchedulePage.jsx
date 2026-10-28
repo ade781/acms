@@ -61,7 +61,7 @@ export default function RosterSchedulePage() {
     return `${y}-${m}-${day}`;
   };
 
-  const fetchMonthlySchedule = useCallback(async (forceRefresh = false) => {
+  const fetchMonthlySchedule = useCallback(async (forceRefresh = false, signal) => {
     const cacheKey = `${selectedYear}-${selectedMonth}`;
 
     // Gunakan in-memory cache jika sudah pernah ditarik dan tidak dipaksa refresh
@@ -74,11 +74,12 @@ export default function RosterSchedulePage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get(`/schedules/monthly?year=${selectedYear}&month=${selectedMonth}`);
+      const res = await api.get(`/schedules/monthly?year=${selectedYear}&month=${selectedMonth}`, { signal });
       const data = res.data?.data || res.data;
       setScheduleData(data);
       monthlyCacheRef.current.set(cacheKey, data);
     } catch (err) {
+      if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
       console.error('Error fetching monthly schedule:', err);
       setError('Gagal memuat jadwal dinas.');
     } finally {
@@ -87,7 +88,9 @@ export default function RosterSchedulePage() {
   }, [selectedYear, selectedMonth]);
 
   useEffect(() => {
-    fetchMonthlySchedule();
+    const controller = new AbortController();
+    fetchMonthlySchedule(false, controller.signal);
+    return () => controller.abort();
   }, [fetchMonthlySchedule]);
 
   const handlePrevMonth = () => {

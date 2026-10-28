@@ -2,9 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Truck, CheckCircle2, AlertTriangle, ShieldCheck, HelpCircle, Plus, Trash2, X, AlertCircle, FileBarChart2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { cleanTeam } from '../utils/shiftHelper';
+import { cleanTeam, formatTeam, formatIndoDate } from '../utils/shiftHelper';
 import api from '../services/api';
-import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import VehicleMetricCard from '../components/dashboard/VehicleMetricCard';
 import VehicleReadinessModal from '../components/forms/VehicleReadinessModal';
 import WatchroomReadinessModal from '../components/forms/WatchroomReadinessModal';
@@ -30,6 +29,7 @@ export default function VehicleReadinessPage() {
   const [error, setError] = useState(null);
   const [vehicles, setVehicles] = useState([]);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
   // Vehicle Management Modal State (Admin only)
   const [vehicleModalOpen, setVehicleModalOpen] = useState(false);
@@ -43,15 +43,20 @@ export default function VehicleReadinessPage() {
   const [formError, setFormError] = useState(null);
   const [toastMsg, setToastMsg] = useState(null);
 
-  const fetchVehicles = useCallback(async () => {
+  const fetchVehicles = useCallback(async (opts = {}) => {
     setLoading(true);
     setError(null);
     try {
       const currentTeam = cleanTeam(activeTeam);
-      const res = await api.get(`/readiness/vehicles?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`);
+      const res = await api.get(`/readiness/vehicles?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`, {
+        signal: opts.signal
+      });
       const list = Array.isArray(res.data?.vehicles) ? res.data.vehicles : (Array.isArray(res.data) ? res.data : []);
       setVehicles(list);
     } catch (err) {
+      if (err.name === 'CanceledError' || err.name === 'AbortError' || err.code === 'ERR_CANCELED') {
+        return;
+      }
       console.error('Error fetching vehicles:', err);
       setError('Gagal memuat status kesiapan armada & posko.');
     } finally {
@@ -60,7 +65,9 @@ export default function VehicleReadinessPage() {
   }, [activeDate, activeShiftNumber, activeTeam]);
 
   useEffect(() => {
-    fetchVehicles();
+    const controller = new AbortController();
+    fetchVehicles({ signal: controller.signal });
+    return () => controller.abort();
   }, [fetchVehicles]);
 
   const handleReadinessSuccess = (customMsg) => {
@@ -163,28 +170,27 @@ export default function VehicleReadinessPage() {
     }
   };
 
-  const unserviceableCount = vehicles.filter(
-    (v) => (v.status === 'unserviceable' || v.current_log?.status === 'unserviceable')
-  ).length;
-  const serviceableCount = vehicles.filter(
-    (v) => (v.status === 'serviceable' || v.current_log?.status === 'serviceable')
-  ).length;
-  const belumDicekCount = vehicles.filter(
-    (v) => (v.status === 'belum_dilaporkan' || (!v.status && v.current_log?.status !== 'unserviceable' && v.current_log?.status !== 'serviceable'))
-  ).length;
+  const getVehicleStatusKey = (v) => {
+    const raw = v.status || v.current_log?.status || 'belum_dilaporkan';
+    if (raw === 'serviceable' || raw === 'unserviceable') return raw;
+    return 'belum_dilaporkan';
+  };
+
+  const unserviceableCount = vehicles.filter((v) => getVehicleStatusKey(v) === 'unserviceable').length;
+  const serviceableCount = vehicles.filter((v) => getVehicleStatusKey(v) === 'serviceable').length;
+  const belumDicekCount = vehicles.filter((v) => getVehicleStatusKey(v) === 'belum_dilaporkan').length;
+
+  const filteredVehicles =
+    statusFilter === 'ALL'
+      ? vehicles
+      : vehicles.filter((v) => getVehicleStatusKey(v) === statusFilter);
 
   return (
-    <div>
-      <ShiftHeaderCard
-        shiftNumber={activeShiftNumber}
-        shiftDate={activeDate}
-        teamGroup={activeTeam}
-      />
-
+    <div className="space-y-4">
       {/* Toast Feedback */}
       {toastMsg && (
         <div
-          className={`mb-4 p-3 rounded-xl border flex items-center justify-between text-xs font-semibold shadow-sm transition-colors duration-100 ${
+          className={`p-3 rounded-xl border flex items-center justify-between text-xs font-semibold shadow-sm transition-colors duration-100 ${
             toastMsg.type === 'error'
               ? 'bg-red-50 border-red-200 text-red-800'
               : 'bg-emerald-50 border-emerald-200 text-emerald-800'
@@ -208,64 +214,109 @@ export default function VehicleReadinessPage() {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      {/* Single-Row Interactive Fleet Header & Quick Status Filter Bar */}
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 bg-white rounded-xl border border-slate-200 px-4 py-3 shadow-2xs">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-slate-900">
-            Kesiapan Armada
+          <h2 className="text-lg font-bold tracking-tight text-slate-900">
+            Kesiapan Armada & Posko
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Monitoring fisik kendaraan operasional & posko komunikasi
+          <p className="text-xs text-slate-500 font-medium mt-0.5">
+            Shift {activeShiftNumber} • {formatTeam(activeTeam)} • {formatIndoDate(activeDate, { shortMonth: true })}
           </p>
         </div>
 
-        {/* Action & Counter Summary */}
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <span className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold">
-            {serviceableCount} Serviceable
-          </span>
-          <span className="px-3 py-1.5 rounded-lg bg-red-50 text-red-800 border border-red-200 text-xs font-bold">
-            {unserviceableCount} Unserviceable
-          </span>
-          {belumDicekCount > 0 && (
-            <span
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700/60 text-slate-300 border border-slate-600/50 text-xs font-medium cursor-help"
-              title="Sesuai SOP dinas (GEMINI.md Butir 17): Status kesiapan armada belum diperiksa/dilaporkan oleh PIC armada pada shift ini."
+        {/* Interactive Status Filter Pills + Actions */}
+        <div className="flex items-center justify-between xl:justify-end gap-2.5 flex-wrap">
+          <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-slate-100 border border-slate-200 text-xs flex-wrap">
+            <button
+              type="button"
+              onClick={() => setStatusFilter('ALL')}
+              className={`px-2.5 py-1 rounded-md font-bold transition-colors duration-100 cursor-pointer ${
+                statusFilter === 'ALL'
+                  ? 'bg-white text-slate-900 shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
             >
-              <span>{belumDicekCount} Belum Dicek</span>
-              <HelpCircle className="w-3.5 h-3.5 text-slate-400 hover:text-slate-200 transition-colors duration-100" />
-            </span>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            icon={FileBarChart2}
-            onClick={() => navigate('/vehicles/reports')}
-          >
-            Laporan Kesiapan
-          </Button>
-          {isAdmin && (
+              Semua ({vehicles.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('serviceable')}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-bold transition-colors duration-100 cursor-pointer ${
+                statusFilter === 'serviceable'
+                  ? 'bg-emerald-600 text-white shadow-2xs'
+                  : 'text-emerald-800 hover:bg-emerald-50'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${statusFilter === 'serviceable' ? 'bg-white' : 'bg-emerald-500'}`} />
+              <span>{serviceableCount} Serviceable</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('unserviceable')}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-bold transition-colors duration-100 cursor-pointer ${
+                statusFilter === 'unserviceable'
+                  ? 'bg-red-600 text-white shadow-2xs'
+                  : 'text-red-800 hover:bg-red-50'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${statusFilter === 'unserviceable' ? 'bg-white' : 'bg-red-500'}`} />
+              <span>{unserviceableCount} Unserviceable</span>
+            </button>
+            {belumDicekCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setStatusFilter('belum_dilaporkan')}
+                title="Status kesiapan armada belum diperiksa/dilaporkan oleh PIC armada pada shift ini."
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-semibold transition-colors duration-100 cursor-pointer ${
+                  statusFilter === 'belum_dilaporkan'
+                    ? 'bg-slate-800 text-white shadow-2xs'
+                    : 'text-slate-600 hover:bg-slate-200/70'
+                }`}
+              >
+                <span>{belumDicekCount} Belum Dicek</span>
+                <HelpCircle className="w-3.5 h-3.5 opacity-70" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
             <Button
-              variant="primary"
+              variant="outline"
               size="sm"
-              icon={Plus}
-              onClick={handleOpenAddVehicle}
+              icon={FileBarChart2}
+              onClick={() => navigate('/vehicles/reports')}
             >
-              Tambah Armada
+              Laporan Kesiapan
             </Button>
-          )}
+            {isAdmin && (
+              <Button
+                variant="primary"
+                size="sm"
+                icon={Plus}
+                onClick={handleOpenAddVehicle}
+              >
+                Tambah Armada
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
       <StateView
         loading={loading}
         error={error}
-        isEmpty={vehicles.length === 0}
-        emptyTitle="Belum Ada Unit Operasional"
-        emptyDescription="Daftarkan armada operasional terlebih dahulu menggunakan tombol Tambah Armada di atas."
+        isEmpty={filteredVehicles.length === 0}
+        emptyTitle={vehicles.length === 0 ? 'Belum Ada Unit Operasional' : 'Tidak Ada Unit pada Filter Ini'}
+        emptyDescription={
+          vehicles.length === 0
+            ? 'Daftarkan armada operasional terlebih dahulu menggunakan tombol Tambah Armada di atas.'
+            : 'Tidak ada kendaraan atau posko yang memiliki status terpilih pada shift ini.'
+        }
         onRetry={fetchVehicles}
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {vehicles.map((v) => {
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredVehicles.map((v) => {
             const isPic = user?.personnel_id && v.pic_personnel_id === user.personnel_id;
             const canInspect = isPic || isSupervisor || isAdmin;
 

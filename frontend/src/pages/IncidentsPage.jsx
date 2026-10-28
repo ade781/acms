@@ -56,7 +56,7 @@ export default function IncidentsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
-  const fetchIncidents = useCallback(async () => {
+  const fetchIncidents = useCallback(async (signal) => {
     setLoading(true);
     setError(null);
     try {
@@ -66,11 +66,12 @@ export default function IncidentsPage() {
       if (filterPriority !== 'ALL') {
         params.priority = filterPriority;
       }
-      const res = await api.get('/incidents', { params });
+      const res = await api.get('/incidents', { params, signal });
       const raw = res.data?.data ?? res.data?.incidents ?? res.data;
       const list = Array.isArray(raw) ? raw : [];
       setIncidents(list);
     } catch (err) {
+      if (err.name === 'CanceledError' || err.name === 'AbortError') return;
       console.error('Error fetching incidents:', err);
       setError('Gagal memuat daftar laporan insiden operasional.');
     } finally {
@@ -79,7 +80,9 @@ export default function IncidentsPage() {
   }, [filterScope, filterPriority, activeDate, activeShiftNumber, activeTeam]);
 
   useEffect(() => {
-    fetchIncidents();
+    const controller = new AbortController();
+    fetchIncidents(controller.signal);
+    return () => controller.abort();
   }, [fetchIncidents]);
 
   // Auto-dismiss toast feedback 3.5 detik
@@ -174,15 +177,15 @@ export default function IncidentsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Top Header & Action Buttons */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold tracking-tight text-slate-900">
             Pemantauan & Laporan Insiden
           </h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
-            Shift {activeShiftNumber} • Regu {activeTeam} • Bandara Internasional Yogyakarta (YIA)
+            Shift {activeShiftNumber} • {formatTeam(activeTeam)} • Bandara Internasional Yogyakarta (YIA)
           </p>
         </div>
 
@@ -215,57 +218,6 @@ export default function IncidentsPage() {
         </div>
       </div>
 
-      {/* Scorecard KPI Ringkasan Status Insiden */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs">
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-            Total Laporan
-          </span>
-          <span className="text-2xl font-black text-slate-900 mt-1 block">
-            {summaryStats.total}
-          </span>
-          <span className="text-[10px] text-slate-400 font-medium mt-0.5 block">
-            {filterScope === 'shift' ? 'Pada shift aktif saat ini' : 'Riwayat 50 laporan terakhir'}
-          </span>
-        </div>
-
-        <div className="bg-white rounded-xl border border-red-200 p-3.5 shadow-2xs">
-          <span className="text-[11px] font-bold text-red-600 uppercase tracking-wider block">
-            Siaga I (Kritis)
-          </span>
-          <span className="text-2xl font-black text-red-700 mt-1 block">
-            {summaryStats.critical}
-          </span>
-          <span className="text-[10px] text-red-400 font-medium mt-0.5 block">
-            Tingkat keparahan tinggi
-          </span>
-        </div>
-
-        <div className="bg-white rounded-xl border border-amber-200 p-3.5 shadow-2xs">
-          <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider block">
-            Dalam Penanganan
-          </span>
-          <span className="text-2xl font-black text-amber-800 mt-1 block">
-            {summaryStats.inProgress}
-          </span>
-          <span className="text-[10px] text-amber-500 font-medium mt-0.5 block">
-            Proses tindak lanjut
-          </span>
-        </div>
-
-        <div className="bg-white rounded-xl border border-emerald-200 p-3.5 shadow-2xs">
-          <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider block">
-            Selesai Ditangani
-          </span>
-          <span className="text-2xl font-black text-emerald-800 mt-1 block">
-            {summaryStats.resolved}
-          </span>
-          <span className="text-[10px] text-emerald-500 font-medium mt-0.5 block">
-            Insiden tuntas di-closing
-          </span>
-        </div>
-      </div>
-
       {/* Toast Feedback */}
       {toastMsg && (
         <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between shadow-xs">
@@ -284,44 +236,68 @@ export default function IncidentsPage() {
         </div>
       )}
 
-      {/* Filter Toolbar: Shift Scope, Priority, & Search */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          {/* Toggle Shift Ini vs Semua Riwayat */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-xs font-semibold text-slate-600 mr-1">Cakupan:</span>
-            <button
-              type="button"
-              onClick={() => {
-                setFilterScope('shift');
-                setCurrentPage(1);
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-100 ${
-                filterScope === 'shift'
-                  ? 'bg-slate-900 text-white shadow-xs font-bold'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              Shift Ini ({formatTeam(activeTeam)})
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setFilterScope('all');
-                setCurrentPage(1);
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-100 ${
-                filterScope === 'all'
-                  ? 'bg-slate-900 text-white shadow-xs font-bold'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              Semua Riwayat
-            </button>
+      {/* Unified Triage & Search Command Bar (Merging KPIs + Scope + Priority + Search) */}
+      <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs space-y-2.5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          {/* Left: Scope Switcher + Inline Triage Counters */}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="inline-flex rounded-lg bg-slate-100 p-1 border border-slate-200 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterScope('shift');
+                  setCurrentPage(1);
+                }}
+                className={`px-2.5 py-1 rounded-md transition-colors duration-100 cursor-pointer ${
+                  filterScope === 'shift'
+                    ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Shift Ini ({formatTeam(activeTeam)})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterScope('all');
+                  setCurrentPage(1);
+                }}
+                className={`px-2.5 py-1 rounded-md transition-colors duration-100 cursor-pointer ${
+                  filterScope === 'all'
+                    ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Semua Riwayat
+              </button>
+            </div>
+
+            {/* Inline Triage Summary Pills */}
+            <div className="inline-flex items-center divide-x divide-slate-200 rounded-lg bg-slate-50 border border-slate-200 text-xs overflow-hidden">
+              <div className="px-2.5 py-1 flex items-center gap-1.5">
+                <span className="text-slate-500 font-medium">Total:</span>
+                <span className="font-bold text-slate-900 tabular-nums">{summaryStats.total}</span>
+              </div>
+              <div className="px-2.5 py-1 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-red-600" />
+                <span className="text-red-700 font-medium">Kritis:</span>
+                <span className="font-bold text-red-700 tabular-nums">{summaryStats.critical}</span>
+              </div>
+              <div className="px-2.5 py-1 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                <span className="text-amber-800 font-medium">Proses:</span>
+                <span className="font-bold text-amber-800 tabular-nums">{summaryStats.inProgress}</span>
+              </div>
+              <div className="px-2.5 py-1 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="text-emerald-800 font-medium">Selesai:</span>
+                <span className="font-bold text-emerald-800 tabular-nums">{summaryStats.resolved}</span>
+              </div>
+            </div>
           </div>
 
-          {/* Search Box */}
-          <div className="relative w-full md:w-64">
+          {/* Right: Search Box */}
+          <div className="relative w-full lg:w-64">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -336,9 +312,11 @@ export default function IncidentsPage() {
           </div>
         </div>
 
-        {/* Filter Prioritas Chips */}
+        {/* Bottom Row: Priority Triage Filter Chips */}
         <div className="pt-2 border-t border-slate-100 flex items-center gap-1.5 flex-wrap">
-          <span className="text-[11px] font-semibold text-slate-500 mr-1">Prioritas:</span>
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1">
+            Prioritas:
+          </span>
           {['ALL', 'kritis', 'tinggi', 'sedang', 'rendah'].map((lvl) => (
             <button
               key={lvl}
@@ -347,7 +325,7 @@ export default function IncidentsPage() {
                 setFilterPriority(lvl);
                 setCurrentPage(1);
               }}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold capitalize transition-colors duration-100 ${
+              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold capitalize transition-colors duration-100 cursor-pointer ${
                 filterPriority === lvl
                   ? 'bg-red-600 text-white font-bold'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'

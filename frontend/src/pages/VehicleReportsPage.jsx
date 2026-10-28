@@ -22,23 +22,13 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import { downloadVehicleReportPdf } from '../services/reportService';
+import { formatIndoDate } from '../utils/shiftHelper';
 import Button from '../components/common/Button';
 import StateView from '../components/common/StateView';
 import Modal from '../components/common/Modal';
 
 function formatDateIndo(dateStr) {
-  if (!dateStr) return '-';
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
-  } catch {
-    return dateStr;
-  }
+  return formatIndoDate(dateStr, { shortMonth: true });
 }
 
 export default function VehicleReportsPage() {
@@ -123,7 +113,7 @@ export default function VehicleReportsPage() {
   };
 
   // Fetch Report Data
-  const fetchReport = useCallback(async () => {
+  const fetchReport = useCallback(async (signal) => {
     setLoading(true);
     setError(null);
     try {
@@ -134,9 +124,10 @@ export default function VehicleReportsPage() {
         query = `?period=${selectedPeriod}`;
       }
 
-      const res = await api.get(`/readiness/transitions-report${query}`);
+      const res = await api.get(`/readiness/transitions-report${query}`, { signal });
       setReportData(res.data?.data || null);
     } catch (err) {
+      if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
       console.error('Error fetching transitions report:', err);
       setError(err.response?.data?.message || err.message || 'Gagal memuat laporan transisi kelaikan armada.');
     } finally {
@@ -145,7 +136,9 @@ export default function VehicleReportsPage() {
   }, [selectedPeriod, isCustomMode, startDate, endDate]);
 
   useEffect(() => {
-    fetchReport();
+    const controller = new AbortController();
+    fetchReport(controller.signal);
+    return () => controller.abort();
   }, [fetchReport]);
 
   const handlePeriodChange = (periodKey) => {

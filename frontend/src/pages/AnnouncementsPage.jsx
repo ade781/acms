@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import { formatIndoDate } from '../utils/shiftHelper';
 import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
 import InputField from '../components/common/InputField';
@@ -53,11 +54,7 @@ export default function AnnouncementsPage() {
     try {
       const d = new Date(dateStr);
       if (isNaN(d.getTime())) return dateStr;
-      const dateFormatted = d.toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      });
+      const dateFormatted = formatIndoDate(dateStr, { shortMonth: true });
       const timeFormatted = d.toLocaleTimeString('id-ID', {
         hour: '2-digit',
         minute: '2-digit',
@@ -91,11 +88,11 @@ export default function AnnouncementsPage() {
   const [downloadError, setDownloadError] = useState(null);
   const [toastMsg, setToastMsg] = useState(null);
 
-  const fetchAnnouncements = useCallback(async () => {
+  const fetchAnnouncements = useCallback(async (signal) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get('/announcements');
+      const res = await api.get('/announcements', { signal });
       const data = res.data?.data || res.data;
       const list = Array.isArray(data?.announcements) ? data.announcements : (Array.isArray(data) ? data : []);
 
@@ -116,6 +113,7 @@ export default function AnnouncementsPage() {
       setSelectedAnnouncement(null);
       setPdfLoadedForId(null);
     } catch (err) {
+      if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
       console.error('Error fetching announcements:', err);
       setError('Gagal memuat papan pengumuman operasional.');
     } finally {
@@ -124,7 +122,9 @@ export default function AnnouncementsPage() {
   }, []);
 
   useEffect(() => {
-    fetchAnnouncements();
+    const controller = new AbortController();
+    fetchAnnouncements(controller.signal);
+    return () => controller.abort();
   }, [fetchAnnouncements]);
 
   const handleSelectAnnouncement = async (ann) => {

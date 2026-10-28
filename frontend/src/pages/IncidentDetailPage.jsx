@@ -75,13 +75,14 @@ export default function IncidentDetailPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [lightboxOpen, incident]);
 
-  const fetchDetail = useCallback(async () => {
+  const fetchDetail = useCallback(async (signal) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get(`/incidents/${id}`);
+      const res = await api.get(`/incidents/${id}`, { signal });
       setIncident(res.data?.incident || res.data);
     } catch (err) {
+      if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
       console.error('Error fetching incident detail:', err);
       setError('Gagal memuat detail laporan insiden.');
     } finally {
@@ -90,7 +91,9 @@ export default function IncidentDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    fetchDetail();
+    const controller = new AbortController();
+    fetchDetail(controller.signal);
+    return () => controller.abort();
   }, [fetchDetail]);
 
   const handleOpenResolveModal = () => {

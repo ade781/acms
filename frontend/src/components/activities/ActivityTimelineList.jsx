@@ -12,7 +12,7 @@ import {
 import { formatTeam } from '../../utils/shiftHelper';
 import StateView from '../common/StateView';
 import Button from '../common/Button';
-import { OFFICIAL_ACTIVITY_CATEGORIES, getActivityCategoryMeta } from '../../utils/activityCategories';
+import { getActivityCategoryMeta } from '../../utils/activityCategories';
 
 export default function ActivityTimelineList({
   activities = [],
@@ -26,9 +26,6 @@ export default function ActivityTimelineList({
   onOpenEditModal,
   onOpenDeleteModal,
   onPreviewPhoto,
-  selectedFilterCategory = 'ALL',
-  onSelectCategory,
-  categoryCounts = {},
   currentPage = 1,
   totalPages = 1,
   pageSize = 10,
@@ -36,38 +33,6 @@ export default function ActivityTimelineList({
 }) {
   return (
     <>
-      {/* Filter Kategori Kegiatan */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-        <button
-          type="button"
-          onClick={() => onSelectCategory('ALL')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-100 ${
-            selectedFilterCategory === 'ALL'
-              ? 'bg-slate-900 text-white'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          Semua ({categoryCounts.ALL || 0})
-        </button>
-        {OFFICIAL_ACTIVITY_CATEGORIES.map((cat) => {
-          const count = categoryCounts[cat.value] || 0;
-          return (
-            <button
-              key={cat.value}
-              type="button"
-              onClick={() => onSelectCategory(cat.value)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-100 ${
-                selectedFilterCategory === cat.value
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              {cat.label.split('(')[0].trim()} {count > 0 && `(${count})`}
-            </button>
-          );
-        })}
-      </div>
-
       <StateView
         loading={loading}
         error={error}

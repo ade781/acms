@@ -9,9 +9,8 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { cleanTeam, formatTeam, getScheduledTeam } from '../utils/shiftHelper';
+import { cleanTeam, formatTeam, getScheduledTeam, formatIndoDate } from '../utils/shiftHelper';
 import api from '../services/api';
-import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import DeploymentSlotCard from '../components/forms/DeploymentSlotCard';
 import VehicleReadinessModal from '../components/forms/VehicleReadinessModal';
 import WatchroomReadinessModal from '../components/forms/WatchroomReadinessModal';
@@ -165,9 +164,9 @@ export default function DeploymentPage() {
 
       // Concurrent fetch (Promise.all) to prevent request waterfalls
       const [pRes, vRes, depRes] = await Promise.all([
-        api.get(`/personnel?team_group=${currentTeam}&is_active=1`),
-        api.get(`/readiness/vehicles?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`),
-        api.get(`/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`),
+        api.get(`/personnel?team_group=${currentTeam}&is_active=1`, { signal: options?.signal }),
+        api.get(`/readiness/vehicles?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`, { signal: options?.signal }),
+        api.get(`/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`, { signal: options?.signal }),
       ]);
 
       const personnel = Array.isArray(pRes.data?.data)
@@ -257,6 +256,7 @@ export default function DeploymentPage() {
       setVehicleSlots(initialSlots);
       setInitialSnapshot(JSON.stringify(initialSlots));
     } catch (err) {
+      if (err.name === 'CanceledError' || err.name === 'AbortError') return;
       console.error('Error fetching deployments:', err);
       setError('Gagal memuat data ploting penugasan shift.');
     } finally {
@@ -265,7 +265,9 @@ export default function DeploymentPage() {
   }, [activeDate, activeShiftNumber, activeTeam, isScheduledTeam, isAdmin]);
 
   useEffect(() => {
-    fetchDeploymentData();
+    const controller = new AbortController();
+    fetchDeploymentData({ signal: controller.signal });
+    return () => controller.abort();
   }, [fetchDeploymentData]);
 
   // Handle personnel change in a vehicle slot
@@ -440,27 +442,20 @@ export default function DeploymentPage() {
         </div>
       )}
 
-      <ShiftHeaderCard
-        shiftNumber={activeShiftNumber}
-        shiftDate={activeDate}
-        teamGroup={activeTeam}
-        supervisorName={supervisorName}
-      />
-
       {/* Proteksi Hak Akses Ploting Berdasarkan Shift Dinas (Aturan GEMINI.md) */}
       {!isScheduledTeam && !isAdmin ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-8 sm:p-12 text-center max-w-2xl mx-auto shadow-sm my-6">
-          <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto mb-4">
-            <ShieldAlert className="w-8 h-8" />
+        <div className="bg-white rounded-2xl border border-slate-200 p-8 sm:p-10 text-center max-w-2xl mx-auto shadow-sm my-4">
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto mb-3">
+            <ShieldAlert className="w-7 h-7" />
           </div>
-          <h3 className="text-lg font-bold text-slate-900 mb-2">
+          <h3 className="text-lg font-bold text-slate-900 mb-1.5">
             Bukan Shift Dinas Anda
           </h3>
-          <p className="text-sm text-slate-600 leading-relaxed mb-6">
+          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mb-5">
             Regu <strong>{cleanTeam(activeTeam)}</strong> sedang tidak bertugas aktif (libur/off) pada tanggal <strong>{activeDate}</strong> Shift <strong>{activeShiftNumber}</strong>.
             Operasional dan ploting penugasan shift ini dipimpin oleh <strong>Regu {cleanTeam(scheduledTeam)}</strong>.
           </p>
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 inline-block text-left space-y-1">
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 inline-block text-left space-y-1">
             <div className="font-semibold text-slate-800 mb-1">Status Roster Operasional:</div>
             <div>• Shift Berjalan: <strong>Shift {activeShiftNumber}</strong></div>
             <div>• Regu Terjadwal Aktif: <strong className="text-emerald-700">Regu {cleanTeam(scheduledTeam)}</strong></div>
@@ -469,21 +464,83 @@ export default function DeploymentPage() {
         </div>
       ) : (
         <>
-          {/* Peringatan jika admin meninjau regu yang sedang OFF / Libur */}
-          {!isScheduledTeam && isAdmin && (
-            <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2.5 shadow-sm">
-              <ShieldAlert className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <span className="font-bold text-sm text-amber-950 block">
-                  Regu {cleanTeam(activeTeam)} Sedang OFF / Libur (Mode Tinjau Admin)
+          {/* Command Ribbon: Header + Inline Formation Strip + Save Action */}
+          <div className="bg-white rounded-xl border border-slate-200 px-4 py-3 shadow-2xs mb-4 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-lg font-bold tracking-tight text-slate-900">
+                  Ploting Personel Armada
+                </h2>
+                <span className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-700">
+                  {formatTeam(activeTeam)} • Shift {activeShiftNumber}
                 </span>
-                <span className="text-xs text-amber-800 leading-relaxed block">
-                  Sesuai rotasi dinas, regu aktif shift ini adalah <strong>Regu {cleanTeam(scheduledTeam)}</strong>.
-                  Sebagai Administrator, Anda memiliki akses peninjauan dan perubahan operasional.
-                </span>
+                {!isScheduledTeam && isAdmin && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-800"
+                    title={`Regu aktif terjadwal: Regu ${cleanTeam(scheduledTeam)}`}
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
+                    Mode Tinjau Admin (Jadwal: Regu {cleanTeam(scheduledTeam)})
+                  </span>
+                )}
               </div>
+              <p className="text-xs text-slate-500 mt-0.5 truncate">
+                {formatIndoDate(activeDate, { shortMonth: true })}
+                {supervisorName ? ` • Ketua Regu: ${supervisorName}` : ''} • Slot 1 = PIC Kendaraan
+              </p>
             </div>
-          )}
+
+            <div className="flex items-center justify-between xl:justify-end gap-3 flex-wrap">
+              {/* Inline Segmented Crew & Fleet Readiness Strip */}
+              <div className="inline-flex items-center divide-x divide-slate-200 rounded-lg bg-slate-50 border border-slate-200 text-xs overflow-hidden">
+                <div className="px-2.5 py-1.5 flex items-center gap-1.5" title="Armada & kru lengkap siap operasi">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  <span className="text-slate-500 font-medium">Siap:</span>
+                  <span className="font-bold text-slate-900 tabular-nums">{formationSummary.readyCount}</span>
+                </div>
+                <div className="px-2.5 py-1.5 flex items-center gap-1.5" title="Kru belum lengkap / tanpa PIC">
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  <span className="text-slate-500 font-medium">Kurang Kru:</span>
+                  <span className="font-bold text-slate-900 tabular-nums">{formationSummary.incompleteCount}</span>
+                </div>
+                <div className="px-2.5 py-1.5 flex items-center gap-1.5" title="Kendaraan kendala teknis / unserviceable">
+                  <span className="w-2 h-2 rounded-full bg-red-500" />
+                  <span className="text-slate-500 font-medium">Rusak:</span>
+                  <span className="font-bold text-slate-900 tabular-nums">{formationSummary.unserviceableCount}</span>
+                </div>
+                <div className="px-2.5 py-1.5 flex items-center gap-1.5" title="Total personel regu yang telah diploting">
+                  <span className="text-slate-500 font-medium">Tertugas:</span>
+                  <span className="font-bold text-slate-900 tabular-nums">
+                    {assignedPersonnelIds.size}/{teamPersonnel.length}
+                  </span>
+                </div>
+              </div>
+
+              {canEditPlot && (
+                <div className="flex items-center gap-2">
+                  {hasUnsavedChanges && (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-md font-semibold">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                      Belum disimpan
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleSaveDeployments}
+                    disabled={saving || !hasUnsavedChanges}
+                    className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold shadow-2xs transition-colors duration-100 ${
+                      hasUnsavedChanges
+                        ? 'bg-arff-primary text-white hover:bg-red-700 cursor-pointer'
+                        : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                    } disabled:opacity-60`}
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{saving ? 'Menyimpan...' : 'Simpan Draf Ploting'}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
 
           <StateView
             loading={loading}
@@ -493,85 +550,8 @@ export default function DeploymentPage() {
             onRetry={fetchDeploymentData}
           >
         {/* Vehicles Deployment Grid */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">
-                Ploting Personel Armada
-              </h3>
-              <p className="text-xs text-slate-500">
-                Slot pertama adalah PIC kendaraan. Satu personel hanya boleh ditugaskan pada 1 unit atau berstatus izin/cuti.
-              </p>
-            </div>
-            {canEditPlot && (
-              <div className="flex items-center gap-2.5">
-                {hasUnsavedChanges && (
-                  <span className="inline-flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-200/60 px-2.5 py-1 rounded-md font-medium">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                    Belum disimpan
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={handleSaveDeployments}
-                  disabled={saving || !hasUnsavedChanges}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold shadow-xs transition-colors duration-100 ${
-                    hasUnsavedChanges
-                      ? 'bg-arff-primary text-white hover:bg-red-700 cursor-pointer'
-                      : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-                  } disabled:opacity-60`}
-                >
-                  <Save className="w-4 h-4" />
-                  <span>{saving ? 'Menyimpan...' : 'Simpan Draf Ploting'}</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Bar Ringkasan Kesiapan Visual Formasi Kru */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-            <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
-                {formationSummary.readyCount}
-              </div>
-              <div>
-                <div className="text-[11px] font-medium text-slate-500">Siap Operasi Penuh</div>
-                <div className="text-xs font-bold text-slate-900">Kru & Armada Lengkap</div>
-              </div>
-            </div>
-
-            <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
-                {formationSummary.incompleteCount}
-              </div>
-              <div>
-                <div className="text-[11px] font-medium text-slate-500">Perlu Dilengkapi</div>
-                <div className="text-xs font-bold text-slate-900">Kru Kurang / Tanpa PIC</div>
-              </div>
-            </div>
-
-            <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-red-50 text-red-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
-                {formationSummary.unserviceableCount}
-              </div>
-              <div>
-                <div className="text-[11px] font-medium text-slate-500">Armada Unserviceable</div>
-                <div className="text-xs font-bold text-slate-900">Kendala Teknis / Rusak</div>
-              </div>
-            </div>
-
-            <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
-                {assignedPersonnelIds.size}
-              </div>
-              <div>
-                <div className="text-[11px] font-medium text-slate-500">Personel Bertugas</div>
-                <div className="text-xs font-bold text-slate-900">Dari {teamPersonnel.length} Anggota Regu</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {vehicles.map((v) => {
               const vId = v.id || v.vehicle_id;
               return (

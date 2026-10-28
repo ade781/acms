@@ -7,9 +7,8 @@ import {
   CalendarCheck,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { cleanTeam } from '../utils/shiftHelper';
+import { cleanTeam, formatTeam, formatIndoDate } from '../utils/shiftHelper';
 import api from '../services/api';
-import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import LeaveModal from '../components/forms/LeaveModal';
 
 // Sub-komponen Modular
@@ -70,28 +69,43 @@ export default function LeaveManagementPage() {
     }
   }, [successMsg]);
 
-  const fetchLeaveData = useCallback(async (options = {}) => {
+  // Pengambilan data awal terkoordinasi (Promise.allSettled & AbortController)
+  const loadInitialData = useCallback(async (signal) => {
     setLoading(true);
+    setLoadingOngoing(true);
     setError(null);
-    if (!options?.keepSuccessMsg) {
-      setSuccessMsg(null);
-    }
+    setOngoingError(null);
 
-    try {
-      const currentTeam = cleanTeam(activeTeam);
+    const currentTeam = cleanTeam(activeTeam);
+    const results = await Promise.allSettled([
+      api.get(`/personnel?team_group=${currentTeam}&is_active=1`, { signal }),
+      api.get(`/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`, { signal }),
+      api.get('/deployments/leave-history', {
+        params: {
+          status: 'berjalan',
+          team: ongoingTeam !== 'ALL' ? ongoingTeam : undefined,
+        },
+        signal,
+      }),
+    ]);
 
-      const [pRes, depRes] = await Promise.all([
-        api.get(`/personnel?team_group=${currentTeam}&is_active=1`),
-        api.get(`/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`),
-      ]);
-
+    // 1. Data Personel
+    if (results[0].status === 'fulfilled') {
+      const pRes = results[0].value;
       const personnel = Array.isArray(pRes.data?.data)
         ? pRes.data.data
         : (Array.isArray(pRes.data?.personnel)
         ? pRes.data.personnel
         : (Array.isArray(pRes.data) ? pRes.data : []));
       setTeamPersonnel(personnel);
+    } else if (results[0].reason?.name !== 'CanceledError' && results[0].reason?.name !== 'AbortError') {
+      console.error('Error fetching personnel:', results[0].reason);
+      setError('Gagal memuat data personel regu.');
+    }
 
+    // 2. Data Penugasan & Izin Shift
+    if (results[1].status === 'fulfilled') {
+      const depRes = results[1].value;
       const depData = depRes.data?.data || depRes.data;
       setSupervisorName(depData?.shift?.supervisor_name || depData?.supervisor_name || '');
 
@@ -114,45 +128,33 @@ export default function LeaveManagementPage() {
       } else {
         setAbsentList([]);
       }
-    } catch (err) {
-      console.error('Error fetching leave data:', err);
-      setError('Gagal memuat data pencatatan cuti personel.');
-    } finally {
-      setLoading(false);
+    } else if (results[1].reason?.name !== 'CanceledError' && results[1].reason?.name !== 'AbortError') {
+      console.error('Error fetching current deployment:', results[1].reason);
+      setError('Gagal memuat data penugasan dinas saat ini.');
     }
-  }, [activeDate, activeShiftNumber, activeTeam]);
 
-  useEffect(() => {
-    fetchLeaveData();
-  }, [fetchLeaveData]);
-
-  // Fetch data cuti yang berstatus 'berjalan' (aktif / belum kadaluarsa)
-  const fetchOngoingLeaves = useCallback(async () => {
-    setLoadingOngoing(true);
-    setOngoingError(null);
-    try {
-      const res = await api.get('/deployments/leave-history', {
-        params: {
-          status: 'berjalan',
-          team: ongoingTeam !== 'ALL' ? ongoingTeam : undefined,
-        },
-      });
+    // 3. Data Cuti Berjalan
+    if (results[2].status === 'fulfilled') {
+      const res = results[2].value;
       const data = res.data?.data || res.data || [];
       setOngoingLeaves(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error('Error fetching ongoing leaves:', err);
+    } else if (results[2].reason?.name !== 'CanceledError' && results[2].reason?.name !== 'AbortError') {
+      console.error('Error fetching ongoing leaves:', results[2].reason);
       setOngoingError('Gagal memuat data cuti yang sedang berjalan.');
-    } finally {
-      setLoadingOngoing(false);
     }
-  }, [ongoingTeam]);
+
+    setLoading(false);
+    setLoadingOngoing(false);
+  }, [activeDate, activeShiftNumber, activeTeam, ongoingTeam]);
 
   useEffect(() => {
-    fetchOngoingLeaves();
-  }, [fetchOngoingLeaves]);
+    const controller = new AbortController();
+    loadInitialData(controller.signal);
+    return () => controller.abort();
+  }, [loadInitialData]);
 
   // Fetch data riwayat cuti bulanan
-  const fetchMonthlyLeaves = useCallback(async () => {
+  const fetchMonthlyLeaves = useCallback(async (signal) => {
     setLoadingMonthly(true);
     setMonthlyError(null);
     try {
@@ -162,10 +164,12 @@ export default function LeaveManagementPage() {
           year: historyYear,
           team: historyTeam,
         },
+        signal,
       });
       const data = res.data?.data || res.data || [];
       setMonthlyLeaves(Array.isArray(data) ? data : []);
     } catch (err) {
+      if (err.name === 'CanceledError' || err.name === 'AbortError') return;
       console.error('Error fetching leave history:', err);
       setMonthlyError('Gagal memuat riwayat cuti bulanan.');
     } finally {
@@ -175,7 +179,9 @@ export default function LeaveManagementPage() {
 
   useEffect(() => {
     if (activeTab === 'monthly') {
-      fetchMonthlyLeaves();
+      const controller = new AbortController();
+      fetchMonthlyLeaves(controller.signal);
+      return () => controller.abort();
     }
   }, [activeTab, fetchMonthlyLeaves]);
 
@@ -219,8 +225,7 @@ export default function LeaveManagementPage() {
       setSuccessMsg(`Izin / Cuti untuk ${targetCancelLeave.personnel_name} berhasil dibatalkan. Personel dikembalikan ke status aktif berdinas.`);
       setCancelModalOpen(false);
       setTargetCancelLeave(null);
-      fetchLeaveData({ keepSuccessMsg: true });
-      fetchOngoingLeaves();
+      loadInitialData();
       if (activeTab === 'monthly') {
         fetchMonthlyLeaves();
       }
@@ -263,68 +268,77 @@ export default function LeaveManagementPage() {
         </div>
       )}
 
-      {/* Header Info Shift */}
-      <ShiftHeaderCard
-        shiftNumber={activeShiftNumber}
-        shiftDate={activeDate}
-        teamGroup={activeTeam}
-        supervisorName={supervisorName}
-        personnelStats={{
-          total: teamPersonnel.length,
-          duty: Math.max(0, teamPersonnel.length - absentList.length),
-          absent: absentList.length,
-          isPlotted: true,
-        }}
-      />
+      {/* Unified Segmented Workspace Header: Title + Inline Attendance Pills + Tab Switcher */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4">
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-xl font-bold tracking-tight text-slate-900">
+              Pencatatan Izin & Cuti
+            </h2>
+            <span className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-800 tabular-nums">
+              Hadir Shift Ini: {Math.max(0, teamPersonnel.length - absentList.length)}/{teamPersonnel.length}
+            </span>
+            {absentList.length > 0 && (
+              <span className="px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-800 tabular-nums">
+                Izin/Cuti: {absentList.length}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-500 font-medium mt-0.5">
+            Shift {activeShiftNumber} • {formatTeam(activeTeam)} • {formatIndoDate(activeDate, { shortMonth: true })}
+            {supervisorName ? ` • Ketua Regu: ${supervisorName}` : ''}
+          </p>
+        </div>
 
-      {/* Tab Switcher: Status Berjalan (Default) vs Shift Berjalan vs Riwayat Cuti */}
-      <div className="flex items-center gap-2 mb-4 bg-slate-100 p-1 rounded-xl border border-slate-200 w-fit flex-wrap">
-        <button
-          type="button"
-          onClick={() => setActiveTab('ongoing')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors duration-100 ${
-            activeTab === 'ongoing'
-              ? 'bg-white text-slate-900 shadow-xs'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <CalendarCheck className="w-3.5 h-3.5 text-amber-600" />
-          <span>Status Berjalan</span>
-          {ongoingLeaves.length > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-100 text-amber-800 font-extrabold">
-              {ongoingLeaves.length}
-            </span>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('current')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors duration-100 ${
-            activeTab === 'current'
-              ? 'bg-white text-slate-900 shadow-xs'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <Clock className="w-3.5 h-3.5" />
-          <span>Shift Berjalan</span>
-          {absentList.length > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-red-100 text-red-700 font-extrabold">
-              {absentList.length}
-            </span>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('monthly')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors duration-100 ${
-            activeTab === 'monthly'
-              ? 'bg-white text-slate-900 shadow-xs'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <History className="w-3.5 h-3.5" />
-          <span>Riwayat Cuti</span>
-        </button>
+        {/* Tab Switcher: Status Berjalan (Default) vs Shift Berjalan vs Riwayat Cuti */}
+        <div className="flex items-center gap-1.5 bg-slate-200/70 p-1 rounded-xl border border-slate-200 w-fit flex-wrap">
+          <button
+            type="button"
+            onClick={() => setActiveTab('ongoing')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-100 cursor-pointer ${
+              activeTab === 'ongoing'
+                ? 'bg-white text-slate-900 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <CalendarCheck className="w-3.5 h-3.5 text-amber-600" />
+            <span>Status Berjalan</span>
+            {ongoingLeaves.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-100 text-amber-800 font-extrabold">
+                {ongoingLeaves.length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('current')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-100 cursor-pointer ${
+              activeTab === 'current'
+                ? 'bg-white text-slate-900 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            <span>Shift Berjalan</span>
+            {absentList.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-red-100 text-red-700 font-extrabold">
+                {absentList.length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('monthly')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-100 cursor-pointer ${
+              activeTab === 'monthly'
+                ? 'bg-white text-slate-900 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <History className="w-3.5 h-3.5" />
+            <span>Riwayat Cuti</span>
+          </button>
+        </div>
       </div>
 
       {/* KONTEN TAB 0: STATUS BERJALAN (DEFAULT) */}
@@ -333,7 +347,7 @@ export default function LeaveManagementPage() {
           ongoingLeaves={ongoingLeaves}
           loading={loadingOngoing}
           error={ongoingError}
-          onRetry={fetchOngoingLeaves}
+          onRetry={loadInitialData}
           ongoingTeam={ongoingTeam}
           setOngoingTeam={setOngoingTeam}
           user={user}
@@ -350,7 +364,7 @@ export default function LeaveManagementPage() {
           absentList={absentList}
           teamPersonnel={teamPersonnel}
           loading={loading}
-          onRetry={fetchLeaveData}
+          onRetry={loadInitialData}
           user={user}
           activeDate={activeDate}
           activeTeam={activeTeam}
@@ -388,8 +402,7 @@ export default function LeaveManagementPage() {
         onClose={() => setLeaveModalOpen(false)}
         onSuccess={() => {
           setSuccessMsg('Pengajuan izin/cuti dinas berhasil dicatat ke sistem.');
-          fetchLeaveData({ keepSuccessMsg: true });
-          fetchOngoingLeaves();
+          loadInitialData();
           if (activeTab === 'monthly') {
             fetchMonthlyLeaves();
           }

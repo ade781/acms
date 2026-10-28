@@ -16,7 +16,7 @@ import {
   Flame,
 } from 'lucide-react';
 import Badge from '../common/Badge';
-import { formatTeam, formatRoleName } from '../../utils/shiftHelper';
+import { formatTeam, formatRoleName, formatIndoDate } from '../../utils/shiftHelper';
 
 export const ALL_ADDITIONAL_COMPETENCIES = [
   'SAR',
@@ -73,18 +73,7 @@ export function calculateTenure(tmtDateStr) {
 }
 
 export function formatDateIndo(dateStr) {
-  if (!dateStr) return '-';
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return String(dateStr);
-    return d.toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return String(dateStr);
-  }
+  return formatIndoDate(dateStr, { shortMonth: true });
 }
 
 export default function PersonnelDossier({

@@ -26,7 +26,6 @@ import {
 } from '../utils/shiftHelper';
 import api from '../services/api';
 import { fetchShiftReportData, downloadShiftReportPdf } from '../services/reportService';
-import ShiftHeaderCard from '../components/dashboard/ShiftHeaderCard';
 import Button from '../components/common/Button';
 import MobileUnitAuditModal from '../components/mobile/reports/MobileUnitAuditModal';
 import MobilePdfViewerModal from '../components/mobile/reports/MobilePdfViewerModal';
@@ -153,68 +152,149 @@ export default function ShiftReportsPage() {
   const totalUnits = vehicles.length + (watchroomData?.status ? 1 : 0);
 
   return (
-    <div className="space-y-6">
-      <ShiftHeaderCard
-        shiftNumber={activeShiftNumber}
-        shiftDate={activeDate}
-        teamGroup={activeTeam}
-      />
+    <div className="space-y-4">
+      {/* Executive Document Control Card + Integrated Horizontal Metric Ledger */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
+        {/* Top Row: Title, Shift Context, & Document Export Actions */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-4 py-3 border-b border-slate-100">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-lg font-bold tracking-tight text-slate-900">
+                Laporan Operasional Dinas
+              </h2>
+              <span className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-700">
+                {formatTeam(activeTeam)} • Shift {activeShiftNumber} ({currentShiftDef?.startTime}–{currentShiftDef?.endTime})
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {formatIndoDate(activeDate)} • Ketua Regu: <span className="font-semibold text-slate-700">{supervisorName}</span>
+            </p>
+          </div>
 
-      {/* Toolbar Header Aksi Dokumen */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight text-slate-900">
-            Laporan Operasional Dinas
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Rekapitulasi dinas shift resmi, kelaikan armada, logbook kegiatan, dan arsip dokumen cetak A4.
-          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              icon={Eye}
+              onClick={() => setIsPdfModalOpen(true)}
+              disabled={loading}
+            >
+              Pratinjau Surat (A4)
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              icon={RefreshCw}
+              onClick={fetchShiftData}
+              disabled={loading || downloading}
+            >
+              {loading ? 'Menyinkron...' : 'Segarkan'}
+            </Button>
+
+            <Button
+              variant="primary"
+              size="sm"
+              icon={Download}
+              onClick={handleExportPDF}
+              disabled={downloading}
+            >
+              {downloading ? 'Membuat PDF...' : 'Unduh PDF Resmi'}
+            </Button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Tombol Pratinjau Lembar Surat A4 */}
-          <Button
-            variant="outline"
-            icon={Eye}
-            onClick={() => setIsPdfModalOpen(true)}
-            disabled={loading}
-          >
-            Pratinjau Surat (A4)
-          </Button>
+        {/* Bottom Row: Compact 4-Column Tabular Ledger Strip */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 bg-slate-50/60 text-xs">
+          {/* 1. Kesiapan Armada */}
+          <div className="px-4 py-2.5 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-slate-600">
+              <Truck className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="font-semibold">Kesiapan Armada</span>
+            </div>
+            <div className="text-right">
+              <span className="font-black text-slate-900 tabular-nums">{serviceableCount}/{totalUnits || 8}</span>
+              <span className="ml-1.5 text-[11px] font-bold">
+                {unserviceableCount > 0 ? (
+                  <span className="text-red-600">({unserviceableCount} Rusak)</span>
+                ) : unverifiedCount > 0 ? (
+                  <span className="text-amber-700">({unverifiedCount} Belum Cek)</span>
+                ) : (
+                  <span className="text-emerald-700">(Siap)</span>
+                )}
+              </span>
+            </div>
+          </div>
 
-          {/* Tombol Segarkan Data */}
-          <Button
-            variant="outline"
-            icon={RefreshCw}
-            onClick={fetchShiftData}
-            disabled={loading || downloading}
-          >
-            {loading ? 'Menyinkron...' : 'Segarkan Data'}
-          </Button>
+          {/* 2. Personel Dinas */}
+          <div className="px-4 py-2.5 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-slate-600">
+              <Users className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="font-semibold">Personel Dinas</span>
+            </div>
+            <div className="text-right">
+              <span className="font-black text-slate-900 tabular-nums">{presentDeployments.length} Hadir</span>
+              <span className="ml-1.5 text-[11px] font-bold">
+                {absents.length > 0 ? (
+                  <span className="text-amber-700">({absents.length} Cuti)</span>
+                ) : (
+                  <span className="text-emerald-700">(Lengkap)</span>
+                )}
+              </span>
+            </div>
+          </div>
 
-          {/* Tombol Unduh PDF Resmi */}
-          <Button
-            variant="primary"
-            icon={Download}
-            onClick={handleExportPDF}
-            disabled={downloading}
-          >
-            {downloading ? 'Membuat PDF...' : 'Unduh PDF Resmi'}
-          </Button>
+          {/* 3. Watch Room */}
+          <div className="px-4 py-2.5 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-slate-600">
+              <Radio className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="font-semibold">Watch Room</span>
+            </div>
+            <span
+              className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                watchroomData?.status === 'serviceable'
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : watchroomData?.status === 'unserviceable'
+                  ? 'bg-red-50 text-red-700 border border-red-200'
+                  : 'bg-slate-100 text-slate-600 border border-slate-200'
+              }`}
+            >
+              {watchroomData?.status === 'serviceable'
+                ? 'Normal Siap'
+                : watchroomData?.status === 'unserviceable'
+                ? 'Kendala'
+                : 'Belum Dicek'}
+            </span>
+          </div>
+
+          {/* 4. Aktivitas & Insiden */}
+          <div className="px-4 py-2.5 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-slate-600">
+              <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="font-semibold">Logbook & Insiden</span>
+            </div>
+            <div className="text-right font-bold tabular-nums">
+              <span className="text-slate-900">{activities.length} Giat</span>
+              <span className="text-slate-300 mx-1.5">•</span>
+              <span className={incidents.length > 0 ? 'text-red-600' : 'text-emerald-700'}>
+                {incidents.length} Insiden
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Banner Error Pemuatan Data */}
       {fetchError && (
-        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-4 shadow-xs">
+        <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-4 shadow-xs">
           <div className="flex items-center gap-2.5">
-            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
             <span>{fetchError}</span>
           </div>
           <button
             type="button"
             onClick={fetchShiftData}
-            className="px-3 py-1.5 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700 text-xs transition-colors duration-100"
+            className="px-3 py-1 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700 text-xs transition-colors duration-100"
           >
             Muat Ulang Data
           </button>
@@ -223,9 +303,9 @@ export default function ShiftReportsPage() {
 
       {/* Banner Error Unduh PDF */}
       {downloadError && (
-        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-4 shadow-xs">
+        <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-4 shadow-xs">
           <div className="flex items-center gap-2.5">
-            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
             <span>{downloadError}</span>
           </div>
           <button
@@ -240,9 +320,9 @@ export default function ShiftReportsPage() {
 
       {/* Banner Sukses Unduh PDF */}
       {downloadSuccess && (
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between gap-4 shadow-xs">
+        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between gap-4 shadow-xs">
           <div className="flex items-center gap-2.5">
-            <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+            <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
             <span>{downloadSuccess}</span>
           </div>
           <button
@@ -254,97 +334,6 @@ export default function ShiftReportsPage() {
           </button>
         </div>
       )}
-
-      {/* KPI Eksekutif Rekapitulasi Operasional Shift */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {/* Kesiapan Armada */}
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs space-y-1">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[10px] font-bold uppercase tracking-wider">Kesiapan Armada</span>
-            <Truck className="w-4 h-4 text-slate-400" />
-          </div>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-xl font-black text-slate-900">
-              {serviceableCount}
-            </span>
-            <span className="text-xs text-slate-500 font-medium">
-              / {totalUnits || 8} Siap
-            </span>
-          </div>
-          <p className="text-[10px] font-medium text-slate-600">
-            {unserviceableCount > 0 ? (
-              <span className="text-red-600 font-bold">
-                {unserviceableCount} Unit Kendala
-              </span>
-            ) : unverifiedCount > 0 ? (
-              <span className="text-amber-700 font-bold">{unverifiedCount} Unit Belum Dicek</span>
-            ) : (
-              <span className="text-emerald-700 font-bold">100% Siap Operasi</span>
-            )}
-          </p>
-        </div>
-
-        {/* Presensi Personel */}
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs space-y-1">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[10px] font-bold uppercase tracking-wider">Personel Dinas</span>
-            <Users className="w-4 h-4 text-slate-400" />
-          </div>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-xl font-black text-slate-900">{presentDeployments.length}</span>
-            <span className="text-xs text-slate-500 font-medium">Hadir Terploting</span>
-          </div>
-          <p className="text-[10px] font-medium text-slate-600">
-            {absents.length > 0 ? (
-              <span className="text-amber-700 font-bold">{absents.length} Izin / Cuti</span>
-            ) : (
-              <span className="text-emerald-700 font-bold">Nihil Izin / Lengkap</span>
-            )}
-          </p>
-        </div>
-
-        {/* Posko Watchroom */}
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs space-y-1">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[10px] font-bold uppercase tracking-wider">Watch Room</span>
-            <Radio className="w-4 h-4 text-slate-400" />
-          </div>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-base font-bold text-slate-900 uppercase">
-              {watchroomData?.status === 'serviceable'
-                ? 'Normal Siap'
-                : watchroomData?.status === 'unserviceable'
-                ? 'Kendala'
-                : 'Belum Dicek'}
-            </span>
-          </div>
-          <p className="text-[10px] font-medium text-slate-600 truncate">
-            {watchroomData?.notes || 'Fasilitas komunikasi darurat'}
-          </p>
-        </div>
-
-        {/* Logbook & Insiden */}
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs space-y-1">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[10px] font-bold uppercase tracking-wider">Aktivitas & Insiden</span>
-            <FileText className="w-4 h-4 text-slate-400" />
-          </div>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-xl font-black text-slate-900">{activities.length}</span>
-            <span className="text-xs text-slate-500 font-medium">Giat</span>
-            <span className="text-slate-300">|</span>
-            <span className="text-xl font-black text-slate-900">{incidents.length}</span>
-            <span className="text-xs text-slate-500 font-medium">Insiden</span>
-          </div>
-          <p className="text-[10px] font-medium text-slate-600">
-            {incidents.length > 0 ? (
-              <span className="text-red-600 font-bold">{incidents.length} Kejadian Ditangani</span>
-            ) : (
-              <span className="text-emerald-700 font-bold">Operasional Nihil Insiden</span>
-            )}
-          </p>
-        </div>
-      </div>
 
       {/* Grid Utama Laporan Dinas Format Modular (Inspirasi Mobile yang Lega & Terstruktur) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -593,7 +582,7 @@ export default function ShiftReportsPage() {
             </div>
 
             {activities.length === 0 ? (
-              <p className="text-xs text-slate-400 italic p-3 text-center bg-slate-50 rounded-lg border border-slate-100">
+              <p className="text-xs text-slate-600 font-medium italic p-3 text-center bg-slate-50 rounded-lg border border-slate-200">
                 Belum ada kegiatan rutin yang dicatat pada sesi shift ini.
               </p>
             ) : (

@@ -65,14 +65,11 @@ export default function OfficialsManagementPage() {
   const [savingChief, setSavingChief] = useState(false);
   const [chiefError, setChiefError] = useState(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (signal) => {
     setLoading(true);
     setError(null);
     try {
-      const [offRes, pRes] = await Promise.all([
-        api.get('/personnel/officials'),
-        api.get('/personnel?is_active=1'),
-      ]);
+      const offRes = await api.get('/personnel/officials', { signal });
 
       const offData = offRes.data?.data || offRes.data;
       setOfficials({
@@ -80,12 +77,8 @@ export default function OfficialsManagementPage() {
         chiefs: offData.chiefs || { Alpha: null, Bravo: null, Charlie: null, Delta: null },
         administrasi: Array.isArray(offData.administrasi) ? offData.administrasi : [],
       });
-
-      const pList = Array.isArray(pRes.data?.data)
-        ? pRes.data.data
-        : (Array.isArray(pRes.data?.personnel) ? pRes.data.personnel : []);
-      setAllPersonnel(pList);
     } catch (err) {
+      if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
       console.error('Error fetching officials:', err);
       setError('Gagal memuat data pejabat struktural.');
     } finally {
@@ -94,7 +87,9 @@ export default function OfficialsManagementPage() {
   }, []);
 
   useEffect(() => {
-    fetchData();
+    const controller = new AbortController();
+    fetchData(controller.signal);
+    return () => controller.abort();
   }, [fetchData]);
 
   // Open Kelola Dept Head Modal (Input Data Mandiri)
@@ -190,12 +185,23 @@ export default function OfficialsManagementPage() {
   };
 
   // Open Ganti Chief Modal
-  const openReplaceChiefModal = (teamName) => {
+  const openReplaceChiefModal = async (teamName) => {
     setChiefError(null);
     setTargetTeam(teamName);
     setNewChiefPersonnelId('');
     setOldChiefTargetRole('ARFF Operation Senior Fire Fighter');
     setChiefModalOpen(true);
+    if (allPersonnel.length === 0) {
+      try {
+        const pRes = await api.get('/personnel?is_active=1&compact=true');
+        const pList = Array.isArray(pRes.data?.data)
+          ? pRes.data.data
+          : (Array.isArray(pRes.data?.personnel) ? pRes.data.personnel : []);
+        setAllPersonnel(pList);
+      } catch (err) {
+        console.error('Error lazy fetching personnel for chief modal:', err);
+      }
+    }
   };
 
   // Submit Ganti Chief
@@ -559,7 +565,7 @@ export default function OfficialsManagementPage() {
               label="Nama Lengkap Pejabat"
               value={dhFullName}
               onChange={(e) => setDhFullName(e.target.value)}
-              placeholder="Contoh: Tamsul Sadikin"
+              placeholder="Masukkan nama lengkap beserta gelar resmi..."
               required
             />
 

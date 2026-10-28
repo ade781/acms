@@ -110,14 +110,15 @@ export default function PersonnelDetailPage() {
   const canEdit = isOwner || isAdmin;
   const canUploadDoc = isOwner || isAdmin;
 
-  const fetchPersonnelDetail = async () => {
+  const fetchPersonnelDetail = async (signal) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get(`/personnel/${id}`);
+      const res = await api.get(`/personnel/${id}`, { signal });
       const data = res.data?.data || res.data?.personnel || res.data;
       setPersonnel(data);
     } catch (err) {
+      if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
       console.error('Error fetching personnel detail:', err);
       setError('Gagal memuat profil personel.');
     } finally {
@@ -126,7 +127,9 @@ export default function PersonnelDetailPage() {
   };
 
   useEffect(() => {
-    fetchPersonnelDetail();
+    const controller = new AbortController();
+    fetchPersonnelDetail(controller.signal);
+    return () => controller.abort();
   }, [id]);
 
   // Request Delete Personnel (In-App Confirm Modal)
