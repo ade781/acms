@@ -49,7 +49,10 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
         }
       } catch (err) {
         console.error('Error fetching announcements:', err);
-        if (isMounted) setError('Gagal memuat arsip pengumuman dinas');
+        const msg = typeof err.response?.data?.message === 'string'
+          ? err.response.data.message
+          : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal memuat arsip pengumuman dinas'));
+        if (isMounted) setError(msg);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -120,18 +123,18 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
           ) : error ? (
             <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
+              <span>{typeof error === 'string' ? error : (error?.message || 'Gagal memuat arsip pengumuman dinas')}</span>
             </div>
           ) : announcements.length === 0 ? (
             <div className="py-8 text-center text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl">
               Belum ada surat edaran atau pengumuman dinas yang diterbitkan.
             </div>
           ) : (
-            paginatedItems.map((item) => {
+            paginatedItems.map((item, itemIdx) => {
               const hasFile = Boolean(item.file_path);
               return (
                 <div
-                  key={item.id}
+                  key={item.id ?? `ann-${itemIdx}`}
                   onClick={() => handleOpenDoc(item)}
                   className={`p-2.5 rounded-lg border border-slate-200/80 bg-white hover:bg-slate-50 transition-colors duration-100 space-y-1 ${
                     hasFile ? 'cursor-pointer hover:border-red-300' : ''

@@ -223,7 +223,7 @@ export default function IncidentsPage() {
         <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-2">
             <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span className="font-semibold">{toastMsg}</span>
+            <span className="font-semibold">{typeof toastMsg === 'string' ? toastMsg : (toastMsg?.text || toastMsg?.message || '')}</span>
           </div>
           <button
             type="button"
@@ -375,33 +375,33 @@ export default function IncidentsPage() {
               <tbody className="divide-y divide-slate-100 text-xs">
                 {paginatedIncidents.map((inc) => (
                   <tr
-                    key={inc.id}
+                    key={inc.id || inc.report_number || `inc-${inc.incident_date}-${inc.incident_time}`}
                     onClick={() => navigate(`/incidents/${inc.id}`)}
                     className="hover:bg-slate-50 cursor-pointer transition-colors duration-100 group"
                   >
                     <td className="py-3 px-4 font-bold text-red-700 font-mono text-[11.5px]">
-                      {inc.report_number || `INC-${inc.id}`}
+                      {inc.report_number || `INC-${inc.id || ''}`}
                     </td>
                     <td className="py-3 px-4 text-slate-700 font-medium">
-                      <div>{inc.incident_date}</div>
+                      <div>{typeof inc.incident_date === 'string' ? inc.incident_date : '-'}</div>
                       <div className="text-[10.5px] text-slate-400">
-                        {(inc.incident_time || '').slice(0, 5)} WIB
+                        {typeof inc.incident_time === 'string' ? inc.incident_time.slice(0, 5) : ''} WIB
                       </div>
                     </td>
                     <td className="py-3 px-4 text-slate-600 font-medium">
-                      <div>Regu {inc.team_group || 'Alpha'}</div>
+                      <div>Regu {typeof inc.team_group === 'string' ? inc.team_group : 'Alpha'}</div>
                       <div className="text-[10.5px] text-slate-400">Shift #{inc.shift_number || 1}</div>
                     </td>
                     <td className="py-3 px-4 text-slate-900 font-semibold max-w-xs">
-                      <div className="truncate">{inc.title}</div>
+                      <div className="truncate">{typeof inc.title === 'string' ? inc.title : '-'}</div>
                       <div className="text-[10.5px] text-slate-400 font-normal">
-                        {inc.aircraft_info || 'Non-Pesawat'}
+                        {typeof inc.aircraft_info === 'string' ? inc.aircraft_info : 'Non-Pesawat'}
                       </div>
                     </td>
                     <td className="py-3 px-4 text-slate-600 font-medium">
                       <div className="flex items-center gap-1">
                         <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                        <span className="truncate">{inc.location || '-'}</span>
+                        <span className="truncate">{typeof inc.location === 'string' ? inc.location : '-'}</span>
                       </div>
                     </td>
                     <td className="py-3 px-4">
@@ -418,7 +418,7 @@ export default function IncidentsPage() {
                           navigate(`/incidents/${inc.id}`);
                         }}
                         className="p-1.5 rounded-lg text-slate-400 group-hover:text-red-600 group-hover:bg-red-50 transition-colors duration-100"
-                        title="Buka Detail Insiden"
+                        title={typeof inc.title === 'string' ? `Buka Detail: ${inc.title}` : 'Buka Detail Insiden'}
                       >
                         <ChevronRight className="w-4 h-4" />
                       </button>
@@ -466,7 +466,10 @@ export default function IncidentsPage() {
         activeShiftNumber={activeShiftNumber}
         activeTeam={activeTeam}
         onSuccess={(msg) => {
-          setToastMsg(msg || 'Laporan insiden berhasil dikirimkan.');
+          const toastText = typeof msg === 'string'
+            ? msg
+            : (msg?.message || 'Laporan insiden berhasil dikirimkan.');
+          setToastMsg(toastText);
           fetchIncidents();
         }}
       />

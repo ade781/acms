@@ -38,6 +38,8 @@ pnpm-debug.log*
 Thumbs.db
 
 # Office & Spreadsheet files
+*.docx
+*.doc
 *.xlsx
 *.xls
 *.xlsm

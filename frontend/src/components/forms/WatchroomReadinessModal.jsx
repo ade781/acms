@@ -5,6 +5,7 @@ import Button from '../common/Button';
 import SelectField from '../common/SelectField';
 import TextareaField from '../common/TextareaField';
 import { cleanTeam, formatTeam, formatIndoDate } from '../../utils/shiftHelper';
+import { getErrorMessage } from '../../utils/errorHelper';
 import api from '../../services/api';
 
 export default function WatchroomReadinessModal({
@@ -57,7 +58,9 @@ export default function WatchroomReadinessModal({
       if (onSuccess) onSuccess('Hasil pemeriksaan fasilitas Posko Watchroom berhasil disimpan.');
       onClose();
     } catch (err) {
-      const msg = err.response?.data?.message || err.message || 'Gagal menyimpan status watchroom.';
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal menyimpan status watchroom.'));
       setError(msg);
     } finally {
       setSubmitting(false);
@@ -87,7 +90,7 @@ export default function WatchroomReadinessModal({
         {error && (
           <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
             <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-            <span>{error}</span>
+            <span>{getErrorMessage(error, 'Gagal mencatat kesiapan watchroom.')}</span>
           </div>
         )}
 

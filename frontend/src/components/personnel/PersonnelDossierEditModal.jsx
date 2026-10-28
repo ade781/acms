@@ -11,6 +11,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { ALL_ADDITIONAL_COMPETENCIES } from './PersonnelDossier';
+import { getErrorMessage } from '../../utils/errorHelper';
 
 export default function PersonnelDossierEditModal({
   isOpen,
@@ -123,7 +124,10 @@ export default function PersonnelDossierEditModal({
       await onSave(formData);
     } catch (err) {
       console.error('Error saving dossier:', err);
-      setErrorMsg(err.response?.data?.message || err.message || 'Gagal menyimpan perubahan.');
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal menyimpan perubahan.'));
+      setErrorMsg(msg);
     }
   };
 
@@ -196,7 +200,7 @@ export default function PersonnelDossierEditModal({
           {errorMsg && (
             <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-              <span>{errorMsg}</span>
+              <span>{getErrorMessage(errorMsg, 'Gagal menyimpan perubahan berkas.')}</span>
             </div>
           )}
 

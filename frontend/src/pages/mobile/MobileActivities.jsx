@@ -48,7 +48,10 @@ export default function MobileActivities() {
         return;
       }
       console.error('Error fetching activities:', err);
-      setError('Gagal memuat logbook kegiatan shift.');
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal memuat logbook kegiatan shift.'));
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -75,7 +78,10 @@ export default function MobileActivities() {
       setToastMsg({ type: 'success', text: '✓ Kegiatan berhasil dihapus dari logbook.' });
       setTargetDeleteId(null);
     } catch (err) {
-      setToastMsg({ type: 'error', text: err.response?.data?.message || 'Gagal menghapus kegiatan.' });
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal menghapus kegiatan.'));
+      setToastMsg({ type: 'error', text: msg });
     } finally {
       setIsDeleting(false);
     }
@@ -101,7 +107,9 @@ export default function MobileActivities() {
             ) : (
               <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
             )}
-            <span className="font-semibold text-[11px]">{toastMsg.text}</span>
+            <span className="font-semibold text-[11px]">
+              {typeof toastMsg.text === 'string' ? toastMsg.text : (toastMsg.text?.message || 'Notifikasi')}
+            </span>
           </div>
           <button
             type="button"
@@ -126,17 +134,6 @@ export default function MobileActivities() {
         </div>
 
         <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={fetchActivities}
-            disabled={loading}
-            className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors duration-100"
-            title="Muat Ulang"
-            aria-label="Muat Ulang Kegiatan"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-red-600' : ''}`} />
-          </button>
-
           {canManage && (
             <button
               type="button"
@@ -203,7 +200,9 @@ export default function MobileActivities() {
         <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-            <span className="text-[10.5px] leading-tight">{error}</span>
+            <span className="text-[10.5px] leading-tight">
+              {typeof error === 'string' ? error : (error?.message || 'Gagal memuat logbook kegiatan shift.')}
+            </span>
           </div>
           <button
             type="button"
@@ -256,9 +255,9 @@ export default function MobileActivities() {
       {/* Timeline Stream */}
       {!loading && filteredActivities.length > 0 && (
         <div className="space-y-1.5">
-          {filteredActivities.map((act) => (
+          {filteredActivities.map((act, actIdx) => (
             <MobileActivityTimelineItem
-              key={act.id}
+              key={act.id ?? `act-${act.activity_time || actIdx}`}
               activity={act}
               canEdit={canManage}
               onEdit={handleRequestEdit}

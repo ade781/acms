@@ -83,7 +83,10 @@ export default function MobilePdfViewerModal({
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Download PDF error:', err);
-      setDownloadError('Gagal mengunduh dokumen PDF. Silakan coba kembali.');
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal mengunduh dokumen PDF. Silakan coba kembali.'));
+      setDownloadError(msg);
     } finally {
       setDownloading(false);
     }
@@ -148,7 +151,7 @@ export default function MobilePdfViewerModal({
         {downloadError && (
           <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[10px] flex items-center gap-1.5">
             <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-            <span>{downloadError}</span>
+            <span>{typeof downloadError === 'string' ? downloadError : (downloadError?.message || 'Gagal mengunduh dokumen PDF.')}</span>
           </div>
         )}
 
@@ -193,7 +196,7 @@ export default function MobilePdfViewerModal({
                 <div className="pt-0.5 space-y-0.5 text-slate-700">
                   {vehicles.length > 0 ? (
                     vehicles.map((v) => (
-                      <div key={v.id || v.code_name} className="flex justify-between items-center py-0.2">
+                      <div key={v.id ?? v.code_name ?? `veh-${v.vehicle_name}`} className="flex justify-between items-center py-0.2">
                         <span>
                           • <strong>{v.code_name} - {v.vehicle_name}</strong> ({v.pic_name ? `PIC: ${v.pic_name}` : 'PIC Belum Ditunjuk'})
                         </span>
@@ -269,8 +272,8 @@ export default function MobilePdfViewerModal({
                 </p>
                 {activities.length > 0 ? (
                   <div className="space-y-0.5 pt-0.5">
-                    {activities.map((act) => (
-                      <div key={act.id} className="text-slate-700">
+                    {activities.map((act, actIdx) => (
+                      <div key={act.id ?? `act-${actIdx}`} className="text-slate-700">
                         • <strong>{act.activity_time ? act.activity_time.substring(0, 5) : '-'} WIB</strong>: {act.title}
                         {act.description && <span className="text-slate-500"> — {act.description}</span>}
                       </div>
@@ -288,8 +291,8 @@ export default function MobilePdfViewerModal({
                 </p>
                 {incidents.length > 0 ? (
                   <div className="space-y-0.5 pt-0.5">
-                    {incidents.map((inc) => (
-                      <div key={inc.id} className="text-slate-700">
+                    {incidents.map((inc, incIdx) => (
+                      <div key={inc.id ?? `inc-${incIdx}`} className="text-slate-700">
                         • <strong>{inc.report_number || 'INC'}:</strong> {inc.title} ({inc.location || 'Airside'}), status {inc.status || 'siaga'}.
                         {inc.action_taken && <span className="text-slate-500"> Tindakan: {inc.action_taken}</span>}
                       </div>

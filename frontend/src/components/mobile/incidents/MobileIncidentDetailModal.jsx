@@ -85,9 +85,12 @@ export default function MobileIncidentDetailModal({
       });
       onStatusUpdated?.();
     } catch (err) {
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal memperbarui status insiden.'));
       setToastMsg({
         type: 'error',
-        text: err.response?.data?.message || 'Gagal memperbarui status insiden.',
+        text: msg,
       });
     } finally {
       setUpdatingStatus(false);
@@ -139,7 +142,9 @@ export default function MobileIncidentDetailModal({
                     : 'bg-emerald-50 border-emerald-200 text-emerald-800'
                 }`}
               >
-                <span className="font-semibold">{toastMsg.text}</span>
+                <span className="font-semibold">
+                  {typeof toastMsg.text === 'string' ? toastMsg.text : (toastMsg.text?.message || 'Pemberitahuan')}
+                </span>
                 <button
                   type="button"
                   onClick={() => setToastMsg(null)}
@@ -255,7 +260,7 @@ export default function MobileIncidentDetailModal({
                 <div className="grid grid-cols-3 gap-1.5">
                   {attachments.map((att, idx) => (
                     <button
-                      key={att.id || idx}
+                      key={att.id ?? `att-${idx}`}
                       type="button"
                       onClick={() => setActivePhoto(att.file_path)}
                       className="group relative aspect-square rounded-lg border border-slate-200 bg-slate-100 overflow-hidden hover:opacity-90 transition-opacity duration-100"

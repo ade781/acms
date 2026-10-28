@@ -72,7 +72,10 @@ export default function MobileEditProfileModal({ isOpen, onClose, personnel, onS
       onClose();
     } catch (err) {
       console.error('Error update profile:', err);
-      setError(err.response?.data?.message || 'Gagal memperbarui data profil');
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal memperbarui data profil'));
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -97,7 +100,7 @@ export default function MobileEditProfileModal({ isOpen, onClose, personnel, onS
         {error && (
           <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[11px] flex items-center gap-1.5">
             <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-            <span>{error}</span>
+            <span>{typeof error === 'string' ? error : (error?.message || 'Gagal memperbarui data profil')}</span>
           </div>
         )}
 

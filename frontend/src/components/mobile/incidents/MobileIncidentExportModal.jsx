@@ -36,7 +36,10 @@ export default function MobileIncidentExportModal({ isOpen, onClose }) {
       }
     } catch (err) {
       console.error('Error fetching mobile incident summary:', err);
-      setError('Gagal memuat ringkasan rekapitulasi.');
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal memuat ringkasan rekapitulasi.'));
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -170,7 +173,7 @@ export default function MobileIncidentExportModal({ isOpen, onClose }) {
               </div>
             ) : error ? (
               <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-center">
-                {error}
+                {typeof error === 'string' ? error : (error?.message || 'Gagal memuat ringkasan rekapitulasi.')}
               </div>
             ) : data.incidents?.length === 0 ? (
               <div className="p-4 rounded-xl border border-dashed border-slate-200 text-center text-slate-400 text-xs">
@@ -178,9 +181,9 @@ export default function MobileIncidentExportModal({ isOpen, onClose }) {
               </div>
             ) : (
               <div className="space-y-1.5 max-h-[36vh] overflow-y-auto pr-0.5">
-                {data.incidents.map((inc) => (
+                {data.incidents.map((inc, incIdx) => (
                   <div
-                    key={inc.id}
+                    key={inc.id ?? `inc-${incIdx}`}
                     className="p-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors duration-100 flex items-center justify-between gap-2"
                   >
                     <div className="min-w-0">
@@ -219,21 +222,11 @@ export default function MobileIncidentExportModal({ isOpen, onClose }) {
         </div>
 
         {/* Footer Actions */}
-        <div className="p-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={fetchSummary}
-            disabled={loading}
-            className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-slate-900 font-semibold text-xs flex items-center gap-1.5 transition-colors duration-100"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-red-600' : ''}`} />
-            <span>Segarkan</span>
-          </button>
-
+        <div className="p-3 border-t border-slate-100 bg-slate-50 shrink-0">
           <button
             type="button"
             onClick={handleDownloadPdf}
-            className="flex-1 py-1.5 px-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-colors duration-100"
+            className="w-full py-2 px-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-colors duration-100"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Unduh PDF Resmi</span>

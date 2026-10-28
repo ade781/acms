@@ -24,15 +24,31 @@ export function AuthProvider({ children }) {
 
   // Otomatis sinkronkan regu dinas saat tanggal dipilih, kecuali user sengaja memilih regu lain
   const setActiveDate = (newDate) => {
-    setActiveDateState(newDate);
-    setActiveTeam(getScheduledTeam(newDate, activeShiftNumber));
+    let dateStr = '';
+    if (typeof newDate === 'string') {
+      dateStr = newDate;
+    } else if (newDate instanceof Date && !isNaN(newDate.getTime())) {
+      dateStr = newDate.toISOString().split('T')[0];
+    } else if (newDate) {
+      dateStr = String(newDate);
+    } else {
+      dateStr = currentOp.shiftDate;
+    }
+    setActiveDateState(dateStr);
+    const scheduled = getScheduledTeam(dateStr, activeShiftNumber);
+    setActiveTeam(cleanTeam(scheduled));
   };
 
   // Otomatis sinkronkan regu dinas saat shift (1-3) dipilih
   const setActiveShiftNumber = (newShift) => {
-    const shiftNum = Number(newShift);
+    const shiftNum = Number(newShift) || 1;
     setActiveShiftNumberState(shiftNum);
-    setActiveTeam(getScheduledTeam(activeDate, shiftNum));
+    const scheduled = getScheduledTeam(activeDate, shiftNum);
+    setActiveTeam(cleanTeam(scheduled));
+  };
+
+  const setActiveTeamSafe = (newTeam) => {
+    setActiveTeam(cleanTeam(newTeam));
   };
 
   // Sync token to API defaults and verify
@@ -156,7 +172,7 @@ export function AuthProvider({ children }) {
     activeShiftNumber,
     setActiveShiftNumber,
     activeTeam,
-    setActiveTeam,
+    setActiveTeam: setActiveTeamSafe,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

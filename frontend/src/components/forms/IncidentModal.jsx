@@ -7,6 +7,7 @@ import SelectField from '../common/SelectField';
 import TextareaField from '../common/TextareaField';
 import { compressImageToWebP } from '../../utils/imageCompressor';
 import { cleanTeam, formatTeam } from '../../utils/shiftHelper';
+import { getErrorMessage } from '../../utils/errorHelper';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 
@@ -220,7 +221,7 @@ export default function IncidentModal({
           {error && (
             <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-              <span>{error}</span>
+              <span>{getErrorMessage(error, 'Gagal melaporkan insiden.')}</span>
             </div>
           )}
 

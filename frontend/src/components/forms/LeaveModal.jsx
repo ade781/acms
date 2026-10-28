@@ -4,6 +4,7 @@ import Modal from '../common/Modal';
 import Button from '../common/Button';
 import InputField from '../common/InputField';
 import api from '../../services/api';
+import { getErrorMessage } from '../../utils/errorHelper';
 
 export default function LeaveModal({
   isOpen,
@@ -134,7 +135,7 @@ export default function LeaveModal({
         {error && (
           <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
             <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-red-600" />
-            <span>{error}</span>
+            <span>{getErrorMessage(error, 'Gagal mengajukan cuti.')}</span>
           </div>
         )}
 

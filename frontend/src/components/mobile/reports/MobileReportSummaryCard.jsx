@@ -102,13 +102,13 @@ export default function MobileReportSummaryCard({
         </div>
 
         <div className="divide-y divide-slate-100 text-xs">
-          {pureVehicles.map((v) => {
+          {pureVehicles.map((v, vIdx) => {
             const isServ = v.status === 'serviceable';
             const isUnserv = v.status === 'unserviceable';
 
             return (
               <div
-                key={v.id || v.code_name}
+                key={v.id ?? v.code_name ?? `veh-${vIdx}`}
                 className="py-1.5 first:pt-0 last:pb-0 space-y-1"
               >
                 <div className="flex items-center justify-between gap-2">

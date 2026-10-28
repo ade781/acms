@@ -54,7 +54,10 @@ export default function MobileChangePasswordModal({ isOpen, onClose }) {
       }, 1200);
     } catch (err) {
       console.error('Error change password:', err);
-      setError(err.response?.data?.message || 'Gagal mengubah password');
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal mengubah password'));
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -90,7 +93,7 @@ export default function MobileChangePasswordModal({ isOpen, onClose }) {
         {error && (
           <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[11px] flex items-center gap-1.5">
             <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-            <span>{error}</span>
+            <span>{typeof error === 'string' ? error : (error?.message || 'Gagal mengubah password')}</span>
           </div>
         )}
 

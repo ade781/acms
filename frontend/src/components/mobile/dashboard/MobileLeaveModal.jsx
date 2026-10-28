@@ -95,7 +95,10 @@ export default function MobileLeaveModal({
       }, 700);
     } catch (err) {
       console.error('Error cancelling leave:', err);
-      setErrorMsg(err.response?.data?.message || err.message || 'Gagal membatalkan cuti.');
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal membatalkan cuti.'));
+      setErrorMsg(msg);
     } finally {
       setCancelling(false);
     }
@@ -145,7 +148,10 @@ export default function MobileLeaveModal({
       }, 700);
     } catch (err) {
       console.error('Error submitting leave:', err);
-      setErrorMsg(err.response?.data?.message || err.message || 'Gagal mengajukan izin/cuti.');
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal mengajukan izin/cuti.'));
+      setErrorMsg(msg);
     } finally {
       setSubmitting(false);
     }
@@ -173,14 +179,14 @@ export default function MobileLeaveModal({
         {errorMsg && (
           <div className="p-2 rounded bg-red-50 border border-red-200 text-red-700 text-[10px] flex items-start gap-1.5">
             <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-red-600" />
-            <span>{errorMsg}</span>
+            <span>{typeof errorMsg === 'string' ? errorMsg : (errorMsg?.message || 'Terjadi kesalahan')}</span>
           </div>
         )}
 
         {successMsg && (
           <div className="p-2 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] flex items-center gap-1.5">
             <CheckCircle className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
-            <span>{successMsg}</span>
+            <span>{typeof successMsg === 'string' ? successMsg : (successMsg?.message || 'Berhasil')}</span>
           </div>
         )}
 
@@ -232,8 +238,8 @@ export default function MobileLeaveModal({
                 required
               >
                 <option value="">-- Pilih Personel --</option>
-                {personnelList.map((p) => (
-                  <option key={p.id} value={p.id}>
+                {personnelList.map((p, pIdx) => (
+                  <option key={p.id ?? `pers-${pIdx}`} value={p.id}>
                     {p.full_name || p.name} ({p.nip || '-'})
                   </option>
                 ))}

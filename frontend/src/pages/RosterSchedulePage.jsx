@@ -243,7 +243,8 @@ export default function RosterSchedulePage() {
       fetchMonthlySchedule(true);
     } catch (err) {
       console.error('Error saving cycle:', err);
-      setFormError(err.response?.data?.message || err.message || 'Gagal menyimpan pergantian jadwal.');
+      const errMsg = typeof err.response?.data?.message === 'string' ? err.response.data.message : typeof err.response?.data === 'string' ? err.response.data : err.message || 'Gagal menyimpan pergantian jadwal.';
+      setFormError(errMsg);
     } finally {
       setSaving(false);
     }
@@ -264,7 +265,8 @@ export default function RosterSchedulePage() {
       monthlyCacheRef.current.clear();
       fetchMonthlySchedule(true);
     } catch (err) {
-      setFormError(`Gagal mereset: ${err.response?.data?.message || err.message}`);
+      const errMsg = typeof err.response?.data?.message === 'string' ? err.response.data.message : typeof err.response?.data === 'string' ? err.response.data : err.message || 'Terjadi kesalahan sistem';
+      setFormError(`Gagal mereset: ${errMsg}`);
     } finally {
       setSaving(false);
     }
@@ -340,7 +342,7 @@ export default function RosterSchedulePage() {
         <div className="mb-4 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center justify-between gap-3 shadow-sm animate-in fade-in">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-            <span>{successMessage}</span>
+            <span>{typeof successMessage === 'string' ? successMessage : 'Perubahan jadwal dinas berhasil disimpan.'}</span>
           </div>
           <button
             type="button"
@@ -436,7 +438,7 @@ export default function RosterSchedulePage() {
 
                       return (
                         <th
-                          key={item.date}
+                          key={item.date || `day-${item.day}`}
                           onClick={canEdit ? () => handleOpenEditModal(item) : undefined}
                           className={`py-1.5 px-2.5 border-r border-slate-200 min-w-[54px] transition-colors ${
                             todayCheck
@@ -646,7 +648,7 @@ export default function RosterSchedulePage() {
             {formError && (
               <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-                <span>{formError}</span>
+                <span>{typeof formError === 'string' ? formError : (formError?.message || 'Terjadi kesalahan input.')}</span>
               </div>
             )}
 
@@ -706,7 +708,7 @@ export default function RosterSchedulePage() {
                       const isPairFirst = idx % 2 === 0;
                       return (
                         <tr
-                          key={dayItem.day_index || idx}
+                          key={dayItem.day_index || dayItem.date || `cycle-day-${idx}`}
                           className={isPairFirst ? 'bg-white' : 'bg-slate-50/40'}
                         >
                           <td className="py-2 px-3 font-semibold text-slate-900 whitespace-nowrap">

@@ -399,7 +399,8 @@ export default function DeploymentPage() {
       setInitialSnapshot(JSON.stringify(vehicleSlots));
       fetchDeploymentData({ keepSuccessMsg: true });
     } catch (err) {
-      const msg = err.response?.data?.message || err.message || 'Gagal menyimpan ploting kru.';
+      const rawMsg = err.response?.data?.message || err.response?.data?.error || err.message;
+      const msg = typeof rawMsg === 'string' ? rawMsg : (rawMsg?.message || 'Gagal menyimpan ploting kru.');
       setError(msg);
     } finally {
       setSaving(false);
@@ -417,7 +418,7 @@ export default function DeploymentPage() {
       {successMsg && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-emerald-600 text-white shadow-xl text-xs font-semibold animate-in fade-in slide-in-from-top-2 duration-150">
           <CheckCircle className="w-4 h-4 flex-shrink-0 text-white" />
-          <span>{successMsg}</span>
+          <span>{typeof successMsg === 'string' ? successMsg : successMsg?.message || 'Ploting berhasil disimpan'}</span>
           <button
             type="button"
             onClick={() => setSuccessMsg(null)}
@@ -431,7 +432,7 @@ export default function DeploymentPage() {
       {error && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-red-600 text-white shadow-xl text-xs font-semibold animate-in fade-in slide-in-from-top-2 duration-150">
           <AlertCircle className="w-4 h-4 flex-shrink-0 text-white" />
-          <span>{error}</span>
+          <span>{typeof error === 'string' ? error : error?.message || 'Terjadi kendala pada ploting'}</span>
           <button
             type="button"
             onClick={() => setError(null)}
@@ -544,8 +545,8 @@ export default function DeploymentPage() {
             {/* Vehicles Deployment Grid */}
             <div className="mb-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {vehicles.map((v) => {
-                  const vId = v.id || v.vehicle_id;
+                {vehicles.map((v, vIdx) => {
+                  const vId = v.id || v.vehicle_id || `v-${vIdx}`;
                   return (
                     <DeploymentSlotCard
                       key={vId}
@@ -560,8 +561,8 @@ export default function DeploymentPage() {
                       readOnly={!canEditPlot}
                       assignedPersonnelIds={assignedPersonnelIds}
                       absentPersonnelIds={absentPersonnelIds}
-                      currentPersonnelId={user?.personnel_id}
-                      currentUserName={user?.name}
+                      currentPersonnelId={user?.personnel_id ? Number(user.personnel_id) : undefined}
+                      currentUserName={typeof user?.name === 'string' ? user.name : (user?.name?.toString() || '')}
                       onInspectVehicle={handleInspectVehicle}
                       isAdmin={isAdmin}
                       isSupervisor={isSupervisor}
@@ -612,7 +613,7 @@ export default function DeploymentPage() {
                     };
                     return (
                       <div
-                        key={idx}
+                        key={abs.personnel_id ? `absent-${abs.personnel_id}-${idx}` : `absent-${idx}`}
                         className="p-3 rounded-lg border border-slate-200 bg-slate-50/70 flex flex-col justify-between text-xs space-y-1.5"
                       >
                         <div className="flex items-start justify-between gap-2">
@@ -625,13 +626,13 @@ export default function DeploymentPage() {
                             </div>
                           </div>
                           <span className="inline-block px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold text-[10px] uppercase">
-                            {reasonLabels[abs.reason] || abs.reason || 'Cuti'}
+                            {reasonLabels[abs.reason] || (typeof abs.reason === 'string' ? abs.reason : 'Cuti')}
                           </span>
                         </div>
 
                         {abs.notes && (
                           <p className="text-[11px] text-slate-600 italic bg-white p-2 rounded border border-slate-100">
-                            "{abs.notes}"
+                            "{typeof abs.notes === 'string' ? abs.notes : String(abs.notes)}"
                           </p>
                         )}
                       </div>
@@ -659,9 +660,10 @@ export default function DeploymentPage() {
             activeTeam={activeTeam}
             onSuccess={(customMsg) => {
               fetchDeploymentData({ keepSuccessMsg: true });
+              const msgStr = typeof customMsg === 'string' ? customMsg : customMsg?.message;
               setSuccessMsg(
-                customMsg ||
-                `Kesiapan fasilitas posko ${selectedVehicleForInspection.code_name || selectedVehicleForInspection.vehicle_name
+                msgStr ||
+                `Kesiapan fasilitas posko ${selectedVehicleForInspection.code_name || selectedVehicleForInspection.vehicle_name || 'Unit'
                 } berhasil diperbarui.`
               );
             }}
@@ -679,9 +681,10 @@ export default function DeploymentPage() {
             activeTeam={activeTeam}
             onSuccess={(customMsg) => {
               fetchDeploymentData({ keepSuccessMsg: true });
+              const msgStr = typeof customMsg === 'string' ? customMsg : customMsg?.message;
               setSuccessMsg(
-                customMsg ||
-                `Kesiapan fisik kendaraan ${selectedVehicleForInspection.code_name || selectedVehicleForInspection.vehicle_name
+                msgStr ||
+                `Kesiapan fisik kendaraan ${selectedVehicleForInspection.code_name || selectedVehicleForInspection.vehicle_name || 'Unit'
                 } berhasil diperbarui.`
               );
             }}

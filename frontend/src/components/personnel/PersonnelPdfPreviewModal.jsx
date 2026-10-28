@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Download, ExternalLink, FileText, Shield, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import Button from '../common/Button';
 import api from '../../services/api';
+import { getErrorMessage } from '../../utils/errorHelper';
 
 export default function PersonnelPdfPreviewModal({ isOpen, onClose }) {
   const [blobUrl, setBlobUrl] = useState(null);
@@ -143,7 +144,7 @@ export default function PersonnelPdfPreviewModal({ isOpen, onClose }) {
                 <AlertCircle className="w-6 h-6" />
               </div>
               <h4 className="text-sm font-bold text-slate-800">Gagal Memuat Pratinjau</h4>
-              <p className="text-xs text-slate-500">{error}</p>
+              <p className="text-xs text-slate-500">{getErrorMessage(error, 'Gagal memuat dokumen PDF.')}</p>
               <Button
                 variant="outline"
                 size="sm"

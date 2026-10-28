@@ -45,7 +45,10 @@ export default function MobileIncidents() {
         return;
       }
       console.error('Error fetching incidents:', err);
-      setError('Gagal memuat daftar insiden operasional.');
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal memuat daftar insiden operasional.'));
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -114,17 +117,6 @@ export default function MobileIncidents() {
           >
             <FileText className="w-3.5 h-3.5 text-slate-600" />
             <span>Rekap</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={fetchIncidents}
-            disabled={loading}
-            className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors duration-100"
-            title="Muat Ulang"
-            aria-label="Muat Ulang Insiden"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-red-600' : ''}`} />
           </button>
 
           {canManage && (
@@ -245,7 +237,9 @@ export default function MobileIncidents() {
         <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-            <span className="text-[10.5px] leading-tight">{error}</span>
+            <span className="text-[10.5px] leading-tight">
+              {typeof error === 'string' ? error : (error?.message || 'Gagal memuat daftar insiden operasional.')}
+            </span>
           </div>
           <button
             type="button"
@@ -295,9 +289,9 @@ export default function MobileIncidents() {
       {/* Incident List */}
       {!loading && filteredIncidents.length > 0 && (
         <div className="space-y-1.5">
-          {filteredIncidents.map((inc) => (
+          {filteredIncidents.map((inc, incIdx) => (
             <MobileIncidentTimelineItem
-              key={inc.id}
+              key={inc.id ?? `inc-${inc.incident_time || incIdx}`}
               incident={inc}
               onClick={() => handleOpenDetail(inc)}
             />

@@ -20,6 +20,7 @@ import Modal from '../components/common/Modal';
 import InputField from '../components/common/InputField';
 import SelectField from '../components/common/SelectField';
 import StateView from '../components/common/StateView';
+import { getErrorMessage } from '../utils/errorHelper';
 
 export default function OfficialsManagementPage() {
   const { isAdmin, isSupervisor, token } = useAuth();
@@ -80,7 +81,8 @@ export default function OfficialsManagementPage() {
     } catch (err) {
       if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
       console.error('Error fetching officials:', err);
-      setError('Gagal memuat data pejabat struktural.');
+      const rawErr = err.response?.data?.message || err.message;
+      setError(typeof rawErr === 'string' ? rawErr : (rawErr?.message || 'Gagal memuat data pejabat struktural.'));
     } finally {
       setLoading(false);
     }
@@ -174,11 +176,13 @@ export default function OfficialsManagementPage() {
         });
       }
 
-      setSuccessMsg(res.data?.message || 'Data Dept. Head berhasil disimpan.');
+      const rawMsg = res.data?.message;
+      setSuccessMsg(typeof rawMsg === 'string' ? rawMsg : (rawMsg?.message || 'Data Dept. Head berhasil disimpan.'));
       setDhModalOpen(false);
       fetchData();
     } catch (err) {
-      setDhError(err.response?.data?.message || err.message || 'Gagal menyimpan data Dept. Head.');
+      const rawErr = err.response?.data?.message || err.response?.data?.error || err.message;
+      setDhError(typeof rawErr === 'string' ? rawErr : (rawErr?.message || 'Gagal menyimpan data Dept. Head.'));
     } finally {
       setSavingDh(false);
     }
@@ -221,11 +225,13 @@ export default function OfficialsManagementPage() {
         old_chief_target_role: oldChiefTargetRole,
       });
 
-      setSuccessMsg(res.data?.message || `Ketua Regu ${targetTeam} berhasil diperbarui.`);
+      const rawMsg = res.data?.message;
+      setSuccessMsg(typeof rawMsg === 'string' ? rawMsg : (rawMsg?.message || `Ketua Regu ${targetTeam} berhasil diperbarui.`));
       setChiefModalOpen(false);
       fetchData();
     } catch (err) {
-      setChiefError(err.response?.data?.message || err.message || 'Gagal mengganti Ketua Regu.');
+      const rawErr = err.response?.data?.message || err.response?.data?.error || err.message;
+      setChiefError(typeof rawErr === 'string' ? rawErr : (rawErr?.message || 'Gagal mengganti Ketua Regu.'));
     } finally {
       setSavingChief(false);
     }
@@ -270,7 +276,7 @@ export default function OfficialsManagementPage() {
         <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-center justify-between gap-3 shadow-xs">
           <div className="flex items-center gap-2.5">
             <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-            <span className="font-semibold">{successMsg}</span>
+            <span className="font-semibold">{typeof successMsg === 'string' ? successMsg : (successMsg?.message || 'Operasi berhasil')}</span>
           </div>
           <button
             type="button"
@@ -285,11 +291,11 @@ export default function OfficialsManagementPage() {
       {error && (
         <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2.5 shadow-xs">
           <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-          <span>{error}</span>
+          <span>{getErrorMessage(error, 'Gagal memuat data pejabat struktural.')}</span>
         </div>
       )}
 
-      <StateView loading={loading} error={error} onRetry={fetchData}>
+      <StateView loading={loading} error={typeof error === 'string' ? error : error?.message || null} onRetry={fetchData}>
         {/* Section 1: Dept Head */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
@@ -488,9 +494,9 @@ export default function OfficialsManagementPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {officials.administrasi && officials.administrasi.length > 0 ? (
-              officials.administrasi.map((staff) => (
+              officials.administrasi.map((staff, sIdx) => (
                 <div
-                  key={staff.id}
+                  key={staff.id || `staff-${sIdx}`}
                   className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs flex flex-col justify-between hover:border-slate-300 transition-colors duration-100"
                 >
                   <div className="space-y-1">
@@ -557,7 +563,7 @@ export default function OfficialsManagementPage() {
           <form onSubmit={handleSaveDeptHead} className="space-y-4">
             {dhError && (
               <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
-                {dhError}
+                {getErrorMessage(dhError, 'Gagal menyimpan data Dept. Head.')}
               </div>
             )}
 
@@ -683,7 +689,7 @@ export default function OfficialsManagementPage() {
           <form onSubmit={handleSaveChief} className="space-y-4">
             {chiefError && (
               <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
-                {chiefError}
+                {getErrorMessage(chiefError, 'Gagal mengganti Ketua Regu.')}
               </div>
             )}
 
@@ -711,10 +717,13 @@ export default function OfficialsManagementPage() {
                 { value: '', label: '-- Pilih Personel --' },
                 ...allPersonnel
                   .filter((p) => !currentOldChief || p.id !== currentOldChief.id)
-                  .map((p) => ({
-                    value: p.id,
-                    label: `${p.full_name} (${p.rank_position || '-'} | Regu Saat Ini: ${p.team_group || 'Non-Regu'})`,
-                  })),
+                  .map((p) => {
+                    const teamStr = typeof p.team_group === 'string' ? p.team_group : (p.team_group?.name || 'Non-Regu');
+                    return {
+                      value: p.id,
+                      label: `${p.full_name || 'Personel'} (${p.rank_position || '-'} | Regu Saat Ini: ${teamStr})`,
+                    };
+                  }),
               ]}
               required
             />

@@ -129,7 +129,8 @@ export default function VehicleReportsPage() {
     } catch (err) {
       if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
       console.error('Error fetching transitions report:', err);
-      setError(err.response?.data?.message || err.message || 'Gagal memuat laporan transisi kelaikan armada.');
+      const errMsg = typeof err.response?.data?.message === 'string' ? err.response.data.message : typeof err.response?.data === 'string' ? err.response.data : err.message || 'Gagal memuat laporan transisi kelaikan armada.';
+      setError(errMsg);
     } finally {
       setLoading(false);
     }
@@ -196,7 +197,7 @@ export default function VehicleReportsPage() {
       console.error('Gagal mengunduh PDF armada:', err);
       setToastMsg({
         type: 'error',
-        text: 'Gagal mengunduh dokumen PDF armada. Pastikan koneksi server aktif dan coba kembali.'
+        text: `Gagal mengunduh dokumen PDF armada: ${typeof err.response?.data?.message === 'string' ? err.response.data.message : err.message || 'Periksa koneksi server.'}`
       });
     } finally {
       setIsExporting(false);
@@ -238,7 +239,7 @@ export default function VehicleReportsPage() {
             ) : (
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             )}
-            <span>{toastMsg.text}</span>
+            <span>{typeof toastMsg?.text === 'string' ? toastMsg.text : (toastMsg?.text?.message || 'Pemberitahuan')}</span>
           </div>
           <button
             type="button"
@@ -513,7 +514,7 @@ export default function VehicleReportsPage() {
 
                   return (
                     <tr
-                      key={v.id}
+                      key={v.id || v.code_name || `veh-rep-${v.vehicle_name}`}
                       className="hover:bg-slate-50/80 transition-colors duration-100"
                     >
                       {/* Kode Unit */}
@@ -860,7 +861,7 @@ export default function VehicleReportsPage() {
               ) : previewError ? (
                 <div className="p-6 text-center text-xs space-y-3">
                   <AlertTriangle className="w-8 h-8 text-red-500 mx-auto" />
-                  <p className="font-bold text-slate-800 text-sm">{previewError}</p>
+                  <p className="font-bold text-slate-800 text-sm">{typeof previewError === 'string' ? previewError : 'Gagal memuat pratinjau dokumen PDF armada.'}</p>
                   <Button variant="outline" size="sm" onClick={handleOpenPreview}>
                     Coba Muat Ulang
                   </Button>

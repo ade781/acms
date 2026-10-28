@@ -134,7 +134,10 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
       await loadProfileAndDocs();
     } catch (err) {
       console.error('Error upload doc:', err);
-      setUploadError(err.response?.data?.message || 'Gagal mengunggah berkas');
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal mengunggah berkas'));
+      setUploadError(msg);
     } finally {
       setUploadingDoc(false);
     }
@@ -152,7 +155,10 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
       setFeedbackSuccess('Berkas dokumen berhasil dihapus dari arsip.');
     } catch (err) {
       console.error('Error delete doc:', err);
-      setFeedbackError(err.response?.data?.message || 'Gagal menghapus dokumen.');
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal menghapus dokumen.'));
+      setFeedbackError(msg);
     } finally {
       setDeletingDocId(null);
     }
@@ -186,7 +192,10 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
       await loadProfileAndDocs();
     } catch (err) {
       console.error('Error simpan dossier mobile:', err);
-      setFeedbackError(err.response?.data?.message || err.message || 'Gagal memperbarui data profil.');
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal memperbarui data profil.'));
+      setFeedbackError(msg);
       throw err;
     } finally {
       setSavingDossier(false);
@@ -234,7 +243,7 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
         <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between gap-2 shadow-2xs animate-in fade-in">
           <div className="flex items-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
-            <span className="font-semibold">{feedbackSuccess}</span>
+            <span className="font-semibold">{typeof feedbackSuccess === 'string' ? feedbackSuccess : (feedbackSuccess?.message || 'Berhasil')}</span>
           </div>
           <button
             type="button"
@@ -250,7 +259,7 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
         <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-2 shadow-2xs animate-in fade-in">
           <div className="flex items-center gap-1.5">
             <AlertCircle className="w-3.5 h-3.5 shrink-0 text-red-600" />
-            <span>{feedbackError}</span>
+            <span>{typeof feedbackError === 'string' ? feedbackError : (feedbackError?.message || 'Terjadi kesalahan')}</span>
           </div>
           <button
             type="button"
@@ -265,7 +274,7 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
       {error && (
         <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{error}</span>
+          <span>{typeof error === 'string' ? error : (error?.message || 'Gagal memuat data profil')}</span>
         </div>
       )}
 
@@ -304,7 +313,7 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
           <div className="space-y-1.5">
             {documents.map((doc) => (
               <div
-                key={doc.id}
+                key={doc.id ?? `doc-${doc.file_name || doc.created_at || Math.random()}`}
                 className="p-2 rounded-lg border border-slate-100 bg-slate-50 flex items-center justify-between text-xs transition-colors duration-100 hover:bg-slate-100/70"
               >
                 <div className="flex items-center gap-2 truncate pr-2">
@@ -398,7 +407,7 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
             {uploadError && (
               <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[11px] flex items-center gap-1.5">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                <span>{uploadError}</span>
+                <span>{typeof uploadError === 'string' ? uploadError : (uploadError?.message || 'Gagal mengunggah berkas')}</span>
               </div>
             )}
 

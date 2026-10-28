@@ -222,7 +222,10 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
         return;
       }
       console.error('Error loading ploting data:', err);
-      setErrorMsg('Gagal memuat data ploting armada.');
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal memuat data ploting armada.'));
+      setErrorMsg(msg);
     } finally {
       setLoading(false);
     }
@@ -400,7 +403,10 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
       setInitialSnapshot(JSON.stringify(vehicleSlots));
     } catch (err) {
       console.error('Error saving deployments:', err);
-      setErrorMsg(`Gagal menyimpan ploting: ${err.response?.data?.message || err.message}`);
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal menyimpan ploting.'));
+      setErrorMsg(`Gagal menyimpan ploting: ${msg}`);
     } finally {
       setSaving(false);
     }
@@ -488,7 +494,10 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
       setTargetCancelLeave(null);
     } catch (err) {
       console.error('Error canceling leave:', err);
-      setErrorMsg(`Gagal membatalkan cuti: ${err.response?.data?.message || err.message}`);
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal membatalkan cuti.'));
+      setErrorMsg(`Gagal membatalkan cuti: ${msg}`);
     } finally {
       setCancelingLeave(false);
     }
@@ -538,7 +547,9 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm p-2.5 rounded-xl bg-emerald-600 text-white text-xs flex items-center justify-between shadow-lg animate-in fade-in slide-in-from-top-2 duration-150">
           <div className="flex items-center gap-2">
             <Check className="w-4 h-4 text-white shrink-0" />
-            <span className="font-bold text-[11.5px] leading-tight">{toastMsg}</span>
+            <span className="font-bold text-[11.5px] leading-tight">
+              {typeof toastMsg === 'string' ? toastMsg : (toastMsg?.message || 'Berhasil')}
+            </span>
           </div>
           <button
             type="button"
@@ -555,7 +566,9 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm p-2.5 rounded-xl bg-red-600 text-white text-xs flex items-center justify-between shadow-lg animate-in fade-in slide-in-from-top-2 duration-150">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-white shrink-0" />
-            <span className="font-bold text-[11.5px] leading-tight">{errorMsg}</span>
+            <span className="font-bold text-[11.5px] leading-tight">
+              {typeof errorMsg === 'string' ? errorMsg : (errorMsg?.message || 'Terjadi kesalahan')}
+            </span>
           </div>
           <button
             type="button"
@@ -618,9 +631,9 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
       ) : (
         /* Kontainer Kartu Ploting 8 Unit Armada (Dense Ops Layout) */
         <div className="space-y-1.5">
-          {vehicles.map((unit) => (
+          {vehicles.map((unit, unitIdx) => (
             <MobilePlotCard
-              key={unit.id}
+              key={unit.id ?? unit.code_name ?? `unit-${unitIdx}`}
               unit={unit}
               slots={vehicleSlots[unit.id] || []}
               personnelMap={personnelMap}

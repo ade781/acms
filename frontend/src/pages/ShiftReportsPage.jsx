@@ -162,7 +162,7 @@ export default function ShiftReportsPage() {
               Laporan Operasional Dinas
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Ketua Regu: <span className="font-semibold text-slate-700">{shiftData?.supervisor_name || '-'}</span> • Rekapitulasi dinas shift resmi & arsip cetak A4
+              Ketua Regu: <span className="font-semibold text-slate-700">{typeof shiftData?.supervisor_name === 'string' ? shiftData.supervisor_name : '-'}</span> • Rekapitulasi dinas shift resmi & arsip cetak A4
             </p>
           </div>
 
@@ -284,7 +284,7 @@ export default function ShiftReportsPage() {
         <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-4 shadow-xs">
           <div className="flex items-center gap-2.5">
             <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-            <span>{fetchError}</span>
+            <span>{typeof fetchError === 'string' ? fetchError : (fetchError?.message || 'Gagal memuat pratinjau data operasional shift.')}</span>
           </div>
           <button
             type="button"
@@ -301,7 +301,7 @@ export default function ShiftReportsPage() {
         <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-4 shadow-xs">
           <div className="flex items-center gap-2.5">
             <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-            <span>{downloadError}</span>
+            <span>{typeof downloadError === 'string' ? downloadError : (downloadError?.message || 'Gagal mengunduh berkas PDF laporan dinas.')}</span>
           </div>
           <button
             type="button"
@@ -318,7 +318,7 @@ export default function ShiftReportsPage() {
         <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between gap-4 shadow-xs">
           <div className="flex items-center gap-2.5">
             <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-            <span>{downloadSuccess}</span>
+            <span>{typeof downloadSuccess === 'string' ? downloadSuccess : 'Berkas PDF dokumen dinas resmi berhasil diunduh.'}</span>
           </div>
           <button
             type="button"
@@ -358,7 +358,7 @@ export default function ShiftReportsPage() {
 
                 return (
                   <div
-                    key={v.id || v.code_name}
+                    key={v.id || v.code_name || `veh-${v.vehicle_name}`}
                     className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-3 text-xs"
                   >
                     <div className="min-w-0">
@@ -497,7 +497,7 @@ export default function ShiftReportsPage() {
               <div className="p-3 rounded-lg bg-amber-50/70 border border-amber-200 text-xs space-y-1">
                 <p className="font-bold text-amber-900">Personel Berhalangan / Cuti Dinas:</p>
                 {absents.map((ab, idx) => (
-                  <p key={ab.id || idx} className="text-amber-800">
+                  <p key={ab.id || `ab-${ab.personnel_id || idx}`} className="text-amber-800">
                     • <strong>{ab.full_name || ab.name}</strong> ({ab.leave_type || ab.notes || 'Cuti'})
                   </p>
                 ))}
@@ -522,7 +522,7 @@ export default function ShiftReportsPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
                     {presentDeployments.map((d) => (
-                      <tr key={d.id} className="hover:bg-slate-50/70">
+                      <tr key={d.id || `dep-${d.personnel_id || d.name}`} className="hover:bg-slate-50/70">
                         <td className="py-2 px-3 font-bold text-slate-900">
                           {d.full_name || d.name}
                         </td>
@@ -584,7 +584,7 @@ export default function ShiftReportsPage() {
               <div className="space-y-2.5">
                 {activities.map((act) => (
                   <div
-                    key={act.id}
+                    key={act.id || `act-${act.activity_time || act.title}`}
                     className="p-3 rounded-lg bg-slate-50 border border-slate-200/80 space-y-1.5 text-xs"
                   >
                     <div className="flex items-center justify-between">
@@ -646,7 +646,7 @@ export default function ShiftReportsPage() {
               <div className="space-y-2.5 text-xs">
                 {incidents.map((inc) => (
                   <div
-                    key={inc.id}
+                    key={inc.id || `inc-${inc.incident_time || inc.title}`}
                     className="p-3 rounded-lg bg-red-50/50 border border-red-200 space-y-1.5"
                   >
                     <div className="flex items-center justify-between">

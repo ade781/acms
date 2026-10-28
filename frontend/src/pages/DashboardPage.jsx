@@ -256,7 +256,8 @@ export default function DashboardPage() {
         }
       } catch (err) {
         if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
-        setError('Gagal memuat data operasional dashboard. Periksa koneksi jaringan Anda.');
+        const errMsg = err.response?.data?.message || err.message || 'Gagal memuat data operasional dashboard. Periksa koneksi jaringan Anda.';
+        setError(typeof errMsg === 'string' ? errMsg : (errMsg?.message || 'Gagal memuat data operasional dashboard.'));
       } finally {
         setLoading(false);
       }
@@ -508,7 +509,7 @@ export default function DashboardPage() {
         <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3 text-xs text-red-800">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-            <span>{error}</span>
+            <span>{typeof error === 'string' ? error : error?.message || 'Gagal memuat data operasional dashboard.'}</span>
           </div>
           <button
             type="button"
@@ -538,7 +539,7 @@ export default function DashboardPage() {
               <Clock className="w-4 h-4 text-slate-400" />
             </div>
             <div className="flex items-baseline justify-between gap-2">
-              <div className="text-xl font-bold text-slate-900">Regu {currentTeam}</div>
+              <div className="text-xl font-bold text-slate-900">Regu {String(currentTeam || '')}</div>
               <span className="text-[11px] font-mono tabular-nums font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
                 {getShiftHours(activeShiftNumber)}
               </span>
@@ -548,7 +549,7 @@ export default function DashboardPage() {
           <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
             <span className="text-slate-500">Ketua Regu:</span>
             <span className="font-semibold text-slate-900 truncate max-w-[160px]">
-              {supervisorName}
+              {typeof supervisorName === 'string' ? supervisorName : (supervisorName?.full_name || 'Belum Ditentukan')}
             </span>
           </div>
         </div>
@@ -573,11 +574,12 @@ export default function DashboardPage() {
             {latestAnnouncement ? (
               <>
                 <div className="text-sm font-bold text-slate-900 line-clamp-1">
-                  {latestAnnouncement.title}
+                  {typeof latestAnnouncement.title === 'string' ? latestAnnouncement.title : String(latestAnnouncement.title || '')}
                 </div>
                 <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-snug">
-                  {latestAnnouncement.description ||
-                    (latestAnnouncement.circular_number
+                  {typeof latestAnnouncement.description === 'string'
+                    ? latestAnnouncement.description
+                    : (latestAnnouncement.circular_number
                       ? `Surat Edaran: ${latestAnnouncement.circular_number}`
                       : 'Klik untuk membaca dokumen pengumuman.')}
                 </p>
@@ -611,7 +613,7 @@ export default function DashboardPage() {
                 {personnelComposition.absentCount}
               </span>
               <span className="text-xs text-slate-500 font-medium">
-                Anggota Regu {currentTeam}
+                Anggota Regu {String(currentTeam || '')}
               </span>
             </div>
           </div>
@@ -649,7 +651,7 @@ export default function DashboardPage() {
           <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
             <span className="truncate">
               {activities.length > 0
-                ? `Terbaru: ${activities[0]?.title || activities[0]?.activity_name || 'Kegiatan Operasional'}`
+                ? `Terbaru: ${typeof activities[0]?.title === 'string' ? activities[0].title : (typeof activities[0]?.activity_name === 'string' ? activities[0].activity_name : 'Kegiatan Operasional')}`
                 : 'Belum ada kegiatan tercatat'}
             </span>
           </div>
@@ -706,7 +708,7 @@ export default function DashboardPage() {
 
                 return (
                   <div
-                    key={vId || vehicle.code_name}
+                    key={vId || vehicle.code_name || `vehicle-${vehicle.id || Math.random()}`}
                     role="button"
                     tabIndex={0}
                     onClick={() => setActiveModal({ type: 'vehicle_item', item: vehicle })}
@@ -739,7 +741,7 @@ export default function DashboardPage() {
                           {vehicle.vehicle_name || vehicle.code_name}
                         </div>
                         <div className="text-[11px] text-slate-500 truncate mt-0.5">
-                          PIC: <span className="text-slate-700 font-medium">{picName}</span>
+                          PIC: <span className="text-slate-700 font-medium">{typeof picName === 'string' ? picName : (picName?.name || 'Belum Ditunjuk')}</span>
                         </div>
                       </div>
                     </div>
@@ -796,7 +798,7 @@ export default function DashboardPage() {
               ) : (
                 personnelComposition.byTeam.map((tStat) => (
                   <div
-                    key={tStat.team}
+                    key={String(tStat.team)}
                     role="button"
                     tabIndex={0}
                     onClick={() => openPersonnelModal(tStat.team)}
@@ -826,12 +828,12 @@ export default function DashboardPage() {
                             </span>
                           ) : (
                             <span className="px-1.5 py-0.2 rounded text-[10px] font-medium bg-slate-100 text-slate-600">
-                              Jadwal: {tStat.dutySchedule}
+                              Jadwal: {typeof tStat.dutySchedule === 'string' ? tStat.dutySchedule : String(tStat.dutySchedule || '-')}
                             </span>
                           )}
                         </div>
                         <div className="text-[11px] text-slate-500 truncate mt-0.5">
-                          Chief: <span className="text-slate-700 font-medium">{tStat.chiefName || '-'}</span>
+                          Chief: <span className="text-slate-700 font-medium">{typeof tStat.chiefName === 'string' ? tStat.chiefName : '-'}</span>
                         </div>
                       </div>
                     </div>
@@ -897,13 +899,13 @@ export default function DashboardPage() {
                   Tidak ada laporan insiden darurat yang tercatat. Kondisi operasional aman terkendali.
                 </div>
               ) : (
-                incidents.slice(0, 3).map((inc) => {
+                incidents.slice(0, 3).map((inc, incIdx) => {
                   const isResolved = inc.status === 'selesai';
                   const isFollowUp = inc.status === 'menunggu_tindak_lanjut';
 
                   return (
                     <div
-                      key={inc.id || inc.report_number}
+                      key={inc.id || inc.report_number || `inc-${incIdx}`}
                       role="button"
                       tabIndex={0}
                       onClick={() => openIncidentModal(inc)}
@@ -916,11 +918,11 @@ export default function DashboardPage() {
                             {inc.report_number}
                           </span>
                           <span className="font-semibold text-slate-900 truncate">
-                            {inc.title}
+                            {typeof inc.title === 'string' ? inc.title : String(inc.title || '')}
                           </span>
                         </div>
                         <div className="text-[11px] text-slate-500 truncate mt-0.5">
-                          Lokasi: <span className="text-slate-700 font-medium">{inc.location || '-'}</span> •{' '}
+                          Lokasi: <span className="text-slate-700 font-medium">{typeof inc.location === 'string' ? inc.location : '-'}</span> •{' '}
                           {formatIndoDate(inc.incident_date, { shortMonth: true })} (
                           {String(inc.incident_time || '-').slice(0, 5)} WIB)
                         </div>
@@ -956,7 +958,7 @@ export default function DashboardPage() {
       <Modal
         isOpen={activeModal?.type === 'announcement'}
         onClose={() => setActiveModal(null)}
-        title={activeModal?.item?.title || 'Pengumuman Operasional'}
+        title={typeof activeModal?.item?.title === 'string' ? activeModal.item.title : 'Pengumuman Operasional'}
         subtitle={
           activeModal?.item
             ? `${activeModal.item.circular_number ? `No. Edaran: ${activeModal.item.circular_number} • ` : ''}Diterbitkan: ${formatIndoDate(activeModal.item.published_date)}`
@@ -978,7 +980,7 @@ export default function DashboardPage() {
             <div className="p-4 rounded-lg border border-slate-200 bg-slate-50/60 space-y-2">
               <div className="text-[11px] font-semibold text-slate-500">Ringkasan / Isi Pengumuman</div>
               <p className="text-slate-800 leading-relaxed whitespace-pre-line">
-                {activeModal.item.description || 'Tidak ada ringkasan teks tambahan.'}
+                {typeof activeModal.item.description === 'string' ? activeModal.item.description : 'Tidak ada ringkasan teks tambahan.'}
               </p>
             </div>
 
@@ -1010,9 +1012,9 @@ export default function DashboardPage() {
                   Arsip Pengumuman Sebelumnya ({announcements.length - 1})
                 </div>
                 <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg max-h-[200px] overflow-y-auto">
-                  {announcements.slice(1).map((ann) => (
+                  {announcements.slice(1).map((ann, annIdx) => (
                     <div
-                      key={ann.id}
+                      key={ann.id || `ann-${annIdx}`}
                       role="button"
                       tabIndex={0}
                       onClick={() => setActiveModal({ type: 'announcement', item: ann })}
@@ -1173,10 +1175,10 @@ export default function DashboardPage() {
                       const isAbsent = dep && dep.deployment_type === 'absent';
 
                       return (
-                        <tr key={person.id} className="hover:bg-slate-50/80">
+                        <tr key={person.id || `person-${index}`} className="hover:bg-slate-50/80">
                           <td className="py-2 px-3 font-mono text-slate-400">{index + 1}</td>
                           <td className="py-2 px-3">
-                            <div className="font-semibold text-slate-900">{person.full_name}</div>
+                            <div className="font-semibold text-slate-900">{typeof person.full_name === 'string' ? person.full_name : String(person.full_name || '')}</div>
                             <div className="text-[11px] font-mono text-slate-500">
                               NIP: {person.nip || '-'}
                             </div>
@@ -1283,10 +1285,10 @@ export default function DashboardPage() {
             ) : (
               <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-[300px] overflow-y-auto">
                 {personnelComposition.onDutyDeployments.map((dep, i) => (
-                  <div key={dep.id || i} className="px-3.5 py-2.5 flex items-center justify-between gap-2">
+                  <div key={dep.id || `dep-${i}`} className="px-3.5 py-2.5 flex items-center justify-between gap-2">
                     <div>
                       <div className="font-semibold text-slate-900">
-                        {dep.full_name}
+                        {typeof dep.full_name === 'string' ? dep.full_name : String(dep.full_name || '')}
                         {dep.is_pic ? (
                           <span className="ml-2 px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
                             PIC Unit
@@ -1333,20 +1335,20 @@ export default function DashboardPage() {
         ) : (
           <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden text-xs">
             {personnelComposition.absentDeployments.map((item, idx) => (
-              <div key={item.id || idx} className="p-3.5 flex items-start justify-between gap-3 bg-white">
+              <div key={item.id || `absent-${idx}`} className="p-3.5 flex items-start justify-between gap-3 bg-white">
                 <div>
-                  <div className="font-bold text-slate-900">{item.full_name}</div>
+                  <div className="font-bold text-slate-900">{typeof item.full_name === 'string' ? item.full_name : String(item.full_name || '')}</div>
                   <div className="text-[11px] text-slate-500 mt-0.5">
                     NIP: {item.nip || '-'} • {formatRoleName(item.rank_position)}
                   </div>
                   {item.notes && (
                     <div className="text-[11px] text-slate-600 mt-1">
-                      Keterangan: {item.notes}
+                      Keterangan: {typeof item.notes === 'string' ? item.notes : String(item.notes)}
                     </div>
                   )}
                 </div>
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
-                  {item.absent_reason || 'Cuti / Izin'}
+                  {typeof item.absent_reason === 'string' ? item.absent_reason : 'Cuti / Izin'}
                 </span>
               </div>
             ))}
@@ -1375,12 +1377,12 @@ export default function DashboardPage() {
           <div className="space-y-3 text-xs">
             {activities.map((act, idx) => (
               <div
-                key={act.id || idx}
+                key={act.id || `act-${idx}`}
                 className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/50 space-y-1.5"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-bold text-slate-900 text-sm">
-                    {act.title || act.activity_name || 'Kegiatan Operasional'}
+                    {typeof act.title === 'string' ? act.title : (typeof act.activity_name === 'string' ? act.activity_name : 'Kegiatan Operasional')}
                   </span>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-white border border-slate-200 text-slate-700">
@@ -1506,7 +1508,7 @@ export default function DashboardPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {selectedIncidentDetail.attachments.map((att, idx) => (
                       <img
-                        key={att.id || idx}
+                        key={att.id || `att-${idx}`}
                         src={getAttachmentUrl(att.file_path || att.file_url)}
                         alt={att.file_name || `Dokumentasi insiden ${idx + 1}`}
                         className="w-full max-h-56 object-contain rounded-lg border border-slate-200 bg-slate-50"
@@ -1618,12 +1620,12 @@ export default function DashboardPage() {
                     <div className="border border-slate-200 rounded-lg divide-y divide-slate-100">
                       {crewList.map((member, i) => (
                         <div
-                          key={member.id || i}
+                          key={member.id || `member-${i}`}
                           className="px-3.5 py-2 flex items-center justify-between gap-2"
                         >
                           <div>
                             <div className="font-semibold text-slate-900">
-                              {member.full_name}
+                              {typeof member.full_name === 'string' ? member.full_name : String(member.full_name || '')}
                               {member.is_pic ? (
                                 <span className="ml-2 px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
                                   PIC

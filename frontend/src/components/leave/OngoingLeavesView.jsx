@@ -29,9 +29,6 @@ export default function OngoingLeavesView({
             <h4 className="text-sm font-bold text-slate-900">
               Daftar Izin & Cuti Berjalan (Status Berjalan)
             </h4>
-            <p className="text-xs text-slate-500">
-              Rekapitulasi seluruh pengajuan cuti atau izin dinas yang sedang berlangsung aktif ({ongoingLeaves.length} pengajuan)
-            </p>
           </div>
         </div>
 

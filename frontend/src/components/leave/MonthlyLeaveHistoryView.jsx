@@ -35,9 +35,6 @@ export default function MonthlyLeaveHistoryView({
             <h4 className="text-sm font-bold text-slate-900">
               Riwayat Izin & Cuti Bulanan
             </h4>
-            <p className="text-xs text-slate-500">
-              Data rekapitulasi cuti seluruh regu operasional pada bulan terpilih ({monthlyLeaves.length} catatan)
-            </p>
           </div>
         </div>
 

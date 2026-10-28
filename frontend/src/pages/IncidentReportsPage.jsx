@@ -75,8 +75,13 @@ export default function IncidentReportsPage() {
 
       const res = await api.get('/incidents/summary-report', { params, signal });
       const data = res.data?.data || res.data;
-      if (data) {
-        setReportData(data);
+      if (data && typeof data === 'object') {
+        setReportData({
+          startDate: typeof data.startDate === 'string' ? data.startDate : '',
+          endDate: typeof data.endDate === 'string' ? data.endDate : '',
+          stats: data.stats && typeof data.stats === 'object' ? data.stats : { total: 0, selesai: 0, dalam_proses: 0, menunggu_tindak_lanjut: 0, kritis: 0 },
+          incidents: Array.isArray(data.incidents) ? data.incidents : [],
+        });
       }
     } catch (err) {
       if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
@@ -304,7 +309,7 @@ export default function IncidentReportsPage() {
             {reportData.stats?.total || 0}
           </div>
           <span className="text-[11px] text-slate-400 font-medium">
-            Periode: {reportData.startDate || '-'} s.d. {reportData.endDate || '-'}
+            Periode: {typeof reportData.startDate === 'string' ? reportData.startDate : '-'} s.d. {typeof reportData.endDate === 'string' ? reportData.endDate : '-'}
           </span>
         </div>
 
@@ -394,7 +399,7 @@ export default function IncidentReportsPage() {
               <tbody className="divide-y divide-slate-100 text-xs">
                 {paginatedList.map((inc) => (
                   <tr
-                    key={inc.id}
+                    key={inc.id || inc.report_number || `inc-rep-${inc.incident_date}`}
                     onClick={() => setSelectedIncident(inc)}
                     className="hover:bg-slate-50/80 cursor-pointer transition-colors duration-100 group"
                   >
@@ -588,7 +593,7 @@ export default function IncidentReportsPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   {selectedIncident.attachments.map((att, aIdx) => (
                     <div
-                      key={att.id || aIdx}
+                      key={att.id || att.file_path || `att-rep-${aIdx}`}
                       onClick={() => setActivePhoto(att.file_path)}
                       className="group relative aspect-video rounded-lg overflow-hidden border border-slate-200 bg-slate-100 cursor-pointer shadow-2xs hover:border-red-500 transition-colors duration-100"
                     >

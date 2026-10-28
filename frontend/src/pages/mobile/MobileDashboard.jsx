@@ -10,7 +10,7 @@ import MobileOpsSummaryCards from '../../components/mobile/dashboard/MobileOpsSu
 import MobileUnserviceableWidget from '../../components/mobile/dashboard/MobileUnserviceableWidget';
 import MobileRecentAnnouncements from '../../components/mobile/dashboard/MobileRecentAnnouncements';
 
-import { RefreshCw, AlertTriangle, FileText, Download, ExternalLink } from 'lucide-react';
+import { AlertTriangle, FileText, Download, ExternalLink } from 'lucide-react';
 
 export default function MobileDashboard({ onNavigateToAnnouncements }) {
   const { user, token, activeDate, activeShiftNumber, activeTeam } = useAuth();
@@ -68,7 +68,10 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
         return;
       }
       console.error('Error fetching mobile dashboard data:', err);
-      setErrorMsg('Gagal memuat data operasional terbaru.');
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal memuat data operasional terbaru.'));
+      setErrorMsg(msg);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -172,23 +175,10 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
 
   return (
     <div className="space-y-2 pb-6">
-      {/* Tombol Refresh Ringan */}
-      <div className="flex items-center justify-end px-1">
-        <button
-          type="button"
-          onClick={() => fetchDashboardData(true)}
-          disabled={refreshing}
-          className="text-[10px] text-slate-600 hover:text-slate-900 flex items-center gap-1 transition-colors duration-100 cursor-pointer"
-        >
-          <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin text-red-600' : ''}`} />
-          <span>{refreshing ? 'Memperbarui...' : 'Segarkan'}</span>
-        </button>
-      </div>
-
       {errorMsg && (
         <div className="p-2 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[10px] flex items-center gap-1.5">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
-          <span>{errorMsg}</span>
+          <span>{typeof errorMsg === 'string' ? errorMsg : (errorMsg?.message || 'Gagal memuat data operasional terbaru.')}</span>
         </div>
       )}
 

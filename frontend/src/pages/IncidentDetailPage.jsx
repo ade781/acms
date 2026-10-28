@@ -120,7 +120,8 @@ export default function IncidentDetailPage() {
       setResolveModalOpen(false);
       setToastMsg({ type: 'success', text: '✓ Status insiden berhasil diperbarui menjadi Selesai.' });
     } catch (err) {
-      setToastMsg({ type: 'error', text: `Gagal memperbarui status: ${err.response?.data?.message || err.message}` });
+      const errMsg = typeof err.response?.data?.message === 'string' ? err.response.data.message : typeof err.response?.data === 'string' ? err.response.data : err.message || 'Terjadi kesalahan sistem';
+      setToastMsg({ type: 'error', text: `Gagal memperbarui status: ${errMsg}` });
     } finally {
       setUpdating(false);
     }
@@ -149,7 +150,7 @@ export default function IncidentDetailPage() {
             ) : (
               <Check className="w-4 h-4 text-emerald-600 shrink-0" />
             )}
-            <span className="font-semibold">{toastMsg.text}</span>
+            <span className="font-semibold">{typeof toastMsg?.text === 'string' ? toastMsg.text : (toastMsg?.text?.message || 'Pemberitahuan')}</span>
           </div>
           <button
             type="button"
@@ -312,7 +313,7 @@ export default function IncidentDetailPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {incident.attachments.map((att, idx) => (
                       <div
-                        key={att.id || idx}
+                        key={att.id || att.file_path || `att-${idx}`}
                         onClick={() => {
                           setActivePhotoIndex(idx);
                           setLightboxOpen(true);

@@ -4,60 +4,78 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import AppLayout from './components/layout/AppLayout';
 import MobileLayout from './components/mobile/MobileLayout';
 
-// Desktop Pages (Lazy Loaded)
-const LoginPage = lazy(() => import('./pages/LoginPage'));
-const DashboardPage = lazy(() => import('./pages/DashboardPage'));
-const PersonnelPage = lazy(() => import('./pages/PersonnelPage'));
-const PersonnelDetailPage = lazy(() => import('./pages/PersonnelDetailPage'));
-const VehicleReadinessPage = lazy(() => import('./pages/VehicleReadinessPage'));
-const DeploymentPage = lazy(() => import('./pages/DeploymentPage'));
-const IncidentsPage = lazy(() => import('./pages/IncidentsPage'));
-const IncidentDetailPage = lazy(() => import('./pages/IncidentDetailPage'));
-const LeaveManagementPage = lazy(() => import('./pages/LeaveManagementPage'));
-const ActivitiesPage = lazy(() => import('./pages/ActivitiesPage'));
-const ShiftReportsPage = lazy(() => import('./pages/ShiftReportsPage'));
-const RosterSchedulePage = lazy(() => import('./pages/RosterSchedulePage'));
-const AnnouncementsPage = lazy(() => import('./pages/AnnouncementsPage'));
-const OfficialsManagementPage = lazy(() => import('./pages/OfficialsManagementPage'));
-
-// Dynamic Loaders untuk Halaman Laporan Khusus
-const pageModules = import.meta.glob([
-  './pages/VehicleReportsPage.jsx',
-  './pages/IncidentReportsPage.jsx',
-]);
-
-const VehicleReportsPage = lazy(
-  pageModules['./pages/VehicleReportsPage.jsx'] ||
-    (() =>
-      Promise.resolve({
+// Desktop Pages (Safe Lazy Loaded)
+function safeLazy(importFn) {
+  return lazy(async () => {
+    try {
+      const module = await importFn();
+      if (module && typeof module === 'object') {
+        if (module.default) {
+          return module;
+        }
+        // Fallback: If no default export, look for any exported React component
+        const candidate = Object.values(module).find(
+          (val) => typeof val === 'function' || (val && typeof val === 'object' && val.$$typeof)
+        );
+        if (candidate) {
+          return { default: candidate };
+        }
+      }
+      return {
         default: () => (
-          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
-            <h3 className="text-base font-bold text-slate-800 mb-1">Laporan Kesiapan Armada</h3>
-            <p className="text-xs text-slate-500">Memuat komponen laporan kelaikan armada...</p>
+          <div className="min-h-[50vh] flex flex-col items-center justify-center p-8 text-center">
+            <p className="text-xs font-semibold text-rose-600">Modul halaman tidak valid atau tidak memiliki export default.</p>
           </div>
         ),
-      }))
-);
-
-const IncidentReportsPage = lazy(
-  pageModules['./pages/IncidentReportsPage.jsx'] ||
-    (() =>
-      Promise.resolve({
+      };
+    } catch (err) {
+      console.error('SafeLazy component loader error:', err);
+      return {
         default: () => (
-          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
-            <h3 className="text-base font-bold text-slate-800 mb-1">Laporan Rekapitulasi Insiden</h3>
-            <p className="text-xs text-slate-500">Memuat komponen laporan rekapitulasi insiden...</p>
+          <div className="min-h-[50vh] flex flex-col items-center justify-center p-8 text-center">
+            <div className="rounded-xl border border-red-200 bg-red-50 p-6 max-w-md mx-auto">
+              <p className="text-sm font-bold text-red-900 mb-1">Gagal Mengunduh Halaman</p>
+              <p className="text-xs text-red-700 mb-4">
+                {err?.message || 'Terjadi gangguan jaringan saat mengunduh modul aplikasi.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 transition-colors cursor-pointer"
+              >
+                Muat Ulang Halaman
+              </button>
+            </div>
           </div>
         ),
-      }))
-);
+      };
+    }
+  });
+}
 
-// Mobile Pages (Lazy Loaded)
-const MobileDashboard = lazy(() => import('./pages/mobile/MobileDashboard'));
-const MobileDeployment = lazy(() => import('./pages/mobile/MobileDeployment'));
-const MobileActivities = lazy(() => import('./pages/mobile/MobileActivities'));
-const MobileIncidents = lazy(() => import('./pages/mobile/MobileIncidents'));
-const MobileReports = lazy(() => import('./pages/mobile/MobileReports'));
+const LoginPage = safeLazy(() => import('./pages/LoginPage'));
+const DashboardPage = safeLazy(() => import('./pages/DashboardPage'));
+const PersonnelPage = safeLazy(() => import('./pages/PersonnelPage'));
+const PersonnelDetailPage = safeLazy(() => import('./pages/PersonnelDetailPage'));
+const VehicleReadinessPage = safeLazy(() => import('./pages/VehicleReadinessPage'));
+const DeploymentPage = safeLazy(() => import('./pages/DeploymentPage'));
+const IncidentsPage = safeLazy(() => import('./pages/IncidentsPage'));
+const IncidentDetailPage = safeLazy(() => import('./pages/IncidentDetailPage'));
+const LeaveManagementPage = safeLazy(() => import('./pages/LeaveManagementPage'));
+const ActivitiesPage = safeLazy(() => import('./pages/ActivitiesPage'));
+const ShiftReportsPage = safeLazy(() => import('./pages/ShiftReportsPage'));
+const RosterSchedulePage = safeLazy(() => import('./pages/RosterSchedulePage'));
+const AnnouncementsPage = safeLazy(() => import('./pages/AnnouncementsPage'));
+const OfficialsManagementPage = safeLazy(() => import('./pages/OfficialsManagementPage'));
+const VehicleReportsPage = safeLazy(() => import('./pages/VehicleReportsPage'));
+const IncidentReportsPage = safeLazy(() => import('./pages/IncidentReportsPage'));
+
+// Mobile Pages (Safe Lazy Loaded)
+const MobileDashboard = safeLazy(() => import('./pages/mobile/MobileDashboard'));
+const MobileDeployment = safeLazy(() => import('./pages/mobile/MobileDeployment'));
+const MobileActivities = safeLazy(() => import('./pages/mobile/MobileActivities'));
+const MobileIncidents = safeLazy(() => import('./pages/mobile/MobileIncidents'));
+const MobileReports = safeLazy(() => import('./pages/mobile/MobileReports'));
 
 // Fallback loader komponen saat chunk halaman diunduh
 const PageLoadingFallback = () => (

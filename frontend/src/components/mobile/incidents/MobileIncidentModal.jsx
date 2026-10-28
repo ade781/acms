@@ -84,7 +84,7 @@ export default function MobileIncidentModal({
       }));
       setPhotoPreviews((prev) => [...prev, ...newPreviews]);
     } catch (err) {
-      setErrorMsg(`Gagal memproses gambar: ${err.message}`);
+      setErrorMsg(`Gagal memproses gambar: ${err?.message || 'Format tidak valid'}`);
     } finally {
       setCompressing(false);
       e.target.value = '';
@@ -171,7 +171,10 @@ export default function MobileIncidentModal({
       onClose();
     } catch (err) {
       console.error('Error create incident:', err);
-      setErrorMsg(err.response?.data?.message || err.message || 'Gagal menyimpan laporan insiden.');
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal menyimpan laporan insiden.'));
+      setErrorMsg(msg);
     } finally {
       setSubmitting(false);
     }
@@ -207,7 +210,9 @@ export default function MobileIncidentModal({
         {errorMsg && (
           <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-800 text-[10.5px] flex items-center gap-1.5 shrink-0">
             <AlertCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
-            <span className="leading-tight">{errorMsg}</span>
+            <span className="leading-tight">
+              {typeof errorMsg === 'string' ? errorMsg : (errorMsg?.message || 'Gagal menyimpan laporan insiden.')}
+            </span>
           </div>
         )}
 
@@ -420,7 +425,7 @@ export default function MobileIncidentModal({
               <div className="grid grid-cols-5 gap-1.5 pt-1">
                 {photoPreviews.map((preview, idx) => (
                   <div
-                    key={idx}
+                    key={preview.url ?? `prev-${idx}`}
                     className="relative aspect-square rounded-lg border border-slate-300 bg-slate-100 overflow-hidden"
                   >
                     <img

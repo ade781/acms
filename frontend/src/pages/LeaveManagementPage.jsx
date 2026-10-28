@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam, formatTeam, formatIndoDate } from '../utils/shiftHelper';
+import { getErrorMessage } from '../utils/errorHelper';
 import api from '../services/api';
 import LeaveModal from '../components/forms/LeaveModal';
 
@@ -95,12 +96,13 @@ export default function LeaveManagementPage() {
       const personnel = Array.isArray(pRes.data?.data)
         ? pRes.data.data
         : (Array.isArray(pRes.data?.personnel)
-        ? pRes.data.personnel
-        : (Array.isArray(pRes.data) ? pRes.data : []));
+          ? pRes.data.personnel
+          : (Array.isArray(pRes.data) ? pRes.data : []));
       setTeamPersonnel(personnel);
     } else if (results[0].reason?.name !== 'CanceledError' && results[0].reason?.name !== 'AbortError') {
       console.error('Error fetching personnel:', results[0].reason);
-      setError('Gagal memuat data personel regu.');
+      const rawErr = results[0].reason?.response?.data?.message || results[0].reason?.message;
+      setError(typeof rawErr === 'string' ? rawErr : (rawErr?.message || 'Gagal memuat data personel regu.'));
     }
 
     // 2. Data Penugasan & Izin Shift
@@ -130,7 +132,8 @@ export default function LeaveManagementPage() {
       }
     } else if (results[1].reason?.name !== 'CanceledError' && results[1].reason?.name !== 'AbortError') {
       console.error('Error fetching current deployment:', results[1].reason);
-      setError('Gagal memuat data penugasan dinas saat ini.');
+      const rawErr = results[1].reason?.response?.data?.message || results[1].reason?.message;
+      setError(typeof rawErr === 'string' ? rawErr : (rawErr?.message || 'Gagal memuat data penugasan dinas saat ini.'));
     }
 
     // 3. Data Cuti Berjalan
@@ -140,7 +143,8 @@ export default function LeaveManagementPage() {
       setOngoingLeaves(Array.isArray(data) ? data : []);
     } else if (results[2].reason?.name !== 'CanceledError' && results[2].reason?.name !== 'AbortError') {
       console.error('Error fetching ongoing leaves:', results[2].reason);
-      setOngoingError('Gagal memuat data cuti yang sedang berjalan.');
+      const rawErr = results[2].reason?.response?.data?.message || results[2].reason?.message;
+      setOngoingError(typeof rawErr === 'string' ? rawErr : (rawErr?.message || 'Gagal memuat data cuti yang sedang berjalan.'));
     }
 
     setLoading(false);
@@ -171,7 +175,8 @@ export default function LeaveManagementPage() {
     } catch (err) {
       if (err.name === 'CanceledError' || err.name === 'AbortError') return;
       console.error('Error fetching leave history:', err);
-      setMonthlyError('Gagal memuat riwayat cuti bulanan.');
+      const rawErr = err.response?.data?.message || err.message;
+      setMonthlyError(typeof rawErr === 'string' ? rawErr : (rawErr?.message || 'Gagal memuat riwayat cuti bulanan.'));
     } finally {
       setLoadingMonthly(false);
     }
@@ -231,7 +236,8 @@ export default function LeaveManagementPage() {
       }
     } catch (err) {
       console.error('Error canceling leave:', err);
-      setError(err.response?.data?.message || err.message || 'Gagal membatalkan cuti.');
+      const rawErr = err.response?.data?.message || err.response?.data?.error || err.message;
+      setError(typeof rawErr === 'string' ? rawErr : (rawErr?.message || 'Gagal membatalkan cuti.'));
     } finally {
       setCancelingLeave(false);
     }
@@ -243,7 +249,7 @@ export default function LeaveManagementPage() {
       {successMsg && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-emerald-600 text-white shadow-xl text-xs font-semibold animate-in fade-in slide-in-from-top-2 duration-150">
           <CheckCircle className="w-4 h-4 flex-shrink-0 text-white" />
-          <span>{successMsg}</span>
+          <span>{typeof successMsg === 'string' ? successMsg : (successMsg?.message || 'Operasi berhasil')}</span>
           <button
             type="button"
             onClick={() => setSuccessMsg(null)}
@@ -257,7 +263,7 @@ export default function LeaveManagementPage() {
       {error && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-red-600 text-white shadow-xl text-xs font-semibold animate-in fade-in slide-in-from-top-2 duration-150">
           <AlertCircle className="w-4 h-4 flex-shrink-0 text-white" />
-          <span>{error}</span>
+          <span>{getErrorMessage(error, 'Terjadi kendala pada pengajuan cuti.')}</span>
           <button
             type="button"
             onClick={() => setError(null)}
@@ -284,9 +290,7 @@ export default function LeaveManagementPage() {
               </span>
             )}
           </div>
-          <p className="text-xs text-slate-500 font-medium mt-0.5">
-            {supervisorName ? `Ketua Regu: ${supervisorName} • ` : ''}Kelola daftar personel izin, cuti berjalan, dan rekapitulasi bulanan
-          </p>
+
         </div>
 
         {/* Tab Switcher: Status Berjalan (Default) vs Shift Berjalan vs Riwayat Cuti */}
@@ -294,11 +298,10 @@ export default function LeaveManagementPage() {
           <button
             type="button"
             onClick={() => setActiveTab('ongoing')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-100 cursor-pointer ${
-              activeTab === 'ongoing'
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-100 cursor-pointer ${activeTab === 'ongoing'
                 ? 'bg-white text-slate-900 shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             <CalendarCheck className="w-3.5 h-3.5 text-amber-600" />
             <span>Status Berjalan</span>
@@ -311,11 +314,10 @@ export default function LeaveManagementPage() {
           <button
             type="button"
             onClick={() => setActiveTab('current')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-100 cursor-pointer ${
-              activeTab === 'current'
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-100 cursor-pointer ${activeTab === 'current'
                 ? 'bg-white text-slate-900 shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             <Clock className="w-3.5 h-3.5" />
             <span>Shift Berjalan</span>
@@ -328,11 +330,10 @@ export default function LeaveManagementPage() {
           <button
             type="button"
             onClick={() => setActiveTab('monthly')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-100 cursor-pointer ${
-              activeTab === 'monthly'
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-100 cursor-pointer ${activeTab === 'monthly'
                 ? 'bg-white text-slate-900 shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             <History className="w-3.5 h-3.5" />
             <span>Riwayat Cuti</span>
@@ -345,7 +346,7 @@ export default function LeaveManagementPage() {
         <OngoingLeavesView
           ongoingLeaves={ongoingLeaves}
           loading={loadingOngoing}
-          error={ongoingError}
+          error={typeof ongoingError === 'string' ? ongoingError : ongoingError?.message || null}
           onRetry={loadInitialData}
           ongoingTeam={ongoingTeam}
           setOngoingTeam={setOngoingTeam}
@@ -379,7 +380,7 @@ export default function LeaveManagementPage() {
         <MonthlyLeaveHistoryView
           monthlyLeaves={monthlyLeaves}
           loading={loadingMonthly}
-          error={monthlyError}
+          error={typeof monthlyError === 'string' ? monthlyError : monthlyError?.message || null}
           onRetry={fetchMonthlyLeaves}
           historyMonth={historyMonth}
           setHistoryMonth={setHistoryMonth}
@@ -399,8 +400,8 @@ export default function LeaveManagementPage() {
       <LeaveModal
         isOpen={leaveModalOpen}
         onClose={() => setLeaveModalOpen(false)}
-        onSuccess={() => {
-          setSuccessMsg('Pengajuan izin/cuti dinas berhasil dicatat ke sistem.');
+        onSuccess={(customMsg) => {
+          setSuccessMsg(typeof customMsg === 'string' ? customMsg : (customMsg?.message || 'Pengajuan izin/cuti dinas berhasil dicatat ke sistem.'));
           loadInitialData();
           if (activeTab === 'monthly') {
             fetchMonthlyLeaves();

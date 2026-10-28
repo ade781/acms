@@ -83,7 +83,7 @@ export default function MobileActivityModal({
         setPhotoPreview(URL.createObjectURL(compressedWebP));
         setPhotoRemoved(false);
       } catch (err) {
-        setErrorMsg(`Gagal memproses gambar: ${err.message}`);
+        setErrorMsg(`Gagal memproses gambar: ${err?.message || 'Format tidak valid'}`);
       } finally {
         setCompressing(false);
       }
@@ -143,7 +143,10 @@ export default function MobileActivityModal({
       onClose();
     } catch (err) {
       console.error('Error simpan kegiatan:', err);
-      setErrorMsg(err.response?.data?.message || err.message || 'Gagal menyimpan kegiatan.');
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal menyimpan kegiatan.'));
+      setErrorMsg(msg);
     } finally {
       setSubmitting(false);
     }
@@ -179,7 +182,9 @@ export default function MobileActivityModal({
         {errorMsg && (
           <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-800 text-[10.5px] flex items-center gap-1.5 shrink-0">
             <AlertCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
-            <span className="leading-tight">{errorMsg}</span>
+            <span className="leading-tight">
+              {typeof errorMsg === 'string' ? errorMsg : (errorMsg?.message || 'Gagal menyimpan kegiatan.')}
+            </span>
           </div>
         )}
 

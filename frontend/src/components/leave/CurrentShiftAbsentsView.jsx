@@ -29,9 +29,6 @@ export default function CurrentShiftAbsentsView({
               <h4 className="text-sm font-bold text-slate-900">
                 Daftar Personel Izin / Cuti Dinas (Shift Berjalan)
               </h4>
-              <p className="text-xs text-slate-500">
-                Rekapitulasi personel yang berhalangan dinas aktif pada shift berjalan ({absentList.length} orang)
-              </p>
             </div>
           </div>
 

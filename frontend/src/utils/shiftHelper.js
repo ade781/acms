@@ -10,12 +10,33 @@ export const TEAMS = ['Alpha', 'Bravo', 'Charlie', 'Delta'];
 
 /**
  * Remove any redundant 'Regu ' prefix from team string to prevent duplicate 'Regu Regu ...'
- * @param {string} team
+ * @param {string|object} team
  * @returns {string} Clean team name, e.g. 'Alpha'
  */
 export function cleanTeam(team) {
   if (!team) return '';
-  return String(team).replace(/^regu\s+/i, '').trim();
+  if (typeof team === 'object') {
+    const extracted =
+      team?.team_group ||
+      team?.team ||
+      team?.name ||
+      team?.label ||
+      team?.value ||
+      '';
+    if (extracted) {
+      try {
+        return String(extracted).replace(/^regu\s+/i, '').trim();
+      } catch {
+        return '';
+      }
+    }
+    return '';
+  }
+  try {
+    return String(team).replace(/^regu\s+/i, '').trim();
+  } catch {
+    return '';
+  }
 }
 
 /**
@@ -243,13 +264,29 @@ export const OPERATIONAL_ROLES = [
 
 /**
  * Memformat atau menerjemahkan role/jabatan ke nama tampilan yang rapi
- * @param {string} roleOrRank
+ * @param {string|object} roleOrRank
  * @returns {string}
  */
 export function formatRoleName(roleOrRank) {
   if (!roleOrRank) return '-';
+  if (typeof roleOrRank === 'object') {
+    const extracted =
+      roleOrRank?.label ||
+      roleOrRank?.name ||
+      roleOrRank?.rank_position ||
+      roleOrRank?.role ||
+      '';
+    if (!extracted) return '-';
+    roleOrRank = extracted;
+  }
+  let roleStr = '';
+  try {
+    roleStr = String(roleOrRank);
+  } catch {
+    return '-';
+  }
   const found = OPERATIONAL_ROLES.find(
-    (item) => item.role === roleOrRank || item.rank_position.toLowerCase() === String(roleOrRank).toLowerCase()
+    (item) => item.role === roleOrRank || item.rank_position.toLowerCase() === roleStr.toLowerCase()
   );
   if (found) return found.label;
 
@@ -257,7 +294,7 @@ export function formatRoleName(roleOrRank) {
   if (roleOrRank === 'supervisor') return 'ARFF Operation Chief';
   if (roleOrRank === 'operator') return 'ARFF Operation Junior Fire Fighter';
 
-  return roleOrRank;
+  return roleStr;
 }
 
 /**

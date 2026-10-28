@@ -1,6 +1,21 @@
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 
+function renderSafeModalText(content) {
+  if (content == null) return null;
+  if (React.isValidElement(content)) return content;
+  if (typeof content === 'string' || typeof content === 'number') return content;
+  if (content instanceof Error) return content.message || content.name;
+  if (typeof content === 'object') {
+    return content.message || content.title || (Array.isArray(content) ? content.join(', ') : JSON.stringify(content));
+  }
+  try {
+    return String(content);
+  } catch {
+    return '';
+  }
+}
+
 export default function Modal({
   isOpen,
   onClose,
@@ -54,8 +69,8 @@ export default function Modal({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
           <div>
-            <h3 className="text-base font-bold text-slate-900">{title}</h3>
-            {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
+            <h3 className="text-base font-bold text-slate-900">{renderSafeModalText(title)}</h3>
+            {subtitle && <p className="text-xs text-slate-500 mt-0.5">{renderSafeModalText(subtitle)}</p>}
           </div>
           <button
             type="button"

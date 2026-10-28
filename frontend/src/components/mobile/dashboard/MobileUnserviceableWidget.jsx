@@ -26,8 +26,8 @@ export default function MobileUnserviceableWidget({
 
       {/* Daftar Unit Bermasalah */}
       <div className="space-y-1">
-        {unserviceableVehicles.map((vehicle) => {
-          const vCode = vehicle.code_name || `UNIT-${vehicle.id}`;
+        {unserviceableVehicles.map((vehicle, vIdx) => {
+          const vCode = vehicle.code_name || `UNIT-${vehicle.id || vIdx}`;
           const vName = vehicle.vehicle_name || vehicle.code_name;
           const reportedTeam = vehicle.carried_from?.team_group || vehicle.team_group || 'Regu Piket';
           const reportedDate = vehicle.carried_from?.shift_date || vehicle.logged_at?.split('T')[0] || '';
@@ -35,7 +35,7 @@ export default function MobileUnserviceableWidget({
 
           return (
             <div
-              key={vehicle.id || vehicle.vehicle_id}
+              key={vehicle.id ?? vehicle.vehicle_id ?? vehicle.code_name ?? `unserv-${vIdx}`}
               className="p-2 rounded-lg border border-red-200 bg-red-50/50 space-y-1 text-xs"
             >
               <div className="flex items-center justify-between">

@@ -120,7 +120,8 @@ export default function PersonnelDetailPage() {
     } catch (err) {
       if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
       console.error('Error fetching personnel detail:', err);
-      setError('Gagal memuat profil personel.');
+      const rawErr = err.response?.data?.message || err.message;
+      setError(typeof rawErr === 'string' ? rawErr : (rawErr?.message || 'Gagal memuat profil personel.'));
     } finally {
       setLoading(false);
     }
@@ -154,7 +155,8 @@ export default function PersonnelDetailPage() {
           navigate('/personnel');
         } catch (err) {
           console.error('Error deleting personnel:', err);
-          const errMsg = err.response?.data?.message || 'Gagal menghapus data personel.';
+          const rawErr = err.response?.data?.message || err.message;
+          const errMsg = typeof rawErr === 'string' ? rawErr : (rawErr?.message || 'Gagal menghapus data personel.');
           setGlobalError(errMsg);
           setConfirmModal((prev) => ({ ...prev, loading: false }));
         }
@@ -168,12 +170,14 @@ export default function PersonnelDetailPage() {
     setGlobalError(null);
     try {
       const res = await api.post(`/personnel/${id}/reset-password`);
-      setGlobalSuccess(res.data?.message || `Kata sandi ${personnel.full_name} berhasil direset ke bawaan (123456).`);
+      const rawMsg = res.data?.message;
+      setGlobalSuccess(typeof rawMsg === 'string' ? rawMsg : (rawMsg?.message || `Kata sandi ${personnel.full_name} berhasil direset ke bawaan (123456).`));
       setResetPasswordModalOpen(false);
       fetchPersonnelDetail();
     } catch (err) {
       console.error('Error reset password:', err);
-      setGlobalError(err.response?.data?.message || err.message || 'Gagal mereset kata sandi personel.');
+      const rawErr = err.response?.data?.message || err.message;
+      setGlobalError(typeof rawErr === 'string' ? rawErr : (rawErr?.message || 'Gagal mereset kata sandi personel.'));
     } finally {
       setResettingPassword(false);
     }
@@ -227,7 +231,8 @@ export default function PersonnelDetailPage() {
       fetchPersonnelDetail();
     } catch (err) {
       console.error('Error upload signature:', err);
-      setSignatureError(err.response?.data?.message || err.message || 'Gagal mengunggah tanda tangan.');
+      const rawErr = err.response?.data?.message || err.message;
+      setSignatureError(typeof rawErr === 'string' ? rawErr : (rawErr?.message || 'Gagal mengunggah tanda tangan.'));
     } finally {
       setUploadingSignature(false);
       e.target.value = '';
@@ -255,7 +260,8 @@ export default function PersonnelDetailPage() {
           fetchPersonnelDetail();
         } catch (err) {
           console.error('Error delete signature:', err);
-          setSignatureError(err.response?.data?.message || err.message || 'Gagal menghapus tanda tangan.');
+          const rawErr = err.response?.data?.message || err.message;
+          setSignatureError(typeof rawErr === 'string' ? rawErr : (rawErr?.message || 'Gagal menghapus tanda tangan.'));
           setConfirmModal((prev) => ({ ...prev, loading: false }));
         }
       },
@@ -283,7 +289,8 @@ export default function PersonnelDetailPage() {
           fetchPersonnelDetail();
         } catch (err) {
           console.error('Error delete document:', err);
-          setDocError(err.response?.data?.message || err.message || 'Gagal menghapus dokumen.');
+          const rawErr = err.response?.data?.message || err.message;
+          setDocError(typeof rawErr === 'string' ? rawErr : (rawErr?.message || 'Gagal menghapus dokumen.'));
           setConfirmModal((prev) => ({ ...prev, loading: false }));
         }
       },
@@ -303,7 +310,7 @@ export default function PersonnelDetailPage() {
         </Button>
       </div>
 
-      <StateView loading={loading} error={error} onRetry={() => window.location.reload()}>
+      <StateView loading={loading} error={typeof error === 'string' ? error : error?.message || null} onRetry={() => window.location.reload()}>
         {personnel && (
           <div className="space-y-6">
             {/* Global Visual Toast Feedbacks */}
@@ -311,7 +318,7 @@ export default function PersonnelDetailPage() {
               <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center justify-between gap-3 shadow-sm animate-in fade-in">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                  <span className="font-semibold">{globalSuccess}</span>
+                  <span className="font-semibold">{typeof globalSuccess === 'string' ? globalSuccess : globalSuccess?.message || 'Operasi berhasil'}</span>
                 </div>
                 <button
                   type="button"
@@ -325,7 +332,7 @@ export default function PersonnelDetailPage() {
 
             {globalError && (
               <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-800 flex items-center justify-between gap-3 shadow-sm animate-in fade-in">
-                <span>{globalError}</span>
+                <span>{typeof globalError === 'string' ? globalError : globalError?.message || 'Terjadi kesalahan'}</span>
                 <button
                   type="button"
                   onClick={() => setGlobalError(null)}
@@ -429,13 +436,13 @@ export default function PersonnelDetailPage() {
 
                 {signatureSuccess && (
                   <div className="mb-4 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center justify-between">
-                    <span>{signatureSuccess}</span>
+                    <span>{typeof signatureSuccess === 'string' ? signatureSuccess : signatureSuccess?.message || 'Tanda tangan berhasil disimpan'}</span>
                     <button type="button" onClick={() => setSignatureSuccess(null)} className="font-bold">✕</button>
                   </div>
                 )}
                 {signatureError && (
                   <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-800 flex items-center justify-between">
-                    <span>{signatureError}</span>
+                    <span>{typeof signatureError === 'string' ? signatureError : signatureError?.message || 'Gagal memproses tanda tangan'}</span>
                     <button type="button" onClick={() => setSignatureError(null)} className="font-bold">✕</button>
                   </div>
                 )}
@@ -514,7 +521,7 @@ export default function PersonnelDetailPage() {
               <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center justify-between gap-3 shadow-sm animate-in fade-in">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                  <span>{docSuccess}</span>
+                  <span>{typeof docSuccess === 'string' ? docSuccess : docSuccess?.message || 'Dokumen berhasil diproses'}</span>
                 </div>
                 <button
                   type="button"
@@ -528,7 +535,7 @@ export default function PersonnelDetailPage() {
 
             {docError && (
               <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-800 flex items-center justify-between gap-3 shadow-sm animate-in fade-in">
-                <span>{docError}</span>
+                <span>{typeof docError === 'string' ? docError : docError?.message || 'Gagal memproses dokumen'}</span>
                 <button
                   type="button"
                   onClick={() => setDocError(null)}
@@ -596,12 +603,12 @@ export default function PersonnelDetailPage() {
 
               {personnel.documents && personnel.documents.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                  {personnel.documents.map((doc) => {
+                  {personnel.documents.map((doc, docIdx) => {
                     const canDeleteThisDoc = isAdmin || isOwner;
 
                     return (
                       <div
-                        key={doc.id}
+                        key={doc.id || `doc-${docIdx}`}
                         className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors duration-100 flex flex-col justify-between gap-3"
                       >
                         <div className="flex items-start justify-between gap-2.5">
@@ -610,12 +617,12 @@ export default function PersonnelDetailPage() {
                               <FileCheck className="w-5 h-5" />
                             </div>
                             <div className="min-w-0">
-                              <h4 className="text-xs font-bold text-slate-900 truncate" title={doc.title}>
-                                {doc.title}
+                              <h4 className="text-xs font-bold text-slate-900 truncate" title={typeof doc.title === 'string' ? doc.title : 'Dokumen'}>
+                                {typeof doc.title === 'string' ? doc.title : 'Dokumen'}
                               </h4>
                               <div className="flex items-center gap-2 mt-1 flex-wrap">
                                 <Badge variant="info" size="sm">
-                                  {DOCUMENT_TYPE_LABELS[doc.document_type] || doc.document_type}
+                                  {typeof doc.document_type === 'string' ? (DOCUMENT_TYPE_LABELS[doc.document_type] || doc.document_type) : 'Dokumen'}
                                 </Badge>
                                 <span className="text-[11px] font-mono text-slate-500">
                                   {formatBytes(doc.file_size)}
@@ -705,7 +712,7 @@ export default function PersonnelDetailPage() {
         onClose={() => setEditModalOpen(false)}
         personnel={personnel}
         onSuccess={(msg) => {
-          setGlobalSuccess(msg);
+          setGlobalSuccess(typeof msg === 'string' ? msg : msg?.message || 'Data personel berhasil diperbarui.');
           fetchPersonnelDetail();
         }}
         onRequestDelete={requestDeletePersonnel}
@@ -719,7 +726,7 @@ export default function PersonnelDetailPage() {
         onClose={() => setUploadDocModalOpen(false)}
         personnelId={id}
         onSuccess={(msg) => {
-          setDocSuccess(msg);
+          setDocSuccess(typeof msg === 'string' ? msg : msg?.message || 'Berkas dokumen berhasil diunggah.');
           fetchPersonnelDetail();
         }}
       />

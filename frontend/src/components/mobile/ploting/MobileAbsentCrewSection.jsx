@@ -63,7 +63,7 @@ export default function MobileAbsentCrewSection({
 
             return (
               <div
-                key={item.id || pId || idx}
+                key={item.id ?? pId ?? `abs-${idx}`}
                 className="flex items-center justify-between p-1.5 rounded-lg bg-amber-50/70 border border-amber-200 text-[10px]"
               >
                 <div className="truncate pr-2">

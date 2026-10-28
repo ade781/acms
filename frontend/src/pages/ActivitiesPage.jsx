@@ -230,7 +230,12 @@ export default function ActivitiesPage() {
       setModalOpen(false);
       fetchActivities();
     } catch (err) {
-      setFormError(err.response?.data?.message || err.message || 'Gagal menyimpan catatan kegiatan.');
+      const errMsg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : typeof err.response?.data === 'string'
+          ? err.response.data
+          : err.message || 'Gagal menyimpan catatan kegiatan.';
+      setFormError(errMsg);
     } finally {
       setSubmitting(false);
     }
@@ -251,7 +256,12 @@ export default function ActivitiesPage() {
       setToastMsg('✓ Kegiatan berhasil dihapus dari logbook.');
       fetchActivities();
     } catch (err) {
-      setToastMsg(`Gagal menghapus kegiatan: ${err.response?.data?.message || err.message}`);
+      const errMsg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : typeof err.response?.data === 'string'
+          ? err.response.data
+          : err.message || 'Terjadi kesalahan saat menghapus';
+      setToastMsg(`Gagal menghapus kegiatan: ${errMsg}`);
     } finally {
       setDeleting(false);
     }
@@ -359,7 +369,7 @@ export default function ActivitiesPage() {
         <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-2">
             <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span className="font-semibold">{toastMsg}</span>
+            <span className="font-semibold">{typeof toastMsg === 'string' ? toastMsg : (toastMsg?.text || toastMsg?.message || '')}</span>
           </div>
           <button
             type="button"

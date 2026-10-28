@@ -1,5 +1,28 @@
 import React from 'react';
-import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Home, RotateCcw } from 'lucide-react';
+
+function getSafeErrorMessage(error) {
+  if (!error) return 'Terjadi kendala teknis tidak terduga.';
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) return error.message || error.name || 'Error';
+  if (typeof error === 'object') {
+    try {
+      if (typeof error.message === 'string') return error.message;
+      return JSON.stringify(error);
+    } catch {
+      try {
+        return Object.prototype.toString.call(error);
+      } catch {
+        return 'Objek galat tidak dapat dikonversi';
+      }
+    }
+  }
+  try {
+    return String(error);
+  } catch {
+    return 'Galat sistem tidak teridentifikasi';
+  }
+}
 
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -28,8 +51,69 @@ export default class ErrorBoundary extends React.Component {
     window.location.href = '/';
   };
 
+  handleReset = () => {
+    this.setState({ hasError: false, error: null, errorInfo: null });
+  };
+
   render() {
     if (this.state.hasError) {
+      const errorMessage = getSafeErrorMessage(this.state.error);
+      const isSection = this.props.fallbackVariant === 'section';
+
+      if (isSection) {
+        return (
+          <div className="w-full my-6 p-6 sm:p-8 bg-white border border-rose-200 rounded-2xl shadow-sm text-center">
+            <div className="w-12 h-12 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto mb-3">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 mb-1">
+              Gagal Memuat Bagian Halaman
+            </h3>
+
+            <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto mb-5 leading-relaxed">
+              Modul ini mengalami kendala saat memuat antarmuka. Anda dapat mencoba memuat ulang modul atau memuat ulang seluruh halaman.
+            </p>
+
+            <div className="flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={this.handleReset}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-xs transition-colors duration-100 shadow-xs cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Coba Lagi</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={this.handleReload}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs border border-slate-300 transition-colors duration-100 cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Muat Ulang Halaman</span>
+              </button>
+            </div>
+
+            {this.state.error && (
+              <details className="mt-5 text-left bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-500">
+                <summary className="cursor-pointer font-medium text-slate-700 select-none hover:text-slate-900">
+                  Detail Teknis Galat
+                </summary>
+                <div className="mt-2 overflow-x-auto font-mono text-[11px] text-rose-700 max-h-40 overflow-y-auto">
+                  <p className="font-semibold">{errorMessage}</p>
+                  {this.state.errorInfo?.componentStack && (
+                    <pre className="text-slate-600 whitespace-pre-wrap mt-2">
+                      {this.state.errorInfo.componentStack}
+                    </pre>
+                  )}
+                </div>
+              </details>
+            )}
+          </div>
+        );
+      }
+
       return (
         <div className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-slate-800/90 border border-slate-700/80 rounded-2xl p-6 sm:p-8 shadow-xl text-center">
@@ -71,7 +155,7 @@ export default class ErrorBoundary extends React.Component {
                   Detail Teknis (IT Support)
                 </summary>
                 <div className="mt-3 overflow-x-auto font-mono text-[11px] space-y-2 text-rose-300/90 max-h-48 overflow-y-auto">
-                  <p className="font-semibold">{this.state.error.toString()}</p>
+                  <p className="font-semibold">{errorMessage}</p>
                   {this.state.errorInfo?.componentStack && (
                     <pre className="text-slate-400 whitespace-pre-wrap">
                       {this.state.errorInfo.componentStack}

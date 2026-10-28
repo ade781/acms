@@ -9,7 +9,6 @@ import {
   CheckCircle,
   Users,
   Calendar,
-  RefreshCw,
   Camera,
   MapPin,
   ExternalLink,
@@ -39,7 +38,6 @@ export default function MobileReports() {
   const abortControllerRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
@@ -71,7 +69,7 @@ export default function MobileReports() {
 
   // Fetch seluruh data operasional shift secara agregat via modul service terpadu (Single Source of Truth)
   const fetchReportData = useCallback(
-    async (isManualRefresh = false) => {
+    async () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
@@ -79,8 +77,7 @@ export default function MobileReports() {
       abortControllerRef.current = controller;
 
       try {
-        if (isManualRefresh) setRefreshing(true);
-        else setLoading(true);
+        setLoading(true);
         setErrorMessage(null);
 
         const data = await fetchShiftReportData({
@@ -102,12 +99,12 @@ export default function MobileReports() {
       } catch (err) {
         if (err.name === 'CanceledError' || err.name === 'AbortError' || err.code === 'ERR_CANCELED') return;
         console.error('Error fetching mobile report data:', err);
-        setErrorMessage(
-          'Sebagian data operasional shift belum lengkap atau sedang disinkronkan.'
-        );
+        const msg = typeof err.response?.data?.message === 'string'
+          ? err.response.data.message
+          : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Sebagian data operasional shift belum lengkap atau sedang disinkronkan.'));
+        setErrorMessage(msg);
       } finally {
         setLoading(false);
-        setRefreshing(false);
       }
     },
     [activeDate, activeShiftNumber, activeTeam]
@@ -135,7 +132,10 @@ export default function MobileReports() {
       });
     } catch (err) {
       console.error('Download PDF error:', err);
-      setErrorMessage('Gagal mengunduh berkas PDF laporan dinas. Pastikan data shift valid.');
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal mengunduh berkas PDF laporan dinas. Pastikan data shift valid.'));
+      setErrorMessage(msg);
     } finally {
       setDownloading(false);
     }
@@ -163,16 +163,6 @@ export default function MobileReports() {
               </p>
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={() => fetchReportData(true)}
-            disabled={refreshing}
-            className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors duration-100"
-            title="Muat ulang data rekapitulasi shift"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-red-600' : ''}`} />
-          </button>
         </div>
 
         {/* Info Grid Shift Terpadu */}
@@ -202,7 +192,9 @@ export default function MobileReports() {
         <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-2 shadow-xs">
           <div className="flex items-center gap-1.5 truncate">
             <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-500" />
-            <span className="truncate text-[10px]">{errorMessage}</span>
+            <span className="truncate text-[10px]">
+              {typeof errorMessage === 'string' ? errorMessage : (errorMessage?.message || 'Terjadi kesalahan.')}
+            </span>
           </div>
           <button
             type="button"
@@ -238,7 +230,7 @@ export default function MobileReports() {
           <div className="p-1.5 rounded-lg bg-amber-50/70 border border-amber-200 text-[10px] space-y-0.5">
             <p className="font-bold text-amber-900">Personel Izin / Cuti Terdata:</p>
             {absents.map((ab, idx) => (
-              <p key={ab.id || idx} className="text-amber-800">
+              <p key={ab.id ?? `ab-${idx}`} className="text-amber-800">
                 • <strong>{ab.full_name || ab.name}</strong> ({ab.leave_type || ab.notes || 'Cuti'})
               </p>
             ))}
@@ -267,9 +259,9 @@ export default function MobileReports() {
           </p>
         ) : (
           <div className="space-y-1 text-xs">
-            {activities.map((act) => (
+            {activities.map((act, actIdx) => (
               <div
-                key={act.id}
+                key={act.id ?? `act-${act.activity_time || actIdx}`}
                 className="p-1.5 rounded-lg bg-slate-50 border border-slate-200/70 space-y-0.5"
               >
                 <div className="flex items-center justify-between">
@@ -323,9 +315,9 @@ export default function MobileReports() {
           </p>
         ) : (
           <div className="space-y-1 text-xs">
-            {incidents.map((inc) => (
+            {incidents.map((inc, incIdx) => (
               <div
-                key={inc.id}
+                key={inc.id ?? `inc-${inc.incident_time || incIdx}`}
                 className="p-1.5 rounded-lg bg-red-50/40 border border-red-200 space-y-1"
               >
                 <div className="flex items-center justify-between">

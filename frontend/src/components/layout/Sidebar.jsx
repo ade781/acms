@@ -39,10 +39,9 @@ export default function Sidebar({ isOpen, onClose }) {
       if (document.visibilityState !== 'visible') return;
       try {
         const res = await api.get('/announcements/unread-count');
+        const count = Number(res.data?.data?.unread_count ?? res.data?.unread_count ?? 0);
         if (isMounted) {
-          setUnreadAnnouncements(
-            Number(res.data?.data?.unread_count || res.data?.unread_count || 0)
-          );
+          setUnreadAnnouncements(Number.isFinite(count) && count > 0 ? count : 0);
         }
       } catch {
         // Abaikan kegagalan jaringan berkala
@@ -258,15 +257,15 @@ export default function Sidebar({ isOpen, onClose }) {
                 >
                   <span className="whitespace-nowrap truncate">{item.label}</span>
 
-                  {item.badge && (
+                  {item.badge !== null && item.badge !== undefined && (
                     <div className="flex-shrink-0 ml-2">
                       {item.isAlertBadge ? (
                         <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-red-600 text-white shadow-xs">
-                          {item.badge}
+                          {typeof item.badge === 'object' ? JSON.stringify(item.badge) : String(item.badge)}
                         </span>
                       ) : (
                         <Badge variant="pending" size="sm">
-                          {item.badge}
+                          {typeof item.badge === 'object' ? JSON.stringify(item.badge) : String(item.badge)}
                         </Badge>
                       )}
                     </div>

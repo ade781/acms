@@ -1,5 +1,26 @@
 import React, { forwardRef } from 'react';
 
+function getSafeFieldMessage(val) {
+  if (!val) return '';
+  if (typeof val === 'string') return val;
+  if (val === true) return '';
+  if (val instanceof Error) return val.message || val.name || '';
+  if (typeof val === 'object') {
+    const candidate = val.message || val.msg || val.error;
+    if (typeof candidate === 'string') return candidate;
+    try {
+      return Array.isArray(val) ? val.join(', ') : JSON.stringify(val);
+    } catch {
+      return '';
+    }
+  }
+  try {
+    return String(val);
+  } catch {
+    return '';
+  }
+}
+
 const InputField = forwardRef(function InputField(
   {
     label,
@@ -19,6 +40,10 @@ const InputField = forwardRef(function InputField(
   ref
 ) {
   const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+  const errorMessage = getSafeFieldMessage(error);
+  const helperMessage = getSafeFieldMessage(helperText);
+  const hasError = Boolean(error);
+  const safeValue = value !== undefined && value !== null ? value : '';
 
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
@@ -41,7 +66,7 @@ const InputField = forwardRef(function InputField(
           ref={ref}
           id={inputId}
           type={type}
-          value={value}
+          value={safeValue}
           onChange={onChange}
           placeholder={placeholder}
           disabled={disabled}
@@ -50,7 +75,7 @@ const InputField = forwardRef(function InputField(
             transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-offset-0 disabled:bg-slate-100 disabled:text-slate-500
             ${Icon ? 'pl-9' : ''}
             ${
-              error
+              hasError
                 ? 'border-red-400 focus:border-red-500 focus:ring-red-200'
                 : 'border-slate-300 focus:border-red-600 focus:ring-red-100'
             }`}
@@ -58,10 +83,10 @@ const InputField = forwardRef(function InputField(
         />
       </div>
 
-      {error ? (
-        <p className="text-xs text-red-600 mt-0.5">{error}</p>
-      ) : helperText ? (
-        <p className="text-xs text-slate-500 mt-0.5">{helperText}</p>
+      {errorMessage ? (
+        <p className="text-xs text-red-600 mt-0.5">{errorMessage}</p>
+      ) : helperMessage ? (
+        <p className="text-xs text-slate-500 mt-0.5">{helperMessage}</p>
       ) : null}
     </div>
   );

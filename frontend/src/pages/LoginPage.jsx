@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import Logo from '../components/common/Logo';
 import InputField from '../components/common/InputField';
 import Button from '../components/common/Button';
+import { getErrorMessage } from '../utils/errorHelper';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -72,7 +73,7 @@ export default function LoginPage() {
           {error && (
             <div className="mb-5 p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-              <span>{error}</span>
+              <span>{getErrorMessage(error, 'Gagal masuk ke sistem.')}</span>
             </div>
           )}
 

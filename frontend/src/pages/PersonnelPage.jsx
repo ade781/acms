@@ -39,12 +39,15 @@ function getStkpBadge(person) {
 
   const now = new Date();
   const diffDays = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  const expiryStr = typeof expiry === 'string'
+    ? expiry.split('T')[0]
+    : (expiry instanceof Date ? expiry.toISOString().split('T')[0] : String(expiry || ''));
 
   if (diffDays <= 0) {
     return (
       <span
         className="text-[10px] bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 font-bold px-1.5 py-0.5 rounded tracking-tight shrink-0"
-        title={`Lisensi STKP telah kedaluwarsa (${expiry.split('T')[0]})`}
+        title={`Lisensi STKP telah kedaluwarsa (${expiryStr})`}
       >
         Kedaluwarsa
       </span>
@@ -55,7 +58,7 @@ function getStkpBadge(person) {
     return (
       <span
         className="text-[10px] bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold px-1.5 py-0.5 rounded tracking-tight shrink-0"
-        title={`Masa berlaku STKP tersisa ${diffDays} hari (${expiry.split('T')[0]})`}
+        title={`Masa berlaku STKP tersisa ${diffDays} hari (${expiryStr})`}
       >
         Hampir Habis ({diffDays} hari)
       </span>
@@ -65,7 +68,7 @@ function getStkpBadge(person) {
   return (
     <span
       className="text-[10px] bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-medium px-1.5 py-0.5 rounded tracking-tight shrink-0"
-      title={`Lisensi STKP aktif hingga ${expiry.split('T')[0]}`}
+      title={`Lisensi STKP aktif hingga ${expiryStr}`}
     >
       Aktif
     </span>
@@ -135,7 +138,8 @@ export default function PersonnelPage() {
     } catch (err) {
       if (err.name === 'CanceledError' || err.name === 'AbortError') return;
       console.error('Error fetching personnel:', err);
-      setError('Gagal memuat katalog personel.');
+      const rawErr = err.response?.data?.message || err.message;
+      setError(typeof rawErr === 'string' ? rawErr : (rawErr?.message || 'Gagal memuat katalog personel.'));
     } finally {
       setLoading(false);
     }
@@ -171,8 +175,11 @@ export default function PersonnelPage() {
         is_active: 1,
       });
 
+      const rawMsg = res.data?.message;
       setSuccessNotification(
-        res.data?.message || `Personel ${fullName} berhasil ditambahkan beserta akun login otomatis (Sandi: 123456).`
+        typeof rawMsg === 'string'
+          ? rawMsg
+          : (rawMsg?.message || `Personel ${fullName} berhasil ditambahkan beserta akun login otomatis (Sandi: 123456).`)
       );
       setAddModalOpen(false);
       // Reset form
@@ -184,7 +191,8 @@ export default function PersonnelPage() {
       setCertNumber('');
       fetchPersonnel();
     } catch (err) {
-      setFormError(err.response?.data?.message || err.message || 'Gagal menambahkan personel.');
+      const rawErr = err.response?.data?.message || err.response?.data?.error || err.message;
+      setFormError(typeof rawErr === 'string' ? rawErr : (rawErr?.message || 'Gagal menambahkan personel.'));
     } finally {
       setSaving(false);
     }
@@ -204,7 +212,8 @@ export default function PersonnelPage() {
       downloadBlob(blob, `Daftar_Akun_Personel_ARFF_YIA${reguSuffix}_${now}.pdf`);
     } catch (err) {
       console.error('Error downloading personnel PDF:', err);
-      setErrorNotification('Gagal mengunduh dokumen PDF akun personel.');
+      const rawErr = err.response?.data?.message || err.message;
+      setErrorNotification(typeof rawErr === 'string' ? rawErr : (rawErr?.message || 'Gagal mengunduh dokumen PDF akun personel.'));
     } finally {
       setDownloadingPdf(false);
     }
@@ -324,7 +333,7 @@ export default function PersonnelPage() {
         <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center justify-between gap-3 shadow-xs">
           <div className="flex items-center gap-2.5">
             <UserCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-            <span className="font-medium">{successNotification}</span>
+            <span className="font-medium">{typeof successNotification === 'string' ? successNotification : successNotification?.message || 'Operasi berhasil'}</span>
           </div>
           <button
             type="button"
@@ -339,7 +348,7 @@ export default function PersonnelPage() {
       {/* Error Notification Alert */}
       {errorNotification && (
         <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-800 flex items-center justify-between gap-3 shadow-xs">
-          <span>{errorNotification}</span>
+          <span>{typeof errorNotification === 'string' ? errorNotification : errorNotification?.message || 'Terjadi kesalahan'}</span>
           <button
             type="button"
             onClick={() => setErrorNotification(null)}
@@ -353,7 +362,7 @@ export default function PersonnelPage() {
       {/* 4 Pennant Banners (Panji Regu Operasional) */}
       <StateView
         loading={loading}
-        error={error}
+        error={typeof error === 'string' ? error : error?.message || null}
         isEmpty={personnelList.length === 0}
         emptyTitle="Tidak Ada Data Personel"
         emptyDescription="Data personel operasional belum tersedia atau tidak cocok dengan filter pencarian."
@@ -473,7 +482,7 @@ export default function PersonnelPage() {
 
                           return (
                             <div
-                              key={person.id}
+                              key={person.id || `person-${idx}`}
                               onClick={() => navigate(`/personnel/${person.id}`)}
                               className={`group px-2.5 py-1.5 rounded transition-colors duration-100 cursor-pointer flex items-center justify-between gap-2 border ${isChief
                                   ? `${theme.chiefRow} font-semibold shadow-xs`
@@ -481,7 +490,7 @@ export default function PersonnelPage() {
                                     ? 'bg-amber-50/50 border-amber-200/60 hover:bg-amber-50 text-slate-800'
                                     : 'border-transparent hover:bg-slate-50 text-slate-800 hover:text-slate-900'
                                 }`}
-                              title={`Klik untuk melihat detail profil ${person.full_name}`}
+                              title={`Klik untuk melihat detail profil ${typeof person.full_name === 'string' ? person.full_name : ''}`}
                             >
                               <div className="flex items-center gap-2 min-w-0 flex-1">
                                 <span
@@ -494,7 +503,7 @@ export default function PersonnelPage() {
                                   className={`truncate text-xs ${isChief ? 'font-bold text-slate-900' : 'font-medium'
                                     }`}
                                 >
-                                  {person.full_name}
+                                  {typeof person.full_name === 'string' ? person.full_name : String(person.full_name || '')}
                                 </span>
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
@@ -635,7 +644,7 @@ export default function PersonnelPage() {
           <form onSubmit={handleAddPersonnel} className="space-y-4">
             {formError && (
               <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
-                {formError}
+                {typeof formError === 'string' ? formError : formError?.message || 'Terjadi kesalahan pada formulir'}
               </div>
             )}
 

@@ -207,7 +207,8 @@ export default function AnnouncementsPage() {
       setToastMsg({ type: 'success', text: 'Surat edaran dinas berhasil dipublikasikan.' });
       setTimeout(() => setToastMsg(null), 3500);
     } catch (err) {
-      setFormError(err.response?.data?.message || err.message || 'Gagal mempublikasikan pengumuman.');
+      const errMsg = typeof err.response?.data?.message === 'string' ? err.response.data.message : typeof err.response?.data === 'string' ? err.response.data : err.message || 'Gagal mempublikasikan pengumuman.';
+      setFormError(errMsg);
     } finally {
       setSubmitting(false);
     }
@@ -234,9 +235,10 @@ export default function AnnouncementsPage() {
       setToastMsg({ type: 'success', text: 'Pengumuman berhasil dihapus.' });
       setTimeout(() => setToastMsg(null), 3500);
     } catch (err) {
+      const errMsg = typeof err.response?.data?.message === 'string' ? err.response.data.message : typeof err.response?.data === 'string' ? err.response.data : err.message || 'Terjadi kesalahan';
       setToastMsg({
         type: 'error',
-        text: `Gagal menghapus pengumuman: ${err.response?.data?.message || err.message}`
+        text: `Gagal menghapus pengumuman: ${errMsg}`
       });
       setTimeout(() => setToastMsg(null), 4000);
     } finally {
@@ -284,7 +286,7 @@ export default function AnnouncementsPage() {
             ) : (
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             )}
-            <span>{toastMsg.text}</span>
+            <span>{typeof toastMsg?.text === 'string' ? toastMsg.text : (toastMsg?.text?.message || 'Pemberitahuan')}</span>
           </div>
           <button
             type="button"
@@ -377,7 +379,7 @@ export default function AnnouncementsPage() {
 
                   return (
                     <div
-                      key={ann.id}
+                      key={ann.id || ann.circular_number || `ann-${ann.published_date}`}
                       onClick={() => handleSelectAnnouncement(ann)}
                       className={`p-3.5 rounded-xl cursor-pointer transition-colors duration-100 relative ${
                         isSelected
@@ -522,7 +524,7 @@ export default function AnnouncementsPage() {
 
                 {downloadError && (
                   <div className="p-3 bg-amber-50 border-b border-amber-200 text-xs text-amber-800 flex items-center justify-between">
-                    <span>{downloadError}</span>
+                    <span>{typeof downloadError === 'string' ? downloadError : 'Lampiran berkas belum tersedia.'}</span>
                     <button
                       type="button"
                       onClick={() => setDownloadError(null)}
@@ -611,7 +613,7 @@ export default function AnnouncementsPage() {
           {formError && (
             <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-              <span>{formError}</span>
+              <span>{typeof formError === 'string' ? formError : (formError?.message || 'Terjadi kesalahan.')}</span>
             </div>
           )}
 

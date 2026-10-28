@@ -84,7 +84,7 @@ export default function MobileCrewPickerSheet({
               Tidak ada personel yang sesuai pencarian.
             </div>
           ) : (
-            filteredList.map((p) => {
+            filteredList.map((p, pIdx) => {
               const pId = Number(p.id);
               const isCurrent = Number(currentPersonnelId) === pId;
               const isAbsent = absentSet.has(pId);
@@ -93,7 +93,7 @@ export default function MobileCrewPickerSheet({
 
               return (
                 <div
-                  key={pId}
+                  key={pId || `pers-${p.nip || pIdx}`}
                   onClick={() => {
                     if (isAbsent) return;
                     onSelect(pId);

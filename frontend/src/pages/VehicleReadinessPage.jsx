@@ -72,9 +72,10 @@ export default function VehicleReadinessPage() {
 
   const handleReadinessSuccess = (customMsg) => {
     fetchVehicles();
+    const msgText = typeof customMsg === 'string' ? customMsg : (customMsg?.message || 'Data kesiapan fisik armada berhasil diperbarui.');
     setToastMsg({
       type: 'success',
-      text: customMsg || 'Data kesiapan fisik armada berhasil diperbarui.'
+      text: msgText
     });
     setTimeout(() => setToastMsg(null), 4000);
   };
@@ -138,7 +139,8 @@ export default function VehicleReadinessPage() {
       });
       setTimeout(() => setToastMsg(null), 4000);
     } catch (err) {
-      setFormError(err.response?.data?.message || err.message || 'Gagal menyimpan data armada.');
+      const errMsg = typeof err.response?.data?.message === 'string' ? err.response.data.message : typeof err.response?.data === 'string' ? err.response.data : err.message || 'Gagal menyimpan data armada.';
+      setFormError(errMsg);
     } finally {
       setSubmitting(false);
     }
@@ -159,10 +161,11 @@ export default function VehicleReadinessPage() {
       });
       setTimeout(() => setToastMsg(null), 4000);
     } catch (err) {
-      setFormError(err.response?.data?.message || err.message || 'Gagal menghapus armada.');
+      const errMsg = typeof err.response?.data?.message === 'string' ? err.response.data.message : typeof err.response?.data === 'string' ? err.response.data : err.message || 'Gagal menghapus armada.';
+      setFormError(errMsg);
       setToastMsg({
         type: 'error',
-        text: `Gagal menghapus armada: ${err.response?.data?.message || err.message}`
+        text: `Gagal menghapus armada: ${errMsg}`
       });
       setTimeout(() => setToastMsg(null), 5000);
     } finally {
@@ -202,7 +205,7 @@ export default function VehicleReadinessPage() {
             ) : (
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             )}
-            <span>{toastMsg.text}</span>
+            <span>{typeof toastMsg?.text === 'string' ? toastMsg.text : (toastMsg?.text?.message || 'Pemberitahuan')}</span>
           </div>
           <button
             type="button"
@@ -392,7 +395,7 @@ export default function VehicleReadinessPage() {
           <form onSubmit={handleSaveVehicle} className="space-y-4">
             {formError && (
               <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
-                {formError}
+                {typeof formError === 'string' ? formError : (formError?.message || 'Terjadi kesalahan input armada.')}
               </div>
             )}
 

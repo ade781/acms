@@ -201,7 +201,7 @@ export default function MobileUnitAuditModal({
           ) : (
             events.map((evt, idx) => (
               <div
-                key={evt.id || idx}
+                key={evt.id ?? `evt-${idx}`}
                 className={`relative pl-4 border-l-2 ${idx === 0 ? 'border-red-600' : 'border-slate-300'} pb-1.5 space-y-1`}
               >
                 {/* Bullet titik linimasa */}

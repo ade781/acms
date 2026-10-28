@@ -37,14 +37,14 @@ export default function MobileRecentAnnouncements({
         </div>
       ) : (
         <div className="space-y-1.5">
-          {top3.map((ann) => {
+          {top3.map((ann, annIdx) => {
             const dateStr = ann.created_at ? ann.created_at.split('T')[0] : (ann.date || '');
             const refNo = ann.reference_number || ann.refNo || 'ARFF-EDARAN';
             const snippet = ann.content || ann.snippet || ann.description || 'Surat edaran resmi operasional ARFF YIA.';
 
             return (
               <div
-                key={ann.id}
+                key={ann.id ?? `ann-${annIdx}`}
                 onClick={() => onOpenPdf && onOpenPdf(ann)}
                 className="p-2 rounded-lg border border-slate-100 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 transition-colors duration-100 cursor-pointer space-y-0.5"
               >
