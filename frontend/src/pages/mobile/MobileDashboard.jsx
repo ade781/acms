@@ -9,9 +9,8 @@ import MobilePicReadinessForm from '../../components/mobile/dashboard/MobilePicR
 import MobileOpsSummaryCards from '../../components/mobile/dashboard/MobileOpsSummaryCards';
 import MobileUnserviceableWidget from '../../components/mobile/dashboard/MobileUnserviceableWidget';
 import MobileRecentAnnouncements from '../../components/mobile/dashboard/MobileRecentAnnouncements';
-import MobileLeaveModal from '../../components/mobile/dashboard/MobileLeaveModal';
 
-import { RefreshCw, AlertTriangle, FileText, Download, ExternalLink, X, ShieldAlert } from 'lucide-react';
+import { RefreshCw, AlertTriangle, FileText, Download, ExternalLink } from 'lucide-react';
 
 export default function MobileDashboard({ onNavigateToAnnouncements }) {
   const { user, token, activeDate, activeShiftNumber, activeTeam } = useAuth();
@@ -24,14 +23,12 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
   const [deploymentsData, setDeploymentsData] = useState(null);
   const [vehiclesList, setVehiclesList] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
-  const [teamPersonnel, setTeamPersonnel] = useState([]);
 
   // Modal states
-  const [leaveModalOpen, setLeaveModalOpen] = useState(false);
   const [auditVehicleId, setAuditVehicleId] = useState(null);
   const [previewPdfDoc, setPreviewPdfDoc] = useState(null);
 
-  const fetchDashboardData = useCallback(async (isSilent = false) => {
+  const fetchDashboardData = useCallback(async (isSilent = false, signal = null) => {
     if (!isSilent) setLoading(true);
     else setRefreshing(true);
     setErrorMsg(null);
@@ -39,16 +36,17 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
     const currentTeam = cleanTeam(activeTeam) || 'Alpha';
 
     try {
-      const [depRes, readRes, annRes, persRes] = await Promise.allSettled([
-        api.get(`/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`),
-        api.get(`/readiness/vehicles?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`),
-        api.get('/announcements'),
-        api.get(`/personnel?team_group=${currentTeam}&is_active=1`)
+      // Pemangkasan payload (Temuan #15) & sinyal pembatalan (Temuan #9):
+      // Eliminasi pemanggilan GET /personnel yang memuat full dossier 186 kB hanya untuk hitungan personel
+      const [depRes, readRes, annRes] = await Promise.allSettled([
+        api.get(`/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`, { signal }),
+        api.get(`/readiness/vehicles?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`, { signal }),
+        api.get('/announcements', { signal })
       ]);
 
       if (depRes.status === 'fulfilled') {
         setDeploymentsData(depRes.value.data?.data || depRes.value.data);
-      } else {
+      } else if (depRes.reason?.name !== 'CanceledError' && depRes.reason?.name !== 'AbortError' && depRes.reason?.code !== 'ERR_CANCELED') {
         console.warn('Deployments fetch warning:', depRes.reason);
       }
 
@@ -56,7 +54,7 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
         const rData = readRes.value.data?.data || readRes.value.data;
         const vArr = Array.isArray(rData?.vehicles) ? rData.vehicles : (Array.isArray(rData) ? rData : []);
         setVehiclesList(vArr);
-      } else {
+      } else if (readRes.reason?.name !== 'CanceledError' && readRes.reason?.name !== 'AbortError' && readRes.reason?.code !== 'ERR_CANCELED') {
         console.warn('Readiness fetch warning:', readRes.reason);
       }
 
@@ -65,13 +63,10 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
         const aArr = Array.isArray(aData?.announcements) ? aData.announcements : (Array.isArray(aData) ? aData : []);
         setAnnouncements(aArr);
       }
-
-      if (persRes.status === 'fulfilled') {
-        const pData = persRes.value.data?.data || persRes.value.data;
-        const pArr = Array.isArray(pData?.personnel) ? pData.personnel : (Array.isArray(pData) ? pData : []);
-        setTeamPersonnel(pArr);
-      }
     } catch (err) {
+      if (err.name === 'CanceledError' || err.name === 'AbortError' || err.code === 'ERR_CANCELED') {
+        return;
+      }
       console.error('Error fetching mobile dashboard data:', err);
       setErrorMsg('Gagal memuat data operasional terbaru.');
     } finally {
@@ -81,7 +76,14 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
   }, [activeDate, activeShiftNumber, activeTeam]);
 
   useEffect(() => {
-    fetchDashboardData();
+    const controller = new AbortController();
+    fetchDashboardData(false, controller.signal);
+    const handleLeaveUpdated = () => fetchDashboardData(true);
+    window.addEventListener('arff:leave-updated', handleLeaveUpdated);
+    return () => {
+      controller.abort();
+      window.removeEventListener('arff:leave-updated', handleLeaveUpdated);
+    };
   }, [fetchDashboardData]);
 
   // Ekstrak penugasan user saat ini
@@ -146,7 +148,17 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
   const presentCount = allDeployments.filter((d) => d.deployment_type !== 'absent').length;
   const absentDeployments = allDeployments.filter((d) => d.deployment_type === 'absent');
   const absentCount = absentDeployments.length;
-  const totalStrength = teamPersonnel.length > 0 ? teamPersonnel.length : (presentCount + absentCount);
+  const totalStrength = Number(deploymentsData?.total_team_members) > 0
+    ? Number(deploymentsData.total_team_members)
+    : (presentCount + absentCount);
+
+  const handleOpenGlobalLeaveModal = () => {
+    window.dispatchEvent(
+      new CustomEvent('arff:open-leave-modal', {
+        detail: { activeUserLeave: userLeaveRecord },
+      })
+    );
+  };
 
   const serviceableCount = vehiclesList.filter((v) => v.status === 'serviceable').length;
   const totalVehiclesCount = vehiclesList.length;
@@ -161,10 +173,7 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
   return (
     <div className="space-y-2 pb-6">
       {/* Tombol Refresh Ringan */}
-      <div className="flex items-center justify-between px-1">
-        <span className="text-[10px] font-mono text-slate-500">
-          Regu {cleanTeam(activeTeam)} • Shift {activeShiftNumber}
-        </span>
+      <div className="flex items-center justify-end px-1">
         <button
           type="button"
           onClick={() => fetchDashboardData(true)}
@@ -190,7 +199,7 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
         isOffDuty={isOffDuty}
         isOnLeave={isOnLeave}
         leaveInfo={userLeaveRecord}
-        onOpenLeaveModal={() => setLeaveModalOpen(true)}
+        onOpenLeaveModal={handleOpenGlobalLeaveModal}
       />
 
       {/* 2. FORMULIR KESIAPAN PIC (KONDISIONAL: HANYA TAMPIL JIKA USER = PIC & BUKAN OFF-DUTY) */}
@@ -215,7 +224,7 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
         serviceableCount={serviceableCount}
         totalVehicles={totalVehiclesCount}
         unserviceableCount={unserviceableCount}
-        onOpenLeaveModal={() => setLeaveModalOpen(true)}
+        onOpenLeaveModal={handleOpenGlobalLeaveModal}
       />
 
       {/* 4. WIDGET KENDALA ARMADA (KONDISIONAL: HANYA JIKA ADA UNIT UNSERVICEABLE) */}
@@ -229,18 +238,6 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
         announcements={announcements}
         onOpenAllAnnouncements={onNavigateToAnnouncements}
         onOpenPdf={handleOpenPdf}
-      />
-
-      {/* MODAL PENGAJUAN / CANCEL CUTI MANDIRI */}
-      <MobileLeaveModal
-        isOpen={leaveModalOpen}
-        onClose={() => setLeaveModalOpen(false)}
-        user={user}
-        activeDate={activeDate}
-        activeShiftNumber={activeShiftNumber}
-        activeTeam={cleanTeam(activeTeam)}
-        activeUserLeave={userLeaveRecord}
-        onSuccess={() => fetchDashboardData(true)}
       />
 
       {/* MODAL JEJAK AUDIT KENDALA ARMADA */}

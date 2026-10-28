@@ -28,7 +28,9 @@ export default function MobilePlotCard({
   const isUnserv = readiness === 'unserviceable';
   const picSlot = slots[0] || { personnel_id: '', is_pic: true };
   const crewSlots = slots.slice(1);
-  const picPerson = picSlot.personnel_id ? personnelMap[picSlot.personnel_id] : null;
+  const picPerson = picSlot.personnel_id
+    ? (personnelMap[picSlot.personnel_id] || (picSlot.personnel_name ? { full_name: picSlot.personnel_name } : null))
+    : null;
 
   return (
     <div className="bg-white rounded-lg border border-slate-200 px-2.5 py-1.5 shadow-xs space-y-0.5">
@@ -88,7 +90,9 @@ export default function MobilePlotCard({
         {/* Slot Kru Tambahan */}
         {crewSlots.map((slot, idx) => {
           const slotIdx = idx + 1;
-          const crewPerson = slot.personnel_id ? personnelMap[slot.personnel_id] : null;
+          const crewPerson = slot.personnel_id
+            ? (personnelMap[slot.personnel_id] || (slot.personnel_name ? { full_name: slot.personnel_name } : null))
+            : null;
           return (
             <div key={slotIdx} className="flex items-center justify-between py-0.5 px-0.5">
               <div className="flex items-center gap-1.5 truncate">

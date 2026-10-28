@@ -46,7 +46,7 @@ export default function MobileSignaturesSection({
                   loading="lazy"
                 />
               ) : (
-                <span className="text-[7.5px] font-mono text-slate-400 italic">
+                <span className="text-[7.5px] font-mono text-slate-500 font-medium italic">
                   [ Tanda Tangan Digital ]
                 </span>
               )}
@@ -81,7 +81,7 @@ export default function MobileSignaturesSection({
                   loading="lazy"
                 />
               ) : (
-                <span className="text-[7.5px] font-mono text-slate-400 italic">
+                <span className="text-[7.5px] font-mono text-slate-500 font-medium italic">
                   [ Tanda Tangan Digital ]
                 </span>
               )}
@@ -132,7 +132,7 @@ export default function MobileSignaturesSection({
                 loading="lazy"
               />
             ) : (
-              <span className="text-[8px] font-mono text-slate-400 italic">
+              <span className="text-[8px] font-mono text-slate-500 font-medium italic">
                 Tanda tangan digital
               </span>
             )}
@@ -146,7 +146,7 @@ export default function MobileSignaturesSection({
               NIP. {deptHead.nip}
             </p>
           ) : (
-            <p className="text-[8.5px] text-slate-400">-</p>
+            <p className="text-[8.5px] text-slate-500 font-medium">-</p>
           )}
         </div>
 
@@ -165,7 +165,7 @@ export default function MobileSignaturesSection({
                 loading="lazy"
               />
             ) : (
-              <span className="text-[8px] font-mono text-slate-400 italic">
+              <span className="text-[8px] font-mono text-slate-500 font-medium italic">
                 Tanda tangan digital
               </span>
             )}
@@ -179,7 +179,7 @@ export default function MobileSignaturesSection({
               NIP. {supervisor.nip}
             </p>
           ) : (
-            <p className="text-[8.5px] text-slate-400">-</p>
+            <p className="text-[8.5px] text-slate-500 font-medium">-</p>
           )}
         </div>
       </div>

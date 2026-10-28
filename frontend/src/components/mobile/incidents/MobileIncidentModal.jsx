@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Camera, X, AlertTriangle, Check, Clock, MapPin, Plane, AlertCircle } from 'lucide-react';
 import api from '../../../services/api';
 import { cleanTeam } from '../../../utils/shiftHelper';
+import { compressImageToWebP } from '../../../utils/imageCompressor';
 
 export const OFFICIAL_INCIDENT_CLASSIFICATIONS = [
   'Aircraft Accident',
@@ -45,12 +46,13 @@ export default function MobileIncidentModal({
   const [selectedPhotos, setSelectedPhotos] = useState([]);
   const [photoPreviews, setPhotoPreviews] = useState([]);
 
+  const [compressing, setCompressing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   if (!isOpen) return null;
 
-  const handlePhotoSelect = (e) => {
+  const handlePhotoSelect = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
@@ -66,19 +68,27 @@ export default function MobileIncidentModal({
       return;
     }
 
-    const newPhotos = [...selectedPhotos, ...validFiles];
-    setSelectedPhotos(newPhotos);
-
-    // Generate previews
-    validFiles.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setPhotoPreviews((prev) => [...prev, { name: file.name, url: ev.target.result }]);
-      };
-      reader.readAsDataURL(file);
-    });
-
     setErrorMsg('');
+    setCompressing(true);
+    try {
+      const compressedFiles = await Promise.all(
+        validFiles.map((file) =>
+          compressImageToWebP(file, { maxWidth: 1280, maxHeight: 1280, quality: 0.8 })
+        )
+      );
+
+      setSelectedPhotos((prev) => [...prev, ...compressedFiles]);
+      const newPreviews = compressedFiles.map((f) => ({
+        name: f.name,
+        url: URL.createObjectURL(f),
+      }));
+      setPhotoPreviews((prev) => [...prev, ...newPreviews]);
+    } catch (err) {
+      setErrorMsg(`Gagal memproses gambar: ${err.message}`);
+    } finally {
+      setCompressing(false);
+      e.target.value = '';
+    }
   };
 
   const handleRemovePhoto = (index) => {
@@ -179,7 +189,7 @@ export default function MobileIncidentModal({
         {/* Header Modal */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 shrink-0">
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+            <span className="w-2 h-2 rounded-full bg-red-600"></span>
             <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
               Laporan Insiden Baru
             </h4>
@@ -392,11 +402,12 @@ export default function MobileIncidentModal({
               {selectedPhotos.length < 5 && (
                 <label className="cursor-pointer flex items-center justify-center gap-1.5 p-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-semibold transition-colors duration-100 flex-1">
                   <Camera className="w-4 h-4 text-slate-500" />
-                  <span>Ambil / Unggah Foto Bukti</span>
+                  <span>{compressing ? 'Mengompresi Foto WebP...' : 'Ambil / Unggah Foto Bukti'}</span>
                   <input
                     type="file"
                     accept="image/*"
                     multiple
+                    disabled={compressing}
                     className="hidden"
                     onChange={handlePhotoSelect}
                   />
@@ -434,11 +445,13 @@ export default function MobileIncidentModal({
           {/* Tombol Simpan Laporan Insiden */}
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || compressing}
             className="w-full mt-2 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors duration-100"
           >
             {submitting ? (
               <span>Menyimpan Laporan Insiden...</span>
+            ) : compressing ? (
+              <span>Mengompresi Foto Bukti WebP...</span>
             ) : (
               <>
                 <Check className="w-3.5 h-3.5" />

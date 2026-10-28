@@ -24,7 +24,7 @@ export default function MobileHeader({ onOpenAnnouncements, onOpenProfile, isPro
     let isMounted = true;
     const fetchUnread = async () => {
       try {
-        const res = await api.get('/announcements');
+        const res = await api.get('/announcements/unread-count');
         if (typeof window !== 'undefined') {
           window.__arff_announcements_cache = {
             data: res.data,

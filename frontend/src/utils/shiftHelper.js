@@ -183,15 +183,15 @@ export function formatIndoDate(dateStr, options = null) {
   try {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return String(dateStr);
-    return d.toLocaleDateString(
-      'id-ID',
-      options || {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      }
-    );
+    const formatOptions = options?.shortMonth
+      ? { day: 'numeric', month: 'short', year: 'numeric' }
+      : options || {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        };
+    return d.toLocaleDateString('id-ID', formatOptions);
   } catch {
     return String(dateStr);
   }

@@ -1,22 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { X, FileText, ChevronLeft, ChevronRight, AlertCircle, ExternalLink, Download } from 'lucide-react';
 import api from '../../../services/api';
+import { formatIndoDate } from '../../../utils/shiftHelper';
 
 const ITEMS_PER_PAGE = 10;
 
 function formatDateIndo(dateStr) {
-  if (!dateStr) return '-';
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return dateStr;
-  }
+  return formatIndoDate(dateStr, { shortMonth: true });
 }
 
 export default function MobileAnnouncementsModal({ isOpen, onClose }) {

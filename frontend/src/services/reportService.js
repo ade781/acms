@@ -1,9 +1,13 @@
 import api from './api';
 import { cleanTeam } from '../utils/shiftHelper';
+import { downloadBlob } from '../utils/fileHelper';
+
+export { downloadBlob };
 
 /**
  * Service Terpadu Rekapitulasi Laporan Dinas Shift ARFF YIA
  * Single Source of Truth (DRY) untuk penarikan data laporan lintas perangkat (Desktop & Mobile)
+ * Menggunakan 1 roundtrip HTTP ke endpoint agregasi /reports/shift-summary
  */
 export async function fetchShiftReportData({ date, shift, team, signal }) {
   const currentTeam = cleanTeam(team || 'Alpha');
@@ -13,73 +17,24 @@ export async function fetchShiftReportData({ date, shift, team, signal }) {
   const params = `date=${currentDate}&shift=${currentShift}&team_group=${currentTeam}`;
   const options = signal ? { signal } : {};
 
-  const [
-    deployRes,
-    vehicleRes,
-    watchroomRes,
-    issueRes,
-    actRes,
-    incRes,
-  ] = await Promise.allSettled([
-    api.get(`/deployments/current?${params}`, options),
-    api.get(`/readiness/vehicles?${params}`, options),
-    api.get(`/readiness/watchroom?${params}`, options),
-    api.get(`/reports/vehicle-issues?${params}`, options),
-    api.get(`/activities?${params}`, options),
-    api.get(`/incidents?${params}`, options),
-  ]);
+  const res = await api.get(`/reports/shift-summary?${params}`, options);
+  const sData = res.data?.data || res.data || {};
 
-  // Ekstrak data deployment & shift
-  let shiftData = null;
-  let deptHeadData = null;
-  let deployments = [];
-  let absents = [];
-
-  if (deployRes.status === 'fulfilled' && deployRes.value?.data?.data) {
-    const dData = deployRes.value.data.data;
-    shiftData = dData.shift || null;
-    deptHeadData = dData.dept_head || null;
-    deployments = dData.deployments || [];
-    absents = dData.absents || [];
-  }
-
-  // Ekstrak data kesiapan 7 armada operasional murni (Watchroom dipisahkan khusus)
-  let vehicles = [];
-  if (vehicleRes.status === 'fulfilled' && vehicleRes.value?.data?.data) {
-    const vData = vehicleRes.value.data.data;
-    const rawVehicles = Array.isArray(vData) ? vData : vData.vehicles || [];
-    vehicles = rawVehicles.filter(
-      (v) => v.category !== 'posko' && v.code_name !== 'WATCHROOM'
-    );
-  }
-
-  // Ekstrak data kesiapan watchroom
-  let watchroomData = {};
-  if (watchroomRes.status === 'fulfilled' && watchroomRes.value?.data?.data) {
-    watchroomData = watchroomRes.value.data.data || {};
-  }
-
-  // Ekstrak data kendala unit & audit trail
-  let vehicleIssues = {
+  const shiftData = sData.shift || null;
+  const deptHeadData = sData.dept_head || sData.official || null;
+  const deployments = Array.isArray(sData.deployments) ? sData.deployments : [];
+  const absents = Array.isArray(sData.absents) ? sData.absents : [];
+  const vehicles = Array.isArray(sData.vehicles)
+    ? sData.vehicles.filter((v) => v.category !== 'posko' && v.code_name !== 'WATCHROOM')
+    : [];
+  const watchroomData = sData.watchroom || {};
+  const vehicleIssues = sData.vehicle_issues || {
     current_issues: [],
     backlog_issues: [],
     resolved_this_shift: [],
   };
-  if (issueRes.status === 'fulfilled' && issueRes.value?.data?.data) {
-    vehicleIssues = issueRes.value.data.data || vehicleIssues;
-  }
-
-  // Ekstrak data logbook kegiatan
-  let activities = [];
-  if (actRes.status === 'fulfilled' && actRes.value?.data?.data) {
-    activities = actRes.value.data.data || [];
-  }
-
-  // Ekstrak data insiden
-  let incidents = [];
-  if (incRes.status === 'fulfilled' && incRes.value?.data?.data) {
-    incidents = incRes.value.data.data || [];
-  }
+  const activities = Array.isArray(sData.activities) ? sData.activities : [];
+  const incidents = Array.isArray(sData.incidents) ? sData.incidents : [];
 
   return {
     shiftData,
@@ -93,10 +48,6 @@ export async function fetchShiftReportData({ date, shift, team, signal }) {
     incidents,
   };
 }
-
-import { downloadBlob } from '../utils/fileHelper';
-
-export { downloadBlob };
 
 /**
  * Mengunduh berkas PDF Dokumen Resmi Laporan Shift Operasional Harian
@@ -173,5 +124,3 @@ export default {
   downloadActivityReportPdf,
   downloadBlob,
 };
-
-

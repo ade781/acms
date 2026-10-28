@@ -25,7 +25,7 @@ export default function MobileIncidents() {
   const [filterPriority, setFilterPriority] = useState('ALL');
   const [filterScope, setFilterScope] = useState('shift'); // 'shift' | 'all'
 
-  const fetchIncidents = useCallback(async () => {
+  const fetchIncidents = useCallback(async (signal) => {
     setLoading(true);
     setError(null);
     try {
@@ -36,11 +36,14 @@ export default function MobileIncidents() {
             team_group: cleanTeam(activeTeam),
           }
         : {};
-      const res = await api.get('/incidents', { params });
+      const res = await api.get('/incidents', { params, signal });
       const raw = res.data?.data ?? res.data?.incidents ?? res.data;
       const list = Array.isArray(raw) ? raw : [];
       setIncidents(list);
     } catch (err) {
+      if (err.name === 'CanceledError' || err.name === 'AbortError' || err.code === 'ERR_CANCELED') {
+        return;
+      }
       console.error('Error fetching incidents:', err);
       setError('Gagal memuat daftar insiden operasional.');
     } finally {
@@ -49,7 +52,11 @@ export default function MobileIncidents() {
   }, [filterScope, activeDate, activeShiftNumber, activeTeam]);
 
   useEffect(() => {
-    fetchIncidents();
+    const controller = new AbortController();
+    fetchIncidents(controller.signal);
+    return () => {
+      controller.abort();
+    };
   }, [fetchIncidents]);
 
   const handleOpenDetail = (inc) => {

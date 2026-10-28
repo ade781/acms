@@ -7,6 +7,7 @@ import MobileProfileView from './profile/MobileProfileView';
 import MobileAnnouncementsModal from './announcements/MobileAnnouncementsModal';
 import MobileLeaveModal from './dashboard/MobileLeaveModal';
 import MandatoryPasswordChangeModal from '../forms/MandatoryPasswordChangeModal';
+import OfflineBanner from '../common/OfflineBanner';
 
 export default function MobileLayout({ children }) {
   const { user, activeDate, activeShiftNumber, activeTeam, isChief, isAdmin, isSupervisor } = useAuth();
@@ -19,10 +20,12 @@ export default function MobileLayout({ children }) {
   const [isAnnounceOpen, setIsAnnounceOpen] = useState(false);
   // Leave modal state (Global untuk seluruh antarmuka mobile)
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+  const [activeUserLeaveDetail, setActiveUserLeaveDetail] = useState(null);
 
-  // Listener event global pembukaan modal cuti dari profil maupun ploting
+  // Listener event global pembukaan modal cuti dari dashboard, profil, maupun ploting
   useEffect(() => {
-    const handleOpen = () => {
+    const handleOpen = (e) => {
+      setActiveUserLeaveDetail(e?.detail?.activeUserLeave || null);
       setIsLeaveModalOpen(true);
     };
     window.addEventListener('arff:open-leave-modal', handleOpen);
@@ -62,6 +65,9 @@ export default function MobileLayout({ children }) {
     <div className="bg-slate-900 text-slate-800 flex justify-center min-h-screen">
       {/* Mobile Viewport Container (Rasio Modern 20:9 / max 412px) */}
       <div className="w-full max-w-[412px] bg-slate-50 min-h-screen flex flex-col shadow-2xl relative border-x border-slate-700/20 overflow-x-hidden">
+        {/* Banner Deteksi Offline Apron (Temuan #41) */}
+        <OfflineBanner />
+
         {/* Top App Bar */}
         <MobileHeader
           onOpenAnnouncements={() => setIsAnnounceOpen(true)}
@@ -104,8 +110,10 @@ export default function MobileLayout({ children }) {
           activeDate={activeDate}
           activeShiftNumber={activeShiftNumber}
           activeTeam={activeTeam}
+          activeUserLeave={activeUserLeaveDetail}
           onSuccess={() => {
             setIsLeaveModalOpen(false);
+            window.dispatchEvent(new CustomEvent('arff:leave-updated'));
           }}
         />
 

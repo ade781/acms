@@ -100,7 +100,7 @@ export default function MobileReports() {
         setActivities(data.activities);
         setIncidents(data.incidents);
       } catch (err) {
-        if (err.name === 'CanceledError' || err.name === 'AbortError') return;
+        if (err.name === 'CanceledError' || err.name === 'AbortError' || err.code === 'ERR_CANCELED') return;
         console.error('Error fetching mobile report data:', err);
         setErrorMessage(
           'Sebagian data operasional shift belum lengkap atau sedang disinkronkan.'

@@ -167,7 +167,7 @@ export default function MobilePicReadinessForm({
         <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-xs space-y-0.5">
           <div className="flex items-center justify-between text-red-800 font-bold text-[10px]">
             <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+              <span className="w-2 h-2 rounded-full bg-red-600"></span>
               <span>Status Estafet: UNSERVICEABLE</span>
             </span>
             {onOpenAuditModal && (

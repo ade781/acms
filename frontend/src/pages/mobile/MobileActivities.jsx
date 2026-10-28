@@ -28,7 +28,7 @@ export default function MobileActivities() {
     setIsModalOpen(true);
   };
 
-  const fetchActivities = useCallback(async () => {
+  const fetchActivities = useCallback(async (signal) => {
     setLoading(true);
     setError(null);
     try {
@@ -38,11 +38,15 @@ export default function MobileActivities() {
           shift: activeShiftNumber,
           team_group: cleanTeam(activeTeam),
         },
+        signal,
       });
       const raw = res.data?.data ?? res.data?.activities ?? res.data;
       const list = Array.isArray(raw) ? raw : [];
       setActivities(list);
     } catch (err) {
+      if (err.name === 'CanceledError' || err.name === 'AbortError' || err.code === 'ERR_CANCELED') {
+        return;
+      }
       console.error('Error fetching activities:', err);
       setError('Gagal memuat logbook kegiatan shift.');
     } finally {
@@ -51,7 +55,11 @@ export default function MobileActivities() {
   }, [activeDate, activeShiftNumber, activeTeam]);
 
   useEffect(() => {
-    fetchActivities();
+    const controller = new AbortController();
+    fetchActivities(controller.signal);
+    return () => {
+      controller.abort();
+    };
   }, [fetchActivities]);
 
   const handleRequestDelete = (id) => {

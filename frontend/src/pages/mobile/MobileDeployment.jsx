@@ -128,7 +128,7 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
   }, [vehicleSlots, vehicles]);
 
   // Fetch all initial data (Hanya dieksekusi jika berhak berdinas di shift ini demi menghemat beban request server)
-  const loadPlotingData = useCallback(async () => {
+  const loadPlotingData = useCallback(async (signal) => {
     if (!isAuthorizedShift) {
       setLoading(false);
       return;
@@ -139,17 +139,12 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
     try {
       const currentTeam = cleanTeam(activeTeam);
 
-      // Eliminasi request duplikat /vehicles?is_active=1 (Poin 4)
-      const [pRes, rRes, depRes] = await Promise.all([
-        api.get(`/personnel?team_group=${currentTeam}&is_active=1`),
-        api.get(`/readiness/vehicles?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`),
-        api.get(`/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`),
+      // Optimasi Temuan #16: Eliminasi fetch agresif personel saat inisialisasi awal.
+      // Data personel hanya diunduh secara lazy saat picker dibuka.
+      const [rRes, depRes] = await Promise.all([
+        api.get(`/readiness/vehicles?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`, { signal }),
+        api.get(`/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`, { signal }),
       ]);
-
-      const rawPersonnel = Array.isArray(pRes.data?.data)
-        ? pRes.data.data
-        : (Array.isArray(pRes.data?.personnel) ? pRes.data.personnel : (Array.isArray(pRes.data) ? pRes.data : []));
-      setPersonnelList(rawPersonnel);
 
       const readinessPayload = rRes.data?.data || rRes.data;
       const rawVehicles = Array.isArray(readinessPayload?.vehicles)
@@ -217,12 +212,15 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
         existingAbsent.map((d) => ({
           id: d.id,
           personnel_id: d.personnel_id,
-          name: d.full_name || rawPersonnel.find((p) => p.id === d.personnel_id)?.full_name || '',
+          name: d.full_name || '',
           reason: d.absent_reason || 'cuti',
           notes: d.notes || '',
         }))
       );
     } catch (err) {
+      if (err.name === 'CanceledError' || err.name === 'AbortError' || err.code === 'ERR_CANCELED') {
+        return;
+      }
       console.error('Error loading ploting data:', err);
       setErrorMsg('Gagal memuat data ploting armada.');
     } finally {
@@ -231,8 +229,28 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
   }, [activeDate, activeShiftNumber, activeTeam, isAuthorizedShift]);
 
   useEffect(() => {
-    loadPlotingData();
+    const controller = new AbortController();
+    loadPlotingData(controller.signal);
+    return () => {
+      controller.abort();
+    };
   }, [loadPlotingData]);
+
+  // Lazy-fetch kandidat personel hanya saat picker sheet dibuka (Temuan #16)
+  useEffect(() => { setPersonnelList([]); }, [activeTeam]);
+  const fetchCandidates = useCallback(async () => {
+    if (personnelList.length > 0) return;
+    try {
+      const currentTeam = cleanTeam(activeTeam);
+      const pRes = await api.get(`/personnel?team_group=${currentTeam}&is_active=1&compact=true`);
+      const rawPersonnel = Array.isArray(pRes.data?.data)
+        ? pRes.data.data
+        : (Array.isArray(pRes.data?.personnel) ? pRes.data.personnel : (Array.isArray(pRes.data) ? pRes.data : []));
+      setPersonnelList(rawPersonnel);
+    } catch (err) {
+      console.error('Error lazy-fetching candidates:', err);
+    }
+  }, [activeTeam, personnelList.length]);
 
   // Open Crew Picker Sheet for a unit and slot
   const handleOpenPicker = (unitId, slotIndex, isPic) => {
@@ -244,6 +262,7 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
       isPic,
     });
     setPickerOpen(true);
+    fetchCandidates();
   };
 
   // Add new dynamic crew slot to a unit (max 4 total slots)
