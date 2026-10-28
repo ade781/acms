@@ -14,6 +14,7 @@ export default function Navbar({ onToggleSidebar }) {
     setActiveDate,
     activeShiftNumber,
     setActiveShiftNumber,
+    activeTeam,
   } = useAuth();
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -45,8 +46,17 @@ export default function Navbar({ onToggleSidebar }) {
           </div>
         </div>
 
-        {/* Operational Date & Shift Control Strip */}
+        {/* Operational Team, Date, & Shift Control Strip (Desktop) */}
         <div className="hidden sm:flex items-center bg-slate-100/80 border border-slate-200/90 rounded-lg p-1 gap-1.5 flex-shrink-0">
+          {/* Active On-Duty Team Indicator */}
+          <div
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200/80 rounded-md text-xs font-bold text-slate-900 tracking-tight"
+            title="Regu yang sedang bertugas pada tanggal & shift terpilih"
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+            <span>{formatTeam(activeTeam)}</span>
+          </div>
+
           {/* Date Picker */}
           <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200/80 rounded-md text-xs font-medium text-slate-700 hover:border-slate-300 transition-colors duration-100">
             <Calendar className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />

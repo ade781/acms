@@ -185,7 +185,7 @@ export default function IncidentsPage() {
             Pemantauan & Laporan Insiden
           </h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
-            Shift {activeShiftNumber} • {formatTeam(activeTeam)} • Bandara Internasional Yogyakarta (YIA)
+            Dokumentasi kejadian darurat, lokasi penugasan, dan status tindak lanjut operasional
           </p>
         </div>
 
@@ -254,7 +254,7 @@ export default function IncidentsPage() {
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                Shift Ini ({formatTeam(activeTeam)})
+                Shift Ini
               </button>
               <button
                 type="button"

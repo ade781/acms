@@ -220,9 +220,6 @@ export default function VehicleReadinessPage() {
           <h2 className="text-lg font-bold tracking-tight text-slate-900">
             Kesiapan Armada & Posko
           </h2>
-          <p className="text-xs text-slate-500 font-medium mt-0.5">
-            Shift {activeShiftNumber} • {formatTeam(activeTeam)} • {formatIndoDate(activeDate, { shortMonth: true })}
-          </p>
         </div>
 
         {/* Interactive Status Filter Pills + Actions */}

@@ -172,8 +172,8 @@ export default function DeploymentPage() {
       const personnel = Array.isArray(pRes.data?.data)
         ? pRes.data.data
         : (Array.isArray(pRes.data?.personnel)
-        ? pRes.data.personnel
-        : (Array.isArray(pRes.data) ? pRes.data : []));
+          ? pRes.data.personnel
+          : (Array.isArray(pRes.data) ? pRes.data : []));
       setTeamPersonnel(personnel);
 
       const rawVehicles = Array.isArray(vRes.data?.vehicles)
@@ -243,14 +243,14 @@ export default function DeploymentPage() {
         } else {
           initialSlots[vId] = isPosko
             ? [
-                { personnel_id: '', is_pic: true, personnel_name: '' },   // Slot 0: PIC / Operator Utama
-                { personnel_id: '', is_pic: false, personnel_name: '' },  // Slot 1: Operator Pendukung
-              ]
+              { personnel_id: '', is_pic: true, personnel_name: '' },   // Slot 0: PIC / Operator Utama
+              { personnel_id: '', is_pic: false, personnel_name: '' },  // Slot 1: Operator Pendukung
+            ]
             : [
-                { personnel_id: '', is_pic: true, personnel_name: '' },   // Slot 0: FIX PIC
-                { personnel_id: '', is_pic: false, personnel_name: '' },  // Slot 1: Kru
-                { personnel_id: '', is_pic: false, personnel_name: '' },  // Slot 2: Kru
-              ];
+              { personnel_id: '', is_pic: true, personnel_name: '' },   // Slot 0: FIX PIC
+              { personnel_id: '', is_pic: false, personnel_name: '' },  // Slot 1: Kru
+              { personnel_id: '', is_pic: false, personnel_name: '' },  // Slot 2: Kru
+            ];
         }
       });
       setVehicleSlots(initialSlots);
@@ -471,9 +471,6 @@ export default function DeploymentPage() {
                 <h2 className="text-lg font-bold tracking-tight text-slate-900">
                   Ploting Personel Armada
                 </h2>
-                <span className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-700">
-                  {formatTeam(activeTeam)} • Shift {activeShiftNumber}
-                </span>
                 {!isScheduledTeam && isAdmin && (
                   <span
                     className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-800"
@@ -484,10 +481,6 @@ export default function DeploymentPage() {
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 mt-0.5 truncate">
-                {formatIndoDate(activeDate, { shortMonth: true })}
-                {supervisorName ? ` • Ketua Regu: ${supervisorName}` : ''} • Slot 1 = PIC Kendaraan
-              </p>
             </div>
 
             <div className="flex items-center justify-between xl:justify-end gap-3 flex-wrap">
@@ -528,11 +521,10 @@ export default function DeploymentPage() {
                     type="button"
                     onClick={handleSaveDeployments}
                     disabled={saving || !hasUnsavedChanges}
-                    className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold shadow-2xs transition-colors duration-100 ${
-                      hasUnsavedChanges
+                    className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold shadow-2xs transition-colors duration-100 ${hasUnsavedChanges
                         ? 'bg-arff-primary text-white hover:bg-red-700 cursor-pointer'
                         : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-                    } disabled:opacity-60`}
+                      } disabled:opacity-60`}
                   >
                     <Save className="w-4 h-4" />
                     <span>{saving ? 'Menyimpan...' : 'Simpan Draf Ploting'}</span>
@@ -549,107 +541,107 @@ export default function DeploymentPage() {
             emptyDescription="Daftarkan kendaraan operasional terlebih dahulu pada menu Pengaturan Master untuk memulai ploting kru."
             onRetry={fetchDeploymentData}
           >
-        {/* Vehicles Deployment Grid */}
-        <div className="mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {vehicles.map((v) => {
-              const vId = v.id || v.vehicle_id;
-              return (
-                <DeploymentSlotCard
-                  key={vId}
-                  vehicle={v}
-                  slots={vehicleSlots[vId] || []}
-                  availablePersonnel={teamPersonnel}
-                  onSlotPersonnelChange={(slotIdx, pId) =>
-                    handleSlotPersonnelChange(vId, slotIdx, pId)
-                  }
-                  onAddSlot={() => handleAddSlot(vId)}
-                  onRemoveSlot={(slotIdx) => handleRemoveSlot(vId, slotIdx)}
-                  readOnly={!canEditPlot}
-                  assignedPersonnelIds={assignedPersonnelIds}
-                  absentPersonnelIds={absentPersonnelIds}
-                  currentPersonnelId={user?.personnel_id}
-                  currentUserName={user?.name}
-                  onInspectVehicle={handleInspectVehicle}
-                  isAdmin={isAdmin}
-                  isSupervisor={isSupervisor}
-                />
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Panel Daftar Personel Izin / Cuti Shift Ini (Read-Only Transparan) */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mb-8">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4 flex-wrap gap-2">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
-                <UserX className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-slate-900">
-                  Daftar Personel Izin / Cuti Shift Ini
-                </h4>
-                <p className="text-xs text-slate-500">
-                  Informasi absensi mandiri personel regu yang berhalangan dinas aktif ({absentList.length} orang)
-                </p>
+            {/* Vehicles Deployment Grid */}
+            <div className="mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {vehicles.map((v) => {
+                  const vId = v.id || v.vehicle_id;
+                  return (
+                    <DeploymentSlotCard
+                      key={vId}
+                      vehicle={v}
+                      slots={vehicleSlots[vId] || []}
+                      availablePersonnel={teamPersonnel}
+                      onSlotPersonnelChange={(slotIdx, pId) =>
+                        handleSlotPersonnelChange(vId, slotIdx, pId)
+                      }
+                      onAddSlot={() => handleAddSlot(vId)}
+                      onRemoveSlot={(slotIdx) => handleRemoveSlot(vId, slotIdx)}
+                      readOnly={!canEditPlot}
+                      assignedPersonnelIds={assignedPersonnelIds}
+                      absentPersonnelIds={absentPersonnelIds}
+                      currentPersonnelId={user?.personnel_id}
+                      currentUserName={user?.name}
+                      onInspectVehicle={handleInspectVehicle}
+                      isAdmin={isAdmin}
+                      isSupervisor={isSupervisor}
+                    />
+                  );
+                })}
               </div>
             </div>
-            <span className="text-[11px] font-medium text-slate-400 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-md">
-              Kelola di Menu Cuti / Izin
-            </span>
-          </div>
 
-          {absentList.length === 0 ? (
-            <div className="py-6 text-center text-xs text-slate-500">
-              <CheckCircle className="w-6 h-6 text-emerald-500 mx-auto mb-1 opacity-80" />
-              <p className="font-semibold text-slate-700">Seluruh Personel Hadir</p>
-              <p className="text-slate-400 mt-0.5">
-                Tidak ada personel regu yang tercatat cuti atau berhalangan pada shift ini.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {absentList.map((abs, idx) => {
-                const person = teamPersonnel.find((p) => Number(p.id) === Number(abs.personnel_id));
-                const reasonLabels = {
-                  cuti: 'Cuti Tahunan',
-                  sakit: 'Sakit',
-                  dinas: 'Dinas Luar',
-                  tukar_dinas: 'Tukar Dinas',
-                };
-                return (
-                  <div
-                    key={idx}
-                    className="p-3 rounded-lg border border-slate-200 bg-slate-50/70 flex flex-col justify-between text-xs space-y-1.5"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="font-bold text-slate-900">
-                          {person?.full_name || `Personel #${abs.personnel_id}`}
-                        </div>
-                        <div className="text-[11px] text-slate-500">
-                          NIP: {person?.nip || '-'}
-                        </div>
-                      </div>
-                      <span className="inline-block px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold text-[10px] uppercase">
-                        {reasonLabels[abs.reason] || abs.reason || 'Cuti'}
-                      </span>
-                    </div>
-
-                    {abs.notes && (
-                      <p className="text-[11px] text-slate-600 italic bg-white p-2 rounded border border-slate-100">
-                        "{abs.notes}"
-                      </p>
-                    )}
+            {/* Panel Daftar Personel Izin / Cuti Shift Ini (Read-Only Transparan) */}
+            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mb-8">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4 flex-wrap gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
+                    <UserX className="w-5 h-5" />
                   </div>
-                );
-              })}
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">
+                      Daftar Personel Izin / Cuti Shift Ini
+                    </h4>
+                    <p className="text-xs text-slate-500">
+                      Informasi absensi mandiri personel regu yang berhalangan dinas aktif ({absentList.length} orang)
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[11px] font-medium text-slate-400 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-md">
+                  Kelola di Menu Cuti / Izin
+                </span>
+              </div>
+
+              {absentList.length === 0 ? (
+                <div className="py-6 text-center text-xs text-slate-500">
+                  <CheckCircle className="w-6 h-6 text-emerald-500 mx-auto mb-1 opacity-80" />
+                  <p className="font-semibold text-slate-700">Seluruh Personel Hadir</p>
+                  <p className="text-slate-400 mt-0.5">
+                    Tidak ada personel regu yang tercatat cuti atau berhalangan pada shift ini.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {absentList.map((abs, idx) => {
+                    const person = teamPersonnel.find((p) => Number(p.id) === Number(abs.personnel_id));
+                    const reasonLabels = {
+                      cuti: 'Cuti Tahunan',
+                      sakit: 'Sakit',
+                      dinas: 'Dinas Luar',
+                      tukar_dinas: 'Tukar Dinas',
+                    };
+                    return (
+                      <div
+                        key={idx}
+                        className="p-3 rounded-lg border border-slate-200 bg-slate-50/70 flex flex-col justify-between text-xs space-y-1.5"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="font-bold text-slate-900">
+                              {person?.full_name || `Personel #${abs.personnel_id}`}
+                            </div>
+                            <div className="text-[11px] text-slate-500">
+                              NIP: {person?.nip || '-'}
+                            </div>
+                          </div>
+                          <span className="inline-block px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold text-[10px] uppercase">
+                            {reasonLabels[abs.reason] || abs.reason || 'Cuti'}
+                          </span>
+                        </div>
+
+                        {abs.notes && (
+                          <p className="text-[11px] text-slate-600 italic bg-white p-2 rounded border border-slate-100">
+                            "{abs.notes}"
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </StateView>
-      </>
+          </StateView>
+        </>
       )}
 
       {/* Modal Pemeriksaan Kesiapan Fisik Armada / Posko Watchroom Langsung dari Ploting */}
@@ -669,8 +661,7 @@ export default function DeploymentPage() {
               fetchDeploymentData({ keepSuccessMsg: true });
               setSuccessMsg(
                 customMsg ||
-                `Kesiapan fasilitas posko ${
-                  selectedVehicleForInspection.code_name || selectedVehicleForInspection.vehicle_name
+                `Kesiapan fasilitas posko ${selectedVehicleForInspection.code_name || selectedVehicleForInspection.vehicle_name
                 } berhasil diperbarui.`
               );
             }}
@@ -690,8 +681,7 @@ export default function DeploymentPage() {
               fetchDeploymentData({ keepSuccessMsg: true });
               setSuccessMsg(
                 customMsg ||
-                `Kesiapan fisik kendaraan ${
-                  selectedVehicleForInspection.code_name || selectedVehicleForInspection.vehicle_name
+                `Kesiapan fisik kendaraan ${selectedVehicleForInspection.code_name || selectedVehicleForInspection.vehicle_name
                 } berhasil diperbarui.`
               );
             }}

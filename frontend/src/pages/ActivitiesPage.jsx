@@ -296,7 +296,7 @@ export default function ActivitiesPage() {
           </h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
             {viewMode === 'shift'
-              ? `Shift ${activeShiftNumber} • ${formatTeam(activeTeam)} • ${formatIndoDate(activeDate, { shortMonth: true })}`
+              ? 'Pencatatan dan dokumentasi aktivitas operasional shift berjalan'
               : 'Menampilkan riwayat & arsip aktivitas lintas sesi dinas'}
           </p>
         </div>
@@ -316,7 +316,7 @@ export default function ActivitiesPage() {
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Shift Berjalan ({activeTeam})
+              Shift Berjalan
             </button>
             <button
               type="button"

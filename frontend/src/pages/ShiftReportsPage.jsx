@@ -155,19 +155,14 @@ export default function ShiftReportsPage() {
     <div className="space-y-4">
       {/* Executive Document Control Card + Integrated Horizontal Metric Ledger */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
-        {/* Top Row: Title, Shift Context, & Document Export Actions */}
+        {/* Top Row: Title & Document Export Actions */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-4 py-3 border-b border-slate-100">
           <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-lg font-bold tracking-tight text-slate-900">
-                Laporan Operasional Dinas
-              </h2>
-              <span className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-700">
-                {formatTeam(activeTeam)} • Shift {activeShiftNumber} ({currentShiftDef?.startTime}–{currentShiftDef?.endTime})
-              </span>
-            </div>
+            <h2 className="text-lg font-bold tracking-tight text-slate-900">
+              Laporan Operasional Dinas
+            </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              {formatIndoDate(activeDate)} • Ketua Regu: <span className="font-semibold text-slate-700">{supervisorName}</span>
+              Ketua Regu: <span className="font-semibold text-slate-700">{shiftData?.supervisor_name || '-'}</span> • Rekapitulasi dinas shift resmi & arsip cetak A4
             </p>
           </div>
 

@@ -217,52 +217,111 @@ export default function PersonnelPage() {
     );
 
   return (
-    <div>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight text-slate-900">
-            Data Personel
-          </h2>
+    <div className="space-y-4">
+      {/* Unified Roster Command Bar: Title, Segmented Team Selector, Search, & Actions */}
+      <div className="bg-white rounded-xl border border-slate-200 px-4 py-3 shadow-2xs space-y-3">
+        {/* Top Row: Title + Live Stats + Action Buttons */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h2 className="text-lg font-bold tracking-tight text-slate-900">
+              Data Personel Operasional
+            </h2>
+            <span className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-700 tabular-nums">
+              {personnelList.length} Personel
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {(isAdmin || isSupervisor) && (
+              <Button
+                variant="outline"
+                size="sm"
+                icon={Settings}
+                onClick={() => navigate('/personnel/officials')}
+                title="Kelola Pejabat (Dept Head & 4 Ketua Regu)"
+              >
+                Kelola Pejabat
+              </Button>
+            )}
+
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                icon={FileText}
+                onClick={() => setPdfPreviewOpen(true)}
+              >
+                Pratinjau PDF
+              </Button>
+            )}
+
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                icon={Download}
+                loading={downloadingPdf}
+                onClick={handleDownloadAccountList}
+              >
+                Unduh PDF
+              </Button>
+            )}
+
+            {isAdmin && (
+              <Button
+                variant="primary"
+                size="sm"
+                icon={Plus}
+                onClick={() => setAddModalOpen(true)}
+              >
+                Tambah Personel
+              </Button>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {isAdmin && (
-            <Button
-              variant="outline"
-              icon={FileText}
-              onClick={() => setPdfPreviewOpen(true)}
-            >
-              Pratinjau PDF
-            </Button>
-          )}
+        {/* Bottom Row: Segmented Regu Filter Pills + Instant Search Input */}
+        <div className="pt-2.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-slate-100 border border-slate-200 text-xs w-fit flex-wrap">
+            {[
+              { id: 'ALL', label: 'Semua Regu' },
+              { id: 'Alpha', label: 'Regu Alpha' },
+              { id: 'Bravo', label: 'Regu Bravo' },
+              { id: 'Charlie', label: 'Regu Charlie' },
+              { id: 'Delta', label: 'Regu Delta' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setSelectedTeam(tab.id)}
+                className={`px-3 py-1 rounded-md font-bold transition-colors duration-100 cursor-pointer ${
+                  selectedTeam === tab.id
+                    ? 'bg-white text-slate-900 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-          {isAdmin && (
-            <Button
-              variant="outline"
-              icon={Download}
-              loading={downloadingPdf}
-              onClick={handleDownloadAccountList}
-            >
-              Unduh PDF
-            </Button>
-          )}
-
-          {isAdmin && (
-            <Button
-              variant="primary"
-              icon={Plus}
-              onClick={() => setAddModalOpen(true)}
-            >
-              Tambah Personel
-            </Button>
-          )}
+          <div className="relative w-full sm:w-64">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              id="searchPersonnel"
+              type="text"
+              placeholder="Cari nama atau NIP..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-red-500 transition-colors duration-100"
+            />
+          </div>
         </div>
       </div>
 
       {/* Success Notification Alert */}
       {successNotification && (
-        <div className="mb-5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center justify-between gap-3 shadow-sm animate-in fade-in">
+        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center justify-between gap-3 shadow-xs">
           <div className="flex items-center gap-2.5">
             <UserCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
             <span className="font-medium">{successNotification}</span>
@@ -279,7 +338,7 @@ export default function PersonnelPage() {
 
       {/* Error Notification Alert */}
       {errorNotification && (
-        <div className="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-800 flex items-center justify-between gap-3 shadow-sm animate-in fade-in">
+        <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-800 flex items-center justify-between gap-3 shadow-xs">
           <span>{errorNotification}</span>
           <button
             type="button"
@@ -290,53 +349,6 @@ export default function PersonnelPage() {
           </button>
         </div>
       )}
-
-      {/* Filter Bar */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-6 flex flex-col md:flex-row items-center justify-between gap-3">
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto flex-1">
-          <div className="w-full sm:w-64">
-            <InputField
-              id="searchPersonnel"
-              placeholder="Cari nama atau NIP..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              icon={Search}
-            />
-          </div>
-          <div className="w-full sm:w-48">
-            <SelectField
-              id="filterTeam"
-              value={selectedTeam}
-              onChange={(e) => setSelectedTeam(e.target.value)}
-              options={[
-                { value: 'ALL', label: 'Semua Regu' },
-                { value: 'Alpha', label: 'Regu Alpha' },
-                { value: 'Bravo', label: 'Regu Bravo' },
-                { value: 'Charlie', label: 'Regu Charlie' },
-                { value: 'Delta', label: 'Regu Delta' },
-              ]}
-            />
-          </div>
-        </div>
-        <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
-          <div className="text-xs text-slate-500 font-medium">
-            Dinas: <span className="font-bold text-slate-800">{formatTeam(activeTeam)}</span>
-            <span className="text-slate-300 mx-2">•</span>
-            <span className="font-bold text-slate-800">{personnelList.length}</span> personel
-          </div>
-          {(isAdmin || isSupervisor) && (
-            <Button
-              variant="outline"
-              size="sm"
-              icon={Settings}
-              onClick={() => navigate('/personnel/officials')}
-              title="Kelola Pejabat (Dept Head & 4 Ketua Regu)"
-            >
-              Kelola Pejabat
-            </Button>
-          )}
-        </div>
-      </div>
 
       {/* 4 Pennant Banners (Panji Regu Operasional) */}
       <StateView

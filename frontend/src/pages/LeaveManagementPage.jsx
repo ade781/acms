@@ -285,8 +285,7 @@ export default function LeaveManagementPage() {
             )}
           </div>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
-            Shift {activeShiftNumber} • {formatTeam(activeTeam)} • {formatIndoDate(activeDate, { shortMonth: true })}
-            {supervisorName ? ` • Ketua Regu: ${supervisorName}` : ''}
+            {supervisorName ? `Ketua Regu: ${supervisorName} • ` : ''}Kelola daftar personel izin, cuti berjalan, dan rekapitulasi bulanan
           </p>
         </div>
 
