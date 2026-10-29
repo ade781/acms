@@ -17,6 +17,7 @@ export const getAnnouncements = async (req, res) => {
         a.title,
         a.circular_number,
         a.description,
+        a.is_pinned,
         a.file_path,
         a.file_name,
         a.published_date,
@@ -28,7 +29,7 @@ export const getAnnouncements = async (req, res) => {
       FROM announcements a
       LEFT JOIN users u ON u.id = a.created_by
       LEFT JOIN announcement_reads ar ON ar.announcement_id = a.id AND ar.user_id = ?
-      ORDER BY a.published_date DESC, a.created_at DESC`,
+      ORDER BY a.is_pinned DESC, a.published_date DESC, a.created_at DESC`,
       [userId]
     );
 
@@ -106,17 +107,19 @@ export const createAnnouncement = async (req, res) => {
     const filePath = `/uploads/${file.filename}`;
     const fileName = file.originalname;
     const createdBy = req.user?.id || null;
+    const isPinned = req.body.is_pinned === '1' || req.body.is_pinned === 1 || req.body.is_pinned === true || req.body.is_pinned === 'true' || title.toUpperCase().includes('[MENDESAK]') ? 1 : 0;
 
     const [result] = await pool.query(
-      `INSERT INTO announcements (title, circular_number, description, file_path, file_name, published_date, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [title.trim(), circular_number?.trim() || null, description?.trim() || null, filePath, fileName, pubDate, createdBy]
+      `INSERT INTO announcements (title, circular_number, description, is_pinned, file_path, file_name, published_date, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [title.trim(), circular_number?.trim() || null, description?.trim() || null, isPinned, filePath, fileName, pubDate, createdBy]
     );
 
     return createdResponse(res, 'Pengumuman dan dokumen edaran berhasil dipublikasikan', {
       id: result.insertId,
       title: title.trim(),
       circular_number,
+      is_pinned: isPinned,
       file_path: filePath,
       file_name: fileName,
       published_date: pubDate
@@ -197,6 +200,125 @@ export const deleteAnnouncement = async (req, res) => {
   } catch (err) {
     console.error('Error deleteAnnouncement:', err);
     return errorResponse(res, 'Gagal menghapus pengumuman', 500);
+  }
+};
+
+export const updateAnnouncement = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, circular_number, description, published_date, is_pinned } = req.body;
+    const file = req.file;
+
+    const [existing] = await pool.query('SELECT * FROM announcements WHERE id = ?', [id]);
+    if (existing.length === 0) {
+      if (file?.path && fs.existsSync(file.path)) {
+        try { fs.unlinkSync(file.path); } catch (e) {}
+      }
+      return errorResponse(res, 'Pengumuman tidak ditemukan', 404);
+    }
+
+    const currentAnn = existing[0];
+    const newTitle = title !== undefined && title !== null ? String(title).trim() : currentAnn.title;
+    if (!newTitle) {
+      if (file?.path && fs.existsSync(file.path)) {
+        try { fs.unlinkSync(file.path); } catch (e) {}
+      }
+      return errorResponse(res, 'Judul pengumuman wajib diisi', 400);
+    }
+
+    const newCircular = circular_number !== undefined ? (circular_number ? String(circular_number).trim() : null) : currentAnn.circular_number;
+    const newDesc = description !== undefined ? (description ? String(description).trim() : null) : currentAnn.description;
+
+    let newPinned = currentAnn.is_pinned;
+    if (is_pinned !== undefined) {
+      newPinned = (is_pinned === '1' || is_pinned === 1 || is_pinned === true || is_pinned === 'true') ? 1 : 0;
+    }
+
+    let pubDate = currentAnn.published_date;
+    if (published_date) {
+      if (published_date.includes('T')) {
+        pubDate = published_date.replace('T', ' ').slice(0, 19);
+      } else if (published_date.length === 10) {
+        const currentTime = new Date().toTimeString().slice(0, 8);
+        pubDate = `${published_date} ${currentTime}`;
+      } else {
+        pubDate = published_date;
+      }
+    }
+
+    let filePath = currentAnn.file_path;
+    let fileName = currentAnn.file_name;
+
+    if (file) {
+      filePath = `/uploads/${file.filename}`;
+      fileName = file.originalname;
+
+      if (currentAnn.file_path) {
+        const cleanOldFileName = path.basename(currentAnn.file_path);
+        const oldFullPath = path.resolve(__dirname, '../../uploads', cleanOldFileName);
+        if (fs.existsSync(oldFullPath)) {
+          try {
+            fs.unlinkSync(oldFullPath);
+          } catch (e) {
+            console.warn('Gagal menghapus berkas lama saat pembaruan:', e.message);
+          }
+        }
+      }
+    }
+
+    await pool.query(
+      `UPDATE announcements 
+       SET title = ?, circular_number = ?, description = ?, is_pinned = ?, file_path = ?, file_name = ?, published_date = ?, updated_at = NOW()
+       WHERE id = ?`,
+      [newTitle, newCircular, newDesc, newPinned, filePath, fileName, pubDate, id]
+    );
+
+    return successResponse(res, 'Pengumuman berhasil diperbarui', {
+      id: Number(id),
+      title: newTitle,
+      circular_number: newCircular,
+      description: newDesc,
+      is_pinned: newPinned,
+      file_path: filePath,
+      file_name: fileName,
+      published_date: pubDate
+    });
+  } catch (err) {
+    if (req.file?.path && fs.existsSync(req.file.path)) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (e) {}
+    }
+    console.error('Error updateAnnouncement:', err);
+    return errorResponse(res, 'Gagal memperbarui pengumuman: ' + err.message, 500);
+  }
+};
+
+export const togglePinAnnouncement = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [existing] = await pool.query('SELECT id, is_pinned, title FROM announcements WHERE id = ?', [id]);
+    if (existing.length === 0) {
+      return errorResponse(res, 'Pengumuman tidak ditemukan', 404);
+    }
+
+    const currentPinned = existing[0].is_pinned || 0;
+    let nextPinned;
+    if (req.body?.is_pinned !== undefined) {
+      nextPinned = (req.body.is_pinned === '1' || req.body.is_pinned === 1 || req.body.is_pinned === true || req.body.is_pinned === 'true') ? 1 : 0;
+    } else {
+      nextPinned = currentPinned === 1 ? 0 : 1;
+    }
+
+    await pool.query('UPDATE announcements SET is_pinned = ?, updated_at = NOW() WHERE id = ?', [nextPinned, id]);
+
+    return successResponse(res, nextPinned === 1 ? 'Pengumuman berhasil dipin (mendesak)' : 'Pin pengumuman berhasil dilepas', {
+      id: Number(id),
+      is_pinned: nextPinned
+    });
+  } catch (err) {
+    console.error('Error togglePinAnnouncement:', err);
+    return errorResponse(res, 'Gagal mengubah status pin pengumuman', 500);
   }
 };
 

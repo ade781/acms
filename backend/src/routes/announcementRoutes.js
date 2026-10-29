@@ -5,6 +5,8 @@ import {
   getAnnouncementAttachment,
   getUnreadCount,
   createAnnouncement,
+  updateAnnouncement,
+  togglePinAnnouncement,
   markAsRead,
   deleteAnnouncement
 } from '../controllers/announcementController.js';
@@ -26,6 +28,17 @@ router.post(
   requireRole(['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor']),
   uploadSingleDocument('file'),
   createAnnouncement
+);
+router.put(
+  '/:id',
+  requireRole(['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor']),
+  uploadSingleDocument('file'),
+  updateAnnouncement
+);
+router.patch(
+  '/:id/pin',
+  requireRole(['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor']),
+  togglePinAnnouncement
 );
 router.post('/:id/read', markAsRead);
 router.delete(

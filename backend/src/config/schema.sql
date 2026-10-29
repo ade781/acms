@@ -199,6 +199,7 @@ CREATE TABLE IF NOT EXISTS `announcements` (
   `title` VARCHAR(255) NOT NULL,
   `circular_number` VARCHAR(100) NULL,
   `description` TEXT NULL,
+  `is_pinned` TINYINT(1) DEFAULT 0,
   `file_path` VARCHAR(255) NOT NULL,
   `file_name` VARCHAR(255) NULL,
   `published_date` DATETIME NOT NULL,

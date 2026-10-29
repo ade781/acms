@@ -14,6 +14,8 @@ import {
   ExternalLink,
   Plus,
   Pin,
+  PinOff,
+  Pencil,
   X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -87,6 +89,19 @@ export default function AnnouncementsPage() {
   const [formError, setFormError] = useState(null);
   const [downloadError, setDownloadError] = useState(null);
   const [toastMsg, setToastMsg] = useState(null);
+
+  // Modal Edit Pengumuman
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editCircularNumber, setEditCircularNumber] = useState('');
+  const [editPublishedDate, setEditPublishedDate] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editIsPinned, setEditIsPinned] = useState(false);
+  const [editPdfFile, setEditPdfFile] = useState(null);
+  const [existingFileName, setExistingFileName] = useState('');
+  const [updating, setUpdating] = useState(false);
+  const [editFormError, setEditFormError] = useState(null);
 
   const fetchAnnouncements = useCallback(async (signal) => {
     setLoading(true);
@@ -243,6 +258,198 @@ export default function AnnouncementsPage() {
       setTimeout(() => setToastMsg(null), 4000);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleOpenEditModal = (ann, e) => {
+    if (e) e.stopPropagation();
+    setEditId(ann.id);
+    const rawTitle = ann.title || '';
+    const cleanTitle = rawTitle.replace(/^\[MENDESAK\]\s*/i, '').trim();
+    setEditTitle(cleanTitle || rawTitle);
+    setEditCircularNumber(ann.circular_number || '');
+
+    let pubDateVal = '';
+    if (ann.published_date) {
+      try {
+        const d = new Date(ann.published_date);
+        if (!isNaN(d.getTime())) {
+          const offset = d.getTimezoneOffset() * 60000;
+          pubDateVal = new Date(d.getTime() - offset).toISOString().slice(0, 16);
+        }
+      } catch {
+        pubDateVal = getCurrentDateTimeLocal();
+      }
+    } else {
+      pubDateVal = getCurrentDateTimeLocal();
+    }
+    setEditPublishedDate(pubDateVal || getCurrentDateTimeLocal());
+    setEditDescription(ann.description || '');
+    setEditIsPinned(isUrgentAnnouncement(ann));
+    setExistingFileName(ann.file_name || 'Lampiran tersimpan');
+    setEditPdfFile(null);
+    setEditFormError(null);
+    setEditModalOpen(true);
+  };
+
+  const handleEditFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      if (!isPdf) {
+        setEditFormError('Berkas harus berupa dokumen format PDF (.pdf).');
+        setEditPdfFile(null);
+        return;
+      }
+      setEditFormError(null);
+      setEditPdfFile(file);
+    }
+  };
+
+  const handleUpdateAnnouncement = async (e) => {
+    e.preventDefault();
+    setEditFormError(null);
+
+    if (!editTitle.trim()) {
+      setEditFormError('Judul pengumuman / surat edaran wajib diisi.');
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      let finalTitle = editTitle.trim();
+      if (editIsPinned && !finalTitle.toUpperCase().includes('[MENDESAK]')) {
+        finalTitle = `[MENDESAK] ${finalTitle}`;
+      } else if (!editIsPinned && finalTitle.toUpperCase().includes('[MENDESAK]')) {
+        finalTitle = finalTitle.replace(/^\[MENDESAK\]\s*/i, '').trim();
+      }
+
+      const formData = new FormData();
+      formData.append('title', finalTitle);
+      formData.append('circular_number', editCircularNumber.trim());
+      formData.append('published_date', editPublishedDate);
+      formData.append('description', editDescription.trim());
+      formData.append('is_pinned', editIsPinned ? '1' : '0');
+      if (editPdfFile) {
+        formData.append('file', editPdfFile);
+      }
+
+      const res = await api.put(`/announcements/${editId}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      const updatedPayload = res.data?.data;
+
+      setAnnouncements((prev) => {
+        const nextList = prev.map((item) =>
+          item.id === editId
+            ? {
+                ...item,
+                title: finalTitle,
+                circular_number: editCircularNumber.trim() || null,
+                published_date: editPublishedDate,
+                description: editDescription.trim() || null,
+                is_pinned: editIsPinned ? 1 : 0,
+                ...(updatedPayload?.file_path ? { file_path: updatedPayload.file_path, file_name: updatedPayload.file_name } : {})
+              }
+            : item
+        );
+        return nextList.sort((a, b) => {
+          const aUrgent = isUrgentAnnouncement(a) ? 1 : 0;
+          const bUrgent = isUrgentAnnouncement(b) ? 1 : 0;
+          if (aUrgent !== bUrgent) return bUrgent - aUrgent;
+          const dateA = new Date(a.published_date || a.created_at || 0).getTime();
+          const dateB = new Date(b.published_date || b.created_at || 0).getTime();
+          return dateB - dateA;
+        });
+      });
+
+      if (selectedAnnouncement?.id === editId) {
+        setSelectedAnnouncement((prev) => ({
+          ...prev,
+          title: finalTitle,
+          circular_number: editCircularNumber.trim() || null,
+          published_date: editPublishedDate,
+          description: editDescription.trim() || null,
+          is_pinned: editIsPinned ? 1 : 0,
+          ...(updatedPayload?.file_path ? { file_path: updatedPayload.file_path, file_name: updatedPayload.file_name } : {})
+        }));
+        if (editPdfFile) {
+          setPdfLoadedForId(null);
+        }
+      }
+
+      setEditModalOpen(false);
+      setToastMsg({ type: 'success', text: 'Perubahan pengumuman berhasil disimpan.' });
+      setTimeout(() => setToastMsg(null), 3500);
+      window.dispatchEvent(new CustomEvent('arff:announcements-updated'));
+    } catch (err) {
+      const errMsg =
+        typeof err.response?.data?.message === 'string'
+          ? err.response.data.message
+          : typeof err.response?.data === 'string'
+          ? err.response.data
+          : err.message || 'Gagal menyimpan perubahan pengumuman.';
+      setEditFormError(errMsg);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleTogglePin = async (ann, e) => {
+    if (e) e.stopPropagation();
+    const currentUrgent = isUrgentAnnouncement(ann);
+    const nextPinned = !currentUrgent;
+
+    try {
+      let newTitle = ann.title || '';
+      if (!nextPinned) {
+        newTitle = newTitle.replace(/^\[MENDESAK\]\s*/i, '').trim();
+      } else if (!newTitle.toUpperCase().includes('[MENDESAK]')) {
+        newTitle = `[MENDESAK] ${newTitle}`;
+      }
+
+      await api.patch(`/announcements/${ann.id}/pin`, { is_pinned: nextPinned ? 1 : 0 });
+
+      setAnnouncements((prev) => {
+        const nextList = prev.map((item) =>
+          item.id === ann.id
+            ? { ...item, is_pinned: nextPinned ? 1 : 0, title: newTitle }
+            : item
+        );
+        return nextList.sort((a, b) => {
+          const aUrgent = isUrgentAnnouncement(a) ? 1 : 0;
+          const bUrgent = isUrgentAnnouncement(b) ? 1 : 0;
+          if (aUrgent !== bUrgent) return bUrgent - aUrgent;
+          const dateA = new Date(a.published_date || a.created_at || 0).getTime();
+          const dateB = new Date(b.published_date || b.created_at || 0).getTime();
+          return dateB - dateA;
+        });
+      });
+
+      if (selectedAnnouncement?.id === ann.id) {
+        setSelectedAnnouncement((prev) => ({
+          ...prev,
+          is_pinned: nextPinned ? 1 : 0,
+          title: newTitle
+        }));
+      }
+
+      setToastMsg({
+        type: 'success',
+        text: nextPinned
+          ? 'Pengumuman disematkan sebagai surat edaran mendesak (Pinned).'
+          : 'Pin pengumuman berhasil dilepas (Unpinned).'
+      });
+      setTimeout(() => setToastMsg(null), 3500);
+      window.dispatchEvent(new CustomEvent('arff:announcements-updated'));
+    } catch (err) {
+      console.error('Error toggling pin:', err);
+      setToastMsg({
+        type: 'error',
+        text: 'Gagal memperbarui status pin pengumuman.'
+      });
+      setTimeout(() => setToastMsg(null), 3500);
     }
   };
 
@@ -445,17 +652,45 @@ export default function AnnouncementsPage() {
                           </div>
                         </div>
 
-                        {/* Delete Button for Admin */}
-                        {canDelete && (
-                          <button
-                            type="button"
-                            onClick={(e) => handleOpenDeleteModal(ann, e)}
-                            title="Hapus Pengumuman"
-                            className="p-1.5 rounded hover:bg-red-100 text-slate-400 hover:text-red-700 transition-colors duration-100 shrink-0"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+                        {/* Action Buttons: Pin/Unpin, Edit, Delete */}
+                        <div className="flex items-center gap-0.5 shrink-0 self-start">
+                          {canPublish && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleTogglePin(ann, e)}
+                              title={isUrgentAnnouncement(ann) ? "Lepas Pin (Unpin)" : "Sematkan Pengumuman (Pin)"}
+                              className={`p-1.5 rounded transition-colors duration-100 ${
+                                isUrgentAnnouncement(ann)
+                                  ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                  : 'hover:bg-slate-100 text-slate-400 hover:text-red-600'
+                              }`}
+                            >
+                              <Pin className={`w-3.5 h-3.5 ${isUrgentAnnouncement(ann) ? 'fill-red-600 text-red-600' : ''}`} />
+                            </button>
+                          )}
+
+                          {canPublish && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleOpenEditModal(ann, e)}
+                              title="Edit Surat Edaran"
+                              className="p-1.5 rounded hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-colors duration-100"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+
+                          {canDelete && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleOpenDeleteModal(ann, e)}
+                              title="Hapus Pengumuman"
+                              className="p-1.5 rounded hover:bg-red-100 text-slate-400 hover:text-red-700 transition-colors duration-100"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -490,7 +725,35 @@ export default function AnnouncementsPage() {
                     </h3>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    {canPublish && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleTogglePin(selectedAnnouncement, e)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-colors duration-100 shadow-xs cursor-pointer ${
+                          isUrgentAnnouncement(selectedAnnouncement)
+                            ? 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100'
+                            : 'border-slate-300 text-slate-700 hover:bg-white'
+                        }`}
+                        title={isUrgentAnnouncement(selectedAnnouncement) ? "Lepas Pin (Unpin)" : "Sematkan Pengumuman (Pin)"}
+                      >
+                        <Pin className={`w-3.5 h-3.5 ${isUrgentAnnouncement(selectedAnnouncement) ? 'fill-red-600 text-red-600' : 'text-slate-500'}`} />
+                        <span>{isUrgentAnnouncement(selectedAnnouncement) ? 'Lepas Pin' : 'Pin'}</span>
+                      </button>
+                    )}
+
+                    {canPublish && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleOpenEditModal(selectedAnnouncement, e)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-white text-xs font-bold transition-colors duration-100 shadow-xs cursor-pointer"
+                        title="Edit Surat Edaran"
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Edit</span>
+                      </button>
+                    )}
+
                     <a
                       href={getPdfUrl(selectedAnnouncement.file_path, selectedAnnouncement.id)}
                       download={selectedAnnouncement.file_name || 'pengumuman.pdf'}
@@ -691,6 +954,113 @@ export default function AnnouncementsPage() {
                 </span>
                 <span className="text-[11px] text-slate-400">
                   Format resmi Portable Document Format (.pdf)
+                </span>
+              </label>
+            </div>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal Edit Surat Edaran / Pengumuman */}
+      <Modal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        title="Edit Surat Edaran / Pengumuman"
+        subtitle={editCircularNumber || 'Pembaruan Dokumen Dinas'}
+        maxWidth="max-w-xl"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setEditModalOpen(false)} disabled={updating}>
+              Batal
+            </Button>
+            <Button variant="primary" onClick={handleUpdateAnnouncement} loading={updating}>
+              Simpan Perubahan
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={handleUpdateAnnouncement} className="space-y-4">
+          {editFormError && (
+            <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <span>{typeof editFormError === 'string' ? editFormError : (editFormError?.message || 'Terjadi kesalahan.')}</span>
+            </div>
+          )}
+
+          <InputField
+            label="Judul Edaran / Pengumuman"
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            placeholder="Contoh: Instruksi Pengisian Checklist Kesiapan Armada & Roster Shift"
+            required
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <InputField
+              label="Nomor Surat Edaran (Opsional)"
+              value={editCircularNumber}
+              onChange={(e) => setEditCircularNumber(e.target.value)}
+              placeholder="Contoh: ED.04/ARFF-YIA/X/2026"
+            />
+
+            <InputField
+              label="Tanggal & Waktu Terbit (WIB)"
+              type="datetime-local"
+              value={editPublishedDate}
+              onChange={(e) => setEditPublishedDate(e.target.value)}
+              required
+            />
+          </div>
+
+          <TextareaField
+            label="Ringkasan / Uraian Singkat (Opsional)"
+            value={editDescription}
+            onChange={(e) => setEditDescription(e.target.value)}
+            placeholder="Tuliskan poin penting surat edaran ini secara ringkas..."
+            rows={2}
+          />
+
+          {/* Opsi Sematkan / Pinned */}
+          <div className="p-3 rounded-xl bg-red-50/80 border border-red-200">
+            <label className="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-red-900">
+              <input
+                type="checkbox"
+                checked={editIsPinned}
+                onChange={(e) => setEditIsPinned(e.target.checked)}
+                className="w-4 h-4 rounded text-red-600 border-red-300 focus:ring-red-500 transition-colors duration-100"
+              />
+              <span className="flex items-center gap-1.5">
+                <Pin className="w-3.5 h-3.5 text-red-600" />
+                Sematkan Sebagai Pengumuman Mendesak (PINNED)
+              </span>
+            </label>
+            <p className="text-[11px] text-red-700 mt-1 pl-6">
+              Centang untuk menyematkan pengumuman di posisi teratas daftar dengan lencana merah khusus, atau hilangkan centang untuk melepas pin (unpin).
+            </p>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+              Ganti Berkas Dokumen PDF (Opsional, Maks. 10 MB)
+            </label>
+            <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center hover:border-slate-400 bg-slate-50/50 transition-colors duration-100">
+              <input
+                type="file"
+                id="edit-announcement-pdf-input"
+                accept="application/pdf"
+                onChange={handleEditFileChange}
+                className="hidden"
+              />
+              <label
+                htmlFor="edit-announcement-pdf-input"
+                className="cursor-pointer flex flex-col items-center justify-center gap-1.5"
+              >
+                <UploadCloud className="w-8 h-8 text-slate-400" />
+                <span className="text-xs font-bold text-slate-700">
+                  {editPdfFile ? editPdfFile.name : `Tetap gunakan: ${existingFileName}`}
+                </span>
+                <span className="text-[11px] text-slate-400">
+                  Klik jika ingin memilih berkas PDF baru untuk menggantikan berkas lama
                 </span>
               </label>
             </div>

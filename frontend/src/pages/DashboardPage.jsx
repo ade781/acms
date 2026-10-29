@@ -538,11 +538,8 @@ export default function DashboardPage() {
               <span className="text-xs font-semibold text-slate-600">Regu & Pimpinan Shift</span>
               <Clock className="w-4 h-4 text-slate-400" />
             </div>
-            <div className="flex items-baseline justify-between gap-2">
-              <div className="text-xl font-bold text-slate-900">Regu {String(currentTeam || '')}</div>
-              <span className="text-[11px] font-mono tabular-nums font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
-                {getShiftHours(activeShiftNumber)}
-              </span>
+            <div className="text-xl font-bold text-slate-900">
+              Regu {String(currentTeam || '')}
             </div>
           </div>
 
