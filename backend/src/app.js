@@ -29,6 +29,9 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// Konfigurasi trust proxy agar Express dan express-rate-limit membaca IP asli klien dari header X-Forwarded-For saat berada di balik reverse proxy
+app.set('trust proxy', 1);
+
 // Middleware kompresi respons HTTP (Gzip/Brotli)
 app.use(compression());
 

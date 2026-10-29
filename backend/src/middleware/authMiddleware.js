@@ -24,7 +24,7 @@ export const requireAuth = async (req, res, next) => {
     const decoded = jwt.verify(token, secret);
 
     const [rows] = await pool.query(
-      `SELECT u.id, u.username, u.name, u.email, u.role, u.token_version, p.id as personnel_id, p.team_group
+      `SELECT u.id, u.username, u.name, u.email, u.role, u.token_version, u.must_change_password, p.id as personnel_id, p.team_group
        FROM users u
        LEFT JOIN personnel p ON p.user_id = u.id
        WHERE u.id = ?`,
@@ -44,6 +44,24 @@ export const requireAuth = async (req, res, next) => {
       Number(decoded.token_version) !== Number(user.token_version)
     ) {
       return errorResponse(res, 'Sesi telah kedaluwarsa atau kata sandi telah diubah. Silakan masuk kembali.', 401);
+    }
+
+    // Penegakan Aktivasi Sandi Wajib (must_change_password)
+    if (Boolean(user.must_change_password)) {
+      const currentUrl = req.originalUrl || req.url || '';
+      const allowedPaths = [
+        '/api/auth/change-password',
+        '/api/auth/logout',
+        '/api/auth/me'
+      ];
+      const isAllowed = allowedPaths.some(p => currentUrl.startsWith(p));
+      if (!isAllowed) {
+        return res.status(403).json({
+          success: false,
+          code: 'PASSWORD_CHANGE_REQUIRED',
+          message: 'Akses dibatasi: Anda wajib mengganti kata sandi awal terlebih dahulu sebelum mengakses sistem operasional.'
+        });
+      }
     }
 
     req.user = user;

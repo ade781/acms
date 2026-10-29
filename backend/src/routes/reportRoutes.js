@@ -13,6 +13,7 @@ const router = Router();
 router.use(requireAuth);
 
 router.get('/pdf', getShiftReportPdf);
+router.get('/shift/pdf', getShiftReportPdf);
 router.get('/export/pdf', getShiftReportPdf);
 router.get('/vehicle-issues', getVehicleIssuesAudit);
 router.get('/vehicles/pdf', getVehiclesReportPdf);

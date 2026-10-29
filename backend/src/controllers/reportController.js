@@ -444,7 +444,7 @@ export const getVehiclesReportPdf = async (req, res) => {
  */
 export const getIncidentsReportPdf = async (req, res) => {
   try {
-    const { period = '1month', start_date, end_date } = req.query;
+    const { period = '1month', start_date, end_date, status, category } = req.query;
 
     const today = new Date();
     let calculatedStartDate = '';
@@ -471,15 +471,28 @@ export const getIncidentsReportPdf = async (req, res) => {
       calculatedStartDate = d.toISOString().split('T')[0];
     }
 
-    // Ambil insiden pada rentang periode
-    const [incidentsList] = await pool.query(
-      `SELECT i.*, u.name as reporter_name
-       FROM incidents i
-       LEFT JOIN users u ON u.id = i.reporter_id
-       WHERE i.incident_date BETWEEN ? AND ?
-       ORDER BY i.incident_date DESC, i.incident_time DESC`,
-      [calculatedStartDate, calculatedEndDate]
-    );
+    // Ambil insiden pada rentang periode dengan filter dinamis status & category
+    let querySql = `
+      SELECT i.*, u.name as reporter_name
+      FROM incidents i
+      LEFT JOIN users u ON u.id = i.reporter_id
+      WHERE i.incident_date BETWEEN ? AND ?
+    `;
+    const queryParams = [calculatedStartDate, calculatedEndDate];
+
+    if (status && status !== 'all' && status !== 'ALL') {
+      querySql += ` AND i.status = ?`;
+      queryParams.push(status);
+    }
+
+    if (category && category !== 'all' && category !== 'ALL') {
+      querySql += ` AND i.category = ?`;
+      queryParams.push(category);
+    }
+
+    querySql += ` ORDER BY i.incident_date DESC, i.incident_time DESC`;
+
+    const [incidentsList] = await pool.query(querySql, queryParams);
 
     // Ambil data pejabat Section Head / Dept Head secara dinamis
     const deptHeadData = await getOfficialSignatory(pool);
@@ -489,15 +502,43 @@ export const getIncidentsReportPdf = async (req, res) => {
     ).length;
     const ongoingCount = incidentsList.length - resolvedCount;
 
+    // Hitung kategori dominan
+    const categoryCounts = {};
+    incidentsList.forEach((i) => {
+      if (i.category) {
+        categoryCounts[i.category] = (categoryCounts[i.category] || 0) + 1;
+      }
+    });
+    let topCategory = '-';
+    let maxCatCount = 0;
+    Object.entries(categoryCounts).forEach(([cat, count]) => {
+      if (count > maxCatCount) {
+        maxCatCount = count;
+        topCategory = cat.replace(/_/g, ' ').toUpperCase();
+      }
+    });
+
+    const periodLabelMap = {
+      '1month': '1 Bulan Terakhir',
+      '3months': '3 Bulan Terakhir',
+      '1year': '1 Tahun Terakhir',
+      'custom': 'Periode Kustom'
+    };
+
     const payload = {
       period,
+      periodLabel: periodLabelMap[period] || 'Periode Operasional',
+      startDate: calculatedStartDate,
+      endDate: calculatedEndDate,
       start_date: calculatedStartDate,
       end_date: calculatedEndDate,
       incidents: incidentsList,
       summary: {
         totalIncidents: incidentsList.length,
         resolvedCount,
+        inProgressCount: ongoingCount,
         ongoingCount,
+        topCategory
       },
       dept_head_name: deptHeadData?.name || 'Section Head ARFF',
       dept_head_nip: deptHeadData?.nip || null,

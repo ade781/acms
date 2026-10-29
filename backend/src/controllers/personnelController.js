@@ -14,7 +14,8 @@ const __dirname = path.dirname(__filename);
 
 export const getPersonnelList = async (req, res) => {
   try {
-    const { team_group, search, cert_level, is_active, compact } = req.query;
+    const { team_group, team, search, cert_level, is_active, compact } = req.query;
+    const effectiveTeam = team_group || team;
     const isCompact = compact === 'true' || compact === true;
 
     const selectColumns = isCompact
@@ -29,9 +30,9 @@ export const getPersonnelList = async (req, res) => {
     `;
     const params = [];
 
-    if (team_group) {
+    if (effectiveTeam && effectiveTeam !== 'ALL') {
       query += ` AND p.team_group = ?`;
-      params.push(team_group);
+      params.push(effectiveTeam);
     }
 
     if (cert_level) {
@@ -73,7 +74,8 @@ export const getPersonnelList = async (req, res) => {
 
 export const exportPersonnelPdf = async (req, res) => {
   try {
-    const { team_group } = req.query;
+    const { team_group, team } = req.query;
+    const effectiveTeam = team_group || team;
 
     let query = `
       SELECT p.*, u.username, u.email as user_email, u.role as user_role, u.must_change_password
@@ -83,9 +85,9 @@ export const exportPersonnelPdf = async (req, res) => {
     `;
     const params = [];
 
-    if (team_group && team_group !== 'ALL') {
+    if (effectiveTeam && effectiveTeam !== 'ALL') {
       query += ` AND p.team_group = ?`;
-      params.push(team_group);
+      params.push(effectiveTeam);
     }
 
     query += ` ORDER BY p.team_group ASC, p.id ASC`;

@@ -34,6 +34,23 @@ export const getCurrentDeployment = async (req, res) => {
     const [teamCountRows] = await pool.query('SELECT COUNT(*) as total_team_members FROM personnel WHERE team_group = ? AND is_active = 1', [targetTeam]);
     const totalTeamMembers = Number(teamCountRows[0]?.total_team_members || 0);
 
+    // Ambil seluruh master armada operasional aktif (7 armada fisik)
+    const [masterVehicles] = await pool.query(
+      `SELECT id, code_name as vehicle_code, vehicle_name, category
+       FROM vehicles
+       WHERE is_active = 1 AND category != 'posko' AND code_name != 'WATCHROOM'
+       ORDER BY category ASC, id ASC`
+    );
+
+    const defaultVehiclesList = masterVehicles.map((v) => ({
+      vehicle_id: v.id,
+      vehicle_code: v.vehicle_code,
+      vehicle_name: v.vehicle_name,
+      category: v.category,
+      pic: null,
+      crew: []
+    }));
+
     if (shifts.length === 0) {
       return successResponse(res, 'Sesi shift belum dibuat, form ploting dimulai dari kondisi kosong', {
         shift: null,
@@ -43,7 +60,7 @@ export const getCurrentDeployment = async (req, res) => {
         total_team_members: totalTeamMembers,
         dept_head: deptHeadData,
         deployments: [],
-        vehicles: [],
+        vehicles: defaultVehiclesList,
         watchroom: [],
         absents: []
       });
@@ -86,8 +103,19 @@ export const getCurrentDeployment = async (req, res) => {
       [currentShift.id]
     );
 
-    // Pengelompokan ploting
+    // Inisialisasi vehicleDeploymentsMap dengan seluruh master armada aktif
     const vehicleDeploymentsMap = {};
+    masterVehicles.forEach((v) => {
+      vehicleDeploymentsMap[v.id] = {
+        vehicle_id: v.id,
+        vehicle_code: v.vehicle_code,
+        vehicle_name: v.vehicle_name,
+        category: v.category,
+        pic: null,
+        crew: []
+      };
+    });
+
     const watchroomDeployments = [];
     const absentDeployments = [];
 
@@ -269,19 +297,7 @@ export const saveDeploymentBatch = async (req, res) => {
 
     await connection.beginTransaction();
 
-    // 1. Buat atau perbarui entri personnel_shifts
-    const [existingShifts] = await connection.query(
-      `SELECT id, supervisor_id, status FROM personnel_shifts
-       WHERE shift_date = ? AND shift_number = ? AND team_group = ?`,
-      [shift_date, shift_number, team_group]
-    );
-
-    let shiftId;
     let supId = supervisor_id || null;
-
-    if (existingShifts.length > 0 && !supId) {
-      supId = existingShifts[0].supervisor_id;
-    }
 
     if (!supId) {
       // Cari supervisor sah / Ketua Regu dari database untuk team_group ini
@@ -304,22 +320,25 @@ export const saveDeploymentBatch = async (req, res) => {
       }
     }
 
-    if (existingShifts.length > 0) {
-      shiftId = existingShifts[0].id;
-      await connection.query(
-        `UPDATE personnel_shifts SET
-          supervisor_id = ?,
-          handover_notes = COALESCE(?, handover_notes)
-         WHERE id = ?`,
-        [supId, handover_notes, shiftId]
+    // 1. Buat atau perbarui entri personnel_shifts secara atomik (Anti-Race Condition Concurrency)
+    const [upsertShift] = await connection.query(
+      `INSERT INTO personnel_shifts (shift_date, shift_number, team_group, supervisor_id, status, handover_notes)
+       VALUES (?, ?, ?, ?, 'open', ?)
+       ON DUPLICATE KEY UPDATE
+         supervisor_id = COALESCE(VALUES(supervisor_id), supervisor_id),
+         handover_notes = COALESCE(VALUES(handover_notes), handover_notes),
+         status = 'open',
+         id = LAST_INSERT_ID(id)`,
+      [shift_date, shift_number, team_group, supId, handover_notes || null]
+    );
+
+    let shiftId = upsertShift.insertId;
+    if (!shiftId) {
+      const [fetchShift] = await connection.query(
+        `SELECT id FROM personnel_shifts WHERE shift_date = ? AND shift_number = ? AND team_group = ?`,
+        [shift_date, shift_number, team_group]
       );
-    } else {
-      const [insertShift] = await connection.query(
-        `INSERT INTO personnel_shifts (shift_date, shift_number, team_group, supervisor_id, status, handover_notes)
-         VALUES (?, ?, ?, ?, 'open', ?)`,
-        [shift_date, shift_number, team_group, supId, handover_notes || null]
-      );
-      shiftId = insertShift.insertId;
+      shiftId = fetchShift[0]?.id;
     }
 
     // 2. Validasi Integritas Backend: Cegah satu personel bertugas ganda pada lebih dari satu armada
@@ -385,31 +404,18 @@ export const saveDeploymentBatch = async (req, res) => {
       }
     }
 
-    // 4. Sinkronisasikan baris vehicle_readiness_logs agar PIC tercatat secara presisi
+    // 4. Sinkronisasikan baris vehicle_readiness_logs secara atomik agar PIC tercatat presisi tanpa tabrakan duplikasi
     for (const [vId, picPersonnelId] of Object.entries(vehiclePics)) {
-      const [existingVLog] = await connection.query(
-        `SELECT id FROM vehicle_readiness_logs
-         WHERE vehicle_id = ? AND shift_date = ? AND shift_number = ?`,
-        [vId, shift_date, shift_number]
+      await connection.query(
+        `INSERT INTO vehicle_readiness_logs (
+          vehicle_id, shift_date, shift_number, team_group,
+          pic_personnel_id, status, follow_up_status
+        ) VALUES (?, ?, ?, ?, ?, 'belum_dilaporkan', 'pending')
+        ON DUPLICATE KEY UPDATE
+          pic_personnel_id = VALUES(pic_personnel_id),
+          team_group = VALUES(team_group)`,
+        [vId, shift_date, shift_number, team_group, picPersonnelId]
       );
-
-      if (existingVLog.length > 0) {
-        await connection.query(
-          `UPDATE vehicle_readiness_logs SET
-            pic_personnel_id = ?,
-            team_group = ?
-           WHERE id = ?`,
-          [picPersonnelId, team_group, existingVLog[0].id]
-        );
-      } else {
-        await connection.query(
-          `INSERT INTO vehicle_readiness_logs (
-            vehicle_id, shift_date, shift_number, team_group,
-            pic_personnel_id, status, follow_up_status
-          ) VALUES (?, ?, ?, ?, ?, 'belum_dilaporkan', 'pending')`,
-          [vId, shift_date, shift_number, team_group, picPersonnelId]
-        );
-      }
     }
 
     // Lepaskan PIC pada unit yang tidak lagi memiliki PIC di shift ini

@@ -18,24 +18,33 @@ export const requestLeaveRange = async (req, res) => {
       return errorResponse(res, 'Tanggal mulai dan tanggal selesai cuti wajib diisi', 400);
     }
 
-    const isPrivileged = ['admin', 'supervisor', 'chief', 'chief_assistant', 'dept_head'].includes(req.user.role);
-    let targetPersonnelId = Number(personnel_id);
-
-    if (!isPrivileged) {
-      if (!req.user.personnel_id) {
-        connection.release();
-        return errorResponse(res, 'Akun Anda tidak terhubung dengan data personel operasional', 403);
-      }
-      targetPersonnelId = Number(req.user.personnel_id);
-    } else {
-      if (!targetPersonnelId || isNaN(targetPersonnelId)) {
-        targetPersonnelId = req.user.personnel_id ? Number(req.user.personnel_id) : null;
-      }
+    // GEMINI.md Butir 15: Pengajuan cuti adalah hak prerogatif mandiri personel operasional.
+    // Admin maupun pimpinan dilarang memiliki tombol/fitur untuk mengajukan cuti sepihak atas nama staf.
+    if (!req.user.personnel_id) {
+      connection.release();
+      return errorResponse(
+        res,
+        'Pengajuan cuti merupakan hak prerogatif mandiri personel operasional. Akun Administrator tanpa keterkaitan data personel tidak berwenang mengajukan cuti.',
+        403
+      );
     }
 
-    if (!targetPersonnelId || isNaN(targetPersonnelId)) {
+    if (personnel_id && Number(personnel_id) !== Number(req.user.personnel_id)) {
       connection.release();
-      return errorResponse(res, 'ID Personel tidak valid atau belum ditentukan. Harap tentukan nama personel.', 400);
+      return errorResponse(
+        res,
+        'Akses ditolak: Pengajuan cuti adalah hak prerogatif mandiri. Anda tidak berwenang mengajukan cuti atas nama personel lain.',
+        403
+      );
+    }
+
+    const targetPersonnelId = Number(req.user.personnel_id);
+
+    // Sanitasi absent_reason agar sesuai ENUM MySQL ('cuti', 'sakit', 'dinas', 'tukar_dinas')
+    const VALID_REASONS = ['cuti', 'sakit', 'dinas', 'tukar_dinas'];
+    let sanitizedReason = String(absent_reason || 'cuti').toLowerCase().trim();
+    if (!VALID_REASONS.includes(sanitizedReason)) {
+      sanitizedReason = 'cuti';
     }
 
     const startDateObj = new Date(start_date);
@@ -217,7 +226,7 @@ export const requestLeaveRange = async (req, res) => {
         `INSERT INTO personnel_deployments (
           shift_id, personnel_id, deployment_type, is_pic, absent_reason, assigned_by, notes
         ) VALUES (?, ?, 'absent', 0, ?, ?, ?)`,
-        [shiftId, targetPersonnelId, absent_reason, req.user.id, noteText]
+        [shiftId, targetPersonnelId, sanitizedReason, req.user.id, noteText]
       );
 
       daysCount++;

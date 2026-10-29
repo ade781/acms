@@ -15,6 +15,7 @@ const router = Router();
 
 router.use(requireAuth);
 
+router.get('/', getMonthlySchedule);
 router.get('/monthly', getMonthlySchedule);
 router.get('/cycle', getScheduleCyclePreview);
 router.post('/cycle', requireRole(['admin', 'supervisor', 'chief', 'operation_chief', 'dept_head']), saveScheduleCycle);
