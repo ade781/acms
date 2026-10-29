@@ -519,6 +519,3 @@ export const getIncidentSummaryReportPdf = async (req, res) => {
     }
   }
 };
-
-export const updateIncident = updateIncidentStatus;
-export const resolveIncident = updateIncidentStatus;

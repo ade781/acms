@@ -7,7 +7,6 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 import jwt from 'jsonwebtoken';
 import pool from './config/db.js';
-import { requireAuth } from './middleware/authMiddleware.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 import authRoutes from './routes/authRoutes.js';

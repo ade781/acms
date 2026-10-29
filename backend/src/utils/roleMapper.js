@@ -38,23 +38,3 @@ export function mapRankPositionToRole(rank) {
   }
   return 'junior_firefighter';
 }
-
-/**
- * Memeriksa apakah role pengguna termasuk jajaran pimpinan/struktural (Admin, Dept Head, Section Head, Chief, Chief Assistant)
- * @param {string} role
- * @returns {boolean}
- */
-export function isLeadershipRole(role) {
-  if (!role) return false;
-  return ['admin', 'dept_head', 'section_head', 'chief', 'chief_assistant', 'supervisor', 'operation_chief'].includes(role);
-}
-
-/**
- * Memeriksa apakah pengguna memiliki hak akses istimewa untuk mengelola penugasan, cuti, atau checklist kelaikan armada
- * @param {string} role
- * @returns {boolean}
- */
-export function isPrivilegedRole(role) {
-  if (!role) return false;
-  return ['admin', 'dept_head', 'section_head', 'chief', 'chief_assistant', 'supervisor', 'operation_chief'].includes(role);
-}

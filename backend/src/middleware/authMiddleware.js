@@ -73,10 +73,3 @@ export const requireAuth = async (req, res, next) => {
     return errorResponse(res, 'Token autentikasi tidak valid', 401);
   }
 };
-
-/**
- * BUTIR TUGAS 1: Middleware verifikasi akses berkas sensitif (/uploads/*)
- * Mendukung autentikasi fleksibel: membaca dari header 'Authorization: Bearer <token>'
- * maupun query string '?token=...' (sesuai aturan GEMINI.md Butir 16)
- */
-export const verifyUploadAccess = requireAuth;

@@ -1,12 +1,12 @@
 import pool from '../config/db.js';
-import { successResponse, errorResponse, createdResponse } from '../utils/responseHelper.js';
+import { successResponse, errorResponse } from '../utils/responseHelper.js';
 
 // Pola rotasi 8 hari standar bawaan ARFF:
 // Day 0 & 1: Alpha Malam, Bravo Libur, Charlie Siang, Delta Pagi
 // Day 2 & 3: Alpha Libur, Bravo Siang, Charlie Pagi, Delta Malam
 // Day 4 & 5: Alpha Siang, Bravo Pagi, Charlie Malam, Delta Libur
 // Day 6 & 7: Alpha Pagi, Bravo Malam, Charlie Libur, Delta Siang
-export const DEFAULT_ROTATION_8_DAYS = [
+const DEFAULT_ROTATION_8_DAYS = [
   { 1: 'Delta', 2: 'Charlie', 3: 'Alpha', off: 'Bravo' },
   { 1: 'Delta', 2: 'Charlie', 3: 'Alpha', off: 'Bravo' },
   { 1: 'Charlie', 2: 'Bravo', 3: 'Delta', off: 'Alpha' },
@@ -16,8 +16,6 @@ export const DEFAULT_ROTATION_8_DAYS = [
   { 1: 'Alpha', 2: 'Delta', 3: 'Bravo', off: 'Charlie' },
   { 1: 'Alpha', 2: 'Delta', 3: 'Bravo', off: 'Charlie' },
 ];
-
-export const ROTATION_8_DAYS = DEFAULT_ROTATION_8_DAYS;
 
 export function calculateDefaultRoster(targetDateStr, anchorDateStr = '2026-10-19', pattern = DEFAULT_ROTATION_8_DAYS) {
   const [ty, tm, td] = targetDateStr.split('-').map(Number);

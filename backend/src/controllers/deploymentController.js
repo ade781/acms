@@ -434,9 +434,9 @@ export const saveDeploymentBatch = async (req, res) => {
   }
 };
 
-export const saveDeployment = saveDeploymentBatch;
-export const getCurrentDeployments = getCurrentDeployment;
-export const saveDeployments = saveDeploymentBatch;
+
+
+
 
 // Re-export domain perizinan cuti dari leaveController.js untuk menjamin 100% backward compatibility
 export {

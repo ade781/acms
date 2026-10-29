@@ -1,5 +1,5 @@
 import PDFDocument from 'pdfkit';
-import { resolveSignatureBuffer, applyWatermarkAndPageNumbers } from './pdfHelpers.js';
+import { resolveSignatureBuffer } from './pdfHelpers.js';
 
 /**
  * Membuat dokumen PDF Daftar Akun & Kredensial Personel ARFF YIA (Format A4 Landscape)

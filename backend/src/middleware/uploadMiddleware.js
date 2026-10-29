@@ -37,7 +37,7 @@ const storage = multer.diskStorage({
   }
 });
 
-export const imageFileFilter = (req, file, cb) => {
+const imageFileFilter = (req, file, cb) => {
   const allowedMimes = ['image/webp', 'image/jpeg', 'image/png', 'image/jpg'];
   const allowedExts = ['.webp', '.jpg', '.jpeg', '.png'];
 
@@ -52,7 +52,7 @@ export const imageFileFilter = (req, file, cb) => {
   }
 };
 
-export const documentFileFilter = (req, file, cb) => {
+const documentFileFilter = (req, file, cb) => {
   const allowedMimes = [
     'application/pdf',
     'image/webp',

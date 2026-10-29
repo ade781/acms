@@ -2,7 +2,7 @@
  * 11 Kompetensi Baku Personel ARFF YIA
  * Sesuai Standar Operasional & Buku Induk Kepegawaian ARFF
  */
-export const VALID_ADDITIONAL_COMPETENCIES = [
+const VALID_ADDITIONAL_COMPETENCIES = [
   'SAR',
   'TOT',
   'Human Faktor',

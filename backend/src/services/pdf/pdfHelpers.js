@@ -15,38 +15,6 @@ const getSafeUploadsDirs = () => {
   return dirs.filter((d) => fs.existsSync(d));
 };
 
-export const resolveSignatureFile = (fileUrl) => {
-  if (!fileUrl) return null;
-  const filename = path.basename(fileUrl);
-  if (!filename || filename === '.' || filename === '/' || filename.includes('..')) return null;
-
-  const uploadDirs = getSafeUploadsDirs();
-  for (const dir of uploadDirs) {
-    const candidate = path.resolve(dir, filename);
-    // Verifikasi keamanan path traversal
-    if (!candidate.startsWith(dir)) continue;
-
-    if (fs.existsSync(candidate)) {
-      const ext = path.extname(candidate).toLowerCase();
-      if (['.png', '.jpg', '.jpeg'].includes(ext)) {
-        return candidate;
-      }
-      if (ext === '.webp') {
-        const pngAlt = candidate.replace(/\.webp$/i, '.png');
-        if (fs.existsSync(pngAlt)) return pngAlt;
-        const jpgAlt = candidate.replace(/\.webp$/i, '.jpg');
-        if (fs.existsSync(jpgAlt)) return jpgAlt;
-        const jpegAlt = candidate.replace(/\.webp$/i, '.jpeg');
-        if (fs.existsSync(jpegAlt)) return jpegAlt;
-
-        return null;
-      }
-      return null;
-    }
-  }
-  return null;
-};
-
 /**
  * Mengambil Buffer gambar tanda tangan, otomatis mentranscode WebP ke PNG buffer jika diperlukan
  * Keamanan: Terkunci di folder uploads dan disanitasi dengan path.basename untuk mencegah path traversal.

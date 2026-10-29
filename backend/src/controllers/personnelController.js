@@ -7,7 +7,7 @@ import { successResponse, errorResponse, createdResponse } from '../utils/respon
 import { generatePersonnelAccountsPdf } from '../services/pdfService.js';
 import { sanitizeAndValidateCompetencies, parseCompetenciesArray } from '../utils/competencyHelper.js';
 import { getOfficialSignatory } from '../utils/officialHelper.js';
-import { mapRankPositionToRole, cleanTeam } from '../utils/roleMapper.js';
+import { mapRankPositionToRole } from '../utils/roleMapper.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -162,7 +162,7 @@ export const getPersonnelById = async (req, res) => {
 /**
  * Menghitung waktu operasional shift berjalan (WIB / UTC+7)
  */
-export function getCurrentOperationalShiftBackend(dateObj = new Date()) {
+function getCurrentOperationalShiftBackend(dateObj = new Date()) {
   const utc = dateObj.getTime() + (dateObj.getTimezoneOffset() * 60000);
   const wibDate = new Date(utc + (7 * 3600000));
 
@@ -198,7 +198,7 @@ export { mapRankPositionToRole } from '../utils/roleMapper.js';
  * Helper untuk mendeteksi apakah jabatan merupakan Ketua Regu (Chief) murni
  * (Bukan Asisten Chief / Wakil)
  */
-export function isChiefRank(rank) {
+function isChiefRank(rank) {
   if (!rank) return false;
   const r = rank.trim().toLowerCase();
   if (r.includes('assistant') || r.includes('asisten') || r.includes('wakil')) {
@@ -396,8 +396,8 @@ export const updatePersonnel = async (req, res) => {
       return errorResponse(res, 'Personel tidak ditemukan', 404);
     }
 
-    // Otorisasi: Admin, Supervisor, Chief, & Dept Head dapat mengedit semua, user biasa hanya dapat mengedit data miliknya sendiri
-    const isStaffAdmin = ['admin', 'supervisor', 'chief', 'operation_chief', 'dept_head'].includes(req.user.role);
+    // Otorisasi: Admin, Supervisor, Chief, Chief Assistant, & Dept Head dapat mengedit semua, user biasa hanya dapat mengedit data miliknya sendiri
+    const isStaffAdmin = ['admin', 'supervisor', 'chief', 'chief_assistant', 'operation_chief', 'dept_head'].includes(req.user.role);
     const isOwner =
       (req.user.personnel_id && req.user.personnel_id === Number(id)) ||
       (existing[0].user_id && existing[0].user_id === req.user.id) ||
