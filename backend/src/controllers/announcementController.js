@@ -109,17 +109,18 @@ export const createAnnouncement = async (req, res) => {
     const filePath = `/uploads/${file.filename}`;
     const fileName = file.originalname;
     const createdBy = req.user?.id || null;
-    const isPinned = req.body.is_pinned === '1' || req.body.is_pinned === 1 || req.body.is_pinned === true || req.body.is_pinned === 'true' || title.toUpperCase().includes('[MENDESAK]') ? 1 : 0;
+    const cleanTitle = (title || '').replace(/^\[MENDESAK\]\s*/i, '').trim();
+    const isPinned = req.body.is_pinned === '1' || req.body.is_pinned === 1 || req.body.is_pinned === true || req.body.is_pinned === 'true' ? 1 : 0;
 
     const [result] = await pool.query(
       `INSERT INTO announcements (title, circular_number, description, is_pinned, file_path, file_name, published_date, created_by)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [title.trim(), circular_number?.trim() || null, description?.trim() || null, isPinned, filePath, fileName, pubDate, createdBy]
+      [cleanTitle, circular_number?.trim() || null, description?.trim() || null, isPinned, filePath, fileName, pubDate, createdBy]
     );
 
     return createdResponse(res, 'Pengumuman dan dokumen edaran berhasil dipublikasikan', {
       id: result.insertId,
-      title: title.trim(),
+      title: cleanTitle,
       circular_number,
       is_pinned: isPinned,
       file_path: filePath,
@@ -188,7 +189,8 @@ export const deleteAnnouncement = async (req, res) => {
 
     const filePath = rows[0].file_path;
     if (filePath) {
-      const fullPath = path.resolve(__dirname, '../../', filePath.replace(/^\//, ''));
+      const cleanFileName = path.basename(filePath);
+      const fullPath = path.resolve(__dirname, '../../uploads', cleanFileName);
       if (fs.existsSync(fullPath)) {
         try {
           fs.unlinkSync(fullPath);
@@ -220,7 +222,7 @@ export const updateAnnouncement = async (req, res) => {
     }
 
     const currentAnn = existing[0];
-    const newTitle = title !== undefined && title !== null ? String(title).trim() : currentAnn.title;
+    const newTitle = title !== undefined && title !== null ? String(title).replace(/^\[MENDESAK\]\s*/i, '').trim() : currentAnn.title;
     if (!newTitle) {
       if (file?.path && fs.existsSync(file.path)) {
         try { fs.unlinkSync(file.path); } catch (e) { }
@@ -314,7 +316,7 @@ export const togglePinAnnouncement = async (req, res) => {
 
     await pool.query('UPDATE announcements SET is_pinned = ?, updated_at = NOW() WHERE id = ?', [nextPinned, id]);
 
-    return successResponse(res, nextPinned === 1 ? 'Pengumuman berhasil dipin (mendesak)' : 'Pin pengumuman berhasil dilepas', {
+    return successResponse(res, nextPinned === 1 ? 'Pengumuman berhasil disematkan (Pin)' : 'Pin pengumuman berhasil dilepas', {
       id: Number(id),
       is_pinned: nextPinned
     });

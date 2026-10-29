@@ -1,5 +1,5 @@
 import pool from '../config/db.js';
-import { successResponse, errorResponse, createdResponse } from '../utils/responseHelper.js';
+import { successResponse, errorResponse } from '../utils/responseHelper.js';
 import { calculateDefaultRoster } from './scheduleController.js';
 import { clearPdfCache } from '../services/pdfService.js';
 import { getOfficialSignatory } from '../utils/officialHelper.js';
@@ -204,20 +204,28 @@ export const saveDeploymentBatch = async (req, res) => {
       }
     }
 
-    // Validasi Integritas: Kumpulkan personel yang berstatus absent dalam shift ini
-    const absentIds = new Set(
-      deployments
-        .filter(d => d.deployment_type === 'absent' && d.personnel_id)
-        .map(d => Number(d.personnel_id))
+    // Validasi Integritas: Ambil data personel cuti langsung dari database untuk shift ini
+    const [existingShifts] = await connection.query(
+      `SELECT id FROM personnel_shifts WHERE shift_date = ? AND shift_number = ? AND team_group = ?`,
+      [shift_date, shift_number, team_group]
     );
+    const existingShiftId = existingShifts[0]?.id;
+    let dbAbsentIds = new Set();
+    if (existingShiftId) {
+      const [absentRows] = await connection.query(
+        "SELECT personnel_id FROM personnel_deployments WHERE shift_id = ? AND deployment_type = 'absent'",
+        [existingShiftId]
+      );
+      dbAbsentIds = new Set(absentRows.map(r => Number(r.personnel_id)));
+    }
 
-    // Cek apakah ada personel yang berstatus absent namun juga ditugaskan pada unit kendaraan/posko
+    // Cek apakah ada personel yang sedang cuti di database namun disusupkan pada unit operasional
     for (const d of deployments) {
-      if (d.deployment_type !== 'absent' && d.personnel_id && absentIds.has(Number(d.personnel_id))) {
+      if (d.deployment_type !== 'absent' && d.personnel_id && dbAbsentIds.has(Number(d.personnel_id))) {
         connection.release();
         return errorResponse(
           res,
-          `Personel (ID: ${d.personnel_id}) tercatat berstatus izin/cuti aktif pada shift ini. Batalkan pengajuan cuti terlebih dahulu sebelum menugaskan pada unit operasional.`,
+          `Personel (ID: ${d.personnel_id}) tercatat berstatus izin/cuti resmi pada shift ini. Personel yang sedang cuti tidak dapat ditugaskan pada unit operasional.`,
           400
         );
       }
@@ -341,19 +349,6 @@ export const saveDeploymentBatch = async (req, res) => {
       shiftId = fetchShift[0]?.id;
     }
 
-    // 2. Validasi Integritas Backend: Cegah satu personel bertugas ganda pada lebih dari satu armada
-    const activeAssignedSet = new Set();
-    for (const d of deployments) {
-      if (d.deployment_type !== 'absent' && d.personnel_id) {
-        const pId = Number(d.personnel_id);
-        if (activeAssignedSet.has(pId)) {
-          await connection.rollback();
-          return errorResponse(res, `Pelanggaran Integritas: Personel ID #${pId} terdeteksi ditugaskan ganda pada lebih dari satu armada operasional.`, 400);
-        }
-        activeAssignedSet.add(pId);
-      }
-    }
-
     // 3. Hapus HANYA ploting armada dan watchroom lama pada shift ini (JANGAN sentuh entri cuti/absent)
     await connection.query(
       "DELETE FROM personnel_deployments WHERE shift_id = ? AND deployment_type IN ('vehicle_utama', 'vehicle_pendukung', 'watchroom')",
@@ -363,21 +358,8 @@ export const saveDeploymentBatch = async (req, res) => {
     const vehiclePics = {};
 
     for (const d of deployments) {
-      if (d.deployment_type === 'absent') {
-        // Jangan duplikasi entri absent yang sudah tercatat
-        const [existingAbsent] = await connection.query(
-          'SELECT id FROM personnel_deployments WHERE shift_id = ? AND personnel_id = ? AND deployment_type = "absent"',
-          [shiftId, d.personnel_id]
-        );
-        if (existingAbsent.length === 0) {
-          await connection.query(
-            `INSERT INTO personnel_deployments (
-              shift_id, personnel_id, deployment_type, vehicle_id,
-              is_pic, absent_reason, assigned_by, notes
-            ) VALUES (?, ?, 'absent', NULL, 0, ?, ?, ?)`,
-            [shiftId, d.personnel_id, d.absent_reason || 'cuti', req.user?.id || null, d.notes || null]
-          );
-        }
+      // Hapus backdoor: Abaikan deployment_type absent karena cuti hanya boleh dicatat via requestLeaveRange
+      if (d.deployment_type === 'absent' || !d.personnel_id) {
         continue;
       }
 

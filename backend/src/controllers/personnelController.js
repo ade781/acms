@@ -11,6 +11,7 @@ import { mapRankPositionToRole, cleanTeam } from '../utils/roleMapper.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const uploadsDir = path.resolve(__dirname, '../../uploads');
 
 export const getPersonnelList = async (req, res) => {
   try {
@@ -635,7 +636,8 @@ export const deletePersonnel = async (req, res) => {
 
     // 1. Hapus berkas tanda tangan fisik jika ada
     if (signature_url) {
-      const sigPath = path.resolve(process.cwd(), signature_url.replace(/^\//, ''));
+      const sigFileName = path.basename(signature_url);
+      const sigPath = path.resolve(uploadsDir, sigFileName);
       if (fs.existsSync(sigPath)) {
         try { fs.unlinkSync(sigPath); } catch (e) {}
       }
@@ -645,7 +647,8 @@ export const deletePersonnel = async (req, res) => {
     const [docs] = await connection.query('SELECT file_url FROM personnel_documents WHERE personnel_id = ?', [id]);
     for (const doc of docs) {
       if (doc.file_url) {
-        const filePath = path.resolve(process.cwd(), doc.file_url.replace(/^\//, ''));
+        const docFileName = path.basename(doc.file_url);
+        const filePath = path.resolve(uploadsDir, docFileName);
         if (fs.existsSync(filePath)) {
           try { fs.unlinkSync(filePath); } catch (e) {}
         }
@@ -699,7 +702,6 @@ export {
 export {
   getOfficials,
   replaceDeptHead,
-  replaceSectionHead,
   replaceChief
 } from './officialsController.js';
 

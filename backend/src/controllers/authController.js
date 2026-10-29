@@ -270,6 +270,9 @@ export const updateProfile = async (req, res) => {
 
     const cleanStr = (val, fallback) => (val !== undefined ? (val ? String(val).trim() : null) : fallback);
 
+    const isStaffAdmin = req.user.role === 'admin';
+    const effectiveNip = isStaffAdmin ? cleanStr(nip, pers.nip) : pers.nip;
+
     let cleanCompetencies = pers.additional_competencies;
     if (additional_competencies !== undefined) {
       cleanCompetencies = sanitizeAndValidateCompetencies(additional_competencies, pers.additional_competencies);
@@ -301,7 +304,7 @@ export const updateProfile = async (req, res) => {
         additional_competencies = ?
       WHERE id = ?`,
       [
-        cleanStr(nip, pers.nip),
+        effectiveNip,
         cleanStr(birth_place, pers.birth_place),
         cleanBirthDate,
         cleanTmtDate,

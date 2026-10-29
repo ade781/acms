@@ -10,6 +10,24 @@ const __dirname = path.dirname(__filename);
 const uploadsDir = path.resolve(__dirname, '../../uploads');
 
 /**
+ * Helper aman penghapusan berkas fisik di direktori uploads
+ * Mencegah celah path traversal dengan membatasi nama berkas via path.basename
+ */
+const safeUnlink = (targetPathOrUrl) => {
+  if (!targetPathOrUrl) return;
+  const fileName = path.basename(targetPathOrUrl);
+  if (!fileName || fileName === '.' || fileName === '/') return;
+  const safePath = path.resolve(uploadsDir, fileName);
+  if (fs.existsSync(safePath)) {
+    try {
+      fs.unlinkSync(safePath);
+    } catch (e) {
+      console.warn(`Gagal menghapus berkas ${fileName}:`, e.message);
+    }
+  }
+};
+
+/**
  * Controller Khusus Manajemen Dokumen & Tanda Tangan Digital Kepegawaian ARFF YIA
  */
 
@@ -56,9 +74,7 @@ export const uploadPersonnelDocument = async (req, res) => {
     );
 
     if (rows.length === 0) {
-      if (req.file.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
+      safeUnlink(req.file?.path);
       return errorResponse(res, 'Personel tidak ditemukan', 404);
     }
 
@@ -69,9 +85,7 @@ export const uploadPersonnelDocument = async (req, res) => {
                    (target.user_id && Number(req.user.id) === Number(target.user_id));
 
     if (!isLeadership && !isSelf) {
-      if (req.file.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
+      safeUnlink(req.file?.path);
       return errorResponse(res, 'Akses ditolak: Anda tidak memiliki wewenang untuk mengunggah dokumen personel ini', 403);
     }
 
@@ -103,11 +117,7 @@ export const uploadPersonnelDocument = async (req, res) => {
 
     return successResponse(res, 'Dokumen personel berhasil diunggah', createdDoc, 201);
   } catch (error) {
-    if (req.file && req.file.path && fs.existsSync(req.file.path)) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (e) {}
-    }
+    safeUnlink(req.file?.path);
     console.error('Error uploadPersonnelDocument:', error);
     return errorResponse(res, 'Gagal mengunggah dokumen: ' + error.message, 500);
   }
@@ -140,15 +150,8 @@ export const deletePersonnelDocument = async (req, res) => {
       return errorResponse(res, 'Akses ditolak: Anda tidak memiliki wewenang untuk menghapus dokumen ini', 403);
     }
 
-    // Hapus file fisik dari storage jika ada
-    if (doc.file_url) {
-      const filePath = path.resolve(__dirname, '../../', doc.file_url.replace(/^\//, ''));
-      if (fs.existsSync(filePath)) {
-        try {
-          fs.unlinkSync(filePath);
-        } catch (e) {}
-      }
-    }
+    // Hapus file fisik dari storage jika ada (aman dari path traversal)
+    safeUnlink(doc.file_url);
 
     await pool.query('DELETE FROM personnel_documents WHERE id = ?', [docId]);
 
@@ -176,9 +179,7 @@ export const uploadSignature = async (req, res) => {
     );
 
     if (rows.length === 0) {
-      if (req.file.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
+      safeUnlink(req.file?.path);
       return errorResponse(res, 'Personel tidak ditemukan', 404);
     }
 
@@ -190,9 +191,7 @@ export const uploadSignature = async (req, res) => {
     const isTargetEligible = allowedSignatureRoles.includes(targetRole);
 
     if (!isTargetEligible) {
-      if (req.file.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
+      safeUnlink(req.file?.path);
       return errorResponse(
         res,
         'Akses ditolak: Opsi tanda tangan hanya diperuntukkan bagi Department Head, Section Head, Chief, dan Chief Assistant.',
@@ -200,41 +199,19 @@ export const uploadSignature = async (req, res) => {
       );
     }
 
-    // Pengecekan user yang mengunggah (hanya dept_head, section_head, chief, chief_assistant, atau admin)
+    // Otorisasi ketat: Hanya admin ATAU pemilik akun itu sendiri yang boleh mengunggah tanda tangan
     const currentUserRole = req.user.role;
-    const isUploaderEligible = ['admin', 'dept_head', 'section_head', 'chief', 'chief_assistant'].includes(currentUserRole);
+    const isOwner =
+      (target.user_id && target.user_id === req.user.id) ||
+      (req.user.personnel_id && Number(req.user.personnel_id) === Number(id));
 
-    if (!isUploaderEligible) {
-      if (req.file.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-      return errorResponse(res, 'Anda tidak memiliki hak untuk mengunggah tanda tangan.', 403);
-    }
-
-    // Jika bukan admin, pastikan yang mengunggah adalah pemilik akun itu sendiri atau sesama pimpinan
-    if (
-      currentUserRole !== 'admin' &&
-      target.user_id &&
-      target.user_id !== req.user.id &&
-      !['dept_head', 'section_head', 'chief'].includes(currentUserRole)
-    ) {
-      if (req.file.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
+    if (currentUserRole !== 'admin' && !isOwner) {
+      safeUnlink(req.file?.path);
       return errorResponse(res, 'Anda hanya dapat mengunggah tanda tangan untuk akun Anda sendiri.', 403);
     }
 
-    // Hapus berkas tanda tangan lama jika ada
-    if (target.signature_url) {
-      const oldPath = path.resolve(__dirname, '../../', target.signature_url.replace(/^\//, ''));
-      if (fs.existsSync(oldPath)) {
-        try {
-          fs.unlinkSync(oldPath);
-        } catch (e) {
-          console.warn('Gagal menghapus tanda tangan lama:', e.message);
-        }
-      }
-    }
+    // Hapus berkas tanda tangan lama jika ada (aman dari path traversal)
+    safeUnlink(target.signature_url);
 
     const signatureUrl = `/uploads/${req.file.filename}`;
 
@@ -251,11 +228,7 @@ export const uploadSignature = async (req, res) => {
       signature_url: signatureUrl
     });
   } catch (error) {
-    if (req.file && req.file.path && fs.existsSync(req.file.path)) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (e) {}
-    }
+    safeUnlink(req.file?.path);
     console.error('Error uploadSignature:', error);
     return errorResponse(res, 'Gagal mengunggah tanda tangan: ' + error.message, 500);
   }
@@ -278,19 +251,16 @@ export const deleteSignature = async (req, res) => {
 
     const target = rows[0];
     const currentUserRole = req.user.role;
+    const isOwner =
+      (target.user_id && target.user_id === req.user.id) ||
+      (req.user.personnel_id && Number(req.user.personnel_id) === Number(id));
 
-    if (!['admin', 'dept_head', 'section_head', 'chief', 'chief_assistant'].includes(currentUserRole)) {
-      return errorResponse(res, 'Anda tidak memiliki hak untuk menghapus tanda tangan.', 403);
+    // Otorisasi ketat: Hanya admin ATAU pemilik akun itu sendiri yang boleh menghapus tanda tangan
+    if (currentUserRole !== 'admin' && !isOwner) {
+      return errorResponse(res, 'Anda hanya dapat menghapus tanda tangan untuk akun Anda sendiri.', 403);
     }
 
-    if (target.signature_url) {
-      const oldPath = path.resolve(__dirname, '../../', target.signature_url.replace(/^\//, ''));
-      if (fs.existsSync(oldPath)) {
-        try {
-          fs.unlinkSync(oldPath);
-        } catch (e) {}
-      }
-    }
+    safeUnlink(target.signature_url);
 
     await pool.query('UPDATE personnel SET signature_url = NULL WHERE id = ?', [id]);
     if (target.user_id) {

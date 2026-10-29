@@ -97,6 +97,7 @@ export const getOfficials = async (req, res) => {
 
     return successResponse(res, 'Data pejabat berhasil diambil', {
       dept_head: deptHead,
+      section_head: sectionHead,
       chiefs: chiefsByTeam,
       administrasi: administrasi,
       raw_chiefs: chiefs,
@@ -195,7 +196,8 @@ export const replaceDeptHead = async (req, res) => {
         if (oldDh.id === Number(new_personnel_id)) continue;
 
         if (oldDh.signature_url) {
-          const sigPath = path.resolve(__dirname, '../../', oldDh.signature_url.replace(/^\//, ''));
+          const sigFileName = path.basename(oldDh.signature_url);
+          const sigPath = path.resolve(__dirname, '../../uploads', sigFileName);
           if (fs.existsSync(sigPath)) {
             try { fs.unlinkSync(sigPath); } catch (e) {}
           }
@@ -321,7 +323,8 @@ export const replaceChief = async (req, res) => {
 
       // Hapus file tanda tangan lama jika ada
       if (oldChief.signature_url) {
-        const sigPath = path.resolve(__dirname, '../../', oldChief.signature_url.replace(/^\//, ''));
+        const sigFileName = path.basename(oldChief.signature_url);
+        const sigPath = path.resolve(__dirname, '../../uploads', sigFileName);
         if (fs.existsSync(sigPath)) {
           try {
             fs.unlinkSync(sigPath);
@@ -387,100 +390,6 @@ export const replaceChief = async (req, res) => {
     await connection.rollback();
     console.error('Error replaceChief:', error);
     return errorResponse(res, 'Gagal mengganti Ketua Regu: ' + error.message, 500);
-  } finally {
-    connection.release();
-  }
-};
-
-export const replaceSectionHead = async (req, res) => {
-  const connection = await pool.getConnection();
-  try {
-    const { new_personnel_id } = req.body;
-    if (!new_personnel_id) {
-      return errorResponse(res, 'Personel Section Head baru wajib dipilih', 400);
-    }
-
-    await connection.beginTransaction();
-
-    // 1. Ambil data Section Head lama
-    const [currentSectionHeads] = await connection.query(
-      `SELECT p.*, u.id as u_id
-       FROM personnel p
-       LEFT JOIN users u ON u.id = p.user_id
-       WHERE p.rank_position LIKE '%Section%Head%' OR p.rank_position LIKE '%Seksi%' OR u.role = 'section_head'`
-    );
-
-    for (const oldSh of currentSectionHeads) {
-      if (oldSh.id === Number(new_personnel_id)) continue;
-
-      // Hapus file tanda tangan lama jika ada
-      if (oldSh.signature_url) {
-        const sigPath = path.resolve(__dirname, '../../', oldSh.signature_url.replace(/^\//, ''));
-        if (fs.existsSync(sigPath)) {
-          try {
-            fs.unlinkSync(sigPath);
-          } catch (e) {}
-        }
-      }
-
-      await connection.query(
-        `UPDATE personnel 
-         SET rank_position = 'Staf Non-Operasional', team_group = 'Non-Shift', signature_url = NULL 
-         WHERE id = ?`,
-        [oldSh.id]
-      );
-
-      if (oldSh.u_id) {
-        await connection.query(
-          `UPDATE users 
-           SET role = 'junior_firefighter', signature_url = NULL 
-           WHERE id = ? AND role = 'section_head'`,
-          [oldSh.u_id]
-        );
-      }
-    }
-
-    // 2. Angkat Section Head baru
-    const [newCandidate] = await connection.query(
-      `SELECT p.*, u.id as u_id FROM personnel p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?`,
-      [new_personnel_id]
-    );
-
-    if (newCandidate.length === 0) {
-      await connection.rollback();
-      return errorResponse(res, 'Personel baru tidak ditemukan', 404);
-    }
-
-    const candidate = newCandidate[0];
-    await connection.query(
-      `UPDATE personnel 
-       SET rank_position = 'Airport Technology & ARFF Section Head', team_group = 'Non-Shift' 
-       WHERE id = ?`,
-      [candidate.id]
-    );
-
-    let sectionUserId = candidate.u_id;
-    if (!sectionUserId && candidate.nip) {
-      const [uByNip] = await connection.query('SELECT id FROM users WHERE username = ? LIMIT 1', [candidate.nip]);
-      if (uByNip.length > 0) {
-        sectionUserId = uByNip[0].id;
-        await connection.query('UPDATE personnel SET user_id = ? WHERE id = ?', [sectionUserId, candidate.id]);
-      }
-    }
-
-    if (sectionUserId) {
-      await connection.query(
-        `UPDATE users SET role = 'section_head', name = ? WHERE id = ? AND role != 'admin'`,
-        [candidate.full_name, sectionUserId]
-      );
-    }
-
-    await connection.commit();
-    return successResponse(res, `Section Head berhasil diperbarui menjadi ${candidate.full_name}.`);
-  } catch (error) {
-    await connection.rollback();
-    console.error('Error replaceSectionHead:', error);
-    return errorResponse(res, 'Gagal memperbarui Section Head: ' + error.message, 500);
   } finally {
     connection.release();
   }

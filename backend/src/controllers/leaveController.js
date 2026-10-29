@@ -94,7 +94,8 @@ export const requestLeaveRange = async (req, res) => {
     }
 
     // 2. Validasi Kuota Maksimal 2 Cuti yang Sedang / Akan Berjalan (Active / Upcoming)
-    const todayDateStr = new Date().toISOString().split('T')[0];
+    // Gunakan zona waktu lokal WIB (UTC+7) agar tidak terjadi pergeseran tanggal saat pergantian hari
+    const todayDateStr = new Date(Date.now() + 7 * 3600000).toISOString().split('T')[0];
     const [activeRows] = await connection.query(`
       SELECT pd.id, pd.notes, ps.shift_date, pd.absent_reason
       FROM personnel_deployments pd
@@ -445,8 +446,8 @@ export const getLeaveHistory = async (req, res) => {
     const [rows] = await pool.query(query, params);
 
     // Agregasi entri cuti harian menjadi Paket Pengajuan Cuti (Grouped Packages)
-    // Mencegah tampilan dobel-dobel di riwayat jika cuti diajukan untuk beberapa hari sekaligus
-    const todayStr = new Date().toISOString().split('T')[0];
+    // Mencegah tampilan dobel-dobel di riwayat jika cuti diajukan untuk beberapa hari sekaligus (WIB UTC+7)
+    const todayStr = new Date(Date.now() + 7 * 3600000).toISOString().split('T')[0];
     const groupedPackages = [];
     const processedIds = new Set();
 

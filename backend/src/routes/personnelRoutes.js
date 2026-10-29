@@ -18,7 +18,6 @@ import {
 import {
   getOfficials,
   replaceDeptHead,
-  replaceSectionHead,
   replaceChief
 } from '../controllers/officialsController.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
@@ -35,8 +34,7 @@ router.get('/export/pdf', exportPersonnelPdf);
 // Rute kelola pejabat (Dept Head, Section Head & Ketua Regu) - Wajib sebelum rute parameterized /:id
 router.get('/officials', getOfficials);
 router.post('/officials/dept-head', requireRole(['admin', 'dept_head']), replaceDeptHead);
-router.post('/officials/section-head', requireRole(['admin', 'dept_head']), replaceSectionHead);
-router.post('/officials/chief', requireRole(['admin', 'dept_head', 'supervisor', 'chief']), replaceChief);
+router.post('/officials/chief', requireRole(['admin', 'dept_head']), replaceChief);
 
 router.get('/:id', getPersonnelById);
 router.post('/', requireRole(['admin', 'supervisor']), createPersonnel);

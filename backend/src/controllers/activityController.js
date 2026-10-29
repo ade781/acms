@@ -13,9 +13,11 @@ export const getActivities = async (req, res) => {
     const { date, shift, team_group, page, limit, start_date, end_date, period, activity_type } = req.query;
 
     let query = `
-      SELECT a.*, ps.shift_date, ps.shift_number, ps.team_group
+      SELECT a.*, ps.shift_date, ps.shift_number, ps.team_group,
+             u.name AS reporter_name
       FROM daily_shift_activities a
       JOIN personnel_shifts ps ON ps.id = a.shift_id
+      LEFT JOIN users u ON u.id = a.created_by
       WHERE 1=1
     `;
     const params = [];
@@ -120,9 +122,23 @@ export const createActivity = async (req, res) => {
       if (existingShift.length > 0) {
         targetShiftId = existingShift[0].id;
       } else {
+        let assignedSupervisorId = null;
+        if (req.user.role === 'supervisor') {
+          assignedSupervisorId = req.user.id;
+        } else {
+          // Cari supervisor aktif untuk regu terkait jika ada
+          const [supervisorRows] = await pool.query(
+            "SELECT id FROM users WHERE role = 'supervisor' AND team_group = ? AND is_active = 1 LIMIT 1",
+            [sTeam]
+          );
+          if (supervisorRows.length > 0) {
+            assignedSupervisorId = supervisorRows[0].id;
+          }
+        }
+
         const [newShift] = await pool.query(
           'INSERT INTO personnel_shifts (shift_date, shift_number, team_group, supervisor_id) VALUES (?, ?, ?, ?)',
-          [sDate, sNum, sTeam, req.user.id]
+          [sDate, sNum, sTeam, assignedSupervisorId]
         );
         targetShiftId = newShift.insertId;
       }

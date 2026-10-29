@@ -1,6 +1,7 @@
 import pool from '../config/db.js';
 import { successResponse, errorResponse, createdResponse } from '../utils/responseHelper.js';
-import PDFDocument from 'pdfkit';
+import { generateIncidentSummaryReportPdf } from '../services/pdf/incidentReportPdf.js';
+import { getOfficialSignatory } from '../utils/officialHelper.js';
 
 // Fungsi bantuan nomor laporan berurutan: INC-0001, INC-0002, dst. dengan proteksi penguncian atomik (FOR UPDATE)
 async function generateNextReportNumber(connection) {
@@ -127,11 +128,11 @@ export const getIncidentById = async (req, res) => {
 };
 
 export const createIncident = async (req, res) => {
-  const allowedRoles = ['admin', 'chief', 'chief_assistant'];
+  const allowedRoles = ['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor'];
   if (!allowedRoles.includes(req.user?.role)) {
     return res.status(403).json({
       success: false,
-      message: 'Akses ditolak: Hanya Chief, Asisten Chief, atau Admin yang berhak melaporkan atau memperbarui status penanganan insiden.'
+      message: 'Akses ditolak: Hanya Chief, Asisten Chief, Supervisor, Section Head, atau Admin yang berhak melaporkan atau memperbarui status penanganan insiden.'
     });
   }
 
@@ -269,11 +270,11 @@ export const createIncident = async (req, res) => {
 
 export const updateIncidentStatus = async (req, res) => {
   try {
-    const allowedRoles = ['admin', 'chief', 'chief_assistant'];
+    const allowedRoles = ['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor'];
     if (!allowedRoles.includes(req.user?.role)) {
       return res.status(403).json({
         success: false,
-        message: 'Akses ditolak: Hanya Chief, Asisten Chief, atau Admin yang berhak melaporkan atau memperbarui status penanganan insiden.'
+        message: 'Akses ditolak: Hanya Chief, Asisten Chief, Supervisor, Section Head, atau Admin yang berhak memperbarui status penanganan insiden.'
       });
     }
 
@@ -293,9 +294,10 @@ export const updateIncidentStatus = async (req, res) => {
       `UPDATE incidents SET
         status = ?,
         action_taken = COALESCE(?, action_taken),
-        last_condition = COALESCE(?, last_condition)
+        last_condition = COALESCE(?, last_condition),
+        supervisor_id = CASE WHEN ? = 'selesai' THEN ? ELSE supervisor_id END
        WHERE id = ?`,
-      [status, action_taken || null, last_condition || null, id]
+      [status, action_taken || null, last_condition || null, status, req.user.id, id]
     );
 
     const [updated] = await pool.query('SELECT * FROM incidents WHERE id = ?', [id]);
@@ -425,16 +427,22 @@ export const getIncidentSummaryReportPdf = async (req, res) => {
     let startDateStr = start_date;
     let endDateStr = end_date || today.toISOString().split('T')[0];
 
+    let periodLabel = '1 Bulan Terakhir';
     if (!startDateStr) {
       const past = new Date(today);
       if (period === '3months') {
         past.setDate(past.getDate() - 90);
+        periodLabel = '3 Bulan Terakhir';
       } else if (period === '1year') {
         past.setDate(past.getDate() - 365);
+        periodLabel = '1 Tahun Terakhir';
       } else {
         past.setDate(past.getDate() - 30);
+        periodLabel = '1 Bulan Terakhir';
       }
       startDateStr = past.toISOString().split('T')[0];
+    } else if (start_date && end_date) {
+      periodLabel = 'Rentang Kustom';
     }
 
     let query = `
@@ -458,17 +466,42 @@ export const getIncidentSummaryReportPdf = async (req, res) => {
     query += ` ORDER BY i.incident_date ASC, i.incident_time ASC`;
     const [incidents] = await pool.query(query, params);
 
-    // Buat PDF A4 Landscape
-    const doc = new PDFDocument({
-      size: 'A4',
-      layout: 'landscape',
-      margins: { top: 30, bottom: 30, left: 35, right: 35 },
-      info: {
-        Title: `Rekapitulasi Insiden ARFF YIA (${startDateStr} s.d. ${endDateStr})`,
-        Author: 'Airport Rescue & Fire Fighting YIA',
-        Subject: 'Rekapitulasi Laporan Kejadian & Insiden Operasional'
+    // Hitung ringkasan statistik untuk header laporan
+    const resolvedCount = incidents.filter(i => (i.status || '').toLowerCase() === 'selesai').length;
+    const inProgressCount = incidents.filter(i => (i.status || '').toLowerCase() === 'dalam_proses').length;
+
+    const catCounts = {};
+    incidents.forEach(i => {
+      if (i.category) {
+        catCounts[i.category] = (catCounts[i.category] || 0) + 1;
+      }
+    });
+    let topCategory = '-';
+    let maxCount = 0;
+    for (const [cat, count] of Object.entries(catCounts)) {
+      if (count > maxCount) {
+        maxCount = count;
+        topCategory = cat;
+      }
+    }
+
+    // Ambil tanda tangan & identitas pejabat pengesah resmi
+    const signatory = await getOfficialSignatory(pool);
+
+    // Hasilkan dokumen PDF terstandarisasi dari Incident PDF Service
+    const doc = await generateIncidentSummaryReportPdf({
+      periodLabel,
+      startDate: startDateStr,
+      endDate: endDateStr,
+      incidents,
+      summary: {
+        resolvedCount,
+        inProgressCount,
+        topCategory
       },
-      bufferPages: true,
+      dept_head_name: signatory?.name || 'Airport Rescue & Fire Fighting Section Head',
+      dept_head_nip: signatory?.nip || null,
+      dept_head_signature_url: signatory?.signature_url || null,
     });
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -476,168 +509,8 @@ export const getIncidentSummaryReportPdf = async (req, res) => {
       'Content-Disposition',
       `inline; filename="Laporan-Rekap-Insiden-${startDateStr}-${endDateStr}.pdf"`
     );
+
     doc.pipe(res);
-
-    const startX = 35;
-    let currentY = 30;
-
-    // Header Laporan
-    doc.fontSize(13).font('Helvetica-Bold').fillColor('#0f172a').text(
-      'UNIT AIRPORT RESCUE & FIRE FIGHTING (PKP-PK)',
-      startX,
-      currentY,
-      { align: 'center', width: 772 }
-    );
-    currentY += 16;
-
-    doc.fontSize(10).font('Helvetica-Bold').fillColor('#b91c1c').text(
-      'YOGYAKARTA INTERNATIONAL AIRPORT (YIA)',
-      startX,
-      currentY,
-      { align: 'center', width: 772 }
-    );
-    currentY += 14;
-
-    doc.fontSize(9).font('Helvetica').fillColor('#475569').text(
-      `DOKUMEN RESMI REKAPITULASI KEJADIAN & INSIDEN OPERASIONAL • PERIODE: ${startDateStr} s.d. ${endDateStr}`,
-      startX,
-      currentY,
-      { align: 'center', width: 772 }
-    );
-    currentY += 15;
-
-    // Garis ganda pembatas header
-    doc.moveTo(startX, currentY).lineTo(startX + 772, currentY).lineWidth(1.5).strokeColor('#0f172a').stroke();
-    currentY += 3;
-    doc.moveTo(startX, currentY).lineTo(startX + 772, currentY).lineWidth(0.5).strokeColor('#64748b').stroke();
-    currentY += 10;
-
-    // Ringkasan Statistik Singkat
-    const totalCount = incidents.length;
-    const selesaiCount = incidents.filter(i => (i.status || '').toLowerCase() === 'selesai').length;
-    const prosesCount = incidents.filter(i => (i.status || '').toLowerCase() === 'dalam_proses').length;
-    const tindakLanjutCount = incidents.filter(i => (i.status || '').toLowerCase() === 'menunggu_tindak_lanjut').length;
-
-    doc.rect(startX, currentY, 772, 22).fillAndStroke('#f8fafc', '#cbd5e1');
-    doc.fontSize(8).font('Helvetica-Bold').fillColor('#0f172a').text(
-      `RINGKASAN PERIODE:  Total Kejadian: ${totalCount}  |  Selesai: ${selesaiCount}  |  Dalam Proses: ${prosesCount}  |  Menunggu Tindak Lanjut: ${tindakLanjutCount}`,
-      startX + 10,
-      currentY + 6
-    );
-    currentY += 28;
-
-    // Kolom Tabel Rekap
-    const columns = [
-      { header: 'NO', width: 28, align: 'center' },
-      { header: 'NO. LAPORAN', width: 74, align: 'center' },
-      { header: 'TANGGAL & JAM', width: 85, align: 'left' },
-      { header: 'REGU / SHIFT', width: 75, align: 'center' },
-      { header: 'KLASIFIKASI / JUDUL', width: 140, align: 'left' },
-      { header: 'LOKASI KEJADIAN', width: 95, align: 'left' },
-      { header: 'PESAWAT / ARMADA', width: 95, align: 'left' },
-      { header: 'STATUS', width: 75, align: 'center' },
-      { header: 'KONDISI AKHIR TKP', width: 105, align: 'left' },
-    ];
-
-    // Header Tabel
-    doc.rect(startX, currentY, 772, 18).fillAndStroke('#1e293b', '#1e293b');
-    let curX = startX;
-    columns.forEach(col => {
-      doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#ffffff').text(
-        col.header,
-        curX + 2,
-        currentY + 5,
-        { width: col.width - 4, align: col.align }
-      );
-      curX += col.width;
-    });
-    currentY += 18;
-
-    if (incidents.length === 0) {
-      doc.rect(startX, currentY, 772, 30).fillAndStroke('#ffffff', '#e2e8f0');
-      doc.fontSize(8.5).font('Helvetica-Oblique').fillColor('#64748b').text(
-        'Nihil. Tidak terdapat catatan insiden operasional pada periode yang dipilih.',
-        startX,
-        currentY + 10,
-        { width: 772, align: 'center' }
-      );
-      currentY += 30;
-    } else {
-      incidents.forEach((inc, idx) => {
-        // Cek page break
-        if (currentY > 520) {
-          doc.addPage();
-          currentY = 35;
-          // Gambar ulang header tabel di halaman baru
-          doc.rect(startX, currentY, 772, 18).fillAndStroke('#1e293b', '#1e293b');
-          let subX = startX;
-          columns.forEach(col => {
-            doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#ffffff').text(
-              col.header,
-              subX + 2,
-              currentY + 5,
-              { width: col.width - 4, align: col.align }
-            );
-            subX += col.width;
-          });
-          currentY += 18;
-        }
-
-        const rowHeight = 24;
-        const bgColor = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
-        doc.rect(startX, currentY, 772, rowHeight).fillAndStroke(bgColor, '#e2e8f0');
-
-        const statusLabel = inc.status === 'selesai' ? 'SELESAI' : (inc.status === 'dalam_proses' ? 'PROSES' : 'TINDAK LANJUT');
-        const statusColor = inc.status === 'selesai' ? '#15803d' : (inc.status === 'dalam_proses' ? '#b45309' : '#b91c1c');
-
-        const rowData = [
-          { text: String(idx + 1), align: 'center', color: '#64748b', font: 'Helvetica' },
-          { text: inc.report_number || `INC-${inc.id}`, align: 'center', color: '#b91c1c', font: 'Helvetica-Bold' },
-          { text: `${inc.incident_date}\n${(inc.incident_time || '').slice(0, 5)} WIB`, align: 'left', color: '#0f172a', font: 'Helvetica' },
-          { text: `${inc.team_group || 'Alpha'}\nShift #${inc.shift_number || 1}`, align: 'center', color: '#0f172a', font: 'Helvetica' },
-          { text: inc.title || '-', align: 'left', color: '#0f172a', font: 'Helvetica-Bold' },
-          { text: inc.location || '-', align: 'left', color: '#334155', font: 'Helvetica' },
-          { text: inc.aircraft_info || 'Non-Pesawat', align: 'left', color: '#475569', font: 'Helvetica' },
-          { text: statusLabel, align: 'center', color: statusColor, font: 'Helvetica-Bold' },
-          { text: inc.last_condition || inc.action_taken || 'Aman Terkendali', align: 'left', color: '#475569', font: 'Helvetica' },
-        ];
-
-        let cellX = startX;
-        columns.forEach((col, cIdx) => {
-          const c = rowData[cIdx];
-          doc.fontSize(7).font(c.font).fillColor(c.color).text(
-            c.text,
-            cellX + 3,
-            currentY + 4,
-            { width: col.width - 6, align: c.align, lineBreak: true, height: rowHeight - 6, ellipsis: true }
-          );
-          cellX += col.width;
-        });
-
-        currentY += rowHeight;
-      });
-    }
-
-    // Watermark dan penomoran halaman
-    const pages = doc.bufferedPageRange();
-    for (let i = pages.start; i < pages.start + pages.count; i++) {
-      doc.switchToPage(i);
-      // Watermark samar
-      doc.save();
-      doc.fontSize(38).font('Helvetica-Bold').fillColor('#000000', 0.03);
-      doc.rotate(-15, { origin: [421, 297] });
-      doc.text('ARFF YIA - OFFICIAL OPS REPORT', 180, 280, { align: 'center' });
-      doc.restore();
-
-      // Footer
-      doc.fontSize(7.5).font('Helvetica').fillColor('#94a3b8').text(
-        `Halaman ${i + 1} dari ${pages.count} • Dicetak otomatis oleh Sistem Operasional ARFF YIA pada ${new Date().toLocaleString('id-ID')}`,
-        startX,
-        565,
-        { width: 772, align: 'center' }
-      );
-    }
-
     doc.end();
   } catch (error) {
     console.error('Error getIncidentSummaryReportPdf:', error);
