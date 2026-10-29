@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   X,
   FileText,
@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import api from '../../../services/api';
 import { formatIndoDate } from '../../../utils/shiftHelper';
+import SwipeableAnnouncementCard from './SwipeableAnnouncementCard';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -21,158 +22,8 @@ function formatDateIndo(dateStr) {
   return formatIndoDate(dateStr, { shortMonth: true });
 }
 
-/**
- * Item pengumuman aktif dengan gestur swipe (slap ke samping) untuk memunculkan tombol arsip
- */
-function SwipeableAnnouncementCard({ item, onOpen, onArchive }) {
-  const [offsetX, setOffsetX] = useState(0);
-  const [isOpen, setIsOpen] = useState(false);
-  const startX = useRef(0);
-  const startY = useRef(0);
-  const isDragging = useRef(false);
-
-  // Touch handlers
-  const handleTouchStart = (e) => {
-    startX.current = e.touches[0].clientX;
-    startY.current = e.touches[0].clientY;
-    isDragging.current = true;
-  };
-
-  const handleTouchMove = (e) => {
-    if (!isDragging.current) return;
-    const currentX = e.touches[0].clientX;
-    const currentY = e.touches[0].clientY;
-    const diffX = currentX - startX.current;
-    const diffY = currentY - startY.current;
-
-    // Batalkan swipe jika pergerakan vertikal lebih dominan (scrolling)
-    if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffX) < 10) {
-      isDragging.current = false;
-      return;
-    }
-
-    if (diffX < 0) {
-      setOffsetX(Math.max(-80, diffX));
-    } else if (isOpen && diffX > 0) {
-      setOffsetX(Math.min(0, -80 + diffX));
-    }
-  };
-
-  const handleTouchEnd = () => {
-    if (!isDragging.current) return;
-    isDragging.current = false;
-    if (offsetX < -35) {
-      setOffsetX(-76);
-      setIsOpen(true);
-    } else {
-      setOffsetX(0);
-      setIsOpen(false);
-    }
-  };
-
-  // Mouse handlers untuk pengujian di desktop
-  const handleMouseDown = (e) => {
-    startX.current = e.clientX;
-    startY.current = e.clientY;
-    isDragging.current = true;
-  };
-
-  const handleMouseMove = (e) => {
-    if (!isDragging.current) return;
-    const diffX = e.clientX - startX.current;
-    if (diffX < 0) {
-      setOffsetX(Math.max(-80, diffX));
-    } else if (isOpen && diffX > 0) {
-      setOffsetX(Math.min(0, -80 + diffX));
-    }
-  };
-
-  const handleMouseUp = () => {
-    if (!isDragging.current) return;
-    isDragging.current = false;
-    if (offsetX < -35) {
-      setOffsetX(-76);
-      setIsOpen(true);
-    } else {
-      setOffsetX(0);
-      setIsOpen(false);
-    }
-  };
-
-  const hasFile = Boolean(item.file_path);
-
-  return (
-    <div
-      className="relative overflow-hidden rounded-lg select-none bg-red-600 border border-slate-200/80"
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-    >
-      {/* Background action: Tombol Arsipkan */}
-      <div className="absolute inset-y-0 right-0 w-[76px] flex items-center justify-center bg-red-600">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onArchive(item);
-          }}
-          className="w-full h-full flex flex-col items-center justify-center text-white text-[9.5px] font-bold gap-0.5 active:bg-red-700 cursor-pointer"
-        >
-          <Archive className="w-4 h-4" />
-          <span>Arsipkan</span>
-        </button>
-      </div>
-
-      {/* Foreground Card */}
-      <div
-        style={{ transform: `translateX(${offsetX}px)` }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onMouseDown={handleMouseDown}
-        onClick={() => {
-          if (offsetX === 0) onOpen(item);
-          else {
-            setOffsetX(0);
-            setIsOpen(false);
-          }
-        }}
-        className={`relative z-10 p-2.5 bg-white hover:bg-slate-50 transition-transform duration-100 ease-out space-y-1 ${hasFile ? 'cursor-pointer hover:border-red-300' : ''
-          }`}
-      >
-        <div className="flex items-start justify-between gap-1.5">
-          <h5 className="font-bold text-slate-900 text-xs leading-snug line-clamp-1">
-            {item.title}
-          </h5>
-          {hasFile && (
-            <span className="shrink-0 px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-bold text-[9px] flex items-center gap-0.5">
-              <FileText className="w-3 h-3" />
-              <span>PDF</span>
-            </span>
-          )}
-        </div>
-
-        {item.circular_number && (
-          <p className="text-[9.5px] font-mono text-slate-500">
-            No: {item.circular_number}
-          </p>
-        )}
-
-        {item.description && (
-          <p className="text-[10px] text-slate-600 leading-snug line-clamp-2">
-            {item.description}
-          </p>
-        )}
-
-        <div className="flex items-center justify-between text-[9px] text-slate-400 pt-0.5">
-          <span>{formatDateIndo(item.published_date || item.created_at)}</span>
-          <div className="flex items-center gap-2">
-            {item.creator_name && <span>Oleh: {item.creator_name}</span>}
-            <span className="text-[8.5px] text-slate-400 font-medium">← Geser untuk arsipkan</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+function cleanTitle(str) {
+  return String(str || '').replace(/^\[MENDESAK\]\s*/i, '').trim();
 }
 
 export default function MobileAnnouncementsModal({ isOpen, onClose }) {
@@ -189,59 +40,51 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    let isMounted = true;
-    async function fetchAnnouncements() {
-      const cached = typeof window !== 'undefined' ? window.__arff_announcements_cache : null;
-      if (cached && Date.now() - cached.timestamp < 30000 && cached.data) {
-        const list = cached.data?.data?.announcements || cached.data?.announcements || cached.data?.data || [];
-        if (isMounted) {
-          setAnnouncements(Array.isArray(list) ? list : []);
-          setCurrentPage(1);
-          setLoading(false);
-        }
-        return;
-      }
-
-      try {
-        setLoading(true);
-        setError(null);
-        const res = await api.get('/announcements');
-        if (typeof window !== 'undefined') {
-          window.__arff_announcements_cache = {
-            data: res.data,
-            timestamp: Date.now(),
-          };
-        }
-        const list = res.data?.data?.announcements || res.data?.announcements || res.data?.data || [];
-        if (isMounted) {
-          setAnnouncements(Array.isArray(list) ? list : []);
-          setCurrentPage(1);
-        }
-      } catch (err) {
-        console.error('Error fetching announcements:', err);
-        const msg = typeof err.response?.data?.message === 'string'
-          ? err.response.data.message
-          : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal memuat arsip pengumuman dinas'));
-        if (isMounted) setError(msg);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
+  const fetchAnnouncements = useCallback(async (showLoading = true) => {
+    try {
+      if (showLoading) setLoading(true);
+      setError(null);
+      const res = await api.get('/announcements');
+      const list = res.data?.data?.announcements || res.data?.announcements || res.data?.data || [];
+      setAnnouncements(Array.isArray(list) ? list : []);
+    } catch (err) {
+      console.error('Error fetching announcements:', err);
+      const msg = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
+        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal memuat arsip pengumuman dinas'));
+      setError(msg);
+    } finally {
+      setLoading(false);
     }
+  }, []);
 
-    fetchAnnouncements();
-    return () => {
-      isMounted = false;
+  const isSelfMutatingRef = useRef(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchAnnouncements(true);
+    }
+  }, [isOpen, fetchAnnouncements]);
+
+  // Listener event sinkronisasi seketika saat ada perubahan arsip dari dashboard atau modal lain
+  useEffect(() => {
+    const handleUpdate = () => {
+      if (isOpen && !isSelfMutatingRef.current) {
+        fetchAnnouncements(false);
+      }
     };
-  }, [isOpen]);
+    window.addEventListener('arff:announcements-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('arff:announcements-updated', handleUpdate);
+    };
+  }, [isOpen, fetchAnnouncements]);
 
   if (!isOpen) return null;
 
-  // Filter daftar pengumuman berdasarkan tab
-  const activeList = announcements.filter((a) => !a.is_archived);
-  const archivedList = announcements.filter((a) => a.is_archived);
+  // Filter daftar pengumuman berdasarkan tab dengan normalisasi boolean ketat
+  const isItemArchived = (a) => Boolean(Number(a.is_archived) === 1 || a.is_archived === true);
+  const activeList = announcements.filter((a) => !isItemArchived(a));
+  const archivedList = announcements.filter((a) => isItemArchived(a));
   const currentList = activeTab === 'active' ? activeList : archivedList;
 
   const totalPages = Math.max(1, Math.ceil(currentList.length / ITEMS_PER_PAGE));
@@ -254,9 +97,6 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
     if (isUnread) {
       try {
         await api.post(`/announcements/${item.id}/read`);
-        if (typeof window !== 'undefined') {
-          window.__arff_announcements_cache = null;
-        }
         setAnnouncements((prev) =>
           prev.map((a) => (a.id === item.id ? { ...a, is_read: 1 } : a))
         );
@@ -268,18 +108,19 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
   };
 
   const handleArchive = async (item) => {
+    isSelfMutatingRef.current = true;
     try {
-      // Optimistic update
+      // Optimistic update tanpa toast mengganggu
       setAnnouncements((prev) =>
         prev.map((a) => (a.id === item.id ? { ...a, is_archived: 1 } : a))
       );
+
+      await api.post(`/announcements/${item.id}/archive`);
       if (typeof window !== 'undefined') {
         window.__arff_announcements_cache = null;
       }
-      showToast('Pengumuman dipindahkan ke arsip dinas');
+      // Dispatch event SETELAH mutasi backend selesai
       window.dispatchEvent(new CustomEvent('arff:announcements-updated'));
-
-      await api.post(`/announcements/${item.id}/archive`);
     } catch (err) {
       console.error('Error archiving announcement:', err);
       // Revert if error
@@ -287,22 +128,27 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
         prev.map((a) => (a.id === item.id ? { ...a, is_archived: 0 } : a))
       );
       showToast('Gagal memindahkan ke arsip');
+    } finally {
+      setTimeout(() => {
+        isSelfMutatingRef.current = false;
+      }, 300);
     }
   };
 
   const handleUnarchive = async (item) => {
+    isSelfMutatingRef.current = true;
     try {
-      // Optimistic update
+      // Optimistic update tanpa toast mengganggu
       setAnnouncements((prev) =>
         prev.map((a) => (a.id === item.id ? { ...a, is_archived: 0 } : a))
       );
+
+      await api.post(`/announcements/${item.id}/unarchive`);
       if (typeof window !== 'undefined') {
         window.__arff_announcements_cache = null;
       }
-      showToast('Pengumuman dikembalikan ke pengumuman aktif');
+      // Dispatch event SETELAH mutasi backend selesai
       window.dispatchEvent(new CustomEvent('arff:announcements-updated'));
-
-      await api.post(`/announcements/${item.id}/unarchive`);
     } catch (err) {
       console.error('Error unarchiving announcement:', err);
       // Revert if error
@@ -310,6 +156,10 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
         prev.map((a) => (a.id === item.id ? { ...a, is_archived: 1 } : a))
       );
       showToast('Gagal mengembalikan pengumuman');
+    } finally {
+      setTimeout(() => {
+        isSelfMutatingRef.current = false;
+      }, 300);
     }
   };
 
@@ -432,7 +282,7 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
                 <div className="flex items-start justify-between gap-1.5">
                   <div className="min-w-0 flex-1">
                     <h5 className="font-bold text-slate-900 text-xs leading-snug line-clamp-1">
-                      {item.title}
+                      {cleanTitle(item.title)}
                     </h5>
                     {item.circular_number && (
                       <p className="text-[9.5px] font-mono text-slate-500">
@@ -511,7 +361,7 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
                 <FileText className="w-4 h-4 text-red-600 shrink-0" />
                 <div className="truncate">
                   <h4 className="text-xs font-bold text-slate-900 truncate">
-                    {previewDoc.title}
+                    {cleanTitle(previewDoc.title)}
                   </h4>
                   <p className="text-[9px] text-slate-500 font-mono">
                     {previewDoc.circular_number || 'EDARAN-ARFF'}
@@ -543,7 +393,7 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
 
               <div className="space-y-1">
                 <h5 className="font-bold text-slate-900 text-xs">
-                  {previewDoc.title}
+                  {cleanTitle(previewDoc.title)}
                 </h5>
                 <p className="text-[10px] text-slate-700 whitespace-pre-wrap leading-relaxed">
                   {previewDoc.description || 'Surat edaran resmi dinas operasional ARFF Bandara Internasional Yogyakarta.'}
