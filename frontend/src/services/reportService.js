@@ -14,10 +14,16 @@ export async function fetchShiftReportData({ date, shift, team, signal }) {
   const currentShift = Number(shift || 1);
   const currentDate = date || new Date().toISOString().split('T')[0];
 
-  const params = `date=${currentDate}&shift=${currentShift}&team_group=${currentTeam}`;
-  const options = signal ? { signal } : {};
+  const options = {
+    params: {
+      date: currentDate,
+      shift: currentShift,
+      team_group: currentTeam,
+    },
+    ...(signal ? { signal } : {}),
+  };
 
-  const res = await api.get(`/reports/shift-summary?${params}`, options);
+  const res = await api.get('/reports/shift-summary', options);
   const sData = res.data?.data || res.data || {};
 
   const shiftData = sData.shift || null;
@@ -54,14 +60,21 @@ export async function fetchShiftReportData({ date, shift, team, signal }) {
  * Single Source of Truth untuk Desktop & Mobile (DRY)
  */
 export async function downloadShiftReportPdf({ date, shift, team } = {}) {
+  const currentDate = date || new Date().toISOString().split('T')[0];
+  const currentShift = Number(shift || 1);
   const currentTeam = cleanTeam(team || 'Alpha');
-  const res = await api.get(
-    `/reports/pdf?date=${date}&shift=${shift}&team_group=${currentTeam}`,
-    { responseType: 'blob' }
-  );
+
+  const res = await api.get('/reports/pdf', {
+    params: {
+      date: currentDate,
+      shift: currentShift,
+      team_group: currentTeam,
+    },
+    responseType: 'blob',
+  });
 
   const blob = new Blob([res.data], { type: 'application/pdf' });
-  downloadBlob(blob, `Laporan-Shift-${shift}-${currentTeam}-${date}.pdf`);
+  downloadBlob(blob, `Laporan-Shift-${currentShift}-${currentTeam}-${currentDate}.pdf`);
 }
 
 /**

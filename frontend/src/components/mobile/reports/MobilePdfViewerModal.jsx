@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, ExternalLink, Download, FileText, AlertCircle, CheckCircle } from 'lucide-react';
 import { formatIndoDate, cleanTeam, formatTeam, SHIFT_DEFINITIONS } from '../../../utils/shiftHelper';
 import MobileSignaturesSection from './MobileSignaturesSection';
-import api from '../../../services/api';
+import { downloadShiftReportPdf } from '../../../services/reportService';
 import { useAuth } from '../../../context/AuthContext';
 
 /**
@@ -39,6 +39,9 @@ export default function MobilePdfViewerModal({
 
   const shiftDef = SHIFT_DEFINITIONS.find((s) => s.number === currentShiftNum) || SHIFT_DEFINITIONS[0];
 
+  // Helper untuk hitung presensi personel aktif hadir bertugas
+  const presentDeployments = deployments.filter((d) => d.deployment_type !== 'absent');
+
   // Helper untuk hitung unit serviceable
   const serviceableCount = vehicles.filter((v) => v.status === 'serviceable').length + (watchroomData?.status === 'serviceable' ? 1 : 0);
   const totalUnits = Math.max(vehicles.length + (watchroomData?.status ? 1 : 0), 8);
@@ -64,23 +67,11 @@ export default function MobilePdfViewerModal({
       setDownloading(true);
       setDownloadError(null);
 
-      // Gunakan path relatif tanpa awalan /api ganda karena baseURL Axios sudah /api
-      const res = await api.get(
-        `/reports/pdf?date=${currentDate}&shift=${currentShiftNum}&team_group=${currentTeam}`,
-        { responseType: 'blob' }
-      );
-      const blob = new Blob([res.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute(
-        'download',
-        `Laporan-Shift-${currentShiftNum}-${currentTeam}-${currentDate}.pdf`
-      );
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      await downloadShiftReportPdf({
+        date: currentDate,
+        shift: currentShiftNum,
+        team: currentTeam,
+      });
     } catch (err) {
       console.error('Download PDF error:', err);
       const msg = typeof err.response?.data?.message === 'string'
@@ -119,10 +110,10 @@ export default function MobilePdfViewerModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-7 h-7 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-colors duration-100 flex-shrink-0"
+            className="min-h-[44px] min-w-[44px] p-2 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-colors duration-100 flex-shrink-0"
             aria-label="Tutup Pratinjau"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -131,7 +122,7 @@ export default function MobilePdfViewerModal({
           <button
             type="button"
             onClick={handleOpenNativePdf}
-            className="py-2 px-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-[10.5px] flex items-center justify-center gap-1.5 shadow-xs transition-colors duration-100 active:scale-[0.99]"
+            className="min-h-[44px] py-2 px-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-[10.5px] flex items-center justify-center gap-1.5 shadow-xs transition-colors duration-100 active:scale-[0.99]"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             <span>Buka Layar Penuh</span>
@@ -141,7 +132,7 @@ export default function MobilePdfViewerModal({
             type="button"
             onClick={handleDownloadPdf}
             disabled={downloading}
-            className="py-2 px-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-[10.5px] flex items-center justify-center gap-1.5 transition-colors duration-100 disabled:opacity-50 active:scale-[0.99]"
+            className="min-h-[44px] py-2 px-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-[10.5px] flex items-center justify-center gap-1.5 transition-colors duration-100 disabled:opacity-50 active:scale-[0.99]"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
             <span>{downloading ? 'Mengunduh...' : 'Unduh Berkas'}</span>
@@ -251,7 +242,7 @@ export default function MobilePdfViewerModal({
                   II. Presensi & Distribusi Personel Dinas
                 </p>
                 <p className="text-slate-700 pt-0.5">
-                  Distribusi Penugasan: <strong>{deployments.length} Personel Aktif</strong> bertugas pada unit armada dan posko watchroom.
+                  Distribusi Penugasan: <strong>{presentDeployments.length} Personel Aktif</strong> bertugas pada unit armada dan posko watchroom.
                 </p>
                 {absents.length > 0 ? (
                   <p className="text-slate-700">

@@ -156,10 +156,10 @@ export default function MobileUnitAuditModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-7 h-7 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-colors duration-100 flex-shrink-0"
+            className="min-h-[44px] min-w-[44px] p-2 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-colors duration-100 flex-shrink-0"
             aria-label="Tutup Riwayat"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 

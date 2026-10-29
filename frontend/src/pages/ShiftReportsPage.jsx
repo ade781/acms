@@ -7,24 +7,13 @@ import {
   Truck,
   Radio,
   Users,
-  Calendar,
-  Clock,
-  AlertTriangle,
   FileText,
   Eye,
   MapPin,
   ChevronRight,
-  HelpCircle,
-  Camera,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import {
-  SHIFT_DEFINITIONS,
-  formatIndoDate,
-  cleanTeam,
-  formatTeam,
-} from '../utils/shiftHelper';
-import api from '../services/api';
+import { cleanTeam } from '../utils/shiftHelper';
 import { fetchShiftReportData, downloadShiftReportPdf } from '../services/reportService';
 import Button from '../components/common/Button';
 import MobileUnitAuditModal from '../components/mobile/reports/MobileUnitAuditModal';
@@ -34,6 +23,7 @@ import MobileSignaturesSection from '../components/mobile/reports/MobileSignatur
 export default function ShiftReportsPage() {
   const { activeDate, activeShiftNumber, activeTeam } = useAuth();
   const abortControllerRef = useRef(null);
+  const successTimerRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
@@ -61,9 +51,6 @@ export default function ShiftReportsPage() {
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
-  const currentDef =
-    SHIFT_DEFINITIONS.find((s) => s.number === Number(activeShiftNumber)) ||
-    SHIFT_DEFINITIONS[0];
   const currentTeam = cleanTeam(activeTeam || 'Alpha');
 
   // Fetch data laporan operasional terpadu (Single Source of Truth)
@@ -111,6 +98,9 @@ export default function ShiftReportsPage() {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
+      if (successTimerRef.current) {
+        clearTimeout(successTimerRef.current);
+      }
     };
   }, [fetchShiftData]);
 
@@ -119,6 +109,9 @@ export default function ShiftReportsPage() {
       setDownloading(true);
       setDownloadError(null);
       setDownloadSuccess(null);
+      if (successTimerRef.current) {
+        clearTimeout(successTimerRef.current);
+      }
 
       await downloadShiftReportPdf({
         date: activeDate,
@@ -127,7 +120,9 @@ export default function ShiftReportsPage() {
       });
 
       setDownloadSuccess('Berkas PDF dokumen dinas resmi berhasil diunduh.');
-      setTimeout(() => setDownloadSuccess(null), 4000);
+      successTimerRef.current = setTimeout(() => {
+        setDownloadSuccess(null);
+      }, 4000);
     } catch (err) {
       console.error('Download PDF error:', err);
       setDownloadError(
@@ -322,7 +317,12 @@ export default function ShiftReportsPage() {
           </div>
           <button
             type="button"
-            onClick={() => setDownloadSuccess(null)}
+            onClick={() => {
+              if (successTimerRef.current) {
+                clearTimeout(successTimerRef.current);
+              }
+              setDownloadSuccess(null);
+            }}
             className="text-emerald-600 hover:text-emerald-800 font-bold px-2 py-1"
           >
             Tutup

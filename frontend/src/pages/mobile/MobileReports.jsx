@@ -67,6 +67,8 @@ export default function MobileReports() {
     SHIFT_DEFINITIONS.find((s) => s.number === currentShiftNum) ||
     SHIFT_DEFINITIONS[0];
 
+  const presentDeployments = deployments.filter((d) => d.deployment_type !== 'absent');
+
   // Fetch seluruh data operasional shift secara agregat via modul service terpadu (Single Source of Truth)
   const fetchReportData = useCallback(
     async () => {
@@ -222,7 +224,7 @@ export default function MobileReports() {
             Presensi & Penempatan Kru
           </h4>
           <span className="text-[9px] font-mono font-bold text-slate-700">
-            {deployments.length} Hadir • {absents.length} Izin
+            {presentDeployments.length} Hadir • {absents.length} Izin
           </span>
         </div>
 
@@ -367,7 +369,7 @@ export default function MobileReports() {
         <button
           type="button"
           onClick={() => setIsPdfModalOpen(true)}
-          className="py-2.5 px-3 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs tracking-wide flex items-center justify-center gap-1.5 shadow-xs transition-colors duration-100 active:scale-[0.99]"
+          className="min-h-[44px] py-2.5 px-3 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs tracking-wide flex items-center justify-center gap-1.5 shadow-xs transition-colors duration-100 active:scale-[0.99]"
         >
           <Eye className="w-4 h-4 text-slate-600" />
           <span>Pratinjau Surat (A4)</span>
@@ -378,7 +380,7 @@ export default function MobileReports() {
           type="button"
           onClick={handleDownloadPdf}
           disabled={downloading}
-          className="py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs tracking-wide flex items-center justify-center gap-1.5 shadow-xs transition-colors duration-100 disabled:opacity-50 active:scale-[0.99]"
+          className="min-h-[44px] py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs tracking-wide flex items-center justify-center gap-1.5 shadow-xs transition-colors duration-100 disabled:opacity-50 active:scale-[0.99]"
         >
           <Download className="w-4 h-4" />
           <span>{downloading ? 'Membuat PDF...' : 'Unduh PDF Resmi'}</span>

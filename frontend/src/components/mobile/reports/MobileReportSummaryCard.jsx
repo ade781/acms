@@ -23,6 +23,11 @@ export default function MobileReportSummaryCard({
   const unserviceableCount =
     pureVehicles.filter((v) => v.status === 'unserviceable').length +
     (watchroomData?.status === 'unserviceable' ? 1 : 0);
+  const uncheckedCount = pureVehicles.filter(
+    (v) => !v.status || v.status === 'belum_dilaporkan'
+  ).length;
+
+  const presentDeployments = deployments.filter((d) => d.deployment_type !== 'absent');
 
   return (
     <div className="space-y-2">
@@ -49,6 +54,10 @@ export default function MobileReportSummaryCard({
               <span className="px-1.5 py-0.2 rounded font-bold bg-red-100 text-red-700">
                 {unserviceableCount} Unserviceable
               </span>
+            ) : uncheckedCount > 0 ? (
+              <span className="px-1.5 py-0.2 rounded font-bold bg-amber-100 text-amber-800">
+                {serviceableCount}/{pureVehicles.length} Siap ({uncheckedCount} Belum Cek)
+              </span>
             ) : (
               <span className="px-1.5 py-0.2 rounded font-bold bg-emerald-100 text-emerald-700">
                 100% Serviceable
@@ -67,7 +76,7 @@ export default function MobileReportSummaryCard({
           </div>
           <div className="flex items-baseline gap-1">
             <span className="text-lg font-black text-slate-900 leading-none">
-              {deployments.length}
+              {presentDeployments.length}
             </span>
             <span className="text-[10px] text-slate-500 font-medium">Hadir Terploting</span>
           </div>
@@ -93,7 +102,7 @@ export default function MobileReportSummaryCard({
               Kesiapan 8 Unit Operasional
             </h4>
             <p className="text-[9px] text-slate-500">
-              Klik status unit untuk memeriksa riwayat perbaikan & audit trail
+              Klik baris armada untuk memeriksa riwayat perbaikan & audit trail
             </p>
           </div>
           <span className="text-[9.5px] font-mono font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">
@@ -109,7 +118,16 @@ export default function MobileReportSummaryCard({
             return (
               <div
                 key={v.id ?? v.code_name ?? `veh-${vIdx}`}
-                className="py-1.5 first:pt-0 last:pb-0 space-y-1"
+                onClick={() => onOpenUnitAudit && onOpenUnitAudit(v)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onOpenUnitAudit && onOpenUnitAudit(v);
+                  }
+                }}
+                className="py-2 px-1.5 rounded-lg hover:bg-slate-50 active:bg-slate-100 transition-colors duration-100 cursor-pointer space-y-1 block focus:outline-none focus:ring-1 focus:ring-slate-300"
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="truncate">
@@ -126,18 +144,15 @@ export default function MobileReportSummaryCard({
                     </div>
                   </div>
 
-                  {/* Tombol Status interaktif memicu Modal Audit Trail */}
-                  <button
-                    type="button"
-                    onClick={() => onOpenUnitAudit && onOpenUnitAudit(v)}
+                  {/* Badge Status visual */}
+                  <span
                     className={`px-2 py-0.5 rounded-full text-[9px] font-bold border transition-colors duration-100 flex items-center gap-1 shrink-0 ${
                       isServ
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                         : isUnserv
-                        ? 'bg-red-50 text-red-800 border-red-300 hover:bg-red-100'
-                        : 'bg-slate-50 text-slate-600 border-slate-300 hover:bg-slate-100'
+                        ? 'bg-red-50 text-red-800 border-red-300'
+                        : 'bg-slate-50 text-slate-600 border-slate-300'
                     }`}
-                    title="Klik untuk membuka riwayat audit kendala unit"
                   >
                     <span
                       className={`w-1.5 h-1.5 rounded-full ${
@@ -146,20 +161,16 @@ export default function MobileReportSummaryCard({
                     />
                     <span>{isServ ? 'Serviceable' : isUnserv ? 'Unserviceable' : 'Belum Lapor'}</span>
                     <ChevronRight className="w-2.5 h-2.5 text-slate-400" />
-                  </button>
+                  </span>
                 </div>
 
                 {/* Justifikasi kendala singkat jika unserviceable */}
                 {isUnserv && v.justification && (
                   <div className="p-1 rounded bg-red-50/80 border border-red-200 text-red-800 text-[9px] flex items-center justify-between gap-1">
                     <span className="truncate">Kendala: {v.justification}</span>
-                    <button
-                      type="button"
-                      onClick={() => onOpenUnitAudit && onOpenUnitAudit(v)}
-                      className="text-[8.5px] text-red-700 font-bold underline shrink-0 hover:text-red-900"
-                    >
+                    <span className="text-[8.5px] text-red-700 font-bold underline shrink-0">
                       Riwayat
-                    </button>
+                    </span>
                   </div>
                 )}
               </div>
@@ -167,7 +178,36 @@ export default function MobileReportSummaryCard({
           })}
 
           {/* Posko Watchroom */}
-          <div className="py-1.5 space-y-1">
+          <div
+            onClick={() =>
+              onOpenUnitAudit &&
+              onOpenUnitAudit({
+                id: 'WATCHROOM',
+                code_name: 'WATCHROOM',
+                vehicle_name: 'Posko ARFF',
+                category: 'posko',
+                status: watchroomData?.status || 'serviceable',
+                justification: watchroomData?.notes || '',
+              })
+            }
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onOpenUnitAudit &&
+                  onOpenUnitAudit({
+                    id: 'WATCHROOM',
+                    code_name: 'WATCHROOM',
+                    vehicle_name: 'Posko ARFF',
+                    category: 'posko',
+                    status: watchroomData?.status || 'serviceable',
+                    justification: watchroomData?.notes || '',
+                  });
+              }
+            }}
+            className="py-2 px-1.5 rounded-lg hover:bg-slate-50 active:bg-slate-100 transition-colors duration-100 cursor-pointer space-y-1 block focus:outline-none focus:ring-1 focus:ring-slate-300"
+          >
             <div className="flex items-center justify-between gap-2">
               <div className="truncate">
                 <div className="flex items-center gap-1.5">
@@ -183,23 +223,11 @@ export default function MobileReportSummaryCard({
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() =>
-                  onOpenUnitAudit &&
-                  onOpenUnitAudit({
-                    id: 'WATCHROOM',
-                    code_name: 'WATCHROOM',
-                    vehicle_name: 'Posko ARFF',
-                    category: 'posko',
-                    status: watchroomData?.status || 'serviceable',
-                    justification: watchroomData?.notes || '',
-                  })
-                }
+              <span
                 className={`px-2 py-0.5 rounded-full text-[9px] font-bold border transition-colors duration-100 flex items-center gap-1 shrink-0 ${
                   watchroomData?.status === 'unserviceable'
-                    ? 'bg-red-50 text-red-800 border-red-300 hover:bg-red-100'
-                    : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                    ? 'bg-red-50 text-red-800 border-red-300'
+                    : 'bg-emerald-50 text-emerald-800 border-emerald-300'
                 }`}
               >
                 <span
@@ -209,7 +237,7 @@ export default function MobileReportSummaryCard({
                 />
                 <span>{watchroomData?.status === 'unserviceable' ? 'Unserviceable' : 'Serviceable'}</span>
                 <ChevronRight className="w-2.5 h-2.5 text-slate-400" />
-              </button>
+              </span>
             </div>
           </div>
         </div>
