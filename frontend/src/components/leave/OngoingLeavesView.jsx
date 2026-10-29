@@ -1,8 +1,7 @@
 import React from 'react';
-import { CalendarCheck, Calendar, CheckCircle, Trash2 } from 'lucide-react';
+import { CalendarCheck, CheckCircle, Trash2 } from 'lucide-react';
 import { TEAMS } from '../../utils/shiftHelper';
 import StateView from '../common/StateView';
-import Button from '../common/Button';
 import { cleanNotes, getReasonBadge } from '../../utils/leaveHelpers';
 
 export default function OngoingLeavesView({
@@ -15,7 +14,6 @@ export default function OngoingLeavesView({
   user,
   isAdmin = false,
   isSupervisor = false,
-  onOpenLeaveModal,
   onRequestCancelLeave,
 }) {
   return (
@@ -32,7 +30,7 @@ export default function OngoingLeavesView({
           </div>
         </div>
 
-        {/* Filter Regu & Tombol Ajukan */}
+        {/* Filter Regu */}
         <div className="flex items-center gap-2 flex-wrap">
           <select
             value={ongoingTeam}
@@ -44,17 +42,6 @@ export default function OngoingLeavesView({
               <option key={t} value={t}>Regu {t}</option>
             ))}
           </select>
-
-          {user?.personnel_id && (
-            <Button
-              variant="primary"
-              size="sm"
-              icon={Calendar}
-              onClick={onOpenLeaveModal}
-            >
-              + Ajukan Cuti Mandiri
-            </Button>
-          )}
         </div>
       </div>
 

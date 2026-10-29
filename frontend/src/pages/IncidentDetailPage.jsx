@@ -2,13 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
-  AlertTriangle,
   Calendar,
   Clock,
   MapPin,
   Plane,
   CheckCircle2,
-  Shield,
   Check,
   X,
   AlertCircle,

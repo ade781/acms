@@ -7,7 +7,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
-  ImageIcon,
 } from 'lucide-react';
 import { formatTeam } from '../../utils/shiftHelper';
 import StateView from '../common/StateView';
@@ -57,6 +56,7 @@ export default function ActivityTimelineList({
           {paginatedActivities.map((act) => {
             const meta = getActivityCategoryMeta(act.activity_type);
             const NodeIcon = meta.icon;
+            const photoSource = act.attachment_url || act.photo_url;
             return (
               <div key={act.id} className="relative group">
                 {/* Simpul Timeline / Timeline Node */}
@@ -129,17 +129,17 @@ export default function ActivityTimelineList({
                     )}
 
                     {/* Foto Lampiran Kegiatan */}
-                    {act.photo_url && (
+                    {photoSource && (
                       <div className="pt-2">
                         <div className="relative inline-block group/img rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
                           <img
-                            src={act.photo_url}
+                            src={photoSource}
                             alt={act.title}
                             className="w-48 h-32 object-cover transition-transform duration-200 group-hover/img:scale-105 cursor-pointer"
-                            onClick={() => onPreviewPhoto(act.photo_url)}
+                            onClick={() => onPreviewPhoto(photoSource)}
                           />
                           <div
-                            onClick={() => onPreviewPhoto(act.photo_url)}
+                            onClick={() => onPreviewPhoto(photoSource)}
                             className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center cursor-pointer text-white text-xs font-semibold gap-1"
                           >
                             <Eye className="w-4 h-4" />

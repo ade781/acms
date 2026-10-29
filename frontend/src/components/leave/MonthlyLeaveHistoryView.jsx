@@ -1,8 +1,7 @@
 import React from 'react';
-import { History, Calendar, CheckCircle, Trash2 } from 'lucide-react';
+import { History, CheckCircle, Trash2 } from 'lucide-react';
 import { TEAMS } from '../../utils/shiftHelper';
 import StateView from '../common/StateView';
-import Button from '../common/Button';
 import { cleanNotes, getReasonBadge, MONTH_NAMES } from '../../utils/leaveHelpers';
 
 export default function MonthlyLeaveHistoryView({
@@ -19,7 +18,6 @@ export default function MonthlyLeaveHistoryView({
   user,
   isAdmin = false,
   isSupervisor = false,
-  onOpenLeaveModal,
   onRequestCancelLeave,
 }) {
   const now = new Date();
@@ -70,17 +68,6 @@ export default function MonthlyLeaveHistoryView({
               <option key={t} value={t}>Regu {t}</option>
             ))}
           </select>
-
-          {user?.personnel_id && (
-            <Button
-              variant="primary"
-              size="sm"
-              icon={Calendar}
-              onClick={onOpenLeaveModal}
-            >
-              + Ajukan Cuti
-            </Button>
-          )}
         </div>
       </div>
 

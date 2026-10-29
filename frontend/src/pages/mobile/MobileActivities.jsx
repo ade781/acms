@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, ClipboardList, Filter, RefreshCw, AlertCircle, Check, X, Trash2 } from 'lucide-react';
+import { Plus, ClipboardList, RefreshCw, AlertCircle, Check, X, Trash2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { cleanTeam } from '../../utils/shiftHelper';
@@ -8,7 +8,7 @@ import MobileActivityModal from '../../components/mobile/activities/MobileActivi
 
 export default function MobileActivities() {
   const { user, activeDate, activeShiftNumber, activeTeam } = useAuth();
-  const isLeader = ['admin', 'chief', 'chief_assistant'].includes(user?.role);
+  const isLeader = ['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor'].includes(user?.role);
   const canManage = isLeader;
 
   const [activities, setActivities] = useState([]);

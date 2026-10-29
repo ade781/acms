@@ -1,7 +1,6 @@
 import React from 'react';
-import { UserX, Calendar, CheckCircle, Trash2 } from 'lucide-react';
+import { UserX, CheckCircle, Trash2 } from 'lucide-react';
 import StateView from '../common/StateView';
-import Button from '../common/Button';
 import { extractDateRange, cleanNotes, getReasonBadge } from '../../utils/leaveHelpers';
 
 export default function CurrentShiftAbsentsView({
@@ -14,7 +13,6 @@ export default function CurrentShiftAbsentsView({
   activeTeam = 'Alpha',
   isAdmin = false,
   isSupervisor = false,
-  onOpenLeaveModal,
   onRequestCancelLeave,
 }) {
   return (
@@ -30,19 +28,6 @@ export default function CurrentShiftAbsentsView({
                 Daftar Personel Izin / Cuti Dinas (Shift Berjalan)
               </h4>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            {user?.personnel_id && (
-              <Button
-                variant="primary"
-                size="sm"
-                icon={Calendar}
-                onClick={onOpenLeaveModal}
-              >
-                + Ajukan Izin / Cuti Mandiri
-              </Button>
-            )}
           </div>
         </div>
 

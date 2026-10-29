@@ -2,14 +2,13 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   CheckCircle,
   AlertCircle,
-  Info,
   Save,
   ShieldAlert,
   UserX,
   X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { cleanTeam, formatTeam, getScheduledTeam, formatIndoDate } from '../utils/shiftHelper';
+import { cleanTeam, getScheduledTeam } from '../utils/shiftHelper';
 import api from '../services/api';
 import DeploymentSlotCard from '../components/forms/DeploymentSlotCard';
 import VehicleReadinessModal from '../components/forms/VehicleReadinessModal';
@@ -24,6 +23,7 @@ export default function DeploymentPage() {
     activeTeam,
     isSupervisor,
     isAdmin,
+    isDeptHead,
   } = useAuth();
 
   const [loading, setLoading] = useState(true);
@@ -32,7 +32,6 @@ export default function DeploymentPage() {
 
   const [vehicles, setVehicles] = useState([]);
   const [teamPersonnel, setTeamPersonnel] = useState([]);
-  const [supervisorName, setSupervisorName] = useState('');
 
   // Modal Kesiapan Kendaraan di Ploting
   const [selectedVehicleForInspection, setSelectedVehicleForInspection] = useState(null);
@@ -62,9 +61,11 @@ export default function DeploymentPage() {
     [activeDate, activeShiftNumber]
   );
   const isScheduledTeam = cleanTeam(activeTeam) === cleanTeam(scheduledTeam);
+  const isUserScheduledTeam = isAdmin || isDeptHead || cleanTeam(user?.team_group) === cleanTeam(scheduledTeam);
+  const canAccessPlot = isUserScheduledTeam && (isScheduledTeam || isAdmin || isDeptHead);
 
-  // Hak edit: Hanya supervisor/admin, dan regu harus terjadwal dinas aktif (kecuali admin)
-  const canEditPlot = (isAdmin || isSupervisor) && (isScheduledTeam || isAdmin);
+  // Hak edit: Hanya supervisor/admin/dept_head, dan regu harus terjadwal dinas aktif (serta personil bertugas di shift tersebut)
+  const canEditPlot = (isAdmin || isDeptHead || isSupervisor) && canAccessPlot;
 
   // Status perubahan yang belum disimpan (Dirty state tracking)
   const hasUnsavedChanges = useMemo(() => {
@@ -147,8 +148,8 @@ export default function DeploymentPage() {
   // Fetch current deployment & master data concurrently
   const fetchDeploymentData = useCallback(async (options = {}) => {
     // Proteksi Penghematan Bandwidth & Aturan GEMINI.md:
-    // Jika user bukan Admin dan bukan regu yang terjadwal aktif dinas, DILARANG request fetch data berat
-    if (!isScheduledTeam && !isAdmin) {
+    // Jika user bukan Admin/Dept Head dan bukan regu yang terjadwal aktif dinas, DILARANG request fetch data berat
+    if (!canAccessPlot) {
       setLoading(false);
       return;
     }
@@ -190,8 +191,6 @@ export default function DeploymentPage() {
       const deploymentsList = Array.isArray(depPayload?.deployments)
         ? depPayload.deployments
         : (Array.isArray(depRes.data?.deployments) ? depRes.data.deployments : []);
-
-      setSupervisorName(depPayload?.shift?.supervisor_name || depPayload?.supervisor_name || '');
 
       // Absent personnel
       const existingAbsent = (deploymentsList || []).filter(
@@ -262,7 +261,7 @@ export default function DeploymentPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeDate, activeShiftNumber, activeTeam, isScheduledTeam, isAdmin]);
+  }, [activeDate, activeShiftNumber, activeTeam, canAccessPlot]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -271,7 +270,7 @@ export default function DeploymentPage() {
   }, [fetchDeploymentData]);
 
   // Handle personnel change in a vehicle slot
-  const handleSlotPersonnelChange = (vehicleId, slotIndex, personnelId) => {
+  const handleSlotPersonnelChange = useCallback((vehicleId, slotIndex, personnelId) => {
     setVehicleSlots((prev) => {
       const currentList = [...(prev[vehicleId] || [])];
       currentList[slotIndex] = {
@@ -281,10 +280,10 @@ export default function DeploymentPage() {
       };
       return { ...prev, [vehicleId]: currentList };
     });
-  };
+  }, []);
 
   // Add 4th slot to vehicle
-  const handleAddSlot = (vehicleId) => {
+  const handleAddSlot = useCallback((vehicleId) => {
     setVehicleSlots((prev) => {
       const currentList = [...(prev[vehicleId] || [])];
       if (currentList.length < 4) {
@@ -292,10 +291,10 @@ export default function DeploymentPage() {
       }
       return { ...prev, [vehicleId]: currentList };
     });
-  };
+  }, []);
 
   // Remove slot from vehicle
-  const handleRemoveSlot = (vehicleId, slotIndex) => {
+  const handleRemoveSlot = useCallback((vehicleId, slotIndex) => {
     setVehicleSlots((prev) => {
       const currentList = [...(prev[vehicleId] || [])];
       if (currentList.length > 3) {
@@ -307,7 +306,7 @@ export default function DeploymentPage() {
       }
       return { ...prev, [vehicleId]: currentList };
     });
-  };
+  }, []);
 
   // Save all deployments
   const handleSaveDeployments = async () => {
@@ -444,7 +443,7 @@ export default function DeploymentPage() {
       )}
 
       {/* Proteksi Hak Akses Ploting Berdasarkan Shift Dinas (Aturan GEMINI.md) */}
-      {!isScheduledTeam && !isAdmin ? (
+      {!canAccessPlot ? (
         <div className="bg-white rounded-2xl border border-slate-200 p-8 sm:p-10 text-center max-w-2xl mx-auto shadow-sm my-4">
           <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto mb-3">
             <ShieldAlert className="w-7 h-7" />
@@ -453,14 +452,14 @@ export default function DeploymentPage() {
             Bukan Shift Dinas Anda
           </h3>
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mb-5">
-            Regu <strong>{cleanTeam(activeTeam)}</strong> sedang tidak bertugas aktif (libur/off) pada tanggal <strong>{activeDate}</strong> Shift <strong>{activeShiftNumber}</strong>.
+            Regu <strong>{cleanTeam(user?.team_group || activeTeam)}</strong> sedang tidak bertugas aktif (libur/off) pada tanggal <strong>{activeDate}</strong> Shift <strong>{activeShiftNumber}</strong>.
             Operasional dan ploting penugasan shift ini dipimpin oleh <strong>Regu {cleanTeam(scheduledTeam)}</strong>.
           </p>
           <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 inline-block text-left space-y-1">
             <div className="font-semibold text-slate-800 mb-1">Status Roster Operasional:</div>
             <div>• Shift Berjalan: <strong>Shift {activeShiftNumber}</strong></div>
             <div>• Regu Terjadwal Aktif: <strong className="text-emerald-700">Regu {cleanTeam(scheduledTeam)}</strong></div>
-            <div>• Status Regu Anda ({cleanTeam(activeTeam)}): <span className="text-amber-700 font-semibold">Siaga Cadangan / Libur</span></div>
+            <div>• Status Regu Anda ({cleanTeam(user?.team_group || activeTeam)}): <span className="text-amber-700 font-semibold">Siaga Cadangan / Libur</span></div>
           </div>
         </div>
       ) : (
@@ -472,13 +471,13 @@ export default function DeploymentPage() {
                 <h2 className="text-lg font-bold tracking-tight text-slate-900">
                   Ploting Personel Armada
                 </h2>
-                {!isScheduledTeam && isAdmin && (
+                {!isScheduledTeam && (isAdmin || isDeptHead) && (
                   <span
                     className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-800"
                     title={`Regu aktif terjadwal: Regu ${cleanTeam(scheduledTeam)}`}
                   >
                     <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
-                    Mode Tinjau Admin (Jadwal: Regu {cleanTeam(scheduledTeam)})
+                    Mode Tinjau Manajemen (Jadwal: Regu {cleanTeam(scheduledTeam)})
                   </span>
                 )}
               </div>

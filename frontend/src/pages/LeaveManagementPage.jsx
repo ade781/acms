@@ -5,7 +5,9 @@ import {
   Clock,
   History,
   CalendarCheck,
+  Calendar,
 } from 'lucide-react';
+import Button from '../components/common/Button';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam, formatTeam, formatIndoDate } from '../utils/shiftHelper';
 import { getErrorMessage } from '../utils/errorHelper';
@@ -274,9 +276,9 @@ export default function LeaveManagementPage() {
         </div>
       )}
 
-      {/* Unified Segmented Workspace Header: Title + Inline Attendance Pills + Tab Switcher */}
+      {/* Unified Segmented Workspace Header: Title + Inline Attendance Pills + Action + Tab Switcher */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4">
-        <div>
+        <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-xl font-bold tracking-tight text-slate-900">
               Pencatatan Izin & Cuti
@@ -290,7 +292,16 @@ export default function LeaveManagementPage() {
               </span>
             )}
           </div>
-
+          {user?.personnel_id && (
+            <Button
+              variant="primary"
+              size="sm"
+              icon={Calendar}
+              onClick={() => setLeaveModalOpen(true)}
+            >
+              + Ajukan Cuti Mandiri
+            </Button>
+          )}
         </div>
 
         {/* Tab Switcher: Status Berjalan (Default) vs Shift Berjalan vs Riwayat Cuti */}
@@ -353,7 +364,6 @@ export default function LeaveManagementPage() {
           user={user}
           isAdmin={isAdmin}
           isSupervisor={isSupervisor}
-          onOpenLeaveModal={() => setLeaveModalOpen(true)}
           onRequestCancelLeave={handleRequestCancelLeave}
         />
       )}
@@ -370,7 +380,6 @@ export default function LeaveManagementPage() {
           activeTeam={activeTeam}
           isAdmin={isAdmin}
           isSupervisor={isSupervisor}
-          onOpenLeaveModal={() => setLeaveModalOpen(true)}
           onRequestCancelLeave={handleRequestCancelLeave}
         />
       )}
@@ -391,7 +400,6 @@ export default function LeaveManagementPage() {
           user={user}
           isAdmin={isAdmin}
           isSupervisor={isSupervisor}
-          onOpenLeaveModal={() => setLeaveModalOpen(true)}
           onRequestCancelLeave={handleRequestCancelLeave}
         />
       )}
@@ -400,6 +408,8 @@ export default function LeaveManagementPage() {
       <LeaveModal
         isOpen={leaveModalOpen}
         onClose={() => setLeaveModalOpen(false)}
+        user={user}
+        activeDate={activeDate}
         onSuccess={(customMsg) => {
           setSuccessMsg(typeof customMsg === 'string' ? customMsg : (customMsg?.message || 'Pengajuan izin/cuti dinas berhasil dicatat ke sistem.'));
           loadInitialData();

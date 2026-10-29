@@ -4,29 +4,20 @@ import {
   AlertTriangle,
   Plus,
   Search,
-  Calendar,
   ChevronRight,
-  ChevronLeft,
-  ShieldAlert,
   Check,
   X,
   FileText,
   Clock,
   MapPin,
   CheckCircle2,
-  Download,
-  Filter,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { cleanTeam, formatTeam } from '../utils/shiftHelper';
+import { cleanTeam } from '../utils/shiftHelper';
 import api from '../services/api';
-import { downloadIncidentReportPdf } from '../services/reportService';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
-import Modal from '../components/common/Modal';
-import InputField from '../components/common/InputField';
-import SelectField from '../components/common/SelectField';
 import IncidentModal from '../components/forms/IncidentModal';
 
 export default function IncidentsPage() {
@@ -42,15 +33,6 @@ export default function IncidentsPage() {
   const [toastMsg, setToastMsg] = useState(null);
   const [filterScope, setFilterScope] = useState('shift'); // 'shift' | 'all'
   const [filterPriority, setFilterPriority] = useState('ALL');
-
-  // State Modal Ekspor Dokumen Rekap PDF Terpadu
-  const [exportModalOpen, setExportModalOpen] = useState(false);
-  const [exportPeriod, setExportPeriod] = useState('1month');
-  const [exportStartDate, setExportStartDate] = useState('');
-  const [exportEndDate, setExportEndDate] = useState('');
-  const [exportCategory, setExportCategory] = useState('ALL');
-  const [exportStatus, setExportStatus] = useState('ALL');
-  const [isExporting, setIsExporting] = useState(false);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -143,26 +125,6 @@ export default function IncidentsPage() {
     );
   };
 
-  const handleExportPdf = async () => {
-    try {
-      setIsExporting(true);
-      await downloadIncidentReportPdf({
-        period: exportPeriod,
-        start_date: exportPeriod === 'custom' ? exportStartDate : '',
-        end_date: exportPeriod === 'custom' ? exportEndDate : '',
-        category: exportCategory,
-        status: exportStatus,
-      });
-      setToastMsg('Dokumen rekapitulasi laporan insiden resmi berhasil diunduh.');
-      setExportModalOpen(false);
-    } catch (err) {
-      console.error('Gagal mengunduh PDF insiden:', err);
-      setToastMsg('Gagal mengunduh berkas laporan insiden. Silakan coba kembali.');
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
   const summaryStats = {
     total: incidents.length,
     critical: incidents.filter((i) => {
@@ -196,14 +158,6 @@ export default function IncidentsPage() {
             onClick={() => navigate('/incidents/reports')}
           >
             Rekap Laporan
-          </Button>
-
-          <Button
-            variant="outline"
-            icon={Download}
-            onClick={() => setExportModalOpen(true)}
-          >
-            Cetak Rekap PDF
           </Button>
 
           {canReport && (
@@ -411,17 +365,12 @@ export default function IncidentsPage() {
                       {getStatusBadge(inc.status)}
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/incidents/${inc.id}`);
-                        }}
-                        className="p-1.5 rounded-lg text-slate-400 group-hover:text-red-600 group-hover:bg-red-50 transition-colors duration-100"
-                        title={typeof inc.title === 'string' ? `Buka Detail: ${inc.title}` : 'Buka Detail Insiden'}
+                      <span
+                        className="p-1.5 rounded-lg text-slate-300 group-hover:text-red-600 inline-flex transition-colors duration-100"
+                        title={typeof inc.title === 'string' ? `Detail: ${inc.title}` : 'Detail Insiden'}
                       >
                         <ChevronRight className="w-4 h-4" />
-                      </button>
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -473,104 +422,6 @@ export default function IncidentsPage() {
           fetchIncidents();
         }}
       />
-
-      {/* Modal Ekspor PDF Rekapitulasi Insiden Resmi */}
-      <Modal
-        isOpen={exportModalOpen}
-        onClose={() => !isExporting && setExportModalOpen(false)}
-        title="Cetak Rekapitulasi Laporan Insiden Resmi"
-        subtitle="Unduh berkas PDF rekapitulasi data insiden bertandatangan pimpinan dinas ARFF YIA"
-      >
-        <div className="space-y-4">
-          <SelectField
-            label="Periode Rekapitulasi"
-            value={exportPeriod}
-            onChange={(e) => setExportPeriod(e.target.value)}
-            options={[
-              { value: '1month', label: '1 Bulan Terakhir (30 Hari)' },
-              { value: '3months', label: '3 Bulan Terakhir (Triwulan)' },
-              { value: '1year', label: '1 Tahun Terakhir (Tahunan)' },
-              { value: 'custom', label: 'Rentang Tanggal Kustom' },
-            ]}
-          />
-
-          {exportPeriod === 'custom' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
-              <InputField
-                label="Tanggal Mulai"
-                type="date"
-                value={exportStartDate}
-                onChange={(e) => setExportStartDate(e.target.value)}
-              />
-              <InputField
-                label="Tanggal Selesai"
-                type="date"
-                value={exportEndDate}
-                onChange={(e) => setExportEndDate(e.target.value)}
-              />
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <SelectField
-              label="Filter Kategori Insiden"
-              value={exportCategory}
-              onChange={(e) => setExportCategory(e.target.value)}
-              options={[
-                { value: 'ALL', label: 'Semua Kategori' },
-                { value: 'aircraft_accident', label: 'Kecelakaan Pesawat (Accident)' },
-                { value: 'aircraft_incident', label: 'Insiden Pesawat (Incident)' },
-                { value: 'building_fire', label: 'Kebakaran Gedung/Fasilitas' },
-                { value: 'fuel_spill', label: 'Tumpahan Bahan Bakar (Spill)' },
-                { value: 'medical_emergency', label: 'Kedaruratan Medis' },
-                { value: 'bomb_threat', label: 'Ancaman Bom / Keamanan' },
-                { value: 'natural_disaster', label: 'Bencana Alam / Cuaca' },
-                { value: 'other', label: 'Lain-lain / Khusus' },
-              ]}
-            />
-
-            <SelectField
-              label="Filter Status Penanganan"
-              value={exportStatus}
-              onChange={(e) => setExportStatus(e.target.value)}
-              options={[
-                { value: 'ALL', label: 'Semua Status' },
-                { value: 'dalam_proses', label: 'Dalam Proses' },
-                { value: 'menunggu_tindak_lanjut', label: 'Tindak Lanjut' },
-                { value: 'selesai', label: 'Selesai' },
-              ]}
-            />
-          </div>
-
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 space-y-1">
-            <p className="font-semibold">Format Dokumen Cetak Standar D-OPS ARFF YIA:</p>
-            <p className="text-[11px] text-blue-700">
-              Dokumen PDF memuat nomor registrasi laporan, kronologi singkat, tindakan unit, matriks kategori keparahan, serta lembar tanda tangan dinas Section Head.
-            </p>
-          </div>
-
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isExporting}
-              onClick={() => setExportModalOpen(false)}
-            >
-              Batal
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              icon={Download}
-              loading={isExporting}
-              disabled={isExporting || (exportPeriod === 'custom' && (!exportStartDate || !exportEndDate))}
-              onClick={handleExportPdf}
-            >
-              {isExporting ? 'Memproses Dokumen PDF...' : 'Unduh Dokumen PDF'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Save, Check, AlertCircle, RefreshCw, Plus, UserPlus, X, CalendarOff, ShieldAlert } from 'lucide-react';
+import { Save, Check, AlertCircle, RefreshCw, X, CalendarOff, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { cleanTeam, getScheduledTeam, formatTeam, formatIndoDate } from '../../utils/shiftHelper';
 import api from '../../services/api';
@@ -11,12 +11,13 @@ import WatchroomReadinessModal from '../../components/forms/WatchroomReadinessMo
 import VehicleReadinessModal from '../../components/forms/VehicleReadinessModal';
 
 export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) {
-  const { user, isAdmin, isDeptHead, activeDate, activeShiftNumber, activeTeam } = useAuth();
+  const { user, isAdmin, isDeptHead, isSupervisor, isChief, activeDate, activeShiftNumber, activeTeam } = useAuth();
 
   // Verifikasi apakah user berhak memploting shift ini
   const scheduledTeam = getScheduledTeam(activeDate, activeShiftNumber);
   const userTeam = cleanTeam(user?.team_group || '');
   const isAuthorizedShift = isAdmin || isDeptHead || (userTeam && userTeam.toLowerCase() === scheduledTeam.toLowerCase());
+  const canEditPlot = Boolean(isAuthorizedShift && (isSupervisor || isChief || isAdmin || isDeptHead));
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -278,6 +279,7 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
 
   // Open Crew Picker Sheet for a unit and slot
   const handleOpenPicker = (unitId, slotIndex, isPic) => {
+    if (!canEditPlot) return;
     const unit = vehicles.find((v) => String(v.id) === String(unitId));
     setPickerContext({
       unitId,
@@ -291,6 +293,7 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
 
   // Add new dynamic crew slot to a unit (max 4 total slots)
   const handleAddCrew = (unitId) => {
+    if (!canEditPlot) return;
     setVehicleSlots((prev) => {
       const currentList = [...(prev[unitId] || [])];
       if (currentList.length < 4) {
@@ -302,6 +305,7 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
 
   // Select personnel into a slot or clear slot
   const handleSelectPersonnel = (selectedPersonnelId) => {
+    if (!canEditPlot) return;
     const { unitId, slotIndex, isPic } = pickerContext;
     if (!unitId) return;
 
@@ -356,6 +360,10 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
 
   // Save all Ploting to backend (/api/deployments/batch)
   const handleSavePloting = async () => {
+    if (!canEditPlot) {
+      setErrorMsg('Akses ditolak: Hanya Chief/Supervisor/Admin yang dapat menyimpan ploting armada.');
+      return;
+    }
     setErrorMsg(null);
     setToastMsg(null);
 
@@ -523,7 +531,6 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
       setCancelingLeave(false);
     }
   };
-  const handleExecuteCancelLeave = handleConfirmCancelLeave;
 
 
   // Layar santun jika pengguna sedang lepas piket / bukan shift dinas regunya
@@ -629,23 +636,29 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
           {hasUnsavedChanges && (
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" title="Ada perubahan belum disimpan" />
           )}
-          <button
-            type="button"
-            onClick={handleSavePloting}
-            disabled={saving || loading || !hasUnsavedChanges}
-            className={`px-2.5 py-1 rounded font-bold text-[10px] flex items-center gap-1 shadow-xs transition-colors duration-100 ${
-              hasUnsavedChanges
-                ? 'bg-red-600 hover:bg-red-700 text-white cursor-pointer'
-                : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-            } disabled:opacity-60`}
-          >
-            {saving ? (
-              <RefreshCw className="w-3 h-3 animate-spin" />
-            ) : (
-              <Save className="w-3 h-3" />
-            )}
-            <span>{saving ? 'Menyimpan...' : 'Simpan'}</span>
-          </button>
+          {canEditPlot ? (
+            <button
+              type="button"
+              onClick={handleSavePloting}
+              disabled={saving || loading || !hasUnsavedChanges}
+              className={`px-2.5 py-1 rounded font-bold text-[10px] flex items-center gap-1 shadow-xs transition-colors duration-100 ${
+                hasUnsavedChanges
+                  ? 'bg-red-600 hover:bg-red-700 text-white cursor-pointer'
+                  : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+              } disabled:opacity-60`}
+            >
+              {saving ? (
+                <RefreshCw className="w-3 h-3 animate-spin" />
+              ) : (
+                <Save className="w-3 h-3" />
+              )}
+              <span>{saving ? 'Menyimpan...' : 'Simpan'}</span>
+            </button>
+          ) : (
+            <span className="text-[9.5px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.8 rounded border border-slate-200">
+              Mode Tinjau (Read-Only)
+            </span>
+          )}
         </div>
       </div>
 
@@ -672,8 +685,9 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
               unit={unit}
               slots={vehicleSlots[unit.id] || []}
               personnelMap={personnelMap}
-              onOpenPicker={(slotIdx, isPic) => handleOpenPicker(unit.id, slotIdx, isPic)}
-              onAddCrew={() => handleAddCrew(unit.id)}
+              onOpenPicker={canEditPlot ? (slotIdx, isPic) => handleOpenPicker(unit.id, slotIdx, isPic) : null}
+              onAddCrew={canEditPlot ? () => handleAddCrew(unit.id) : null}
+              canEdit={canEditPlot}
               onOpenDetailKendala={onOpenAuditModal}
               onInspect={(targetUnit) => {
                 setSelectedUnitForInspection(targetUnit);

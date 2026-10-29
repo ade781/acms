@@ -6,7 +6,7 @@ import {
   Download,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { cleanTeam, formatTeam, formatIndoDate } from '../utils/shiftHelper';
+import { cleanTeam } from '../utils/shiftHelper';
 import api from '../services/api';
 import { downloadActivityReportPdf } from '../services/reportService';
 import Button from '../components/common/Button';

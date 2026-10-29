@@ -9,6 +9,7 @@ export default function MobilePlotCard({
   onAddCrew,
   onOpenDetailKendala,
   onInspect,
+  canEdit = true,
 }) {
   const readiness = unit.readiness || unit.status || 'belum_dilaporkan';
   const isCarriedOver = Boolean(unit.is_carried_over);
@@ -146,13 +147,15 @@ export default function MobilePlotCard({
               )}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={() => onOpenPicker(0, true)}
-            className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 shrink-0 px-2 py-1 tap-target"
-          >
-            {picPerson ? 'Ganti' : 'Pilih'}
-          </button>
+          {canEdit && onOpenPicker && (
+            <button
+              type="button"
+              onClick={() => onOpenPicker(0, true)}
+              className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 shrink-0 px-2 py-1 tap-target"
+            >
+              {picPerson ? 'Ganti' : 'Pilih'}
+            </button>
+          )}
         </div>
 
         {/* Slot Kru Tambahan */}
@@ -175,20 +178,22 @@ export default function MobilePlotCard({
                   )}
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => onOpenPicker(slotIdx, false)}
-                className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 shrink-0 px-2 py-1 tap-target"
-              >
-                {crewPerson ? 'Ganti' : 'Pilih'}
-              </button>
+              {canEdit && onOpenPicker && (
+                <button
+                  type="button"
+                  onClick={() => onOpenPicker(slotIdx, false)}
+                  className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 shrink-0 px-2 py-1 tap-target"
+                >
+                  {crewPerson ? 'Ganti' : 'Pilih'}
+                </button>
+              )}
             </div>
           );
         })}
       </div>
 
       {/* Tombol Tambah Kru (Maksimal total 4 orang per unit) */}
-      {slots.length < 4 && (
+      {canEdit && onAddCrew && slots.length < 4 && (
         <div className="pt-0.5 flex justify-end">
           <button
             type="button"

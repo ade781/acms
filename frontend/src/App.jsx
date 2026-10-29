@@ -214,6 +214,7 @@ export default function App() {
             >
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/schedules" element={<RosterSchedulePage />} />
+              <Route path="/roster" element={<Navigate to="/schedules" replace />} />
               <Route path="/announcements" element={<AnnouncementsPage />} />
               <Route path="/deployment" element={<DeploymentPage />} />
               <Route path="/vehicles" element={<VehicleReadinessPage />} />

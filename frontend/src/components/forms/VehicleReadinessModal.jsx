@@ -19,17 +19,22 @@ export default function VehicleReadinessModal({
 }) {
   const initialStatus = vehicle?.status || vehicle?.current_log?.status;
   const wasInitiallyUnserviceable = initialStatus === 'unserviceable';
+  const isCarriedOver = Boolean(vehicle?.is_carried_over);
 
   // Default tidak ada yang terpilih (kosong) saat pemeriksaan awal, agar pengguna memilih secara sadar
   const hasExistingShiftLog = Boolean(
-    vehicle?.has_shift_log && (vehicle?.status === 'serviceable' || vehicle?.status === 'unserviceable') && !vehicle?.is_carried_over
+    vehicle?.has_shift_log && (vehicle?.status === 'serviceable' || vehicle?.status === 'unserviceable') && !isCarriedOver
   );
   const [status, setStatus] = useState(hasExistingShiftLog ? vehicle.status : '');
 
   const [justification, setJustification] = useState(vehicle?.justification || vehicle?.current_log?.justification || '');
   const [notes, setNotes] = useState(vehicle?.notes || vehicle?.current_log?.notes || '');
   const [photoFile, setPhotoFile] = useState(null);
-  const [photoPreview, setPhotoPreview] = useState(vehicle?.photo_webp_url || vehicle?.current_log?.photo_webp_url || null);
+  // Unit berstatus carry-over tidak menampilkan foto lama sebagai preview valid tanpa unggah baru
+  const [photoPreview, setPhotoPreview] = useState(
+    isCarriedOver ? null : (vehicle?.photo_webp_url || vehicle?.current_log?.photo_webp_url || null)
+  );
+  const carriedOverPhotoUrl = isCarriedOver ? (vehicle?.photo_webp_url || vehicle?.current_log?.photo_webp_url || null) : null;
   const [compressing, setCompressing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -85,8 +90,12 @@ export default function VehicleReadinessModal({
     }
 
     // Validasi Foto Bukti Fisik Wajib
-    if (!photoFile && !photoPreview) {
-      setError('Foto bukti fisik kelaikan armada wajib disertakan untuk verifikasi kondisi lapangan.');
+    if (!photoFile && (!photoPreview || isCarriedOver)) {
+      setError(
+        isCarriedOver
+          ? 'Unit berstatus estafet (carry-over) wajib mengunggah foto bukti fisik baru kondisi terkini untuk shift berjalan.'
+          : 'Foto bukti fisik kelaikan armada wajib disertakan untuk verifikasi kondisi lapangan.'
+      );
       return;
     }
 
@@ -163,6 +172,28 @@ export default function VehicleReadinessModal({
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {isCarriedOver && (
+          <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1">
+            <div className="font-bold flex items-center gap-1.5 text-amber-800">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>Unit Berstatus Estafet (Carry-Over)</span>
+            </div>
+            <p className="text-[11px] leading-relaxed text-amber-700">
+              Kendala unit ini diteruskan dari shift sebelumnya. Foto bukti fisik baru untuk shift berjalan <strong>wajib diunggah</strong> oleh PIC sebelum menyimpan kesiapan armada.
+            </p>
+            {carriedOverPhotoUrl && (
+              <div className="pt-1">
+                <span className="text-[10.5px] font-semibold text-slate-600 block mb-1">Foto Bukti Shift Sebelumnya (Referensi):</span>
+                <img
+                  src={carriedOverPhotoUrl}
+                  alt="Referensi shift sebelumnya"
+                  className="w-24 h-16 object-cover rounded-md border border-amber-300 opacity-80"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
         {error && (
           <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
             <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />

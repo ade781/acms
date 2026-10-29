@@ -26,6 +26,44 @@ const MONTH_NAMES = [
 
 const DAY_SHORT_NAMES = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 
+const DAY_NAME_TO_SHORT = {
+  Minggu: 'Min',
+  Senin: 'Sen',
+  Selasa: 'Sel',
+  Rabu: 'Rab',
+  Kamis: 'Kam',
+  Jumat: 'Jum',
+  Sabtu: 'Sab',
+};
+
+const getTeamPillClass = (teamName) => {
+  switch (cleanTeam(teamName).toLowerCase()) {
+    case 'alpha':
+      return 'bg-red-50 text-red-700 border border-red-200';
+    case 'bravo':
+      return 'bg-blue-50 text-blue-700 border border-blue-200';
+    case 'charlie':
+      return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+    case 'delta':
+      return 'bg-purple-50 text-purple-700 border border-purple-200';
+    default:
+      return 'bg-slate-50 text-slate-700 border border-slate-200';
+  }
+};
+
+const getDutyBadgeClass = (duty) => {
+  switch (duty) {
+    case 'Pagi':
+      return 'bg-emerald-50 text-emerald-800 border border-emerald-200';
+    case 'Siang':
+      return 'bg-amber-50 text-amber-900 border border-amber-200';
+    case 'Malam':
+      return 'bg-indigo-50 text-indigo-900 border border-indigo-200';
+    default:
+      return 'bg-slate-100 text-slate-500 border border-slate-200';
+  }
+};
+
 export default function RosterSchedulePage() {
   const { isAdmin, isSupervisor } = useAuth();
   const canEdit = Boolean(isAdmin || isSupervisor);
@@ -272,33 +310,6 @@ export default function RosterSchedulePage() {
     }
   };
 
-  const getTeamPillClass = (teamName) => {
-    switch (cleanTeam(teamName).toLowerCase()) {
-      case 'alpha':
-        return 'bg-red-50 text-red-700 border border-red-200';
-      case 'bravo':
-        return 'bg-blue-50 text-blue-700 border border-blue-200';
-      case 'charlie':
-        return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-      case 'delta':
-        return 'bg-purple-50 text-purple-700 border border-purple-200';
-      default:
-        return 'bg-slate-50 text-slate-700 border border-slate-200';
-    }
-  };
-
-  const getDutyBadgeClass = (duty) => {
-    switch (duty) {
-      case 'Pagi':
-        return 'bg-emerald-50 text-emerald-800 border border-emerald-200';
-      case 'Siang':
-        return 'bg-amber-50 text-amber-900 border border-amber-200';
-      case 'Malam':
-        return 'bg-indigo-50 text-indigo-900 border border-indigo-200';
-      default:
-        return 'bg-slate-100 text-slate-500 border border-slate-200';
-    }
-  };
 
   const isToday = (dateStr) => {
     return getLocalDateStr() === dateStr;
@@ -431,10 +442,10 @@ export default function RosterSchedulePage() {
                     {/* Kolom Angka Tanggal ke Samping (1 s.d. 31) */}
                     {daysList.map((item) => {
                       const todayCheck = isToday(item.date);
-                      const [itemY, itemM, itemD] = item.date.split('-').map(Number);
-                      const jsDate = new Date(itemY, itemM - 1, itemD);
-                      const dayShort = DAY_SHORT_NAMES[jsDate.getDay()];
-                      const isSunday = jsDate.getDay() === 0;
+                      const dayShort = item.day_name
+                        ? (DAY_NAME_TO_SHORT[item.day_name] || item.day_name.slice(0, 3))
+                        : (item.date ? DAY_SHORT_NAMES[new Date(item.date).getDay()] : '');
+                      const isSunday = item.day_name ? item.day_name === 'Minggu' : (item.date ? new Date(item.date).getDay() === 0 : false);
 
                       return (
                         <th

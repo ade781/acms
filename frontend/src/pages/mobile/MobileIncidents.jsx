@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, ShieldAlert, AlertTriangle, RefreshCw, AlertCircle, Search, CheckCircle2, FileText } from 'lucide-react';
+import { Plus, RefreshCw, AlertCircle, CheckCircle2, FileText } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { cleanTeam } from '../../utils/shiftHelper';
@@ -10,10 +9,8 @@ import MobileIncidentDetailModal from '../../components/mobile/incidents/MobileI
 import MobileIncidentExportModal from '../../components/mobile/incidents/MobileIncidentExportModal';
 
 export default function MobileIncidents() {
-  const navigate = useNavigate();
   const { user, activeDate, activeShiftNumber, activeTeam } = useAuth();
-  const isLeader = ['admin', 'chief', 'chief_assistant'].includes(user?.role);
-  const canManage = isLeader;
+  const isLeader = ['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor'].includes(user?.role);
 
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -119,7 +116,7 @@ export default function MobileIncidents() {
             <span>Rekap</span>
           </button>
 
-          {canManage && (
+          {isLeader && (
             <button
               type="button"
               onClick={() => setIsCreateModalOpen(true)}
@@ -273,7 +270,7 @@ export default function MobileIncidents() {
               Belum ada laporan insiden pada shift ini. Seluruh pergerakan dan fasilitas operasional berjalan normal.
             </p>
           </div>
-          {canManage && (
+          {isLeader && (
             <button
               type="button"
               onClick={() => setIsCreateModalOpen(true)}
@@ -315,7 +312,7 @@ export default function MobileIncidents() {
         onClose={() => setIsDetailModalOpen(false)}
         incidentId={selectedIncident?.id}
         initialIncident={selectedIncident}
-        canManage={canManage}
+        canManage={isLeader}
         onStatusUpdated={fetchIncidents}
       />
 

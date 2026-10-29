@@ -1,9 +1,9 @@
 import React from 'react';
-import { UserPlus, Trash2, ShieldCheck, User, Camera, Sparkles } from 'lucide-react';
+import { UserPlus, Trash2, ShieldCheck, Camera, Sparkles } from 'lucide-react';
 import { getVehicleIcon } from '../../utils/vehicleHelper';
-import Badge from '../common/Badge';
 
-export default function DeploymentSlotCard({
+
+function DeploymentSlotCard({
   vehicle,
   slots = [],
   availablePersonnel = [],
@@ -349,3 +349,6 @@ export default function DeploymentSlotCard({
     </div>
   );
 }
+
+
+export default React.memo(DeploymentSlotCard);
