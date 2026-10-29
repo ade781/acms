@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, HelpCircle, Plus, Trash2, X, AlertCircle, FileBarChart2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { cleanTeam, formatTeam, formatIndoDate } from '../utils/shiftHelper';
+import { cleanTeam } from '../utils/shiftHelper';
 import api from '../services/api';
 import VehicleMetricCard from '../components/dashboard/VehicleMetricCard';
 import VehicleReadinessModal from '../components/forms/VehicleReadinessModal';

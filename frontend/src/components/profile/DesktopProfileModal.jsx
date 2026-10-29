@@ -2,34 +2,25 @@ import React, { useState, useEffect } from 'react';
 import {
   X,
   User,
-  Shield,
   KeyRound,
-  Edit3,
   CheckCircle2,
   AlertCircle,
-  Calendar,
   Award,
-  BookOpen,
-  Hash,
-  Clock,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { formatTeam, formatRoleName, formatIndoDate } from '../../utils/shiftHelper';
+import { formatTeam, formatRoleName } from '../../utils/shiftHelper';
 import PersonnelDossier from '../personnel/PersonnelDossier';
 import PersonnelDossierEditModal from '../personnel/PersonnelDossierEditModal';
 import ProfilePasswordCard from './ProfilePasswordCard';
 import ProfileEditCard from './ProfileEditCard';
 import ProfileDocumentsCard from './ProfileDocumentsCard';
 
-const formatDateIndo = (dateStr) => formatIndoDate(dateStr, { day: 'numeric', month: 'short', year: 'numeric' });
-
 export default function DesktopProfileModal({ isOpen, onClose }) {
   const { user, token, refreshUser } = useAuth();
 
   const [profileData, setProfileData] = useState(null);
   const [documents, setDocuments] = useState([]);
-  const [loading, setLoading] = useState(true);
 
   // Sub-forms toggle
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -57,7 +48,6 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
   // Load profile and documents data
   const loadData = async () => {
     try {
-      setLoading(true);
       const meRes = await api.get('/auth/me');
       const me = meRes.data?.data || meRes.data || user;
       setProfileData(me);
@@ -92,8 +82,6 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
     } catch (err) {
       console.error('Gagal mengambil data profil:', err);
       setProfileData(user);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -352,7 +340,6 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
             personnelId={profileData?.personnel_id || personnelId}
             isPureAdmin={isPureAdmin}
             token={token}
-            formatDateIndo={formatDateIndo}
             onSuccess={setFeedbackSuccess}
             onError={setFeedbackError}
             reloadProfile={loadData}

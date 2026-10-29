@@ -1,17 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  FileText,
   Download,
   Eye,
   AlertCircle,
-  Clock,
-  AlertTriangle,
-  CheckCircle,
-  Users,
-  Calendar,
-  Camera,
   MapPin,
-  ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -20,7 +12,6 @@ import {
   formatTeam,
   SHIFT_DEFINITIONS,
 } from '../../utils/shiftHelper';
-import api from '../../services/api';
 import { fetchShiftReportData, downloadShiftReportPdf } from '../../services/reportService';
 import MobileReportSummaryCard from '../../components/mobile/reports/MobileReportSummaryCard';
 import MobileUnitAuditModal from '../../components/mobile/reports/MobileUnitAuditModal';
@@ -37,7 +28,6 @@ export default function MobileReports() {
   const { activeDate, activeShiftNumber, activeTeam } = useAuth();
   const abortControllerRef = useRef(null);
 
-  const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
@@ -79,7 +69,6 @@ export default function MobileReports() {
       abortControllerRef.current = controller;
 
       try {
-        setLoading(true);
         setErrorMessage(null);
 
         const data = await fetchShiftReportData({
@@ -105,8 +94,6 @@ export default function MobileReports() {
           ? err.response.data.message
           : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Sebagian data operasional shift belum lengkap atau sedang disinkronkan.'));
         setErrorMessage(msg);
-      } finally {
-        setLoading(false);
       }
     },
     [activeDate, activeShiftNumber, activeTeam]

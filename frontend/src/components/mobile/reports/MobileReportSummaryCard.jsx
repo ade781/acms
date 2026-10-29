@@ -1,5 +1,5 @@
 import React from 'react';
-import { Truck, ShieldCheck, AlertTriangle, Users, Calendar, Clock, ChevronRight } from 'lucide-react';
+import { Truck, Users, ChevronRight } from 'lucide-react';
 
 /**
  * Kartu Rekapitulasi Ringkas Status Operasional Shift (Mobile)

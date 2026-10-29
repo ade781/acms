@@ -17,7 +17,6 @@ import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
 import InputField from '../components/common/InputField';
-import SelectField from '../components/common/SelectField';
 
 const MONTH_NAMES = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',

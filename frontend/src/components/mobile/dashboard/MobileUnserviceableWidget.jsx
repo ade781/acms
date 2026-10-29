@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, ChevronRight, History } from 'lucide-react';
+import { AlertTriangle, History } from 'lucide-react';
 
 export default function MobileUnserviceableWidget({
   unserviceableVehicles = [],

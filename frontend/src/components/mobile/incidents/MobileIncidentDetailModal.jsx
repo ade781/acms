@@ -1,14 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Clock,
   MapPin,
-  Plane,
-  ShieldAlert,
-  AlertTriangle,
-  CheckCircle2,
-  Paperclip,
-  User,
-  X,
   Camera,
   ExternalLink,
 } from 'lucide-react';
@@ -24,7 +16,6 @@ export default function MobileIncidentDetailModal({
   onStatusUpdated,
 }) {
   const [incident, setIncident] = useState(initialIncident);
-  const [loading, setLoading] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [activePhoto, setActivePhoto] = useState(null);
   const [toastMsg, setToastMsg] = useState(null);
@@ -34,7 +25,6 @@ export default function MobileIncidentDetailModal({
 
     let isMounted = true;
     async function fetchDetail() {
-      setLoading(true);
       try {
         const res = await api.get(`/incidents/${incidentId}`);
         const data = res.data?.incident || res.data?.data || res.data;
@@ -43,8 +33,6 @@ export default function MobileIncidentDetailModal({
         }
       } catch (err) {
         console.error('Error fetching incident detail:', err);
-      } finally {
-        if (isMounted) setLoading(false);
       }
     }
 

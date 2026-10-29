@@ -5,7 +5,6 @@ import {
   TEAMS,
   cleanTeam,
   formatIndoDate,
-  formatRoleName,
   getCurrentOperationalShift,
   getDailyRoster,
 } from '../utils/shiftHelper';

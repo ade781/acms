@@ -270,16 +270,6 @@ export default function MobileIncidents() {
               Belum ada laporan insiden pada shift ini. Seluruh pergerakan dan fasilitas operasional berjalan normal.
             </p>
           </div>
-          {isLeader && (
-            <button
-              type="button"
-              onClick={() => setIsCreateModalOpen(true)}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-[10.5px] shadow-xs transition-colors duration-100"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Catat Laporan Kejadian</span>
-            </button>
-          )}
         </div>
       )}
 

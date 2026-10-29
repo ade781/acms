@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, X, Check, AlertCircle, Clock, Tag } from 'lucide-react';
+import { Camera, Check, AlertCircle } from 'lucide-react';
 import api from '../../../services/api';
 import { ACTIVITY_CATEGORIES } from './MobileActivityTimelineItem';
 import { cleanTeam } from '../../../utils/shiftHelper';

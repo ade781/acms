@@ -6,7 +6,6 @@ import Button from '../common/Button';
 
 export default function VehicleMetricCard({
   vehicle,
-  isPicForVehicle = false,
   canInspect = false,
   onInspect,
   isAdmin = false,

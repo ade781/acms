@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, CheckCircle, AlertTriangle, Clock, Camera, ArrowRight } from 'lucide-react';
+import { X, CheckCircle, Camera } from 'lucide-react';
 import { formatIndoDate } from '../../../utils/shiftHelper';
 
 /**

@@ -2,13 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
-  User,
   Shield,
-  Award,
-  Calendar,
   FileUp,
   Info,
-  Edit3,
   Key,
   CheckCircle2,
   PenTool,
@@ -17,11 +13,11 @@ import {
   FileText,
   FileCheck,
   ExternalLink,
-  Download,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { cleanTeam, formatTeam, TEAMS, OPERATIONAL_ROLES, formatRoleName, mapRankPositionToRole } from '../utils/shiftHelper';
+import { formatTeam, formatRoleName, mapRankPositionToRole } from '../utils/shiftHelper';
+import { buildAuthenticatedFileUrl } from '../utils/fileHelper';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
@@ -50,15 +46,7 @@ function formatBytes(bytes) {
 export default function PersonnelDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, token, isAdmin, isSupervisor } = useAuth();
-
-  const getAuthorizedUrl = (rawUrl) => {
-    if (!rawUrl) return '';
-    const currentToken = token || localStorage.getItem('arff_token') || '';
-    if (!currentToken) return rawUrl;
-    const separator = rawUrl.includes('?') ? '&' : '?';
-    return `${rawUrl}${separator}token=${encodeURIComponent(currentToken)}`;
-  };
+  const { user, isAdmin, isSupervisor } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -448,7 +436,7 @@ export default function PersonnelDetailPage() {
                   <div className="w-full sm:w-64 h-32 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/60 flex items-center justify-center p-3 relative overflow-hidden">
                     {personnel.signature_url ? (
                       <img
-                        src={getAuthorizedUrl(personnel.signature_url)}
+                        src={buildAuthenticatedFileUrl(personnel.signature_url)}
                         alt={`Tanda tangan ${personnel.full_name}`}
                         className="max-h-full max-w-full object-contain filter drop-shadow-sm"
                       />
@@ -610,7 +598,7 @@ export default function PersonnelDetailPage() {
 
                           <div className="flex items-center gap-2">
                             <a
-                              href={getAuthorizedUrl(doc.view_url || `/api/documents/${doc.id}/view`)}
+                              href={buildAuthenticatedFileUrl(doc.view_url || `/api/documents/${doc.id}/view`)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 transition-colors duration-100"

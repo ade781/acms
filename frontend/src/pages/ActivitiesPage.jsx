@@ -487,7 +487,6 @@ export default function ActivitiesPage() {
         loading={loading}
         error={error}
         onRetry={fetchActivities}
-        onOpenCreateModal={handleOpenCreateModal}
         onOpenEditModal={handleOpenEditModal}
         onOpenDeleteModal={handleOpenDeleteModal}
         onPreviewPhoto={(url) => setPreviewImageUrl(url)}

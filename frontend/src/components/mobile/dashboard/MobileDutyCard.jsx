@@ -1,5 +1,4 @@
 import React from 'react';
-import { ShieldCheck, UserCheck, CalendarOff, AlertTriangle } from 'lucide-react';
 
 export default function MobileDutyCard({
   user,

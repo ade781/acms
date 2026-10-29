@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
-  Lock,
+
   UploadCloud,
   FileText,
   Trash2,
@@ -17,7 +17,7 @@ import api from '../../../services/api';
 import MobileChangePasswordModal from './MobileChangePasswordModal';
 import MobilePersonnelAccordion from './MobilePersonnelAccordion';
 import PersonnelDossierEditModal from '../../personnel/PersonnelDossierEditModal';
-import { formatIndoDate } from '../../../utils/shiftHelper';
+
 
 const DOCUMENT_TYPE_LABELS = {
   lisensi_stkp: 'Lisensi STKP',
@@ -35,14 +35,14 @@ function formatBytes(bytes) {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
-const formatDateIndo = (dateStr) => formatIndoDate(dateStr, { day: 'numeric', month: 'short', year: 'numeric' });
+
 
 
 export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
   const { user, token, logout, refreshUser } = useAuth();
   const [personnelData, setPersonnelData] = useState(null);
   const [documents, setDocuments] = useState([]);
-  const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState(null);
 
   // Modals inside Profile View
@@ -67,12 +67,12 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
 
   const loadProfileAndDocs = async () => {
     if (!personnelId) {
-      setLoading(false);
+
       return;
     }
 
     try {
-      setLoading(true);
+
       setError(null);
 
       // Load personnel detail and documents in parallel
@@ -95,8 +95,6 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
     } catch (err) {
       console.error('Error loadProfileAndDocs:', err);
       setError('Gagal memuat data profil');
-    } finally {
-      setLoading(false);
     }
   };
 

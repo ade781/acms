@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Trash2 } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 

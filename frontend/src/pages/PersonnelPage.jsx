@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Search, Plus, Filter, UserCheck, ChevronRight, Download, Settings, FileText } from 'lucide-react';
+import { Search, Plus, UserCheck, Download, Settings, FileText } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { TEAMS, cleanTeam, formatTeam, OPERATIONAL_ROLES } from '../utils/shiftHelper';
 import { downloadBlob } from '../utils/fileHelper';
 import api from '../services/api';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
-import Badge from '../components/common/Badge';
 import InputField from '../components/common/InputField';
 import Modal from '../components/common/Modal';
 import SelectField from '../components/common/SelectField';
@@ -88,15 +87,6 @@ export default function PersonnelPage() {
   // Filters
   const [selectedTeam, setSelectedTeam] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-
-  // Debounce input pencarian nama/NIP personel 350ms (Anti-Lag Form Input Rule)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
 
   // Add Personnel Modal State
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -123,11 +113,7 @@ export default function PersonnelPage() {
     setLoading(true);
     setError(null);
     try {
-      let queryParams = [];
-      if (selectedTeam !== 'ALL') queryParams.push(`team_group=${selectedTeam}`);
-      if (debouncedSearchQuery.trim()) queryParams.push(`search=${encodeURIComponent(debouncedSearchQuery.trim())}`);
-
-      const url = `/personnel${queryParams.length > 0 ? '?' + queryParams.join('&') : ''}`;
+      const url = selectedTeam !== 'ALL' ? `/personnel?team_group=${selectedTeam}` : '/personnel';
       const res = await api.get(url, { signal });
       const list = Array.isArray(res.data?.data)
         ? res.data.data
@@ -143,7 +129,7 @@ export default function PersonnelPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedTeam, debouncedSearchQuery]);
+  }, [selectedTeam]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -321,7 +307,10 @@ export default function PersonnelPage() {
               type="text"
               placeholder="Cari nama atau NIP..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-red-500 transition-colors duration-100"
             />
           </div>
@@ -366,13 +355,6 @@ export default function PersonnelPage() {
         isEmpty={personnelList.length === 0}
         emptyTitle="Tidak Ada Data Personel"
         emptyDescription="Data personel operasional belum tersedia atau tidak cocok dengan filter pencarian."
-        emptyAction={
-          isAdmin && (
-            <Button variant="primary" size="sm" onClick={() => setAddModalOpen(true)}>
-              Tambah Personel Baru
-            </Button>
-          )
-        }
         onRetry={fetchPersonnel}
       >
         <div className={`grid grid-cols-1 ${teamsToDisplay.length === 1 ? 'max-w-md mx-auto sm:grid-cols-1' : 'sm:grid-cols-2 lg:grid-cols-4'} gap-6 pb-6`}>
@@ -417,8 +399,8 @@ export default function PersonnelPage() {
             );
 
             // Filter pencarian client-side: sembunyikan baris non-matching secara total (bukan sekadar opacity)
-            if (debouncedSearchQuery.trim()) {
-              const q = debouncedSearchQuery.trim().toLowerCase();
+            if (searchQuery.trim()) {
+              const q = searchQuery.trim().toLowerCase();
               members = members.filter(
                 (p) =>
                   (p.full_name || '').toLowerCase().includes(q) ||

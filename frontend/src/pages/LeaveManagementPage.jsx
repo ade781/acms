@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import Button from '../components/common/Button';
 import { useAuth } from '../context/AuthContext';
-import { cleanTeam, formatTeam, formatIndoDate } from '../utils/shiftHelper';
+import { cleanTeam } from '../utils/shiftHelper';
 import { getErrorMessage } from '../utils/errorHelper';
 import api from '../services/api';
 import LeaveModal from '../components/forms/LeaveModal';
@@ -39,7 +39,6 @@ export default function LeaveManagementPage() {
 
   const [teamPersonnel, setTeamPersonnel] = useState([]);
   const [absentList, setAbsentList] = useState([]);
-  const [supervisorName, setSupervisorName] = useState('');
 
   // Status Berjalan (Ongoing Leaves) State
   const [ongoingLeaves, setOngoingLeaves] = useState([]);
@@ -111,7 +110,6 @@ export default function LeaveManagementPage() {
     if (results[1].status === 'fulfilled') {
       const depRes = results[1].value;
       const depData = depRes.data?.data || depRes.data;
-      setSupervisorName(depData?.shift?.supervisor_name || depData?.supervisor_name || '');
 
       const existingAbsent = (depData?.deployments || []).filter(
         (d) => d.deployment_type === 'absent'

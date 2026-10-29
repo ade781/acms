@@ -18,10 +18,6 @@ import SwipeableAnnouncementCard from './SwipeableAnnouncementCard';
 
 const ITEMS_PER_PAGE = 10;
 
-function formatDateIndo(dateStr) {
-  return formatIndoDate(dateStr, { shortMonth: true });
-}
-
 function cleanTitle(str) {
   return String(str || '').replace(/^\[MENDESAK\]\s*/i, '').trim();
 }
@@ -308,7 +304,7 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
                 )}
 
                 <div className="flex items-center justify-between text-[9px] text-slate-400 pt-0.5">
-                  <span>{formatDateIndo(item.published_date || item.created_at)}</span>
+                  <span>{formatIndoDate(item.published_date || item.created_at, { shortMonth: true })}</span>
                   <button
                     type="button"
                     onClick={() => handleOpenDoc(item)}

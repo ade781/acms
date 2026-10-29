@@ -3,17 +3,11 @@ import {
   User,
   Shield,
   Award,
-  Calendar,
   Clock,
-  BookOpen,
   Briefcase,
   CheckCircle2,
-  XCircle,
-  FileText,
-  BadgeCheck,
   Compass,
   Edit3,
-  Flame,
 } from 'lucide-react';
 import Badge from '../common/Badge';
 import { formatTeam, formatRoleName, formatIndoDate } from '../../utils/shiftHelper';
@@ -70,10 +64,6 @@ export function calculateTenure(tmtDateStr) {
   }
 
   return `${years} Thn ${months} Bln`;
-}
-
-export function formatDateIndo(dateStr) {
-  return formatIndoDate(dateStr, { shortMonth: true });
 }
 
 export default function PersonnelDossier({
@@ -235,7 +225,7 @@ export default function PersonnelDossier({
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
                   <span className="text-slate-400 block text-[11px]">Tanggal Lahir</span>
-                  <span className="font-semibold text-slate-900 mt-1 block">{formatDateIndo(personnel.birth_date)}</span>
+                  <span className="font-semibold text-slate-900 mt-1 block">{formatIndoDate(personnel.birth_date, { shortMonth: true })}</span>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
                   <span className="text-slate-400 block text-[11px]">Usia Sekarang</span>
@@ -258,7 +248,7 @@ export default function PersonnelDossier({
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
                   <span className="text-slate-400 block text-[11px]">TMT Karyawan</span>
-                  <span className="font-semibold text-slate-900 mt-1 block">{formatDateIndo(personnel.tmt_date)}</span>
+                  <span className="font-semibold text-slate-900 mt-1 block">{formatIndoDate(personnel.tmt_date, { shortMonth: true })}</span>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
                   <span className="text-slate-400 block text-[11px]">Masa Kerja Efektif</span>
@@ -315,7 +305,7 @@ export default function PersonnelDossier({
                 <div>
                   <span className="text-slate-500 block text-[11px]">Masa Berlaku Lisensi</span>
                   <span className="font-semibold text-slate-900 mt-0.5 block">
-                    {formatDateIndo(personnel.cert_expiry_date)}
+                    {formatIndoDate(personnel.cert_expiry_date, { shortMonth: true })}
                   </span>
                 </div>
               </div>
@@ -421,7 +411,7 @@ export default function PersonnelDossier({
                     <div>
                       <span className="text-slate-400 text-[10px] block">Masa Berlaku Salvage</span>
                       <span className="text-slate-800 font-medium block">
-                        {formatDateIndo(personnel.salvage_expiry_date)}
+                        {formatIndoDate(personnel.salvage_expiry_date, { shortMonth: true })}
                       </span>
                     </div>
                     <div>
@@ -433,7 +423,7 @@ export default function PersonnelDossier({
                     <div>
                       <span className="text-slate-400 text-[10px] block">Tanggal Refreshing Salvage</span>
                       <span className="text-slate-800 font-medium block">
-                        {formatDateIndo(personnel.salvage_refreshing_date)}
+                        {formatIndoDate(personnel.salvage_refreshing_date, { shortMonth: true })}
                       </span>
                     </div>
                   </div>
@@ -457,7 +447,7 @@ export default function PersonnelDossier({
                     <div>
                       <span className="text-slate-400 text-[10px] block">Tanggal / Tahun Refreshing</span>
                       <span className="text-slate-800 font-medium block">
-                        {formatDateIndo(personnel.refreshing_date)}
+                        {formatIndoDate(personnel.refreshing_date, { shortMonth: true })}
                       </span>
                     </div>
                   </div>

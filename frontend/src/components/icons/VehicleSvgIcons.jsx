@@ -1,12 +1,10 @@
-import React, { useId } from 'react';
+import React from 'react';
 
 /**
  * Custom SVG Icon untuk Foam Tender (Crash Fire Tender Bandara - Oshkosh Striker)
  * Ciri: Sasis 6x6 kokoh, kabin aerodinamis depan melandai, dan roof turret / water monitor di atap.
  */
 export function FoamTenderSvg({ className = 'w-6 h-6', ...props }) {
-  const gradientId = useId();
-
   return (
     <svg
       viewBox="0 0 24 24"

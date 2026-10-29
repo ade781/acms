@@ -8,7 +8,6 @@ export default function MobileLeaveModal({
   user,
   activeDate,
   activeShiftNumber,
-  activeTeam,
   activeUserLeave,
   onSuccess
 }) {

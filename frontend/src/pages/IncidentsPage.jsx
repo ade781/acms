@@ -303,13 +303,6 @@ export default function IncidentsPage() {
               ? `Tidak ada kejadian darurat atau insiden operasional pada Shift ${activeShiftNumber} Regu ${activeTeam}.`
               : 'Tidak ada data insiden yang sesuai dengan filter pencarian.'
           }
-          emptyAction={
-            canReport ? (
-              <Button variant="danger" size="sm" onClick={() => setModalOpen(true)}>
-                Catat Insiden Sekarang
-              </Button>
-            ) : null
-          }
           onRetry={fetchIncidents}
         >
           <div className="overflow-x-auto">

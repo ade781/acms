@@ -23,10 +23,6 @@ import Button from '../components/common/Button';
 import StateView from '../components/common/StateView';
 import Modal from '../components/common/Modal';
 
-function formatDateIndo(dateStr) {
-  return formatIndoDate(dateStr, { shortMonth: true });
-}
-
 export default function VehicleReportsPage() {
   const navigate = useNavigate();
 
@@ -501,7 +497,6 @@ export default function VehicleReportsPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {vehicles.map((v) => {
-                  const isPosko = v.category === 'posko' || v.code_name === 'WATCHROOM';
                   const rawStatus = v.current_status || v.status || 'belum_dilaporkan';
                   const isCurrentUnserv = rawStatus === 'unserviceable';
                   const isCurrentServ = rawStatus === 'serviceable';
@@ -637,7 +632,7 @@ export default function VehicleReportsPage() {
           isOpen={Boolean(selectedVehicleDetail)}
           onClose={() => setSelectedVehicleDetail(null)}
           title={`Riwayat Periode Kendala: ${selectedVehicleDetail.code_name} - ${selectedVehicleDetail.vehicle_name}`}
-          subtitle={`Detail log periode kendala fisik pada periode ${formatDateIndo(periodInfo?.start_date)} s.d. ${formatDateIndo(periodInfo?.end_date)}`}
+          subtitle={`Detail log periode kendala fisik pada periode ${formatIndoDate(periodInfo?.start_date, { shortMonth: true })} s.d. ${formatIndoDate(periodInfo?.end_date, { shortMonth: true })}`}
           footer={
             <div className="flex justify-end w-full">
               <Button
@@ -736,7 +731,7 @@ export default function VehicleReportsPage() {
                           <div className="p-2 rounded bg-slate-50 border border-slate-100">
                             <p className="text-[10px] text-slate-400 font-bold uppercase">Mulai Kendala (Unserviceable):</p>
                             <p className="font-semibold text-slate-800">
-                              {formatDateIndo(item.start_date || item.shift_date)} | Shift {item.start_shift_number || item.shift_number} ({item.start_team_group || item.team_group})
+                              {formatIndoDate(item.start_date || item.shift_date, { shortMonth: true })} | Shift {item.start_shift_number || item.shift_number} ({item.start_team_group || item.team_group})
                             </p>
                             <p className="text-slate-500 text-[10px] mt-0.5">
                               Pelapor: {item.reported_by || '-'}
@@ -752,7 +747,7 @@ export default function VehicleReportsPage() {
                             {!isOngoing && item.resolved_date ? (
                               <>
                                 <p className="font-semibold">
-                                  {formatDateIndo(item.resolved_date)} | Shift {item.resolved_shift_number} ({item.resolved_team_group})
+                                  {formatIndoDate(item.resolved_date, { shortMonth: true })} | Shift {item.resolved_shift_number} ({item.resolved_team_group})
                                 </p>
                                 <p className="text-[10px] opacity-80 mt-0.5">
                                   Dipulihkan oleh: {item.resolved_by || '-'}

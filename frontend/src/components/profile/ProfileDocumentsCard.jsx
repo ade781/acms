@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UploadCloud, FileText, ExternalLink, Trash2 } from 'lucide-react';
 import api from '../../services/api';
+import { formatIndoDate } from '../../utils/shiftHelper';
 
 const DOCUMENT_TYPE_LABELS = {
   lisensi_stkp: 'Lisensi STKP',
@@ -28,7 +29,6 @@ export default function ProfileDocumentsCard({
   personnelId,
   isPureAdmin,
   token,
-  formatDateIndo,
   onSuccess,
   onError,
   reloadProfile
@@ -256,7 +256,7 @@ export default function ProfileDocumentsCard({
                     {doc.title || DOCUMENT_TYPE_LABELS[doc.document_type] || doc.file_name}
                   </p>
                   <span className="text-[10px] text-slate-500 font-mono block mt-0.5">
-                    {DOCUMENT_TYPE_LABELS[doc.document_type] || 'Dokumen'} • {formatBytes(doc.file_size)} • {formatDateIndo(doc.created_at)}
+                    {DOCUMENT_TYPE_LABELS[doc.document_type] || 'Dokumen'} • {formatBytes(doc.file_size)} • {formatIndoDate(doc.created_at, { shortMonth: true })}
                   </span>
                 </div>
               </div>

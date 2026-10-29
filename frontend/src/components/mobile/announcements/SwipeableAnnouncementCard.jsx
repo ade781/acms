@@ -2,10 +2,6 @@ import React, { useState, useRef } from 'react';
 import { FileText, Archive } from 'lucide-react';
 import { formatIndoDate } from '../../../utils/shiftHelper';
 
-function formatDateIndo(dateStr) {
-  return formatIndoDate(dateStr, { shortMonth: true });
-}
-
 /**
  * Komponen Kartu Pengumuman dengan Gestur Geser / Swipe / Slap Mulus (Ultra Smooth).
  * Menggunakan Pointer Events dengan fisika 1:1 tanpa jeda, efek snap elastis,
@@ -151,7 +147,7 @@ export default function SwipeableAnnouncementCard({
 
   const hasFile = Boolean(item.file_path);
   const dateStr = item.published_date || item.created_at
-    ? formatDateIndo(item.published_date || item.created_at)
+    ? formatIndoDate(item.published_date || item.created_at, { shortMonth: true })
     : (item.date || '-');
   const refNo = item.circular_number || item.reference_number || item.refNo || 'ARFF-EDARAN';
   const snippet = item.description || item.content || item.snippet || 'Surat edaran resmi dinas operasional ARFF YIA.';

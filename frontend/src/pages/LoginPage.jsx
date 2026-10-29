@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, User, AlertCircle, ArrowRight } from 'lucide-react';
+import { Lock, User, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Logo from '../components/common/Logo';
 import InputField from '../components/common/InputField';

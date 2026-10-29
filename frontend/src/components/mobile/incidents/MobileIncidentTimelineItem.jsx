@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, MapPin, AlertTriangle, Paperclip, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Clock, MapPin, Paperclip, ChevronRight } from 'lucide-react';
 
 export const INCIDENT_PRIORITIES = {
   kritis: {

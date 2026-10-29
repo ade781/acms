@@ -16,8 +16,6 @@ import { AlertTriangle } from 'lucide-react';
 export default function MobileDashboard({ onNavigateToAnnouncements }) {
   const { user, token, activeDate, activeShiftNumber, activeTeam } = useAuth();
 
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
   // Data states
@@ -28,9 +26,7 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
   // Modal states
   const [auditVehicleId, setAuditVehicleId] = useState(null);
 
-  const fetchDashboardData = useCallback(async (isSilent = false, signal = null) => {
-    if (!isSilent) setLoading(true);
-    else setRefreshing(true);
+  const fetchDashboardData = useCallback(async (_isSilent = false, signal = null) => {
     setErrorMsg(null);
 
     const currentTeam = cleanTeam(activeTeam) || 'Alpha';
@@ -72,9 +68,6 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
         ? err.response.data.message
         : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal memuat data operasional terbaru.'));
       setErrorMsg(msg);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
     }
   }, [activeDate, activeShiftNumber, activeTeam]);
 

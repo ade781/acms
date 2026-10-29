@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Bell,
-  FileText,
-  Calendar,
-  Eye,
   Trash2,
   CheckCircle2,
   Clock,
@@ -19,6 +16,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { formatIndoDate } from '../utils/shiftHelper';
+import { buildAuthenticatedFileUrl } from '../utils/fileHelper';
 import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
 import StateView from '../components/common/StateView';
@@ -408,15 +406,13 @@ export default function AnnouncementsPage() {
   const getPdfUrl = (filePath, id) => {
     if (!filePath) return '';
     if (filePath.startsWith('http://') || filePath.startsWith('https://')) return filePath;
-    const token = localStorage.getItem('arff_token') || '';
-    const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : '';
     if (id) {
       const baseApi = import.meta.env.VITE_API_URL || '/api';
-      return `${baseApi}/announcements/${id}/attachment${tokenQuery}`;
+      return buildAuthenticatedFileUrl(`${baseApi}/announcements/${id}/attachment`);
     }
     const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
     const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') : '';
-    return `${baseUrl}${cleanPath}${tokenQuery}`;
+    return buildAuthenticatedFileUrl(`${baseUrl}${cleanPath}`);
   };
 
   return (
@@ -424,7 +420,7 @@ export default function AnnouncementsPage() {
       {/* Toast Feedback */}
       {toastMsg && (
         <div
-          className={`mb-4 p-3 rounded-xl border flex items-center justify-between text-xs font-semibold shadow-sm transition-all duration-150 ${
+          className={`mb-4 p-3 rounded-xl border flex items-center justify-between text-xs font-semibold shadow-sm transition-colors duration-100 ${
             toastMsg.type === 'error'
               ? 'bg-red-50 border-red-200 text-red-800'
               : 'bg-emerald-50 border-emerald-200 text-emerald-800'

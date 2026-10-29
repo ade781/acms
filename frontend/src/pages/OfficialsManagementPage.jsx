@@ -2,12 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
-  ShieldAlert,
   Shield,
-  UserCheck,
   CheckCircle,
   AlertCircle,
-  Users,
   Award,
   RefreshCw,
   FileCheck,
@@ -21,18 +18,11 @@ import InputField from '../components/common/InputField';
 import SelectField from '../components/common/SelectField';
 import StateView from '../components/common/StateView';
 import { getErrorMessage } from '../utils/errorHelper';
+import { buildAuthenticatedFileUrl } from '../utils/fileHelper';
 
 export default function OfficialsManagementPage() {
-  const { isAdmin, isSupervisor, token } = useAuth();
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
-
-  const getAuthorizedUrl = (rawUrl) => {
-    if (!rawUrl) return '';
-    const currentToken = token || localStorage.getItem('arff_token') || '';
-    if (!currentToken) return rawUrl;
-    const separator = rawUrl.includes('?') ? '&' : '?';
-    return `${rawUrl}${separator}token=${encodeURIComponent(currentToken)}`;
-  };
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -360,14 +350,9 @@ export default function OfficialsManagementPage() {
             </div>
           ) : (
             <div className="p-6 text-center rounded-xl bg-slate-50 border border-dashed border-slate-300">
-              <p className="text-xs text-slate-500 font-medium mb-3">
+              <p className="text-xs text-slate-500 font-medium">
                 Belum ada pejabat Airport Technology & ARFF Dept. Head yang ditetapkan.
               </p>
-              {isAdmin && (
-                <Button variant="primary" size="sm" onClick={openReplaceDeptHeadModal}>
-                  Tunjuk Dept. Head Sekarang
-                </Button>
-              )}
             </div>
           )}
         </div>
@@ -636,7 +621,7 @@ export default function OfficialsManagementPage() {
                   </div>
                   <div className="p-2 bg-white rounded-lg border border-slate-200 flex items-center justify-center max-h-28 overflow-hidden">
                     <img
-                      src={getAuthorizedUrl(officials.dept_head.signature_url)}
+                      src={buildAuthenticatedFileUrl(officials.dept_head.signature_url)}
                       alt="Tanda Tangan Aktif Dept Head"
                       className="max-h-24 w-auto object-contain"
                     />

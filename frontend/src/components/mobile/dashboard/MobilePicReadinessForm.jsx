@@ -5,7 +5,6 @@ import { compressImageToWebP } from '../../../utils/imageCompressor';
 import { cleanTeam } from '../../../utils/shiftHelper';
 
 export default function MobilePicReadinessForm({
-  user,
   dutyInfo,
   activeDate,
   activeShiftNumber,

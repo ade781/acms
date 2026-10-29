@@ -236,19 +236,6 @@ export default function MobileActivities() {
               Belum ada kegiatan operasional yang dicatat pada shift ini.
             </p>
           </div>
-          {canManage && (
-            <button
-              type="button"
-              onClick={() => {
-                setEditingActivity(null);
-                setIsModalOpen(true);
-              }}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-[10.5px] shadow-xs transition-colors duration-100"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Catat Kegiatan Pertama</span>
-            </button>
-          )}
         </div>
       )}
 

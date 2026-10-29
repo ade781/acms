@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, ExternalLink, Download, FileText, AlertCircle, CheckCircle } from 'lucide-react';
+import { X, ExternalLink, Download, FileText, AlertCircle } from 'lucide-react';
 import { formatIndoDate, cleanTeam, formatTeam, SHIFT_DEFINITIONS } from '../../../utils/shiftHelper';
 import MobileSignaturesSection from './MobileSignaturesSection';
 import { downloadShiftReportPdf } from '../../../services/reportService';

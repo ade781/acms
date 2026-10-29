@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, AlertCircle, Upload, User, ShieldCheck } from 'lucide-react';
+import { AlertCircle, User } from 'lucide-react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import InputField from '../common/InputField';

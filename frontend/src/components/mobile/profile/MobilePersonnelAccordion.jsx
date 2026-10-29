@@ -7,12 +7,7 @@ import {
   ChevronUp,
   Edit3,
   Lock,
-  Calendar,
   CheckCircle2,
-  Clock,
-  ShieldCheck,
-  FileCheck,
-  Building,
   GraduationCap,
 } from 'lucide-react';
 import Badge from '../../common/Badge';
@@ -71,10 +66,6 @@ function calculateTenure(tmtDateStr) {
     return '-';
   }
 }
-
-const formatDateIndo = (dateStr) => formatIndoDate(dateStr, { day: 'numeric', month: 'short', year: 'numeric' });
-
-
 
 export default function MobilePersonnelAccordion({
   personnel,
@@ -229,7 +220,7 @@ export default function MobilePersonnelAccordion({
               <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg">
                 <span className="text-[10px] text-slate-500 block">Tanggal Lahir</span>
                 <span className="font-semibold text-slate-900 text-xs mt-0.5 block">
-                  {formatDateIndo(personnel.birth_date)}
+                  {formatIndoDate(personnel.birth_date, { shortMonth: true })}
                 </span>
               </div>
             </div>
@@ -253,7 +244,7 @@ export default function MobilePersonnelAccordion({
               <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg">
                 <span className="text-[10px] text-slate-500 block">TMT Karyawan</span>
                 <span className="font-semibold text-slate-900 text-xs mt-0.5 block font-mono">
-                  {formatDateIndo(personnel.tmt_date)}
+                  {formatIndoDate(personnel.tmt_date, { shortMonth: true })}
                 </span>
               </div>
               <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg">
@@ -336,7 +327,7 @@ export default function MobilePersonnelAccordion({
                 <div>
                   <span className="text-[10px] text-slate-600 block">Masa Berlaku</span>
                   <span className="font-semibold text-slate-900 text-xs block font-mono">
-                    {formatDateIndo(personnel.license_valid_until)}
+                    {formatIndoDate(personnel.license_valid_until, { shortMonth: true })}
                   </span>
                 </div>
               </div>
@@ -418,7 +409,7 @@ export default function MobilePersonnelAccordion({
                 <div>
                   <span className="text-[10px] text-slate-500 block">Masa Berlaku</span>
                   <span className="font-mono font-semibold text-slate-900 text-xs block">
-                    {formatDateIndo(personnel.salvage_license_valid_until)}
+                    {formatIndoDate(personnel.salvage_license_valid_until, { shortMonth: true })}
                   </span>
                 </div>
               </div>
@@ -432,7 +423,7 @@ export default function MobilePersonnelAccordion({
                 <div>
                   <span className="text-[10px] text-slate-500 block">Tgl Refreshing Salvage</span>
                   <span className="font-mono font-semibold text-slate-800 text-xs block">
-                    {formatDateIndo(personnel.salvage_refreshing_date)}
+                    {formatIndoDate(personnel.salvage_refreshing_date, { shortMonth: true })}
                   </span>
                 </div>
               </div>
@@ -453,7 +444,7 @@ export default function MobilePersonnelAccordion({
                 <div>
                   <span className="text-[10px] text-slate-500 block">Tanggal / Tahun</span>
                   <span className="font-mono font-semibold text-slate-900 text-xs block">
-                    {formatDateIndo(personnel.refreshing_date)}
+                    {formatIndoDate(personnel.refreshing_date, { shortMonth: true })}
                   </span>
                 </div>
               </div>

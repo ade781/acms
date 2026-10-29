@@ -4,16 +4,13 @@ import {
   FileText,
   Download,
   Calendar,
-  Filter,
   AlertTriangle,
   CheckCircle2,
   Clock,
   MapPin,
-  Plane,
   Eye,
   RefreshCw,
   Search,
-  ExternalLink,
   ShieldAlert,
   Camera,
   X,
@@ -25,7 +22,6 @@ import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import Modal from '../components/common/Modal';
-import InputField from '../components/common/InputField';
 
 export default function IncidentReportsPage() {
   const navigate = useNavigate();
@@ -34,10 +30,6 @@ export default function IncidentReportsPage() {
   const [period, setPeriod] = useState('1month');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-
-  // Status & Filter Kategori tambahan
-  const [filterCategory, setFilterCategory] = useState('ALL');
-  const [filterStatus, setFilterStatus] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Data State
@@ -70,8 +62,6 @@ export default function IncidentReportsPage() {
       } else {
         params.period = period;
       }
-      if (filterCategory !== 'ALL') params.category = filterCategory;
-      if (filterStatus !== 'ALL') params.status = filterStatus;
 
       const res = await api.get('/incidents/summary-report', { params, signal });
       const data = res.data?.data || res.data;
@@ -90,7 +80,7 @@ export default function IncidentReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [period, startDate, endDate, filterCategory, filterStatus]);
+  }, [period, startDate, endDate]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -106,8 +96,8 @@ export default function IncidentReportsPage() {
         period,
         start_date: period === 'custom' ? startDate : '',
         end_date: period === 'custom' ? endDate : '',
-        category: filterCategory,
-        status: filterStatus,
+        category: 'ALL',
+        status: 'ALL',
       });
     } catch (err) {
       console.error('Gagal mengunduh PDF insiden:', err);

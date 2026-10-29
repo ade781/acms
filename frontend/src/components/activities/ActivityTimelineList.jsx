@@ -21,7 +21,6 @@ export default function ActivityTimelineList({
   loading = false,
   error = null,
   onRetry,
-  onOpenCreateModal,
   onOpenEditModal,
   onOpenDeleteModal,
   onPreviewPhoto,
@@ -41,13 +40,6 @@ export default function ActivityTimelineList({
           canManageActivity
             ? "Catat aktivitas harian, apel regu, atau uji fungsi armada pada shift ini."
             : "Belum ada catatan aktivitas yang dilaporkan oleh Chief / Asisten Chief pada shift ini."
-        }
-        emptyAction={
-          canManageActivity ? (
-            <Button variant="primary" size="sm" onClick={onOpenCreateModal}>
-              Catat Kegiatan Pertama
-            </Button>
-          ) : null
         }
         onRetry={onRetry}
       >

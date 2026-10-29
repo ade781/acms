@@ -39,7 +39,6 @@ export default function DashboardDetailModals({
   watchroomLog,
   vehicleDeploymentDetails,
   getAttachmentUrl,
-  handleInteractiveKeyDown,
   getShiftLabel,
   getShiftHours,
   formatIncidentCategory,

@@ -1,25 +1,5 @@
 import React, { forwardRef } from 'react';
-
-function getSafeFieldMessage(val) {
-  if (!val) return '';
-  if (typeof val === 'string') return val;
-  if (val === true) return '';
-  if (val instanceof Error) return val.message || val.name || '';
-  if (typeof val === 'object') {
-    const candidate = val.message || val.msg || val.error;
-    if (typeof candidate === 'string') return candidate;
-    try {
-      return Array.isArray(val) ? val.join(', ') : JSON.stringify(val);
-    } catch {
-      return '';
-    }
-  }
-  try {
-    return String(val);
-  } catch {
-    return '';
-  }
-}
+import { getSafeFieldMessage } from '../../utils/errorHelper';
 
 const SelectField = forwardRef(function SelectField(
   {
