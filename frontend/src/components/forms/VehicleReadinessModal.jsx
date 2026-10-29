@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Camera, AlertCircle, CheckCircle2 } from 'lucide-react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
-import SelectField from '../common/SelectField';
 import TextareaField from '../common/TextareaField';
 import { compressImageToWebP } from '../../utils/imageCompressor';
 import { cleanTeam, formatTeam, formatIndoDate } from '../../utils/shiftHelper';
@@ -21,7 +20,12 @@ export default function VehicleReadinessModal({
   const initialStatus = vehicle?.status || vehicle?.current_log?.status;
   const wasInitiallyUnserviceable = initialStatus === 'unserviceable';
 
-  const [status, setStatus] = useState(initialStatus || 'serviceable');
+  // Default tidak ada yang terpilih (kosong) saat pemeriksaan awal, agar pengguna memilih secara sadar
+  const hasExistingShiftLog = Boolean(
+    vehicle?.has_shift_log && (vehicle?.status === 'serviceable' || vehicle?.status === 'unserviceable') && !vehicle?.is_carried_over
+  );
+  const [status, setStatus] = useState(hasExistingShiftLog ? vehicle.status : '');
+
   const [justification, setJustification] = useState(vehicle?.justification || vehicle?.current_log?.justification || '');
   const [notes, setNotes] = useState(vehicle?.notes || vehicle?.current_log?.notes || '');
   const [photoFile, setPhotoFile] = useState(null);
@@ -73,6 +77,12 @@ export default function VehicleReadinessModal({
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+
+    // Validasi Pemilihan Status (Wajib dipilih salah satu secara sadar)
+    if (!status) {
+      setError('Harap tentukan status kelaikan armada terlebih dahulu (pilih Serviceable atau Unserviceable).');
+      return;
+    }
 
     // Validasi Foto Bukti Fisik Wajib
     if (!photoFile && !photoPreview) {
@@ -173,19 +183,116 @@ export default function VehicleReadinessModal({
             <span className="font-semibold text-slate-800">Kategori:</span>
             <span className="capitalize">{vehicle.category || 'utama'}</span>
           </div>
+          <div className="flex justify-between border-t border-slate-200/60 pt-1 mt-0.5">
+            <span className="font-semibold text-slate-800">Status Saat Ini:</span>
+            <span
+              className={`font-bold ${
+                vehicle.status === 'serviceable'
+                  ? 'text-emerald-700'
+                  : vehicle.status === 'unserviceable'
+                  ? 'text-red-700'
+                  : 'text-slate-500'
+              }`}
+            >
+              {vehicle.status === 'serviceable'
+                ? '✓ Serviceable'
+                : vehicle.status === 'unserviceable'
+                ? '⚠️ Unserviceable'
+                : '⏳ Belum Dilaporkan Shift Ini'}
+            </span>
+          </div>
         </div>
 
-        {/* Status Selection */}
-        <SelectField
-          label="Status Kesiapan Fisik & Operasional"
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          required
-          options={[
-            { value: 'serviceable', label: 'Serviceable (Siap Operasi Penuh)' },
-            { value: 'unserviceable', label: 'Unserviceable (Kendala / Rusak / Perbaikan)' },
-          ]}
-        />
+        {/* Status Selection: Segmented Radio Cards (Default Kosong / Tidak Ada yang Terklik) */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold text-slate-700 block">
+            Status Kesiapan Fisik & Operasional <span className="text-red-500 font-bold">* Wajib Dipilih</span>
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Opsi 1: Serviceable */}
+            <button
+              type="button"
+              onClick={() => {
+                setStatus('serviceable');
+                setError(null);
+              }}
+              className={`p-3.5 rounded-xl text-left border flex items-start gap-3 transition-colors duration-100 cursor-pointer ${
+                status === 'serviceable'
+                  ? 'border-2 border-emerald-600 bg-emerald-50/70 text-emerald-950 shadow-sm ring-1 ring-emerald-500/20'
+                  : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50/20'
+              }`}
+            >
+              <div
+                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors duration-100 ${
+                  status === 'serviceable'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-emerald-100 text-emerald-700'
+                }`}
+              >
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wide">
+                    Serviceable
+                  </span>
+                  {status === 'serviceable' && (
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                      Dipilih
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                  Armada siap operasi penuh tanpa kendala teknis.
+                </p>
+              </div>
+            </button>
+
+            {/* Opsi 2: Unserviceable */}
+            <button
+              type="button"
+              onClick={() => {
+                setStatus('unserviceable');
+                setError(null);
+              }}
+              className={`p-3.5 rounded-xl text-left border flex items-start gap-3 transition-colors duration-100 cursor-pointer ${
+                status === 'unserviceable'
+                  ? 'border-2 border-red-600 bg-red-50/70 text-red-950 shadow-sm ring-1 ring-red-500/20'
+                  : 'border-slate-200 bg-white text-slate-700 hover:border-red-300 hover:bg-red-50/20'
+              }`}
+            >
+              <div
+                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors duration-100 ${
+                  status === 'unserviceable'
+                    ? 'bg-red-600 text-white'
+                    : 'bg-red-100 text-red-700'
+                }`}
+              >
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wide">
+                    Unserviceable
+                  </span>
+                  {status === 'unserviceable' && (
+                    <span className="text-[10px] font-bold text-red-700 bg-red-100 px-1.5 py-0.5 rounded">
+                      Dipilih
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                  Kendala fisik / malfungsi fungsi / dalam perbaikan.
+                </p>
+              </div>
+            </button>
+          </div>
+          {!status && (
+            <p className="text-[10.5px] text-amber-700 italic flex items-center gap-1 mt-1">
+              <span>* Belum ada status yang dipilih. Silakan klik salah satu kartu di atas.</span>
+            </p>
+          )}
+        </div>
 
         {/* Justification Field (mandatory if unserviceable) */}
         {status === 'unserviceable' && (

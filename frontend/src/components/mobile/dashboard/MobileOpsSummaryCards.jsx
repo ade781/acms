@@ -8,8 +8,12 @@ export default function MobileOpsSummaryCards({
   serviceableCount = 0,
   totalVehicles = 0,
   unserviceableCount = 0,
+  belumDicekCount,
   onOpenLeaveModal
 }) {
+  const unresolvedBelumDicek = typeof belumDicekCount === 'number'
+    ? belumDicekCount
+    : Math.max(0, totalVehicles - serviceableCount - unserviceableCount);
   return (
     <div className="grid grid-cols-2 gap-1.5 text-xs">
       {/* Kartu 1: Personel Dinas */}
@@ -64,13 +68,18 @@ export default function MobileOpsSummaryCards({
               / {totalVehicles} Siap
             </span>
           </div>
-          <p className="text-[9px] font-medium mt-0.5">
-            {unserviceableCount > 0 ? (
-              <span className="text-red-600 font-semibold">{unserviceableCount} Unserviceable</span>
-            ) : (
-              <span className="text-emerald-700 font-medium">Semua Unit Siap Operasi</span>
+          <div className="text-[9px] font-medium mt-0.5 flex items-center gap-1.5 flex-wrap">
+            {unserviceableCount > 0 && (
+              <span className="text-red-600 font-bold">{unserviceableCount} Kendala</span>
             )}
-          </p>
+            {unresolvedBelumDicek > 0 ? (
+              <span className="text-amber-700 font-semibold bg-amber-50 px-1 py-0.2 rounded border border-amber-200">
+                {unresolvedBelumDicek} Belum Dicek
+              </span>
+            ) : (
+              <span className="text-emerald-700 font-semibold">✓ 100% Terverifikasi</span>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -127,6 +127,27 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
     return map;
   }, [vehicleSlots, vehicles]);
 
+  // Ringkasan status pemeriksaan kesiapan armada untuk indikator visual header
+  const readinessSummary = useMemo(() => {
+    let serviceable = 0;
+    let unserviceable = 0;
+    let belumDicek = 0;
+
+    vehicles.forEach((v) => {
+      const st = v.readiness || v.status;
+      if (st === 'serviceable') serviceable++;
+      else if (st === 'unserviceable') unserviceable++;
+      else belumDicek++;
+    });
+
+    return {
+      serviceable,
+      unserviceable,
+      belumDicek,
+      total: vehicles.length,
+    };
+  }, [vehicles]);
+
   // Fetch all initial data (Hanya dieksekusi jika berhak berdinas di shift ini demi menghemat beban request server)
   const loadPlotingData = useCallback(async (signal) => {
     if (!isAuthorizedShift) {
@@ -580,15 +601,29 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
         </div>
       )}
 
-      {/* Header Ploting Bar: Judul & Tombol Simpan Ramping */}
-      <div className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 shadow-xs">
+      {/* Header Ploting Bar: Judul, Status Kesiapan Armada, & Tombol Simpan */}
+      <div className="flex items-center justify-between bg-white px-2.5 py-2 rounded-xl border border-slate-200 shadow-xs">
         <div>
           <h3 className="text-xs font-bold text-slate-900 leading-tight">
             Ploting & Kesiapan Armada
           </h3>
-          <span className="text-[9px] text-slate-500 font-mono">
-            {vehicles.length} Unit Operasional
-          </span>
+          <div className="flex items-center gap-1.5 text-[9px] font-mono mt-0.5 flex-wrap">
+            <span className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+              {readinessSummary.serviceable}/{readinessSummary.total} Siap
+            </span>
+            {readinessSummary.unserviceable > 0 && (
+              <span className="text-red-700 font-bold bg-red-50 px-1.5 py-0.2 rounded border border-red-200">
+                {readinessSummary.unserviceable} Kendala
+              </span>
+            )}
+            {readinessSummary.belumDicek > 0 ? (
+              <span className="text-amber-700 font-bold bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                {readinessSummary.belumDicek} Belum Dicek
+              </span>
+            ) : (
+              <span className="text-slate-500 font-medium">100% Selesai</span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {hasUnsavedChanges && (

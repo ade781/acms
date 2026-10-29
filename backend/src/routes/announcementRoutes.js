@@ -8,6 +8,8 @@ import {
   updateAnnouncement,
   togglePinAnnouncement,
   markAsRead,
+  archiveAnnouncement,
+  unarchiveAnnouncement,
   deleteAnnouncement
 } from '../controllers/announcementController.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
@@ -41,6 +43,8 @@ router.patch(
   togglePinAnnouncement
 );
 router.post('/:id/read', markAsRead);
+router.post('/:id/archive', archiveAnnouncement);
+router.post('/:id/unarchive', unarchiveAnnouncement);
 router.delete(
   '/:id',
   requireRole(['admin', 'dept_head']),

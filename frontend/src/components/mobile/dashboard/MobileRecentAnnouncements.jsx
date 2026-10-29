@@ -6,7 +6,16 @@ export default function MobileRecentAnnouncements({
   onOpenAllAnnouncements,
   onOpenPdf
 }) {
-  const top3 = (announcements || []).slice(0, 3);
+  const activeList = (announcements || []).filter((a) => !a.is_archived);
+  const top3 = activeList.slice(0, 3);
+
+  const handleOpenAll = () => {
+    if (onOpenAllAnnouncements) {
+      onOpenAllAnnouncements();
+    } else {
+      window.dispatchEvent(new CustomEvent('arff:open-announcements-modal'));
+    }
+  };
 
   return (
     <div className="bg-white rounded-lg border border-slate-200 p-2.5 shadow-xs space-y-1.5">
@@ -18,16 +27,14 @@ export default function MobileRecentAnnouncements({
             Pengumuman Dinas
           </h3>
         </div>
-        {onOpenAllAnnouncements && (
-          <button
-            type="button"
-            onClick={onOpenAllAnnouncements}
-            className="text-[10px] font-bold text-red-600 hover:text-red-700 hover:underline transition-colors duration-100 cursor-pointer flex items-center gap-0.5"
-          >
-            <span>Lihat Semua</span>
-            <ChevronRight className="w-3 h-3" />
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={handleOpenAll}
+          className="text-[10px] font-bold text-red-600 hover:text-red-700 hover:underline transition-colors duration-100 cursor-pointer flex items-center gap-0.5"
+        >
+          <span>Lihat Semua</span>
+          <ChevronRight className="w-3 h-3" />
+        </button>
       </div>
 
       {/* Konten Pengumuman */}

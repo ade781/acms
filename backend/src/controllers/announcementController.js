@@ -25,7 +25,8 @@ export const getAnnouncements = async (req, res) => {
         a.created_at,
         a.updated_at,
         u.name as creator_name,
-        IF(ar.read_at IS NOT NULL, 1, 0) AS is_read
+        IF(ar.read_at IS NOT NULL, 1, 0) AS is_read,
+        IF(ar.archived_at IS NOT NULL, 1, 0) AS is_archived
       FROM announcements a
       LEFT JOIN users u ON u.id = a.created_by
       LEFT JOIN announcement_reads ar ON ar.announcement_id = a.id AND ar.user_id = ?
@@ -37,7 +38,7 @@ export const getAnnouncements = async (req, res) => {
       `SELECT COUNT(*) as unread_count
        FROM announcements a
        LEFT JOIN announcement_reads ar ON ar.announcement_id = a.id AND ar.user_id = ?
-       WHERE ar.read_at IS NULL`,
+       WHERE ar.read_at IS NULL AND (ar.archived_at IS NULL)`,
       [userId]
     );
 
@@ -62,7 +63,8 @@ export const getAnnouncementById = async (req, res) => {
       `SELECT 
         a.*,
         u.name as creator_name,
-        IF(ar.read_at IS NOT NULL, 1, 0) AS is_read
+        IF(ar.read_at IS NOT NULL, 1, 0) AS is_read,
+        IF(ar.archived_at IS NOT NULL, 1, 0) AS is_archived
       FROM announcements a
       LEFT JOIN users u ON u.id = a.created_by
       LEFT JOIN announcement_reads ar ON ar.announcement_id = a.id AND ar.user_id = ?
@@ -212,7 +214,7 @@ export const updateAnnouncement = async (req, res) => {
     const [existing] = await pool.query('SELECT * FROM announcements WHERE id = ?', [id]);
     if (existing.length === 0) {
       if (file?.path && fs.existsSync(file.path)) {
-        try { fs.unlinkSync(file.path); } catch (e) {}
+        try { fs.unlinkSync(file.path); } catch (e) { }
       }
       return errorResponse(res, 'Pengumuman tidak ditemukan', 404);
     }
@@ -221,7 +223,7 @@ export const updateAnnouncement = async (req, res) => {
     const newTitle = title !== undefined && title !== null ? String(title).trim() : currentAnn.title;
     if (!newTitle) {
       if (file?.path && fs.existsSync(file.path)) {
-        try { fs.unlinkSync(file.path); } catch (e) {}
+        try { fs.unlinkSync(file.path); } catch (e) { }
       }
       return errorResponse(res, 'Judul pengumuman wajib diisi', 400);
     }
@@ -287,7 +289,7 @@ export const updateAnnouncement = async (req, res) => {
     if (req.file?.path && fs.existsSync(req.file.path)) {
       try {
         fs.unlinkSync(req.file.path);
-      } catch (e) {}
+      } catch (e) { }
     }
     console.error('Error updateAnnouncement:', err);
     return errorResponse(res, 'Gagal memperbarui pengumuman: ' + err.message, 500);
@@ -371,7 +373,7 @@ export const getUnreadCount = async (req, res) => {
       `SELECT COUNT(*) as unread_count
        FROM announcements a
        LEFT JOIN announcement_reads ar ON ar.announcement_id = a.id AND ar.user_id = ?
-       WHERE ar.read_at IS NULL`,
+       WHERE ar.read_at IS NULL AND (ar.archived_at IS NULL)`,
       [userId]
     );
 
@@ -383,6 +385,77 @@ export const getUnreadCount = async (req, res) => {
   } catch (err) {
     console.error('Error getUnreadCount:', err);
     return errorResponse(res, 'Gagal memuat jumlah pengumuman belum dibaca', 500);
+  }
+};
+
+/**
+ * Mengarsipkan pengumuman secara personal untuk pengguna saat ini
+ */
+export const archiveAnnouncement = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return errorResponse(res, 'Pengguna tidak terotentikasi', 401);
+    }
+
+    if (!id) {
+      return errorResponse(res, 'ID pengumuman tidak valid', 400);
+    }
+
+    const [existing] = await pool.query('SELECT id FROM announcements WHERE id = ?', [id]);
+    if (existing.length === 0) {
+      return errorResponse(res, 'Pengumuman tidak ditemukan', 404);
+    }
+
+    await pool.query(
+      `INSERT INTO announcement_reads (announcement_id, user_id, read_at, archived_at)
+       VALUES (?, ?, NOW(), NOW())
+       ON DUPLICATE KEY UPDATE archived_at = NOW(), read_at = COALESCE(read_at, NOW())`,
+      [id, userId]
+    );
+
+    return successResponse(res, 'Pengumuman berhasil diarsipkan', {
+      announcement_id: Number(id),
+      user_id: userId,
+      is_archived: 1
+    });
+  } catch (err) {
+    console.error('Error archiveAnnouncement:', err);
+    return errorResponse(res, 'Gagal mengarsipkan pengumuman', 500);
+  }
+};
+
+/**
+ * Mengembalikan pengumuman dari arsip ke aktif untuk pengguna saat ini
+ */
+export const unarchiveAnnouncement = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return errorResponse(res, 'Pengguna tidak terotentikasi', 401);
+    }
+
+    if (!id) {
+      return errorResponse(res, 'ID pengumuman tidak valid', 400);
+    }
+
+    await pool.query(
+      `UPDATE announcement_reads SET archived_at = NULL WHERE announcement_id = ? AND user_id = ?`,
+      [id, userId]
+    );
+
+    return successResponse(res, 'Pengumuman berhasil dikembalikan dari arsip', {
+      announcement_id: Number(id),
+      user_id: userId,
+      is_archived: 0
+    });
+  } catch (err) {
+    console.error('Error unarchiveAnnouncement:', err);
+    return errorResponse(res, 'Gagal mengembalikan pengumuman dari arsip', 500);
   }
 };
 

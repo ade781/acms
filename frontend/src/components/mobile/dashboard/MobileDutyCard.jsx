@@ -7,7 +7,8 @@ export default function MobileDutyCard({
   isOffDuty,
   isOnLeave,
   leaveInfo,
-  onOpenLeaveModal
+  onOpenLeaveModal,
+  vehicleReadiness,
 }) {
   const userName = user?.name || user?.full_name || 'Personel ARFF';
   const userNip = user?.nip || user?.username || '-';
@@ -74,8 +75,27 @@ export default function MobileDutyCard({
       {/* Kondisi 3: Dinas Aktif */}
       {!isOffDuty && !isOnLeave && (
         <div className="grid grid-cols-2 gap-1.5 text-xs">
-          <div className="bg-slate-50 p-1.5 rounded border border-slate-100">
-            <span className="text-[9px] text-slate-500 block leading-tight">Unit Armada / Pos</span>
+          <div className="bg-slate-50 p-1.5 rounded border border-slate-100 flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[9px] text-slate-500 block leading-tight">Unit Armada / Pos</span>
+              {vehicleReadiness && (
+                <span
+                  className={`text-[8px] font-bold px-1.5 py-0.2 rounded border ${
+                    vehicleReadiness.status === 'serviceable'
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                      : vehicleReadiness.status === 'unserviceable'
+                      ? 'bg-red-100 text-red-800 border-red-300'
+                      : 'bg-amber-100 text-amber-800 border-amber-300'
+                  }`}
+                >
+                  {vehicleReadiness.status === 'serviceable'
+                    ? '✓ Serviceable'
+                    : vehicleReadiness.status === 'unserviceable'
+                    ? '⚠️ Kendala'
+                    : '⏳ Belum Dicek'}
+                </span>
+              )}
+            </div>
             <span className="font-bold text-slate-900 text-xs block truncate mt-0.5">
               {dutyInfo?.vehicle_name || dutyInfo?.vehicle_code || 'Belum Diploting'}
             </span>

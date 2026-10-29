@@ -82,10 +82,13 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
     const controller = new AbortController();
     fetchDashboardData(false, controller.signal);
     const handleLeaveUpdated = () => fetchDashboardData(true);
+    const handleAnnUpdated = () => fetchDashboardData(true);
     window.addEventListener('arff:leave-updated', handleLeaveUpdated);
+    window.addEventListener('arff:announcements-updated', handleAnnUpdated);
     return () => {
       controller.abort();
       window.removeEventListener('arff:leave-updated', handleLeaveUpdated);
+      window.removeEventListener('arff:announcements-updated', handleAnnUpdated);
     };
   }, [fetchDashboardData]);
 
@@ -167,6 +170,7 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
   const totalVehiclesCount = vehiclesList.length;
   const unserviceableVehicles = vehiclesList.filter((v) => v.status === 'unserviceable');
   const unserviceableCount = unserviceableVehicles.length;
+  const belumDicekCount = vehiclesList.filter((v) => !v.status || v.status === 'belum_dilaporkan').length;
 
   // Handler buka PDF
   const handleOpenPdf = (ann) => {
@@ -189,6 +193,7 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
         isOffDuty={isOffDuty}
         isOnLeave={isOnLeave}
         leaveInfo={userLeaveRecord}
+        vehicleReadiness={picVehicleReadiness}
         onOpenLeaveModal={handleOpenGlobalLeaveModal}
       />
 
@@ -214,6 +219,7 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
         serviceableCount={serviceableCount}
         totalVehicles={totalVehiclesCount}
         unserviceableCount={unserviceableCount}
+        belumDicekCount={belumDicekCount}
         onOpenLeaveModal={handleOpenGlobalLeaveModal}
       />
 

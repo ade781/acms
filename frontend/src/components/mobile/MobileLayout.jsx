@@ -23,15 +23,20 @@ export default function MobileLayout({ children }) {
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [activeUserLeaveDetail, setActiveUserLeaveDetail] = useState(null);
 
-  // Listener event global pembukaan modal cuti dari dashboard, profil, maupun ploting
+  // Listener event global pembukaan modal cuti dan pengumuman
   useEffect(() => {
     const handleOpen = (e) => {
       setActiveUserLeaveDetail(e?.detail?.activeUserLeave || null);
       setIsLeaveModalOpen(true);
     };
+    const handleOpenAnnouncements = () => {
+      setIsAnnounceOpen(true);
+    };
     window.addEventListener('arff:open-leave-modal', handleOpen);
+    window.addEventListener('arff:open-announcements-modal', handleOpenAnnouncements);
     return () => {
       window.removeEventListener('arff:open-leave-modal', handleOpen);
+      window.removeEventListener('arff:open-announcements-modal', handleOpenAnnouncements);
     };
   }, []);
 
