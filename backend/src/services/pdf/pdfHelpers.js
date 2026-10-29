@@ -5,28 +5,38 @@ import sharp from 'sharp';
 /**
  * Helper untuk menemukan berkas gambar di server
  * Memastikan kompatibilitas penuh dengan PDFKit (hanya PNG dan JPEG yang didukung secara native)
+ * Keamanan: Terkunci di folder uploads dan disanitasi dengan path.basename untuk mencegah path traversal.
  */
+const getSafeUploadsDirs = () => {
+  const dirs = [
+    path.resolve(process.cwd(), 'backend', 'uploads'),
+    path.resolve(process.cwd(), 'uploads')
+  ];
+  return dirs.filter((d) => fs.existsSync(d));
+};
+
 export const resolveSignatureFile = (fileUrl) => {
   if (!fileUrl) return null;
-  const cleanPath = fileUrl.replace(/^\//, '');
-  const candidates = [
-    path.resolve(process.cwd(), cleanPath),
-    path.resolve(process.cwd(), 'backend', cleanPath),
-    path.resolve(process.cwd(), '..', cleanPath),
-    path.resolve(process.cwd(), 'uploads', path.basename(cleanPath))
-  ];
-  for (const c of candidates) {
-    if (fs.existsSync(c)) {
-      const ext = path.extname(c).toLowerCase();
+  const filename = path.basename(fileUrl);
+  if (!filename || filename === '.' || filename === '/' || filename.includes('..')) return null;
+
+  const uploadDirs = getSafeUploadsDirs();
+  for (const dir of uploadDirs) {
+    const candidate = path.resolve(dir, filename);
+    // Verifikasi keamanan path traversal
+    if (!candidate.startsWith(dir)) continue;
+
+    if (fs.existsSync(candidate)) {
+      const ext = path.extname(candidate).toLowerCase();
       if (['.png', '.jpg', '.jpeg'].includes(ext)) {
-        return c;
+        return candidate;
       }
       if (ext === '.webp') {
-        const pngAlt = c.replace(/\.webp$/i, '.png');
+        const pngAlt = candidate.replace(/\.webp$/i, '.png');
         if (fs.existsSync(pngAlt)) return pngAlt;
-        const jpgAlt = c.replace(/\.webp$/i, '.jpg');
+        const jpgAlt = candidate.replace(/\.webp$/i, '.jpg');
         if (fs.existsSync(jpgAlt)) return jpgAlt;
-        const jpegAlt = c.replace(/\.webp$/i, '.jpeg');
+        const jpegAlt = candidate.replace(/\.webp$/i, '.jpeg');
         if (fs.existsSync(jpegAlt)) return jpegAlt;
 
         return null;
@@ -39,31 +49,32 @@ export const resolveSignatureFile = (fileUrl) => {
 
 /**
  * Mengambil Buffer gambar tanda tangan, otomatis mentranscode WebP ke PNG buffer jika diperlukan
+ * Keamanan: Terkunci di folder uploads dan disanitasi dengan path.basename untuk mencegah path traversal.
  */
 export const resolveSignatureBuffer = async (fileUrl) => {
   if (!fileUrl) return null;
-  const cleanPath = fileUrl.replace(/^\//, '');
-  const candidates = [
-    path.resolve(process.cwd(), cleanPath),
-    path.resolve(process.cwd(), 'backend', cleanPath),
-    path.resolve(process.cwd(), '..', cleanPath),
-    path.resolve(process.cwd(), 'uploads', path.basename(cleanPath))
-  ];
+  const filename = path.basename(fileUrl);
+  if (!filename || filename === '.' || filename === '/' || filename.includes('..')) return null;
 
-  for (const c of candidates) {
-    if (fs.existsSync(c)) {
-      const ext = path.extname(c).toLowerCase();
+  const uploadDirs = getSafeUploadsDirs();
+  for (const dir of uploadDirs) {
+    const candidate = path.resolve(dir, filename);
+    // Verifikasi keamanan path traversal
+    if (!candidate.startsWith(dir)) continue;
+
+    if (fs.existsSync(candidate)) {
+      const ext = path.extname(candidate).toLowerCase();
       try {
         if (['.png', '.jpg', '.jpeg'].includes(ext)) {
-          return fs.readFileSync(c);
+          return fs.readFileSync(candidate);
         }
         if (ext === '.webp') {
           // Transcode WebP ke PNG Buffer secara otomatis menggunakan sharp
-          const pngBuffer = await sharp(c).png().toBuffer();
+          const pngBuffer = await sharp(candidate).png().toBuffer();
           return pngBuffer;
         }
       } catch (err) {
-        console.warn(`[PDFKit] Gagal mentranscode tanda tangan ${path.basename(c)}:`, err.message);
+        console.warn(`[PDFKit] Gagal mentranscode tanda tangan ${filename}:`, err.message);
         return null;
       }
     }

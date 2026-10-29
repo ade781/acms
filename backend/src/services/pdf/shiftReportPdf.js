@@ -90,12 +90,22 @@ export const generateShiftReportPdf = async (reportData) => {
   doc.text(`Supervisor / Ketua Regu: `, startX + 10, infoY2);
   doc.font('Helvetica').text(supervisor_name || `Ketua Regu ${team_group}`, startX + 125, infoY2);
 
+  const isShiftClosed = (status || '').toLowerCase() === 'closed';
+
   doc.font('Helvetica-Bold').text(`Status Dokumen: `, startX + 320, infoY2);
-  doc.font('Helvetica-Bold').fillColor('#15803d').text(
-    'REKAPITULASI RESMI OPERASIONAL',
-    startX + 400,
-    infoY2
-  );
+  if (isShiftClosed) {
+    doc.font('Helvetica-Bold').fillColor('#15803d').text(
+      'REKAPITULASI RESMI (FINAL)',
+      startX + 400,
+      infoY2
+    );
+  } else {
+    doc.font('Helvetica-Bold').fillColor('#dc2626').text(
+      'DRAFT / BELUM DISAHKAN',
+      startX + 400,
+      infoY2
+    );
+  }
 
   doc.y = 145;
 
@@ -296,14 +306,22 @@ export const generateShiftReportPdf = async (reportData) => {
   doc.text('AIRPORT RESCUE & FIRE FIGHTING SECTION HEAD', startX + 20, signY + 12, { width: 200, align: 'center' });
   doc.text('KETUA REGU / SUPERVISOR DINAS', startX + 295, signY + 12, { width: 200, align: 'center' });
 
-  // Sematkan tanda tangan digital Dept Head jika tersedia (mendukung PNG, JPEG, dan transcoding otomatis WebP)
-  const deptSigBuffer = await resolveSignatureBuffer(dept_head_signature_url);
+  // Sematkan tanda tangan digital Dept Head HANYA jika status shift sudah disahkan (closed)
+  const deptSigBuffer = isShiftClosed ? await resolveSignatureBuffer(dept_head_signature_url) : null;
   if (deptSigBuffer) {
     try {
       doc.image(deptSigBuffer, startX + 70, signY + 25, { fit: [100, 38], align: 'center' });
     } catch (e) {
       console.warn('Gagal memuat tanda tangan Dept Head:', e.message);
     }
+  } else if (!isShiftClosed) {
+    // Penanda status draf pada kolom pengesahan Section Head
+    doc.fontSize(8).font('Helvetica-Oblique').fillColor('#94a3b8').text(
+      '( Menunggu Pengesahan Dinas )',
+      startX + 20,
+      signY + 40,
+      { width: 200, align: 'center' }
+    );
   }
 
   // Sematkan tanda tangan digital Supervisor dinas jika tersedia (mendukung PNG, JPEG, dan transcoding otomatis WebP)
@@ -328,8 +346,11 @@ export const generateShiftReportPdf = async (reportData) => {
     doc.text(`NIP. ${supervisor_nip}`, startX + 295, signY + 79, { width: 200, align: 'center' });
   }
 
-  // Watermark Resmi & Penomoran Halaman Otomatis
-  applyWatermarkAndPageNumbers(doc, contentWidth, startX, 'ARFF YIA • OFFICIAL OPS REPORT');
+  // Watermark Resmi & Penomoran Halaman Otomatis (Watermark 'DRAFT • BELUM DISAHKAN' jika belum closed)
+  const watermarkText = isShiftClosed
+    ? 'ARFF YIA • OFFICIAL OPS REPORT'
+    : 'DRAFT • BELUM DISAHKAN';
+  applyWatermarkAndPageNumbers(doc, contentWidth, startX, watermarkText);
 
   return doc;
 };

@@ -9,7 +9,6 @@ import jwt from 'jsonwebtoken';
 import pool from './config/db.js';
 import { requireAuth } from './middleware/authMiddleware.js';
 import { errorHandler } from './middleware/errorHandler.js';
-import { getShiftSummaryReport } from './controllers/reportController.js';
 
 import authRoutes from './routes/authRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
@@ -193,7 +192,6 @@ app.use('/api/readiness', readinessRoutes);
 app.use('/api/deployments', deploymentRoutes);
 app.use('/api/incidents', incidentRoutes);
 app.use('/api/activities', activityRoutes);
-app.get('/api/reports/shift-summary', requireAuth, getShiftSummaryReport);
 app.use('/api/reports', reportRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/announcements', announcementRoutes);
