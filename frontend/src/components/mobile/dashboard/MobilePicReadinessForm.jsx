@@ -154,7 +154,7 @@ export default function MobilePicReadinessForm({
         formData.append('photo', photoFile);
       }
 
-      const res = await api.post('/readiness/submit', formData, {
+      const res = await api.post('/readiness/vehicles', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 

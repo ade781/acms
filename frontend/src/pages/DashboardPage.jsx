@@ -1,19 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import {
-  Clock,
-  UserX,
-  Activity,
-  CheckCircle2,
-  AlertTriangle,
-  Radio,
-  Truck,
-  HelpCircle,
-  AlertCircle,
-  UserCheck,
-  Bell,
-  ShieldAlert,
-  ExternalLink,
-} from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
   TEAMS,
@@ -24,8 +10,9 @@ import {
   getDailyRoster,
 } from '../utils/shiftHelper';
 import api from '../services/api';
-import Modal from '../components/common/Modal';
-import Button from '../components/common/Button';
+import DashboardScorecards from '../components/dashboard/DashboardScorecards';
+import DashboardFleetSection from '../components/dashboard/DashboardFleetSection';
+import DashboardDetailModals from '../components/dashboard/DashboardDetailModals';
 
 /**
  * Dashboard Operasional Utama ARFF YIA
@@ -64,6 +51,7 @@ export default function DashboardPage() {
   const [shiftInfo, setShiftInfo] = useState(null);
   const [deployments, setDeployments] = useState([]);
   const [absents, setAbsents] = useState([]);
+  const [allLeaves, setAllLeaves] = useState([]);
   const [activities, setActivities] = useState([]);
   const [allPersonnel, setAllPersonnel] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
@@ -151,7 +139,7 @@ export default function DashboardPage() {
         const teamParam = cleanTeam(authTeam || fallbackShift.scheduledTeam || 'Alpha');
         const queryParams = `date=${activeDate}&shift=${activeShiftNumber}&team_group=${teamParam}`;
 
-        const [vRes, wRes, depRes, actRes, pRes, annRes, incRes] = await Promise.allSettled([
+        const [vRes, wRes, depRes, actRes, pRes, annRes, incRes, leaveRes] = await Promise.allSettled([
           api.get(`/readiness/vehicles?${queryParams}`, { signal }),
           api.get(`/readiness/watchroom?${queryParams}`, { signal }),
           api.get(`/deployments/current?${queryParams}`, { signal }),
@@ -159,9 +147,10 @@ export default function DashboardPage() {
           api.get('/personnel?is_active=1&compact=true', { signal }),
           api.get('/announcements', { signal }),
           api.get('/incidents?limit=15', { signal }),
+          api.get(`/deployments/leave-history?date=${activeDate}`, { signal }),
         ]);
 
-        const allResults = [vRes, wRes, depRes, actRes, pRes, annRes, incRes];
+        const allResults = [vRes, wRes, depRes, actRes, pRes, annRes, incRes, leaveRes];
         if (
           allResults.some(
             (r) =>
@@ -254,6 +243,15 @@ export default function DashboardPage() {
         } else {
           setIncidents([]);
         }
+
+        // 8. Seluruh Riwayat Cuti (Semua 4 Regu pada Tanggal Ini)
+        if (leaveRes.status === 'fulfilled' && leaveRes.value?.data) {
+          const lPayload = leaveRes.value.data.data || leaveRes.value.data;
+          const lList = Array.isArray(lPayload) ? lPayload : [];
+          setAllLeaves(lList);
+        } else {
+          setAllLeaves([]);
+        }
       } catch (err) {
         if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
         const errMsg = err.response?.data?.message || err.message || 'Gagal memuat data operasional dashboard. Periksa koneksi jaringan Anda.';
@@ -341,6 +339,54 @@ export default function DashboardPage() {
     const absentDeployments =
       absents.length > 0 ? absents : deployments.filter((d) => d.deployment_type === 'absent');
 
+    // Cuti personel untuk regu shift saat ini
+    const activeTeamAbsentList =
+      absentDeployments.length > 0
+        ? absentDeployments
+        : allLeaves.filter(
+            (l) => cleanTeam(l.personnel_team || '').toLowerCase() === currentTeam.toLowerCase()
+          );
+
+    // Cuti seluruh personel dari semua 4 regu pada tanggal hari ini (Alpha, Bravo, Charlie, Delta)
+    const combinedAllLeavesMap = new Map();
+    allLeaves.forEach((l) => {
+      if (l.personnel_id) {
+        combinedAllLeavesMap.set(Number(l.personnel_id), {
+          id: l.id,
+          personnel_id: l.personnel_id,
+          personnel_name: l.personnel_name || l.full_name,
+          personnel_nip: l.personnel_nip || l.nip,
+          personnel_team: l.personnel_team || l.shift_team,
+          personnel_role: l.personnel_role || l.rank_position,
+          absent_reason: l.absent_reason || 'cuti',
+          notes: l.notes || l.raw_notes || '-',
+          start_date: l.start_date,
+          end_date: l.end_date,
+        });
+      }
+    });
+
+    absentDeployments.forEach((d) => {
+      if (d.personnel_id && !combinedAllLeavesMap.has(Number(d.personnel_id))) {
+        combinedAllLeavesMap.set(Number(d.personnel_id), {
+          id: d.id,
+          personnel_id: d.personnel_id,
+          personnel_name: d.full_name || d.personnel_name,
+          personnel_nip: d.nip || d.personnel_nip,
+          personnel_team: d.personnel_team || currentTeam,
+          personnel_role: d.rank_position || d.personnel_role,
+          absent_reason: d.absent_reason || 'cuti',
+          notes: d.notes || '-',
+          start_date: activeDate,
+          end_date: activeDate,
+        });
+      }
+    });
+
+    const combinedAllLeaves = Array.from(combinedAllLeavesMap.values());
+    const totalAllAbsentCount = Math.max(combinedAllLeaves.length, activeTeamAbsentList.length);
+    const activeTeamAbsentCount = activeTeamAbsentList.length;
+
     const byTeam = TEAMS.map((teamName) => {
       const members = operationalPersonnel.filter(
         (p) => cleanTeam(p.team_group).toLowerCase() === teamName.toLowerCase()
@@ -361,9 +407,9 @@ export default function DashboardPage() {
           ).length;
 
       const teamAbsentCount = isCurrentShiftTeam
-        ? absentDeployments.length
-        : absentDeployments.filter(
-            (d) => cleanTeam(d.personnel_team || '').toLowerCase() === teamName.toLowerCase()
+        ? activeTeamAbsentCount
+        : combinedAllLeaves.filter(
+            (l) => cleanTeam(l.personnel_team || '').toLowerCase() === teamName.toLowerCase()
           ).length;
 
       return {
@@ -405,11 +451,14 @@ export default function DashboardPage() {
       totalAllOrganik,
       totalAllOutsourcing,
       onDutyCount: onDutyDeployments.length,
-      absentCount: absentDeployments.length,
+      absentCount: activeTeamAbsentCount,
+      totalAllAbsentCount,
+      activeTeamAbsentCount,
       onDutyDeployments,
-      absentDeployments,
+      absentDeployments: activeTeamAbsentList,
+      allLeaves: combinedAllLeaves,
     };
-  }, [operationalPersonnel, deployments, absents, currentTeam, dailyRoster, findTeamChief]);
+  }, [operationalPersonnel, deployments, absents, allLeaves, currentTeam, dailyRoster, findTeamChief, activeDate]);
 
   // Nama Ketua Regu (Chief) dinamis untuk shift aktif
   const supervisorName = useMemo(() => {
@@ -524,136 +573,15 @@ export default function DashboardPage() {
       {/* =====================================================================
           1. BARIS 4 SCORECARD UTAMA (UKURAN FIX h-[118px], KLIK MEMBUKA LAYER 2 MODAL)
           ===================================================================== */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-        {/* Scorecard 1: Status Dinas, Jam Shift, & Ketua Regu */}
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => setActiveModal({ type: 'shift' })}
-          onKeyDown={(e) => handleInteractiveKeyDown(e, () => setActiveModal({ type: 'shift' }))}
-          className="h-[118px] bg-white rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50/60 p-4 transition-colors duration-100 cursor-pointer flex flex-col justify-between overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-        >
-          <div>
-            <div className="flex items-center justify-between text-slate-500 mb-1.5">
-              <span className="text-xs font-semibold text-slate-600">Regu & Pimpinan Shift</span>
-              <Clock className="w-4 h-4 text-slate-400" />
-            </div>
-            <div className="text-xl font-bold text-slate-900">
-              Regu {String(currentTeam || '')}
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-            <span className="text-slate-500">Ketua Regu:</span>
-            <span className="font-semibold text-slate-900 truncate max-w-[160px]">
-              {typeof supervisorName === 'string' ? supervisorName : (supervisorName?.full_name || 'Belum Ditentukan')}
-            </span>
-          </div>
-        </div>
-
-        {/* Scorecard 2: Pengumuman Terbaru (Hanya Judul & Ringkasan) */}
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => setActiveModal({ type: 'announcement', item: latestAnnouncement })}
-          onKeyDown={(e) =>
-            handleInteractiveKeyDown(e, () =>
-              setActiveModal({ type: 'announcement', item: latestAnnouncement })
-            )
-          }
-          className="h-[118px] bg-white rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50/60 p-4 transition-colors duration-100 cursor-pointer flex flex-col justify-between overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-        >
-          <div>
-            <div className="flex items-center justify-between text-slate-500 mb-1.5">
-              <span className="text-xs font-semibold text-slate-600">Pengumuman Terbaru</span>
-              <Bell className="w-4 h-4 text-blue-600" />
-            </div>
-            {latestAnnouncement ? (
-              <>
-                <div className="text-sm font-bold text-slate-900 line-clamp-1">
-                  {typeof latestAnnouncement.title === 'string' ? latestAnnouncement.title : String(latestAnnouncement.title || '')}
-                </div>
-                <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-snug">
-                  {typeof latestAnnouncement.description === 'string'
-                    ? latestAnnouncement.description
-                    : (latestAnnouncement.circular_number
-                      ? `Surat Edaran: ${latestAnnouncement.circular_number}`
-                      : 'Klik untuk membaca dokumen pengumuman.')}
-                </p>
-              </>
-            ) : (
-              <div className="py-1">
-                <div className="text-sm font-bold text-slate-500">Belum Ada Pengumuman</div>
-                <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">
-                  Tidak ada surat edaran atau pengumuman aktif.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Scorecard 3: Personel Izin / Cuti Shift Berjalan */}
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => setActiveModal({ type: 'leave' })}
-          onKeyDown={(e) => handleInteractiveKeyDown(e, () => setActiveModal({ type: 'leave' }))}
-          className="h-[118px] bg-white rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50/60 p-4 transition-colors duration-100 cursor-pointer flex flex-col justify-between overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-        >
-          <div>
-            <div className="flex items-center justify-between text-slate-500 mb-1.5">
-              <span className="text-xs font-semibold text-slate-600">Personel Izin / Cuti</span>
-              <UserX className="w-4 h-4 text-amber-600" />
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold font-mono tabular-nums text-slate-900">
-                {personnelComposition.absentCount}
-              </span>
-              <span className="text-xs text-slate-500 font-medium">
-                Anggota Regu {String(currentTeam || '')}
-              </span>
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span className="truncate">
-              {personnelComposition.absentCount > 0
-                ? `${personnelComposition.absentCount} personel tercatat izin/cuti`
-                : 'Tidak ada personel izin/cuti'}
-            </span>
-          </div>
-        </div>
-
-        {/* Scorecard 4: Agenda & Log Kegiatan Shift */}
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => setActiveModal({ type: 'activities' })}
-          onKeyDown={(e) => handleInteractiveKeyDown(e, () => setActiveModal({ type: 'activities' }))}
-          className="h-[118px] bg-white rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50/60 p-4 transition-colors duration-100 cursor-pointer flex flex-col justify-between overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-        >
-          <div>
-            <div className="flex items-center justify-between text-slate-500 mb-1.5">
-              <span className="text-xs font-semibold text-slate-600">Agenda & Log Kegiatan</span>
-              <Activity className="w-4 h-4 text-emerald-600" />
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold font-mono tabular-nums text-slate-900">
-                {activities.length}
-              </span>
-              <span className="text-xs text-slate-500 font-medium">Kegiatan Shift Ini</span>
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span className="truncate">
-              {activities.length > 0
-                ? `Terbaru: ${typeof activities[0]?.title === 'string' ? activities[0].title : (typeof activities[0]?.activity_name === 'string' ? activities[0].activity_name : 'Kegiatan Operasional')}`
-                : 'Belum ada kegiatan tercatat'}
-            </span>
-          </div>
-        </div>
-      </div>
+      <DashboardScorecards
+        currentTeam={currentTeam}
+        supervisorName={supervisorName}
+        latestAnnouncement={latestAnnouncement}
+        personnelComposition={personnelComposition}
+        activities={activities}
+        onOpenModal={setActiveModal}
+        onKeyDown={handleInteractiveKeyDown}
+      />
 
       {/* =====================================================================
           2. MAIN SECTION: SEMUA CONTAINER UKURAN FIX & SEJAJAR RATA ATAS-BAWAH
@@ -661,113 +589,15 @@ export default function DashboardPage() {
           ===================================================================== */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
         {/* KIRI (lg:col-span-6): KESIAPAN ARMADA & POSKO OPERASIONAL (UKURAN FIX h-[564px]) */}
-        <div className="lg:col-span-6 h-[564px] bg-white rounded-xl border border-slate-200 flex flex-col overflow-hidden">
-          <div className="px-4 py-3.5 border-b border-slate-200 flex items-center justify-between gap-3 bg-slate-50/50 shrink-0">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900 tracking-tight">
-                Kesiapan Armada & Posko Operasional
-              </h2>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Status kelaikan fisik dan penanggung jawab unit (PIC) shift berjalan
-              </p>
-            </div>
-            <span className="text-xs font-mono tabular-nums font-bold text-slate-800 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shrink-0">
-              {fleetMetrics.serviceable}/{fleetMetrics.total} Siap Operasi
-            </span>
-          </div>
-
-          {/* Daftar Baris Kompak Armada (Volume Tetap flex-1 overflow-y-auto) */}
-          <div className="flex-1 divide-y divide-slate-100 overflow-y-auto">
-            {loading ? (
-              <div className="h-full flex items-center justify-center text-xs text-slate-500">
-                Memuat data kesiapan armada dan posko...
-              </div>
-            ) : vehicles.length === 0 ? (
-              <div className="h-full flex items-center justify-center px-4 text-center text-xs text-slate-500">
-                Belum ada unit armada operasional yang terdaftar di database.
-              </div>
-            ) : (
-              vehicles.map((vehicle) => {
-                const vId = vehicle.id || vehicle.vehicle_id;
-                const status = vehicle.status || vehicle.readiness || 'belum_dilaporkan';
-                const isUnserviceable = status === 'unserviceable';
-                const isServiceable = status === 'serviceable';
-                const isPosko = vehicle.category === 'posko' || vehicle.code_name === 'WATCHROOM';
-
-                const picName = isPosko
-                  ? vehicle.pic_name ||
-                    vehicleDeploymentDetails.picMap['watchroom'] ||
-                    watchroomLog?.inspector_name ||
-                    'Belum Ditunjuk'
-                  : vehicle.pic_name ||
-                    vehicleDeploymentDetails.picMap[vId] ||
-                    'Belum Ditunjuk';
-
-                return (
-                  <div
-                    key={vId || vehicle.code_name || `vehicle-${vehicle.id || Math.random()}`}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setActiveModal({ type: 'vehicle_item', item: vehicle })}
-                    onKeyDown={(e) =>
-                      handleInteractiveKeyDown(e, () =>
-                        setActiveModal({ type: 'vehicle_item', item: vehicle })
-                      )
-                    }
-                    className="px-4 py-3 hover:bg-slate-50 transition-colors duration-100 flex items-center justify-between gap-3 text-xs cursor-pointer focus-visible:outline-none focus-visible:bg-slate-50"
-                  >
-                    {/* Sisi Kiri: Ikon, Nama Kendaraan & Nama PIC tepat di bawahnya */}
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                          isUnserviceable
-                            ? 'bg-red-50 text-red-700'
-                            : isServiceable
-                            ? 'bg-emerald-50 text-emerald-700'
-                            : 'bg-slate-100 text-slate-600'
-                        }`}
-                      >
-                        {isPosko ? (
-                          <Radio className="w-3.5 h-3.5" />
-                        ) : (
-                          <Truck className="w-3.5 h-3.5" />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="font-semibold text-slate-900 truncate leading-tight">
-                          {vehicle.vehicle_name || vehicle.code_name}
-                        </div>
-                        <div className="text-[11px] text-slate-500 truncate mt-0.5">
-                          PIC: <span className="text-slate-700 font-medium">{typeof picName === 'string' ? picName : (picName?.name || 'Belum Ditunjuk')}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Sisi Kanan: Badge Status Kelaikan */}
-                    <div className="shrink-0">
-                      {isUnserviceable ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-800 border border-red-200">
-                          <AlertTriangle className="w-3 h-3 text-red-600" />
-                          <span>Unserviceable</span>
-                        </span>
-                      ) : isServiceable ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          <span>Serviceable</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-200">
-                          <HelpCircle className="w-3 h-3 text-slate-400" />
-                          <span>Belum Dicek</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
+        <DashboardFleetSection
+          vehicles={vehicles}
+          loading={loading}
+          fleetMetrics={fleetMetrics}
+          vehicleDeploymentDetails={vehicleDeploymentDetails}
+          watchroomLog={watchroomLog}
+          onOpenModal={setActiveModal}
+          onKeyDown={handleInteractiveKeyDown}
+        />
 
         {/* KANAN (lg:col-span-6): MATRIKS KOMPOSISI REGU (h-[312px]) & LAPORAN INSIDEN (h-[232px]) */}
         <div className="lg:col-span-6 flex flex-col gap-5">
@@ -782,8 +612,8 @@ export default function DashboardPage() {
                   Rincian jumlah anggota regu, personel sedang shift, dan status Organik / Outsourcing (Training)
                 </p>
               </div>
-              <span className="text-xs font-mono tabular-nums font-bold text-slate-800 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shrink-0">
-                {personnelComposition.totalAllTeams} Anggota
+              <span className="text-xs font-medium text-slate-600 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shrink-0">
+                4 Regu Dinas
               </span>
             </div>
 
@@ -821,7 +651,7 @@ export default function DashboardPage() {
                           <span className="font-bold text-slate-900">Regu {tStat.team}</span>
                           {tStat.isCurrentShiftTeam ? (
                             <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                              Sedang Shift ({tStat.onDutyCount} Hadir)
+                              Sedang Shift
                             </span>
                           ) : (
                             <span className="px-1.5 py-0.2 rounded text-[10px] font-medium bg-slate-100 text-slate-600">
@@ -852,19 +682,18 @@ export default function DashboardPage() {
             </div>
 
             <div className="px-4 py-2.5 bg-slate-50/60 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600 shrink-0">
-              <span>
-                Sedang Shift Ini:{' '}
-                <strong className="font-mono text-emerald-800">
-                  {personnelComposition.onDutyCount} / {personnelComposition.activeTeamStats.total}
-                </strong>{' '}
-                (Regu {currentTeam})
+              <span className="font-medium text-slate-700">
+                Total Kekuatan 4 Regu:{' '}
+                <strong className="font-mono text-slate-900 font-bold">
+                  {personnelComposition.totalAllTeams} Personel
+                </strong>
               </span>
               <div className="flex items-center gap-3 font-mono tabular-nums">
                 <span>
-                  Organik: <strong className="text-blue-800">{personnelComposition.totalAllOrganik}</strong>
+                  Organik: <strong className="text-blue-800 font-bold">{personnelComposition.totalAllOrganik}</strong>
                 </span>
                 <span>
-                  Outsourcing (Training): <strong className="text-amber-800">{personnelComposition.totalAllOutsourcing}</strong>
+                  Outsourcing (Training): <strong className="text-amber-800 font-bold">{personnelComposition.totalAllOutsourcing}</strong>
                 </span>
               </div>
             </div>
@@ -882,7 +711,7 @@ export default function DashboardPage() {
                 </p>
               </div>
               <span className="text-xs font-mono tabular-nums font-bold text-slate-700 bg-white border border-slate-200 px-2.5 py-0.5 rounded-lg shrink-0">
-                {incidents.slice(0, 3).length} Laporan
+                {incidents.length} Laporan
               </span>
             </div>
 
@@ -950,716 +779,33 @@ export default function DashboardPage() {
       {/* =====================================================================
           LAYER KE-2: MODAL RINCIAN INTERAKTIF SAAT FITUR DIKLIK
           ===================================================================== */}
-
-      {/* 1. MODAL LAYER 2: PENGUMUMAN TERBARU & DAFTAR SURAT EDARAN */}
-      <Modal
-        isOpen={activeModal?.type === 'announcement'}
-        onClose={() => setActiveModal(null)}
-        title={typeof activeModal?.item?.title === 'string' ? activeModal.item.title : 'Pengumuman Operasional'}
-        subtitle={
-          activeModal?.item
-            ? `${activeModal.item.circular_number ? `No. Edaran: ${activeModal.item.circular_number} • ` : ''}Diterbitkan: ${formatIndoDate(activeModal.item.published_date)}`
-            : 'Informasi surat edaran dinas'
-        }
-        maxWidth="max-w-2xl"
-        footer={
-          <Button variant="outline" onClick={() => setActiveModal(null)}>
-            Tutup
-          </Button>
-        }
-      >
-        {!activeModal?.item ? (
-          <div className="py-8 text-center text-xs text-slate-500">
-            Belum ada pengumuman atau surat edaran operasional yang diterbitkan.
-          </div>
-        ) : (
-          <div className="space-y-4 text-xs">
-            <div className="p-4 rounded-lg border border-slate-200 bg-slate-50/60 space-y-2">
-              <div className="text-[11px] font-semibold text-slate-500">Ringkasan / Isi Pengumuman</div>
-              <p className="text-slate-800 leading-relaxed whitespace-pre-line">
-                {typeof activeModal.item.description === 'string' ? activeModal.item.description : 'Tidak ada ringkasan teks tambahan.'}
-              </p>
-            </div>
-
-            {activeModal.item.id && (
-              <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-white">
-                <div>
-                  <div className="font-semibold text-slate-900">
-                    {activeModal.item.file_name || 'Lampiran Surat Edaran Resmi (PDF)'}
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    Diterbitkan oleh: {activeModal.item.creator_name || 'Manajemen ARFF'}
-                  </div>
-                </div>
-                <a
-                  href={getAttachmentUrl(`/api/announcements/${activeModal.item.id}/file`)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold inline-flex items-center gap-1.5 transition-colors"
-                >
-                  <span>Buka Dokumen</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              </div>
-            )}
-
-            {announcements.length > 1 && (
-              <div className="pt-2 border-t border-slate-200">
-                <div className="font-bold text-slate-800 mb-2">
-                  Arsip Pengumuman Sebelumnya ({announcements.length - 1})
-                </div>
-                <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg max-h-[200px] overflow-y-auto">
-                  {announcements.slice(1).map((ann, annIdx) => (
-                    <div
-                      key={ann.id || `ann-${annIdx}`}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setActiveModal({ type: 'announcement', item: ann })}
-                      onKeyDown={(e) =>
-                        handleInteractiveKeyDown(e, () =>
-                          setActiveModal({ type: 'announcement', item: ann })
-                        )
-                      }
-                      className="p-3 hover:bg-slate-50 cursor-pointer flex items-center justify-between gap-3"
-                    >
-                      <div className="min-w-0">
-                        <div className="font-semibold text-slate-900 truncate">{ann.title}</div>
-                        <div className="text-[11px] text-slate-500 truncate mt-0.5">
-                          {ann.description || ann.circular_number || '-'}
-                        </div>
-                      </div>
-                      <span className="text-[11px] font-mono text-slate-500 shrink-0">
-                        {formatIndoDate(ann.published_date, { shortMonth: true })}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
-
-      {/* 2. MODAL LAYER 2: KOMPOSISI PERSONEL REGU (ORGANIK VS OUTSOURCING/TRAINING & STATUS SHIFT) */}
-      <Modal
-        isOpen={activeModal?.type === 'personnel'}
-        onClose={() => setActiveModal(null)}
-        title="Rincian Kekuatan & Komposisi Personel Regu"
-        subtitle={`Data anggota aktif 4 regu operasional, status shift (${getShiftLabel(activeShiftNumber)}), serta rincian Organik dan Outsourcing (Training)`}
-        maxWidth="max-w-4xl"
-        footer={
-          <Button variant="outline" onClick={() => setActiveModal(null)}>
-            Tutup
-          </Button>
-        }
-      >
-        <div className="space-y-4">
-          {/* Tab Filter Regu */}
-          <div className="flex flex-wrap items-center gap-1.5 pb-3 border-b border-slate-200">
-            <button
-              type="button"
-              onClick={() => setSelectedTeamTab('ALL')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                selectedTeamTab === 'ALL'
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              Semua 4 Regu ({personnelComposition.totalAllTeams})
-            </button>
-            {personnelComposition.byTeam.map((t) => (
-              <button
-                key={t.team}
-                type="button"
-                onClick={() => setSelectedTeamTab(t.team)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  selectedTeamTab === t.team
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                <span>Regu {t.team}</span>
-                <span className="font-mono text-[11px] opacity-80">({t.total})</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Ringkasan Angka Sesuai Tab yang Dipilih */}
-          {(() => {
-            const selectedStat =
-              selectedTeamTab === 'ALL'
-                ? {
-                    label: 'Gabungan 4 Regu (Alpha, Bravo, Charlie, Delta)',
-                    total: personnelComposition.totalAllTeams,
-                    onShift: personnelComposition.onDutyCount,
-                    organik: personnelComposition.totalAllOrganik,
-                    outsourcing: personnelComposition.totalAllOutsourcing,
-                  }
-                : (() => {
-                    const found = personnelComposition.byTeam.find((x) => x.team === selectedTeamTab);
-                    return {
-                      label: `Regu ${selectedTeamTab}`,
-                      total: found?.total || 0,
-                      onShift: found?.onDutyCount || 0,
-                      organik: found?.organik || 0,
-                      outsourcing: found?.outsourcing || 0,
-                    };
-                  })();
-
-            return (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-                  <div className="text-[11px] text-slate-500">Total Anggota Regu</div>
-                  <div className="text-xl font-bold font-mono tabular-nums text-slate-900 mt-0.5">
-                    {selectedStat.total}
-                  </div>
-                  <div className="text-[10px] text-slate-400 truncate">{selectedStat.label}</div>
-                </div>
-                <div className="p-3 rounded-lg bg-emerald-50/60 border border-emerald-200">
-                  <div className="text-[11px] text-emerald-800">Sedang Shift Saat Ini</div>
-                  <div className="text-xl font-bold font-mono tabular-nums text-emerald-900 mt-0.5">
-                    {selectedStat.onShift}
-                  </div>
-                  <div className="text-[10px] text-emerald-700">
-                    Regu Bertugas: Regu {currentTeam}
-                  </div>
-                </div>
-                <div className="p-3 rounded-lg bg-blue-50/60 border border-blue-200">
-                  <div className="text-[11px] text-blue-800">Status Organik</div>
-                  <div className="text-xl font-bold font-mono tabular-nums text-blue-900 mt-0.5">
-                    {selectedStat.organik}
-                  </div>
-                  <div className="text-[10px] text-blue-700">Karyawan Tetap</div>
-                </div>
-                <div className="p-3 rounded-lg bg-amber-50/60 border border-amber-200">
-                  <div className="text-[11px] text-amber-800">Outsourcing (Training)</div>
-                  <div className="text-xl font-bold font-mono tabular-nums text-amber-900 mt-0.5">
-                    {selectedStat.outsourcing}
-                  </div>
-                  <div className="text-[10px] text-amber-700">Personel Kontrak / Training</div>
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* Tabel Daftar Anggota */}
-          <div className="border border-slate-200 rounded-lg overflow-hidden">
-            <div className="overflow-x-auto max-h-[380px] overflow-y-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 sticky top-0 z-10">
-                  <tr>
-                    <th className="py-2.5 px-3 font-semibold">No</th>
-                    <th className="py-2.5 px-3 font-semibold">Nama Personel & NIP</th>
-                    <th className="py-2.5 px-3 font-semibold">Regu</th>
-                    <th className="py-2.5 px-3 font-semibold">Jabatan</th>
-                    <th className="py-2.5 px-3 font-semibold">Status Kepegawaian</th>
-                    <th className="py-2.5 px-3 font-semibold">Status Shift Ini</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredModalPersonnel.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-400">
-                        Tidak ada data personel pada regu ini.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredModalPersonnel.map((person, index) => {
-                      const isOrganik =
-                        String(person.employment_status || 'organik').toLowerCase() === 'organik';
-                      const dep = deploymentByPersonnelId.get(Number(person.id));
-                      const isOnDuty = dep && dep.deployment_type !== 'absent';
-                      const isAbsent = dep && dep.deployment_type === 'absent';
-
-                      return (
-                        <tr key={person.id || `person-${index}`} className="hover:bg-slate-50/80">
-                          <td className="py-2 px-3 font-mono text-slate-400">{index + 1}</td>
-                          <td className="py-2 px-3">
-                            <div className="font-semibold text-slate-900">{typeof person.full_name === 'string' ? person.full_name : String(person.full_name || '')}</div>
-                            <div className="text-[11px] font-mono text-slate-500">
-                              NIP: {person.nip || '-'}
-                            </div>
-                          </td>
-                          <td className="py-2 px-3 font-semibold text-slate-700">
-                            Regu {cleanTeam(person.team_group)}
-                          </td>
-                          <td className="py-2 px-3 text-slate-600">
-                            {formatRoleName(person.rank_position)}
-                          </td>
-                          <td className="py-2 px-3">
-                            {isOrganik ? (
-                              <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
-                                Organik
-                              </span>
-                            ) : (
-                              <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                                Outsourcing (Training)
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-2 px-3">
-                            {isOnDuty ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                <UserCheck className="w-3 h-3" />
-                                <span>
-                                  {dep.deployment_type === 'watchroom'
-                                    ? 'Posko Watchroom'
-                                    : dep.vehicle_code || dep.vehicle_name || 'Bertugas'}
-                                  {dep.is_pic ? ' (PIC)' : ''}
-                                </span>
-                              </span>
-                            ) : isAbsent ? (
-                              <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                                Izin / Cuti ({dep.absent_reason || 'Cuti'})
-                              </span>
-                            ) : cleanTeam(person.team_group).toLowerCase() ===
-                              currentTeam.toLowerCase() ? (
-                              <span className="text-[11px] text-slate-400">Belum Diploting</span>
-                            ) : (
-                              <span className="text-[11px] text-slate-400">Lepas Piket / Off</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </Modal>
-
-      {/* 3. MODAL LAYER 2: RINCIAN SHIFT & FORMASI REGU BERTUGAS */}
-      <Modal
-        isOpen={activeModal?.type === 'shift'}
-        onClose={() => setActiveModal(null)}
-        title={`Rincian Pelaksanaan ${getShiftLabel(activeShiftNumber)} • Regu ${currentTeam}`}
-        subtitle={`${formatIndoDate(activeDate)} • Jam Operasional ${getShiftHours(activeShiftNumber)}`}
-        maxWidth="max-w-2xl"
-        footer={
-          <Button variant="outline" onClick={() => setActiveModal(null)}>
-            Tutup
-          </Button>
-        }
-      >
-        <div className="space-y-4 text-xs">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-              <div className="text-slate-500 text-[11px]">Ketua Regu (Chief)</div>
-              <div className="font-bold text-slate-900 text-sm mt-0.5">{supervisorName}</div>
-            </div>
-            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-              <div className="text-slate-500 text-[11px]">Kekuatan Shift Regu {currentTeam}</div>
-              <div className="font-bold font-mono text-slate-900 text-sm mt-0.5">
-                {personnelComposition.onDutyCount} Hadir / {personnelComposition.activeTeamStats.total} Anggota
-              </div>
-            </div>
-            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-              <div className="text-slate-500 text-[11px]">Komposisi Regu {currentTeam}</div>
-              <div className="font-bold font-mono text-slate-900 text-sm mt-0.5">
-                {personnelComposition.activeTeamStats.organik} Organik •{' '}
-                {personnelComposition.activeTeamStats.outsourcing} Outsourcing
-              </div>
-            </div>
-          </div>
-
-          {shiftInfo?.handover_notes && (
-            <div className="p-3 rounded-lg bg-amber-50/60 border border-amber-200">
-              <div className="font-bold text-amber-900 mb-1">Catatan Serah Terima Shift:</div>
-              <p className="text-slate-700 leading-relaxed">{shiftInfo.handover_notes}</p>
-            </div>
-          )}
-
-          <div>
-            <h4 className="font-bold text-slate-900 mb-2">
-              Daftar Penugasan Personel pada Shift Ini ({personnelComposition.onDutyDeployments.length} Orang)
-            </h4>
-            {personnelComposition.onDutyDeployments.length === 0 ? (
-              <div className="py-6 text-center text-slate-400 border border-dashed border-slate-200 rounded-lg">
-                Belum ada personel yang diploting pada shift ini.
-              </div>
-            ) : (
-              <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-[300px] overflow-y-auto">
-                {personnelComposition.onDutyDeployments.map((dep, i) => (
-                  <div key={dep.id || `dep-${i}`} className="px-3.5 py-2.5 flex items-center justify-between gap-2">
-                    <div>
-                      <div className="font-semibold text-slate-900">
-                        {typeof dep.full_name === 'string' ? dep.full_name : String(dep.full_name || '')}
-                        {dep.is_pic ? (
-                          <span className="ml-2 px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                            PIC Unit
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="text-[11px] text-slate-500">
-                        NIP: {dep.nip || '-'} •{' '}
-                        {String(dep.employment_status || 'organik').toLowerCase() === 'organik'
-                          ? 'Organik'
-                          : 'Outsourcing (Training)'}
-                      </div>
-                    </div>
-                    <div className="text-right font-medium text-slate-800">
-                      {dep.deployment_type === 'watchroom'
-                        ? 'Posko Watchroom'
-                        : dep.vehicle_name || dep.vehicle_code || 'Unit Operasional'}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </Modal>
-
-      {/* 4. MODAL LAYER 2: DAFTAR PERSONEL IZIN / CUTI SHIFT INI */}
-      <Modal
-        isOpen={activeModal?.type === 'leave'}
-        onClose={() => setActiveModal(null)}
-        title={`Daftar Personel Izin / Cuti • Regu ${currentTeam}`}
-        subtitle={`${formatIndoDate(activeDate)} • ${getShiftLabel(activeShiftNumber)}`}
-        maxWidth="max-w-xl"
-        footer={
-          <Button variant="outline" onClick={() => setActiveModal(null)}>
-            Tutup
-          </Button>
-        }
-      >
-        {personnelComposition.absentDeployments.length === 0 ? (
-          <div className="py-8 text-center text-xs text-slate-500">
-            Seluruh personel Regu {currentTeam} hadir lengkap (tidak ada catatan izin/cuti pada shift ini).
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden text-xs">
-            {personnelComposition.absentDeployments.map((item, idx) => (
-              <div key={item.id || `absent-${idx}`} className="p-3.5 flex items-start justify-between gap-3 bg-white">
-                <div>
-                  <div className="font-bold text-slate-900">{typeof item.full_name === 'string' ? item.full_name : String(item.full_name || '')}</div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">
-                    NIP: {item.nip || '-'} • {formatRoleName(item.rank_position)}
-                  </div>
-                  {item.notes && (
-                    <div className="text-[11px] text-slate-600 mt-1">
-                      Keterangan: {typeof item.notes === 'string' ? item.notes : String(item.notes)}
-                    </div>
-                  )}
-                </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
-                  {typeof item.absent_reason === 'string' ? item.absent_reason : 'Cuti / Izin'}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </Modal>
-
-      {/* 5. MODAL LAYER 2: DAFTAR LENGKAP KEGIATAN SHIFT */}
-      <Modal
-        isOpen={activeModal?.type === 'activities'}
-        onClose={() => setActiveModal(null)}
-        title={`Logbook Kegiatan Operasional • Regu ${currentTeam}`}
-        subtitle={`${formatIndoDate(activeDate)} • ${getShiftLabel(activeShiftNumber)}`}
-        maxWidth="max-w-2xl"
-        footer={
-          <Button variant="outline" onClick={() => setActiveModal(null)}>
-            Tutup
-          </Button>
-        }
-      >
-        {activities.length === 0 ? (
-          <div className="py-8 text-center text-xs text-slate-500">
-            Belum ada kegiatan operasional yang dicatat pada shift ini.
-          </div>
-        ) : (
-          <div className="space-y-3 text-xs">
-            {activities.map((act, idx) => (
-              <div
-                key={act.id || `act-${idx}`}
-                className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/50 space-y-1.5"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-bold text-slate-900 text-sm">
-                    {typeof act.title === 'string' ? act.title : (typeof act.activity_name === 'string' ? act.activity_name : 'Kegiatan Operasional')}
-                  </span>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-white border border-slate-200 text-slate-700">
-                      {act.activity_type || act.category || 'Rutin'}
-                    </span>
-                    <span className="font-mono font-bold text-slate-800 bg-white border border-slate-200 px-2 py-0.5 rounded">
-                      {String(act.activity_time || '-').slice(0, 5)} WIB
-                    </span>
-                  </div>
-                </div>
-                {act.description && (
-                  <p className="text-slate-700 leading-relaxed">{act.description}</p>
-                )}
-                {act.result_notes && (
-                  <div className="text-[11px] text-slate-600 pt-1 border-t border-slate-200/70">
-                    <strong>Hasil / Tindak Lanjut:</strong> {act.result_notes}
-                  </div>
-                )}
-                {act.attachment_url && (
-                  <div className="pt-2">
-                    <img
-                      src={getAttachmentUrl(act.attachment_url)}
-                      alt="Dokumentasi kegiatan"
-                      className="w-full max-h-56 object-contain rounded-lg border border-slate-200 bg-white"
-                    />
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </Modal>
-
-      {/* 6. MODAL LAYER 2: RINCIAN LAPORAN INSIDEN OPERASIONAL */}
-      <Modal
-        isOpen={activeModal?.type === 'incident_item' && Boolean(selectedIncidentDetail)}
-        onClose={() => {
-          setActiveModal(null);
-          setSelectedIncidentDetail(null);
-        }}
-        title={
-          selectedIncidentDetail
-            ? `${selectedIncidentDetail.report_number} • ${selectedIncidentDetail.title}`
-            : 'Rincian Laporan Insiden'
-        }
-        subtitle={
-          selectedIncidentDetail
-            ? `${formatIndoDate(selectedIncidentDetail.incident_date)} • Pukul ${String(selectedIncidentDetail.incident_time || '-').slice(0, 5)} WIB • Regu ${cleanTeam(selectedIncidentDetail.team_group || currentTeam)}`
-            : ''
-        }
-        maxWidth="max-w-2xl"
-        footer={
-          <Button
-            variant="outline"
-            onClick={() => {
-              setActiveModal(null);
-              setSelectedIncidentDetail(null);
-            }}
-          >
-            Tutup
-          </Button>
-        }
-      >
-        {selectedIncidentDetail && (
-          <div className="space-y-4 text-xs">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-                <div className="text-[11px] text-slate-500">Kategori Insiden</div>
-                <div className="font-bold text-slate-900 mt-0.5">
-                  {formatIncidentCategory(selectedIncidentDetail.category)}
-                </div>
-              </div>
-              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-                <div className="text-[11px] text-slate-500">Lokasi Kejadian</div>
-                <div className="font-bold text-slate-900 mt-0.5">
-                  {selectedIncidentDetail.location || '-'}
-                </div>
-              </div>
-              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-                <div className="text-[11px] text-slate-500">Status Penanganan</div>
-                <div className="font-bold text-slate-900 mt-0.5">
-                  {formatIncidentStatus(selectedIncidentDetail.status)}
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <div className="text-[11px] font-semibold text-slate-500 mb-1">Kronologi Kejadian</div>
-              <div className="p-3 rounded-lg border border-slate-200 bg-white text-slate-800 leading-relaxed whitespace-pre-line">
-                {selectedIncidentDetail.chronology || 'Tidak ada catatan kronologi.'}
-              </div>
-            </div>
-
-            {selectedIncidentDetail.action_taken && (
-              <div>
-                <div className="text-[11px] font-semibold text-slate-500 mb-1">
-                  Tindakan Penanganan ARFF
-                </div>
-                <div className="p-3 rounded-lg border border-slate-200 bg-white text-slate-800 leading-relaxed whitespace-pre-line">
-                  {selectedIncidentDetail.action_taken}
-                </div>
-              </div>
-            )}
-
-            {selectedIncidentDetail.last_condition && (
-              <div>
-                <div className="text-[11px] font-semibold text-slate-500 mb-1">Kondisi Terakhir</div>
-                <div className="p-3 rounded-lg border border-slate-200 bg-slate-50 text-slate-800 leading-relaxed">
-                  {selectedIncidentDetail.last_condition}
-                </div>
-              </div>
-            )}
-
-            {loadingIncidentDetail ? (
-              <div className="text-center text-slate-400 py-2">Memuat lampiran dokumentasi...</div>
-            ) : (
-              Array.isArray(selectedIncidentDetail.attachments) &&
-              selectedIncidentDetail.attachments.length > 0 && (
-                <div>
-                  <div className="text-[11px] font-semibold text-slate-500 mb-1.5">
-                    Dokumentasi Lapangan ({selectedIncidentDetail.attachments.length})
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {selectedIncidentDetail.attachments.map((att, idx) => (
-                      <img
-                        key={att.id || `att-${idx}`}
-                        src={getAttachmentUrl(att.file_path || att.file_url)}
-                        alt={att.file_name || `Dokumentasi insiden ${idx + 1}`}
-                        className="w-full max-h-56 object-contain rounded-lg border border-slate-200 bg-slate-50"
-                      />
-                    ))}
-                  </div>
-                </div>
-              )
-            )}
-          </div>
-        )}
-      </Modal>
-
-      {/* 7. MODAL LAYER 2: RINCIAN KENDARAAN / POSKO & KRU TERPLOTING */}
-      <Modal
-        isOpen={activeModal?.type === 'vehicle_item' && Boolean(activeModal?.item)}
-        onClose={() => setActiveModal(null)}
-        title={
-          activeModal?.item?.vehicle_name ||
-          activeModal?.item?.code_name ||
-          'Rincian Unit Operasional'
-        }
-        subtitle={`Status Kelaikan & Kru Terploting • Regu ${currentTeam} (${getShiftLabel(activeShiftNumber)})`}
-        maxWidth="max-w-xl"
-        footer={
-          <Button variant="outline" onClick={() => setActiveModal(null)}>
-            Tutup
-          </Button>
-        }
-      >
-        {activeModal?.item &&
-          (() => {
-            const v = activeModal.item;
-            const vId = v.id || v.vehicle_id;
-            const isPosko = v.category === 'posko' || v.code_name === 'WATCHROOM';
-            const status = v.status || v.readiness || 'belum_dilaporkan';
-            const isServiceable = status === 'serviceable';
-            const isUnserviceable = status === 'unserviceable';
-
-            const crewList = isPosko
-              ? vehicleDeploymentDetails.crewMap['watchroom'] || []
-              : vehicleDeploymentDetails.crewMap[vId] || [];
-
-            const picName = isPosko
-              ? v.pic_name ||
-                vehicleDeploymentDetails.picMap['watchroom'] ||
-                watchroomLog?.inspector_name ||
-                'Belum Ditunjuk'
-              : v.pic_name || vehicleDeploymentDetails.picMap[vId] || 'Belum Ditunjuk';
-
-            const notesText = v.justification || v.notes || (isPosko ? watchroomLog?.notes : null);
-            const photoUrl = v.photo_webp_url || (isPosko ? watchroomLog?.photo_webp_url : null);
-
-            return (
-              <div className="space-y-4 text-xs">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-                    <div className="text-[11px] text-slate-500">Status Kelaikan Unit</div>
-                    <div className="mt-1">
-                      {isUnserviceable ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-50 text-red-800 border border-red-200">
-                          <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
-                          <span>Unserviceable (Kendala)</span>
-                        </span>
-                      ) : isServiceable ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Serviceable (Laik Operasi)</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                          <HelpCircle className="w-3.5 h-3.5 text-slate-500" />
-                          <span>Belum Dicek Shift Ini</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-                    <div className="text-[11px] text-slate-500">Penanggung Jawab (PIC)</div>
-                    <div className="font-bold text-slate-900 text-sm mt-1 truncate">{picName}</div>
-                  </div>
-                </div>
-
-                {notesText && (
-                  <div
-                    className={`p-3 rounded-lg border ${
-                      isUnserviceable
-                        ? 'bg-red-50/60 border-red-200 text-red-900'
-                        : 'bg-slate-50 border-slate-200 text-slate-700'
-                    }`}
-                  >
-                    <div className="font-bold mb-1">
-                      {isUnserviceable ? 'Justifikasi / Kendala Teknis:' : 'Catatan Pemeriksaan:'}
-                    </div>
-                    <p className="leading-relaxed">{notesText}</p>
-                  </div>
-                )}
-
-                <div>
-                  <h4 className="font-bold text-slate-900 mb-2">
-                    Kru Terploting pada Unit Ini ({crewList.length} Personel)
-                  </h4>
-                  {crewList.length === 0 ? (
-                    <div className="py-5 text-center text-slate-400 border border-dashed border-slate-200 rounded-lg">
-                      Belum ada personel yang diploting pada unit ini di shift berjalan.
-                    </div>
-                  ) : (
-                    <div className="border border-slate-200 rounded-lg divide-y divide-slate-100">
-                      {crewList.map((member, i) => (
-                        <div
-                          key={member.id || `member-${i}`}
-                          className="px-3.5 py-2 flex items-center justify-between gap-2"
-                        >
-                          <div>
-                            <div className="font-semibold text-slate-900">
-                              {typeof member.full_name === 'string' ? member.full_name : String(member.full_name || '')}
-                              {member.is_pic ? (
-                                <span className="ml-2 px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                                  PIC
-                                </span>
-                              ) : null}
-                            </div>
-                            <div className="text-[11px] text-slate-500">
-                              NIP: {member.nip || '-'} • {formatRoleName(member.rank_position)}
-                            </div>
-                          </div>
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-                            {String(member.employment_status || 'organik').toLowerCase() === 'organik'
-                              ? 'Organik'
-                              : 'Outsourcing (Training)'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {photoUrl && (
-                  <div>
-                    <div className="text-[11px] font-semibold text-slate-500 mb-1">
-                      Foto Bukti Pemeriksaan Fisik
-                    </div>
-                    <img
-                      src={getAttachmentUrl(photoUrl)}
-                      alt={`Bukti fisik ${v.vehicle_name || v.code_name}`}
-                      className="w-full max-h-60 object-contain rounded-lg border border-slate-200 bg-slate-50"
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-      </Modal>
+      <DashboardDetailModals
+        activeModal={activeModal}
+        setActiveModal={setActiveModal}
+        announcements={announcements}
+        personnelComposition={personnelComposition}
+        selectedTeamTab={selectedTeamTab}
+        setSelectedTeamTab={setSelectedTeamTab}
+        filteredModalPersonnel={filteredModalPersonnel}
+        deploymentByPersonnelId={deploymentByPersonnelId}
+        currentTeam={currentTeam}
+        activeDate={activeDate}
+        activeShiftNumber={activeShiftNumber}
+        supervisorName={supervisorName}
+        shiftInfo={shiftInfo}
+        activities={activities}
+        selectedIncidentDetail={selectedIncidentDetail}
+        setSelectedIncidentDetail={setSelectedIncidentDetail}
+        loadingIncidentDetail={loadingIncidentDetail}
+        watchroomLog={watchroomLog}
+        vehicleDeploymentDetails={vehicleDeploymentDetails}
+        getAttachmentUrl={getAttachmentUrl}
+        handleInteractiveKeyDown={handleInteractiveKeyDown}
+        getShiftLabel={getShiftLabel}
+        getShiftHours={getShiftHours}
+        formatIncidentCategory={formatIncidentCategory}
+        formatIncidentStatus={formatIncidentStatus}
+      />
     </div>
   );
 }

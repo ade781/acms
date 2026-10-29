@@ -9,8 +9,9 @@ import MobilePicReadinessForm from '../../components/mobile/dashboard/MobilePicR
 import MobileOpsSummaryCards from '../../components/mobile/dashboard/MobileOpsSummaryCards';
 import MobileUnserviceableWidget from '../../components/mobile/dashboard/MobileUnserviceableWidget';
 import MobileRecentAnnouncements from '../../components/mobile/dashboard/MobileRecentAnnouncements';
+import MobileUnitAuditModal from '../../components/mobile/reports/MobileUnitAuditModal';
 
-import { AlertTriangle, FileText, Download, ExternalLink } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 
 export default function MobileDashboard({ onNavigateToAnnouncements }) {
   const { user, token, activeDate, activeShiftNumber, activeTeam } = useAuth();
@@ -26,7 +27,6 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
 
   // Modal states
   const [auditVehicleId, setAuditVehicleId] = useState(null);
-  const [previewPdfDoc, setPreviewPdfDoc] = useState(null);
 
   const fetchDashboardData = useCallback(async (isSilent = false, signal = null) => {
     if (!isSilent) setLoading(true);
@@ -172,9 +172,38 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
   const unserviceableCount = unserviceableVehicles.length;
   const belumDicekCount = vehiclesList.filter((v) => !v.status || v.status === 'belum_dilaporkan').length;
 
-  // Handler buka PDF
+  // Handler buka pengumuman / dokumen lampiran
   const handleOpenPdf = (ann) => {
-    setPreviewPdfDoc(ann);
+    if (ann?.file_path) {
+      const fileUrl = ann.file_path.startsWith('http')
+        ? ann.file_path
+        : `${import.meta.env.VITE_API_URL || '/api'}/announcements/${ann.id}/attachment?token=${encodeURIComponent(token || localStorage.getItem('arff_token') || '')}`;
+      window.open(fileUrl, '_blank', 'noopener,noreferrer');
+    } else if (typeof onNavigateToAnnouncements === 'function') {
+      onNavigateToAnnouncements();
+    } else {
+      window.dispatchEvent(new CustomEvent('arff:open-announcements-modal'));
+    }
+  };
+
+  const handleArchiveFromDashboard = async (item) => {
+    // Sinkronisasi optimis seketika pada level state Dashboard
+    setAnnouncements((prev) =>
+      prev.map((a) => (a.id === item.id ? { ...a, is_archived: 1 } : a))
+    );
+    try {
+      await api.post(`/announcements/${item.id}/archive`);
+      if (typeof window !== 'undefined') {
+        window.__arff_announcements_cache = null;
+      }
+      window.dispatchEvent(new CustomEvent('arff:announcements-updated'));
+    } catch (err) {
+      console.error('Gagal mengarsipkan pengumuman dari mobile dashboard:', err);
+      setAnnouncements((prev) =>
+        prev.map((a) => (a.id === item.id ? { ...a, is_archived: 0 } : a))
+      );
+      throw err;
+    }
   };
 
   return (
@@ -234,178 +263,15 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
         announcements={announcements}
         onOpenAllAnnouncements={onNavigateToAnnouncements}
         onOpenPdf={handleOpenPdf}
+        onArchive={handleArchiveFromDashboard}
       />
 
       {/* MODAL JEJAK AUDIT KENDALA ARMADA */}
-      {auditVehicleId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 p-3.5 space-y-2.5 shadow-2xl max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-red-600"></span>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900 uppercase leading-none">
-                    Riwayat Kesiapan Armada
-                  </h4>
-                  <p className="text-[9px] text-slate-500 mt-0.5">
-                    Jejak Perubahan Status Operasional (Audit Trail)
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAuditVehicleId(null)}
-                className="text-slate-400 hover:text-slate-700 text-sm font-bold p-1 cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="overflow-y-auto space-y-2 text-xs">
-              {(() => {
-                const targetV = vehiclesList.find(
-                  (v) => Number(v.id || v.vehicle_id) === Number(auditVehicleId)
-                );
-                const vName = targetV?.vehicle_name || targetV?.code_name || 'Armada';
-                const vStatus = targetV?.status || 'belum_dilaporkan';
-                const isServ = vStatus === 'serviceable';
-
-                return (
-                  <>
-                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
-                      <div>
-                        <span className="text-[9px] text-slate-500 block">Unit Armada:</span>
-                        <span className="font-bold text-slate-900 text-xs">{vName}</span>
-                      </div>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                          isServ
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                            : 'bg-red-100 text-red-800 border border-red-300'
-                        }`}
-                      >
-                        {vStatus.toUpperCase()}
-                      </span>
-                    </div>
-
-                    <div className="p-2 rounded-lg border border-slate-200 bg-white space-y-1">
-                      <p className="text-[10px] font-bold text-slate-800">Keterangan Kondisi Lapangan:</p>
-                      <p className="text-[10px] text-slate-600 leading-snug">
-                        {targetV?.justification || targetV?.notes || 'Tidak ada catatan kerusakan spesifik.'}
-                      </p>
-                      {targetV?.photo_webp_url && (
-                        <div className="pt-1">
-                          <p className="text-[9px] font-semibold text-slate-500 mb-1">Foto Bukti Fisik:</p>
-                          <img
-                            src={targetV.photo_webp_url}
-                            alt="Bukti Fisik"
-                            className="w-full h-32 object-cover rounded-lg border border-slate-200"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setAuditVehicleId(null)}
-              className="w-full py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors duration-100"
-            >
-              Tutup Jejak Kendala
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL PRATINJAU DOKUMEN PDF PENGUMUMAN */}
-      {previewPdfDoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 p-3.5 space-y-2.5 shadow-2xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-              <div className="flex items-center gap-1.5 truncate">
-                <FileText className="w-4 h-4 text-red-600 shrink-0" />
-                <div className="truncate">
-                  <h4 className="text-xs font-bold text-slate-900 truncate">
-                    {previewPdfDoc.title}
-                  </h4>
-                  <p className="text-[9px] text-slate-500 font-mono">
-                    {previewPdfDoc.reference_number || 'EDARAN-ARFF'}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPreviewPdfDoc(null)}
-                className="text-slate-400 hover:text-slate-700 text-sm font-bold p-1 cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* In-app Document Sheet Preview */}
-            <div className="overflow-y-auto border border-slate-200 rounded-lg bg-slate-50 p-3 text-xs space-y-2">
-              <div className="text-center border-b border-slate-300 pb-1.5">
-                <p className="text-[10px] font-black uppercase text-slate-900">
-                  PT ANGKASA PURA INDONESIA
-                </p>
-                <p className="text-[8.5px] font-bold text-slate-700">
-                  AIRPORT RESCUE & FIRE FIGHTING (ARFF) - YIA
-                </p>
-                <p className="text-[8px] font-mono text-slate-500 mt-0.5">
-                  Ref: {previewPdfDoc.reference_number || 'ARFF/EDARAN/2026'}
-                </p>
-              </div>
-
-              <div className="space-y-1">
-                <h5 className="font-bold text-slate-900 text-xs">
-                  {previewPdfDoc.title}
-                </h5>
-                <p className="text-[10px] text-slate-700 whitespace-pre-wrap leading-relaxed">
-                  {previewPdfDoc.content || previewPdfDoc.description || 'Surat edaran resmi dinas operasional ARFF Bandara Internasional Yogyakarta.'}
-                </p>
-              </div>
-            </div>
-
-            {/* Aksi Unduh / Buka Dokumen */}
-            <div className="grid grid-cols-2 gap-1.5">
-              {previewPdfDoc.file_path ? (
-                <a
-                  href={
-                    previewPdfDoc.file_path.startsWith('http')
-                      ? previewPdfDoc.file_path
-                      : `${import.meta.env.VITE_API_URL || '/api'}/announcements/${previewPdfDoc.id}/attachment?token=${encodeURIComponent(token || localStorage.getItem('arff_token') || '')}`
-                  }
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] flex items-center justify-center gap-1 transition-colors duration-100"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  <span>Buka Berkas</span>
-                </a>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => window.print()}
-                  className="py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-[10px] flex items-center justify-center gap-1 transition-colors duration-100"
-                >
-                  <Download className="w-3 h-3" />
-                  <span>Cetak / Simpan</span>
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setPreviewPdfDoc(null)}
-                className="py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-[10px] transition-colors duration-100"
-              >
-                Tutup Pratinjau
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <MobileUnitAuditModal
+        isOpen={Boolean(auditVehicleId)}
+        onClose={() => setAuditVehicleId(null)}
+        unit={vehiclesList.find((v) => Number(v.id || v.vehicle_id) === Number(auditVehicleId))}
+      />
     </div>
   );
 }

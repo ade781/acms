@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Upload, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { X, Upload, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 import api from '../../../services/api';
 
 export default function MobileLeaveModal({
@@ -12,8 +12,6 @@ export default function MobileLeaveModal({
   activeUserLeave,
   onSuccess
 }) {
-  const isPrivileged = ['admin', 'supervisor', 'chief', 'chief_assistant', 'dept_head'].includes(user?.role);
-
   const [category, setCategory] = useState('cuti');
   const [startDate, setStartDate] = useState(activeDate || new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(activeDate || new Date().toISOString().split('T')[0]);
@@ -24,10 +22,6 @@ export default function MobileLeaveModal({
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
 
-  // Pilihan personel untuk Admin / Chief / Supervisor
-  const [personnelList, setPersonnelList] = useState([]);
-  const [selectedPersonnelId, setSelectedPersonnelId] = useState('');
-
   useEffect(() => {
     if (!isOpen) return;
     if (activeDate) {
@@ -37,27 +31,6 @@ export default function MobileLeaveModal({
     setErrorMsg(null);
     setSuccessMsg(null);
   }, [activeDate, isOpen]);
-
-  useEffect(() => {
-    if (isPrivileged && isOpen) {
-      const fetchPersonnelForLeave = async () => {
-        try {
-          const team = activeTeam || user?.team_group || '';
-          const res = await api.get(`/personnel?is_active=1${team ? `&team_group=${team}` : ''}`);
-          const list = Array.isArray(res.data?.data)
-            ? res.data.data
-            : (Array.isArray(res.data?.personnel) ? res.data.personnel : (Array.isArray(res.data) ? res.data : []));
-          setPersonnelList(list);
-          if (list.length > 0 && !selectedPersonnelId) {
-            setSelectedPersonnelId(String(list[0].id));
-          }
-        } catch (e) {
-          console.error('Gagal mengambil daftar personel di MobileLeaveModal:', e);
-        }
-      };
-      fetchPersonnelForLeave();
-    }
-  }, [isPrivileged, isOpen, activeTeam]);
 
   const handleFileChange = (e) => {
     const selected = e.target.files?.[0];
@@ -109,9 +82,9 @@ export default function MobileLeaveModal({
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    const targetPId = isPrivileged ? selectedPersonnelId : user?.personnel_id;
+    const targetPId = user?.personnel_id;
     if (!targetPId) {
-      setErrorMsg('Harap tentukan nama personel yang diajukan cuti.');
+      setErrorMsg('Akun Anda tidak terhubung dengan data personel operasional untuk mengajukan cuti mandiri.');
       return;
     }
 
@@ -164,9 +137,16 @@ export default function MobileLeaveModal({
       <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 p-3.5 space-y-2 shadow-2xl">
         {/* Header Modal */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-          <h4 className="text-xs font-bold text-slate-900 uppercase">
-            Pengajuan Cuti / Izin Mandiri
-          </h4>
+          <div>
+            <h4 className="text-xs font-bold text-slate-900 uppercase">
+              Pengajuan Cuti / Izin Mandiri
+            </h4>
+            {user?.name && (
+              <p className="text-[10px] text-slate-500 font-medium">
+                Pemohon: {user.name} {user.nip ? `(${user.nip})` : ''}
+              </p>
+            )}
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -223,30 +203,8 @@ export default function MobileLeaveModal({
           </div>
         )}
 
-        {/* Formulir Permohonan Cuti Baru */}
+        {/* Formulir Permohonan Cuti Mandiri */}
         <form onSubmit={handleSubmitLeave} className="space-y-1.5 text-xs">
-          {/* Pilihan Nama Personel jika Admin / Chief / Supervisor */}
-          {isPrivileged && (
-            <div>
-              <label className="text-[10px] font-bold text-slate-600 block mb-0.5">
-                Nama Personel *
-              </label>
-              <select
-                value={selectedPersonnelId}
-                onChange={(e) => setSelectedPersonnelId(e.target.value)}
-                className="w-full p-1.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 outline-none text-xs transition-colors duration-100"
-                required
-              >
-                <option value="">-- Pilih Personel --</option>
-                {personnelList.map((p, pIdx) => (
-                  <option key={p.id ?? `pers-${pIdx}`} value={p.id}>
-                    {p.full_name || p.name} ({p.nip || '-'})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
           <div>
             <label className="text-[10px] font-bold text-slate-600 block mb-0.5">
               Kategori Izin *

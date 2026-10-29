@@ -1,12 +1,23 @@
-import React from 'react';
-import { Bell, FileText, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Bell, ChevronRight } from 'lucide-react';
+import api from '../../../services/api';
+import SwipeableAnnouncementCard from '../announcements/SwipeableAnnouncementCard';
 
 export default function MobileRecentAnnouncements({
   announcements = [],
   onOpenAllAnnouncements,
-  onOpenPdf
+  onOpenPdf,
+  onArchive
 }) {
-  const activeList = (announcements || []).filter((a) => !a.is_archived);
+  const [localList, setLocalList] = useState(announcements);
+  const processingIds = useRef(new Set());
+
+  useEffect(() => {
+    setLocalList(announcements || []);
+  }, [announcements]);
+
+  const isItemArchived = (a) => Boolean(Number(a.is_archived) === 1 || a.is_archived === true);
+  const activeList = (localList || []).filter((a) => !isItemArchived(a));
   const top3 = activeList.slice(0, 3);
 
   const handleOpenAll = () => {
@@ -14,6 +25,37 @@ export default function MobileRecentAnnouncements({
       onOpenAllAnnouncements();
     } else {
       window.dispatchEvent(new CustomEvent('arff:open-announcements-modal'));
+    }
+  };
+
+  const handleArchiveAnnouncement = async (item) => {
+    if (!item?.id || processingIds.current.has(item.id)) return;
+    processingIds.current.add(item.id);
+
+    // Optimistic UI update seketika tanpa delay
+    setLocalList((prev) =>
+      prev.map((a) => (a.id === item.id ? { ...a, is_archived: 1 } : a))
+    );
+
+    try {
+      if (onArchive) {
+        await onArchive(item);
+      } else {
+        await api.post(`/announcements/${item.id}/archive`);
+        if (typeof window !== 'undefined') {
+          window.__arff_announcements_cache = null;
+        }
+        // Dispatch event sinkronisasi SETELAH mutasi di backend selesai
+        window.dispatchEvent(new CustomEvent('arff:announcements-updated'));
+      }
+    } catch (err) {
+      console.error('Gagal mengarsipkan pengumuman dari dashboard:', err);
+      // Revert jika gagal
+      setLocalList((prev) =>
+        prev.map((a) => (a.id === item.id ? { ...a, is_archived: 0 } : a))
+      );
+    } finally {
+      processingIds.current.delete(item.id);
     }
   };
 
@@ -37,38 +79,21 @@ export default function MobileRecentAnnouncements({
         </button>
       </div>
 
-      {/* Konten Pengumuman */}
+      {/* Konten Pengumuman dengan Fitur Swipeable Card */}
       {top3.length === 0 ? (
         <div className="p-3 text-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
           <p className="text-[10px]">Belum ada edaran atau pengumuman dinas baru.</p>
         </div>
       ) : (
         <div className="space-y-1.5">
-          {top3.map((ann, annIdx) => {
-            const dateStr = ann.created_at ? ann.created_at.split('T')[0] : (ann.date || '');
-            const refNo = ann.reference_number || ann.refNo || 'ARFF-EDARAN';
-            const snippet = ann.content || ann.snippet || ann.description || 'Surat edaran resmi operasional ARFF YIA.';
-
-            return (
-              <div
-                key={ann.id ?? `ann-${annIdx}`}
-                onClick={() => onOpenPdf && onOpenPdf(ann)}
-                className="p-2 rounded-lg border border-slate-100 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 transition-colors duration-100 cursor-pointer space-y-0.5"
-              >
-                <div className="flex items-center justify-between text-[9px] text-slate-400">
-                  <span className="font-mono text-slate-500 font-semibold">{refNo}</span>
-                  <span>{dateStr}</span>
-                </div>
-                <h4 className="text-[11px] font-bold text-slate-900 leading-tight flex items-start justify-between gap-1">
-                  <span className="line-clamp-1">{ann.title}</span>
-                  <FileText className="w-3 h-3 text-red-500 shrink-0 mt-0.5" />
-                </h4>
-                <p className="text-[10px] text-slate-600 line-clamp-2 leading-snug">
-                  {snippet}
-                </p>
-              </div>
-            );
-          })}
+          {top3.map((ann, annIdx) => (
+            <SwipeableAnnouncementCard
+              key={ann.id ?? `ann-${annIdx}`}
+              item={ann}
+              onOpen={onOpenPdf}
+              onArchive={handleArchiveAnnouncement}
+            />
+          ))}
         </div>
       )}
     </div>
