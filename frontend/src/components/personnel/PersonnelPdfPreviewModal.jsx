@@ -4,7 +4,7 @@ import Button from '../common/Button';
 import api from '../../services/api';
 import { getErrorMessage } from '../../utils/errorHelper';
 
-export default function PersonnelPdfPreviewModal({ isOpen, onClose }) {
+export default function PersonnelPdfPreviewModal({ isOpen, onClose, selectedTeam }) {
   const [blobUrl, setBlobUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -25,7 +25,8 @@ export default function PersonnelPdfPreviewModal({ isOpen, onClose }) {
       setLoading(true);
       setError(null);
       try {
-        const response = await api.get('/personnel/export/pdf', {
+        const queryParam = selectedTeam && selectedTeam !== 'ALL' ? `?team_group=${encodeURIComponent(selectedTeam)}` : '';
+        const response = await api.get(`/personnel/export/pdf${queryParam}`, {
           responseType: 'blob',
         });
 
@@ -51,7 +52,7 @@ export default function PersonnelPdfPreviewModal({ isOpen, onClose }) {
         URL.revokeObjectURL(createdUrl);
       }
     };
-  }, [isOpen]);
+  }, [isOpen, selectedTeam]);
 
   if (!isOpen) return null;
 

@@ -18,7 +18,6 @@ import {
   FileCheck,
   ExternalLink,
   Download,
-  Settings,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -26,7 +25,6 @@ import { cleanTeam, formatTeam, TEAMS, OPERATIONAL_ROLES, formatRoleName, mapRan
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
-import EditPersonnelModal from '../components/personnel/EditPersonnelModal';
 import UploadDocumentModal from '../components/personnel/UploadDocumentModal';
 import ResetPasswordConfirmModal from '../components/personnel/ResetPasswordConfirmModal';
 import ConfirmActionModal from '../components/personnel/ConfirmActionModal';
@@ -76,8 +74,7 @@ export default function PersonnelDetailPage() {
   const [docError, setDocError] = useState(null);
   const [docSuccess, setDocSuccess] = useState(null);
 
-  // Edit Modal State
-  const [editModalOpen, setEditModalOpen] = useState(false);
+  // Dossier Edit Modal State
   const [dossierEditOpen, setDossierEditOpen] = useState(false);
   const [savingDossier, setSavingDossier] = useState(false);
 
@@ -136,7 +133,6 @@ export default function PersonnelDetailPage() {
   // Request Delete Personnel (In-App Confirm Modal)
   const requestDeletePersonnel = () => {
     if (!personnel) return;
-    setEditModalOpen(false);
     setConfirmModal({
       isOpen: true,
       title: 'Hapus Data Anggota?',
@@ -546,32 +542,6 @@ export default function PersonnelDetailPage() {
               </div>
             )}
 
-            {/* Pengaturan Data Profil (Khusus Pemilik Profil atau Admin) */}
-            {canEdit && (
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-lg bg-white border border-slate-200 text-slate-700 shadow-xs shrink-0">
-                    <Settings className="w-5 h-5 text-arff-primary" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">Pengaturan Data Profil</h4>
-                    <p className="text-[11px] text-slate-500">
-                      Perbarui NIP, nomor registrasi lisensi STKP, masa berlaku lisensi, tanggal lahir, dan pendidikan
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  icon={Settings}
-                  onClick={() => setEditModalOpen(true)}
-                  className="bg-white border-slate-300 hover:bg-slate-100 shrink-0"
-                >
-                  Edit Data Profil
-                </Button>
-              </div>
-            )}
-
             {/* Kartu Berkas & Dokumen Personel */}
             <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
               <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4 flex-wrap gap-3">
@@ -698,27 +668,13 @@ export default function PersonnelDetailPage() {
               <div className="flex items-center gap-3">
                 <Info className="w-5 h-5 text-sky-600 flex-shrink-0" />
                 <span>
-                  Personel dapat melengkapi data profil masing-masing (NIP, Jabatan, Nomor Lisensi, Tanggal Lahir, dan Pendidikan Terakhir) secara mandiri dengan menekan tombol <strong>"Lengkapi / Edit Profil"</strong> di atas.
+                  Personel dapat melengkapi data profil masing-masing (NIP, Jabatan, Nomor Lisensi, Tanggal Lahir, dan Pendidikan Terakhir) secara mandiri dengan menekan tombol <strong>"Edit Kualifikasi & Data"</strong> pada kartu Dossier Personel di atas.
                 </span>
               </div>
             </div>
           </div>
         )}
       </StateView>
-
-      {/* Modal Edit Data Personel (Modular) */}
-      <EditPersonnelModal
-        isOpen={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
-        personnel={personnel}
-        onSuccess={(msg) => {
-          setGlobalSuccess(typeof msg === 'string' ? msg : msg?.message || 'Data personel berhasil diperbarui.');
-          fetchPersonnelDetail();
-        }}
-        onRequestDelete={requestDeletePersonnel}
-        isAdmin={isAdmin}
-        isSupervisor={isSupervisor}
-      />
 
       {/* Modal Unggah Berkas & Dokumen Personel (Modular with 10MB pre-validation) */}
       <UploadDocumentModal

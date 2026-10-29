@@ -386,7 +386,6 @@ export default function PersonnelPage() {
                 chiefRow: 'bg-red-50/70 border-red-200 text-slate-900',
                 chiefStar: 'text-red-600',
                 chiefBadge: 'bg-red-100 text-red-800 border-red-200',
-                beamGradient: 'conic-gradient(from 0deg, transparent 0deg, transparent 90deg, #ef4444 145deg, transparent 180deg, transparent 270deg, #ef4444 325deg, transparent 360deg)',
               },
               bravo: {
                 border: 'border-blue-500',
@@ -394,7 +393,6 @@ export default function PersonnelPage() {
                 chiefRow: 'bg-blue-50/70 border-blue-200 text-slate-900',
                 chiefStar: 'text-blue-600',
                 chiefBadge: 'bg-blue-100 text-blue-800 border-blue-200',
-                beamGradient: 'conic-gradient(from 0deg, transparent 0deg, transparent 90deg, #3b82f6 145deg, transparent 180deg, transparent 270deg, #3b82f6 325deg, transparent 360deg)',
               },
               charlie: {
                 border: 'border-emerald-500',
@@ -402,7 +400,6 @@ export default function PersonnelPage() {
                 chiefRow: 'bg-emerald-50/70 border-emerald-200 text-slate-900',
                 chiefStar: 'text-emerald-600',
                 chiefBadge: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-                beamGradient: 'conic-gradient(from 0deg, transparent 0deg, transparent 90deg, #10b981 145deg, transparent 180deg, transparent 270deg, #10b981 325deg, transparent 360deg)',
               },
               delta: {
                 border: 'border-purple-500',
@@ -410,7 +407,6 @@ export default function PersonnelPage() {
                 chiefRow: 'bg-purple-50/70 border-purple-200 text-slate-900',
                 chiefStar: 'text-purple-600',
                 chiefBadge: 'bg-purple-100 text-purple-800 border-purple-200',
-                beamGradient: 'conic-gradient(from 0deg, transparent 0deg, transparent 90deg, #a855f7 145deg, transparent 180deg, transparent 270deg, #a855f7 325deg, transparent 360deg)',
               },
             };
             const theme = teamThemes[teamKey] || teamThemes.alpha;
@@ -536,21 +532,9 @@ export default function PersonnelPage() {
               return (
                 <div
                   key={teamName}
-                  className="relative rounded-xl overflow-hidden p-[2.5px] shadow-sm transition-all duration-300 flex flex-col"
+                  className={`rounded-xl border-2 ${theme.border} bg-white p-4 flex flex-col justify-between shadow-sm transition-colors duration-100 ring-2 ring-slate-100`}
                 >
-                  {/* Animasi Berkas Cahaya yang Mengitari Border Kartu (Rotating Border Beam) */}
-                  <div
-                    className="absolute inset-[-150%] animate-[spin_5s_linear_infinite] pointer-events-none"
-                    style={{ background: theme.beamGradient }}
-                  />
-
-                  {/* Garis Border Dasar Transparan */}
-                  <div className="absolute inset-0 rounded-xl border border-slate-200 pointer-events-none" />
-
-                  {/* Isi Kartu Regu Utama */}
-                  <div className="relative rounded-[10px] bg-white p-4 flex flex-col justify-between h-full">
-                    {cardBody}
-                  </div>
+                  {cardBody}
                 </div>
               );
             }

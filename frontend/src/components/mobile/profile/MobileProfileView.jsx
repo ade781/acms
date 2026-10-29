@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
-  Edit3,
   Lock,
   UploadCloud,
   FileText,
@@ -15,7 +14,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import api from '../../../services/api';
-import MobileEditProfileModal from './MobileEditProfileModal';
 import MobileChangePasswordModal from './MobileChangePasswordModal';
 import MobilePersonnelAccordion from './MobilePersonnelAccordion';
 import PersonnelDossierEditModal from '../../personnel/PersonnelDossierEditModal';
@@ -48,7 +46,6 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
   const [error, setError] = useState(null);
 
   // Modals inside Profile View
-  const [isEditOpen, setIsEditOpen] = useState(false);
   const [isEditDossierOpen, setIsEditDossierOpen] = useState(false);
   const [savingDossier, setSavingDossier] = useState(false);
   const [isPasswordOpen, setIsPasswordOpen] = useState(false);
