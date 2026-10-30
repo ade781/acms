@@ -2,7 +2,6 @@ import React from 'react';
 import { UserPlus, Trash2, ShieldCheck, Camera, Sparkles } from 'lucide-react';
 import { getVehicleIcon } from '../../utils/vehicleHelper';
 
-
 function DeploymentSlotCard({
   vehicle,
   slots = [],
@@ -44,8 +43,6 @@ function DeploymentSlotCard({
       return Boolean(currentUserName && pName && currentUserName.toLowerCase() === pName.toLowerCase());
     })
   );
-
-  const isAssignedToThisUnit = isUserThePic || isUserKru;
 
   // Hak periksa fisik armada / fasilitas posko: HANYA PIC (atau admin/supervisor unit). KRU TIDAK BISA.
   const canInspect = Boolean(
@@ -118,33 +115,39 @@ function DeploymentSlotCard({
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-1 flex-shrink-0">
-            {/* Badge Kelaikan Fisik Armada / Fasilitas Posko */}
+          <div className="flex items-center flex-shrink-0">
+            {/* Unified Badge Kelaikan & Kelengkapan Kru */}
             <span
-              className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${
+              className={`text-[10px] font-bold px-2 py-1 rounded-md border tracking-wide inline-flex items-center gap-1.5 ${
                 isUnserviceable
                   ? 'bg-red-100 text-red-800 border-red-300'
-                  : 'bg-emerald-100 text-emerald-800 border-emerald-300'
-              }`}
-            >
-              {isUnserviceable ? 'Unserviceable' : 'Serviceable'}
-            </span>
-
-            {/* Badge Kelengkapan Kru */}
-            <span
-              className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${
-                isCrewComplete
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : isReadyForDuty
+                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                   : !picAssigned
-                  ? 'bg-red-50 text-red-800 border-red-200 font-bold'
+                  ? 'bg-red-50 text-red-800 border-red-200'
                   : 'bg-amber-50 text-amber-800 border-amber-200'
               }`}
             >
-              {isCrewComplete
-                ? `Lengkap (${filledSlotsCount}/${slots.length})`
-                : !picAssigned
-                ? `Belum Ada PIC (${filledSlotsCount}/${slots.length})`
-                : `Belum Lengkap (${filledSlotsCount}/${slots.length})`}
+              <span
+                className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                  isUnserviceable
+                    ? 'bg-red-500'
+                    : isReadyForDuty
+                    ? 'bg-emerald-500'
+                    : !picAssigned
+                    ? 'bg-red-500'
+                    : 'bg-amber-500'
+                }`}
+              />
+              <span>
+                {isUnserviceable
+                  ? `Unserviceable (${filledSlotsCount}/${slots.length})`
+                  : isReadyForDuty
+                  ? `Siap Operasi (${filledSlotsCount}/${slots.length})`
+                  : !picAssigned
+                  ? `Belum Ada PIC (${filledSlotsCount}/${slots.length})`
+                  : `Kru Kurang (${filledSlotsCount}/${slots.length})`}
+              </span>
             </span>
           </div>
         </div>
@@ -181,8 +184,8 @@ function DeploymentSlotCard({
                     ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-400/40 shadow-xs'
                     : isPic
                     ? isSlotFilled
-                      ? 'border-emerald-300 bg-emerald-50/50'
-                      : 'border-dashed border-red-300 bg-red-50/30'
+                    ? 'border-emerald-300 bg-emerald-50/50'
+                    : 'border-dashed border-red-300 bg-red-50/30'
                     : isSlotFilled
                     ? 'border-slate-200 bg-white'
                     : 'border-dashed border-slate-200 bg-slate-50/50'
@@ -309,46 +312,32 @@ function DeploymentSlotCard({
         </button>
       )}
 
-      {/* Bagian Status & Pemeriksaan Kesiapan Armada / Fasilitas Posko */}
-      <div className="mt-3 sm:mt-4 pt-2.5 sm:pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
-          {isUserThePic ? (
-            <span className="inline-flex items-center gap-1.5 text-emerald-700 font-bold">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              {isPosko ? 'PIC Watchroom' : 'PIC Kendaraan'}
-            </span>
+      {/* Bagian Pemeriksaan Kesiapan Armada / Fasilitas Posko (Satu Aksi, Satu Tempat) */}
+      {(canInspect || isUserKru) && (
+        <div className="mt-3 sm:mt-4 pt-2.5 sm:pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+          {canInspect ? (
+            <button
+              type="button"
+              onClick={() => onInspectVehicle(vehicle)}
+              className={`w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-100 shadow-xs cursor-pointer ${
+                isUserThePic
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-400/40'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+              }`}
+              title={isPosko ? "Pemeriksaan kesiapan fasilitas komunikasi watchroom" : "Input status serviceable/unserviceable & foto kesiapan armada oleh PIC"}
+            >
+              <Camera className="w-3.5 h-3.5" />
+              <span>{isUserThePic ? (isPosko ? 'Periksa Fasilitas Posko' : 'Periksa Kesiapan (PIC)') : 'Periksa Kesiapan'}</span>
+            </button>
           ) : isUserKru ? (
-            <span className="inline-flex items-center gap-1 text-slate-500 font-medium">
-              <span>{isPosko ? 'Operator Posko' : 'Kru Armada (Pemeriksaan oleh PIC)'}</span>
+            <span className="text-[10px] text-slate-400 italic bg-slate-50 px-2 py-1 rounded border border-slate-200">
+              Pemeriksaan kesiapan dilakukan oleh PIC
             </span>
-          ) : (
-            <span className="text-slate-400">{isPosko ? 'Pemeriksaan Posko' : 'Pemeriksaan PIC'}</span>
-          )}
+          ) : null}
         </div>
-
-        {canInspect ? (
-          <button
-            type="button"
-            onClick={() => onInspectVehicle(vehicle)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-100 shadow-xs ${
-              isUserThePic
-                ? 'bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-400/40'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-            }`}
-            title={isPosko ? "Pemeriksaan kesiapan fasilitas komunikasi watchroom" : "Input status serviceable/unserviceable & foto kesiapan armada oleh PIC"}
-          >
-            <Camera className="w-3.5 h-3.5" />
-            <span>{isUserThePic ? (isPosko ? 'Periksa Fasilitas Posko' : 'Periksa Kesiapan (PIC)') : 'Periksa Kesiapan'}</span>
-          </button>
-        ) : isUserKru ? (
-          <span className="text-[10px] text-slate-400 italic bg-slate-50 px-2 py-1 rounded border border-slate-200">
-            Kru tidak berwenang input
-          </span>
-        ) : null}
-      </div>
+      )}
     </div>
   );
 }
-
 
 export default React.memo(DeploymentSlotCard);

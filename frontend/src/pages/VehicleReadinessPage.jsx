@@ -6,7 +6,6 @@ import { cleanTeam } from '../utils/shiftHelper';
 import api from '../services/api';
 import VehicleMetricCard from '../components/dashboard/VehicleMetricCard';
 import VehicleReadinessModal from '../components/forms/VehicleReadinessModal';
-import WatchroomReadinessModal from '../components/forms/WatchroomReadinessModal';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
@@ -335,29 +334,17 @@ export default function VehicleReadinessPage() {
         </div>
       </StateView>
 
-      {/* Modal Pemeriksaan Fisik Armada */}
+      {/* Modal Pemeriksaan Fisik Armada & Posko Watchroom */}
       {selectedVehicle && (
-        (selectedVehicle.category === 'posko' || selectedVehicle.code_name === 'WATCHROOM') ? (
-          <WatchroomReadinessModal
-            isOpen={Boolean(selectedVehicle)}
-            onClose={() => setSelectedVehicle(null)}
-            logItem={selectedVehicle}
-            activeDate={activeDate}
-            activeShiftNumber={activeShiftNumber}
-            activeTeam={activeTeam}
-            onSuccess={handleReadinessSuccess}
-          />
-        ) : (
-          <VehicleReadinessModal
-            isOpen={Boolean(selectedVehicle)}
-            onClose={() => setSelectedVehicle(null)}
-            vehicle={selectedVehicle}
-            activeDate={activeDate}
-            activeShiftNumber={activeShiftNumber}
-            activeTeam={activeTeam}
-            onSuccess={handleReadinessSuccess}
-          />
-        )
+        <VehicleReadinessModal
+          isOpen={Boolean(selectedVehicle)}
+          onClose={() => setSelectedVehicle(null)}
+          vehicle={selectedVehicle}
+          activeDate={activeDate}
+          activeShiftNumber={activeShiftNumber}
+          activeTeam={activeTeam}
+          onSuccess={handleReadinessSuccess}
+        />
       )}
 
       {/* Modal Tambah / Edit Armada (Admin Only) */}
