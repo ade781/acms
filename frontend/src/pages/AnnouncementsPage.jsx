@@ -21,8 +21,7 @@ import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
 import StateView from '../components/common/StateView';
 import AnnouncementPdfPreview from '../components/announcements/AnnouncementPdfPreview';
-import AnnouncementUploadModal from '../components/announcements/AnnouncementUploadModal';
-import AnnouncementEditModal from '../components/announcements/AnnouncementEditModal';
+import AnnouncementModal from '../components/announcements/AnnouncementModal';
 
 export default function AnnouncementsPage() {
   const { user, isAdmin, isSupervisor } = useAuth();
@@ -71,12 +70,13 @@ export default function AnnouncementsPage() {
     return String(str).replace(/^\[MENDESAK\]\s*/i, '').replace(/\[MENDESAK\]/gi, '').trim();
   };
 
-  // Modal States
-  const [uploadModalOpen, setUploadModalOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [targetEditAnnouncement, setTargetEditAnnouncement] = useState(null);
-  const [updating, setUpdating] = useState(false);
+  // Modal State
+  const [announcementModal, setAnnouncementModal] = useState({
+    isOpen: false,
+    mode: 'create',
+    data: null
+  });
+  const [modalSubmitting, setModalSubmitting] = useState(false);
   const [toastMsg, setToastMsg] = useState(null);
 
   const fetchAnnouncements = useCallback(async (signal) => {
@@ -146,7 +146,7 @@ export default function AnnouncementsPage() {
     isPinned,
     pdfFile
   }) => {
-    setSubmitting(true);
+    setModalSubmitting(true);
     try {
       const finalTitle = cleanTitle(title);
 
@@ -164,13 +164,13 @@ export default function AnnouncementsPage() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      setUploadModalOpen(false);
+      setAnnouncementModal({ isOpen: false, mode: 'create', data: null });
       fetchAnnouncements();
       setToastMsg({ type: 'success', text: 'Surat edaran dinas berhasil dipublikasikan.' });
       setTimeout(() => setToastMsg(null), 3500);
       window.dispatchEvent(new CustomEvent('arff:announcements-updated'));
     } finally {
-      setSubmitting(false);
+      setModalSubmitting(false);
     }
   };
 
@@ -208,8 +208,7 @@ export default function AnnouncementsPage() {
 
   const handleOpenEditModal = (ann, e) => {
     if (e) e.stopPropagation();
-    setTargetEditAnnouncement(ann);
-    setEditModalOpen(true);
+    setAnnouncementModal({ isOpen: true, mode: 'edit', data: ann });
   };
 
   const handleUpdateAnnouncement = async ({
@@ -218,9 +217,10 @@ export default function AnnouncementsPage() {
     circularNumber,
     publishedDate,
     description,
-    isPinned
+    isPinned,
+    pdfFile
   }) => {
-    setUpdating(true);
+    setModalSubmitting(true);
     try {
       const finalTitle = cleanTitle(title);
 
@@ -230,6 +230,9 @@ export default function AnnouncementsPage() {
       formData.append('published_date', publishedDate);
       formData.append('description', (description || '').trim());
       formData.append('is_pinned', isPinned ? '1' : '0');
+      if (pdfFile) {
+        formData.append('file', pdfFile);
+      }
 
       const res = await api.put(`/announcements/${id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -273,14 +276,20 @@ export default function AnnouncementsPage() {
         }));
       }
 
-      setEditModalOpen(false);
-      setTargetEditAnnouncement(null);
+      setAnnouncementModal({ isOpen: false, mode: 'create', data: null });
       setToastMsg({ type: 'success', text: 'Perubahan surat edaran berhasil disimpan.' });
       setTimeout(() => setToastMsg(null), 3500);
       window.dispatchEvent(new CustomEvent('arff:announcements-updated'));
     } finally {
-      setUpdating(false);
+      setModalSubmitting(false);
     }
+  };
+
+  const handleAnnouncementSubmit = (formData) => {
+    if (announcementModal.mode === 'edit') {
+      return handleUpdateAnnouncement(formData);
+    }
+    return handleCreateAnnouncement(formData);
   };
 
   const handleTogglePin = async (ann, e) => {
@@ -471,7 +480,7 @@ export default function AnnouncementsPage() {
           <Button
             variant="primary"
             icon={Plus}
-            onClick={() => setUploadModalOpen(true)}
+            onClick={() => setAnnouncementModal({ isOpen: true, mode: 'create', data: null })}
           >
             Unggah Edaran Baru
           </Button>
@@ -707,21 +716,14 @@ export default function AnnouncementsPage() {
         </div>
       </StateView>
 
-      {/* Modal Upload Surat Edaran Baru */}
-      <AnnouncementUploadModal
-        isOpen={uploadModalOpen}
-        onClose={() => setUploadModalOpen(false)}
-        onSubmit={handleCreateAnnouncement}
-        submitting={submitting}
-      />
-
-      {/* Modal Edit Surat Edaran / Pengumuman */}
-      <AnnouncementEditModal
-        isOpen={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
-        announcement={targetEditAnnouncement}
-        onSubmit={handleUpdateAnnouncement}
-        updating={updating}
+      {/* Modal Tambah / Edit Surat Edaran */}
+      <AnnouncementModal
+        isOpen={announcementModal.isOpen}
+        mode={announcementModal.mode}
+        initialData={announcementModal.data}
+        onClose={() => setAnnouncementModal((prev) => ({ ...prev, isOpen: false }))}
+        onSubmit={handleAnnouncementSubmit}
+        submitting={modalSubmitting}
       />
 
       {/* Modal Konfirmasi Hapus Pengumuman In-App */}
