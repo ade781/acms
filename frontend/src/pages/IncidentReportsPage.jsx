@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  FileText,
   Download,
   Calendar,
   AlertTriangle,
@@ -31,6 +30,7 @@ export default function IncidentReportsPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterTriage, setFilterTriage] = useState('ALL'); // 'ALL' | 'kritis' | 'proses' | 'selesai'
 
   // Data State
   const [loading, setLoading] = useState(true);
@@ -106,8 +106,33 @@ export default function IncidentReportsPage() {
     }
   };
 
-  // Filter teks pencarian (Layer 1)
+  // Metrik Triage Interaktif
+  const triageStats = {
+    total: reportData.stats?.total ?? reportData.incidents?.length ?? 0,
+    kritis: reportData.stats?.kritis ?? (reportData.incidents || []).filter((i) => {
+      const p = (i.priority_level || i.priority || '').toLowerCase();
+      return p.includes('kritis') || p.includes('critical');
+    }).length,
+    proses: ((reportData.stats?.dalam_proses || 0) + (reportData.stats?.menunggu_tindak_lanjut || 0)) || (reportData.incidents || []).filter((i) => {
+      const s = (i.status || '').toLowerCase();
+      return s === 'dalam_proses' || s === 'menunggu_tindak_lanjut';
+    }).length,
+    selesai: reportData.stats?.selesai ?? (reportData.incidents || []).filter((i) => (i.status || '').toLowerCase() === 'selesai').length,
+  };
+
+  // Filter teks pencarian & status triage (Layer 1)
   const filteredList = (reportData.incidents || []).filter((inc) => {
+    if (filterTriage === 'kritis') {
+      const p = (inc.priority_level || inc.priority || '').toLowerCase();
+      if (!p.includes('kritis') && !p.includes('critical')) return false;
+    } else if (filterTriage === 'proses') {
+      const s = (inc.status || '').toLowerCase();
+      if (s !== 'dalam_proses' && s !== 'menunggu_tindak_lanjut') return false;
+    } else if (filterTriage === 'selesai') {
+      const s = (inc.status || '').toLowerCase();
+      if (s !== 'selesai') return false;
+    }
+
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -286,66 +311,51 @@ export default function IncidentReportsPage() {
         )}
       </div>
 
-      {/* KPI Cards: Ringkasan Situasi Insiden */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-semibold text-slate-500 uppercase">Total Insiden</span>
-            <span className="p-1.5 rounded-lg bg-slate-100 text-slate-600">
-              <FileText className="w-4 h-4" />
-            </span>
-          </div>
-          <div className="text-2xl font-black text-slate-900">
-            {reportData.stats?.total || 0}
-          </div>
-          <span className="text-[11px] text-slate-400 font-medium">
-            Periode: {typeof reportData.startDate === 'string' ? reportData.startDate : '-'} s.d. {typeof reportData.endDate === 'string' ? reportData.endDate : '-'}
+      {/* Segmented Interactive Triage Filter Pills */}
+      <div className="bg-white rounded-xl border border-slate-200 p-2.5 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1">
+            Triage:
           </span>
+          {[
+            { id: 'ALL', label: 'Semua Insiden', count: triageStats.total },
+            { id: 'kritis', label: 'Siaga I / Kritis', count: triageStats.kritis, dot: 'bg-red-600' },
+            { id: 'proses', label: 'Dalam Penanganan', count: triageStats.proses, dot: 'bg-amber-500' },
+            { id: 'selesai', label: 'Selesai Terkendali', count: triageStats.selesai, dot: 'bg-emerald-500' },
+          ].map((pill) => {
+            const isActive = filterTriage === pill.id;
+            return (
+              <button
+                key={pill.id}
+                type="button"
+                onClick={() => {
+                  setFilterTriage(pill.id);
+                  setCurrentPage(1);
+                }}
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-100 cursor-pointer ${
+                  isActive
+                    ? 'bg-slate-900 text-white shadow-2xs font-bold'
+                    : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/80'
+                }`}
+              >
+                {pill.dot && <span className={`w-2 h-2 rounded-full ${pill.dot}`} />}
+                <span>{pill.label}</span>
+                <span
+                  className={`text-[11px] px-1.5 py-0.2 rounded-full font-bold tabular-nums ${
+                    isActive
+                      ? 'bg-white/20 text-white'
+                      : 'bg-slate-200/80 text-slate-800'
+                  }`}
+                >
+                  {pill.count}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-semibold text-red-600 uppercase">Siaga I (Kritis)</span>
-            <span className="p-1.5 rounded-lg bg-red-50 text-red-600">
-              <ShieldAlert className="w-4 h-4" />
-            </span>
-          </div>
-          <div className="text-2xl font-black text-red-700">
-            {reportData.stats?.kritis || 0}
-          </div>
-          <span className="text-[11px] text-slate-400 font-medium">
-            Prioritas Tinggi & Kritis
-          </span>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-semibold text-amber-600 uppercase">Dalam Penanganan</span>
-            <span className="p-1.5 rounded-lg bg-amber-50 text-amber-600">
-              <Clock className="w-4 h-4" />
-            </span>
-          </div>
-          <div className="text-2xl font-black text-amber-700">
-            {(reportData.stats?.dalam_proses || 0) + (reportData.stats?.menunggu_tindak_lanjut || 0)}
-          </div>
-          <span className="text-[11px] text-slate-400 font-medium">
-            Proses & Tindak Lanjut
-          </span>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-semibold text-emerald-600 uppercase">Selesai / Terkendali</span>
-            <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
-              <CheckCircle2 className="w-4 h-4" />
-            </span>
-          </div>
-          <div className="text-2xl font-black text-emerald-700">
-            {reportData.stats?.selesai || 0}
-          </div>
-          <span className="text-[11px] text-slate-400 font-medium">
-            Penanganan Selesai Penuh
-          </span>
+        <div className="text-[11px] text-slate-400 font-medium hidden sm:block">
+          Periode: {typeof reportData.startDate === 'string' && reportData.startDate ? reportData.startDate : '-'} s.d. {typeof reportData.endDate === 'string' && reportData.endDate ? reportData.endDate : '-'}
         </div>
       </div>
 
@@ -383,7 +393,6 @@ export default function IncidentReportsPage() {
                   <th className="py-3 px-4">Lokasi Area</th>
                   <th className="py-3 px-4">Prioritas</th>
                   <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-center">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
@@ -391,7 +400,7 @@ export default function IncidentReportsPage() {
                   <tr
                     key={inc.id || inc.report_number || `inc-rep-${inc.incident_date}`}
                     onClick={() => setSelectedIncident(inc)}
-                    className="hover:bg-slate-50/80 cursor-pointer transition-colors duration-100 group"
+                    className="hover:bg-red-50/40 cursor-pointer transition-colors duration-100 group"
                   >
                     <td className="py-3 px-4 font-bold text-red-700 font-mono text-[11.5px]">
                       {inc.report_number || `INC-${inc.id}`}
@@ -419,19 +428,6 @@ export default function IncidentReportsPage() {
                     </td>
                     <td className="py-3 px-4">
                       {getStatusBadge(inc.status)}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedIncident(inc);
-                        }}
-                        className="p-1.5 rounded-lg text-slate-400 group-hover:text-red-600 group-hover:bg-red-50 transition-colors duration-100"
-                        title="Buka Rincian Layer 2"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
                     </td>
                   </tr>
                 ))}
