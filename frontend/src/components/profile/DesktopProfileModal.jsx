@@ -13,7 +13,6 @@ import { formatTeam, formatRoleName } from '../../utils/shiftHelper';
 import PersonnelDossier from '../personnel/PersonnelDossier';
 import PersonnelDossierEditModal from '../personnel/PersonnelDossierEditModal';
 import ProfilePasswordCard from './ProfilePasswordCard';
-import ProfileEditCard from './ProfileEditCard';
 import ProfileDocumentsCard from './ProfileDocumentsCard';
 
 export default function DesktopProfileModal({ isOpen, onClose }) {
@@ -23,19 +22,8 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
   const [documents, setDocuments] = useState([]);
 
   // Sub-forms toggle
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isEditingDossier, setIsEditingDossier] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-
-  // Edit Profile Form State
-  const [editFormData, setEditFormData] = useState({
-    nip: '',
-    birth_date: '',
-    formal_education: '',
-    cert_level: 'Junior',
-    cert_number: '',
-    cert_expiry_date: '',
-  });
   const [savingProfile, setSavingProfile] = useState(false);
 
   // Feedback Toast State
@@ -51,20 +39,6 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
       const meRes = await api.get('/auth/me');
       const me = meRes.data?.data || meRes.data || user;
       setProfileData(me);
-
-      let rawCert = me.cert_level || 'Junior';
-      if (rawCert.includes('Senior')) rawCert = 'Senior';
-      else if (rawCert.includes('Junior')) rawCert = 'Junior';
-      else if (rawCert.includes('Basic')) rawCert = 'Basic';
-
-      setEditFormData({
-        nip: me.nip || '',
-        birth_date: me.birth_date ? String(me.birth_date).split('T')[0] : '',
-        formal_education: me.formal_education || '',
-        cert_level: rawCert,
-        cert_number: me.cert_number || '',
-        cert_expiry_date: me.cert_expiry_date ? String(me.cert_expiry_date).split('T')[0] : '',
-      });
 
       const pId = me.personnel_id || personnelId;
       if (pId) {
@@ -89,52 +63,12 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
     if (isOpen) {
       setFeedbackSuccess(null);
       setFeedbackError(null);
-      setIsEditingProfile(false);
       setIsChangingPassword(false);
       loadData();
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
-
-  // Handler Edit Profil
-  const handleSaveProfile = async (e) => {
-    e.preventDefault();
-    setSavingProfile(true);
-    setFeedbackSuccess(null);
-    setFeedbackError(null);
-
-    const payload = {
-      nip: editFormData.nip ? editFormData.nip.trim() : null,
-      birth_date: editFormData.birth_date || null,
-      formal_education: editFormData.formal_education ? editFormData.formal_education.trim() : null,
-      cert_level: editFormData.cert_level,
-      cert_number: editFormData.cert_number ? editFormData.cert_number.trim() : null,
-      cert_expiry_date: editFormData.cert_expiry_date || null,
-    };
-
-    try {
-      try {
-        await api.put('/auth/profile', payload);
-      } catch (errAuth) {
-        if (personnelId) {
-          await api.put(`/personnel/${personnelId}`, payload);
-        } else {
-          throw errAuth;
-        }
-      }
-
-      setFeedbackSuccess('Data profil & kredensial berhasil diperbarui.');
-      setIsEditingProfile(false);
-      await refreshUser();
-      await loadData();
-    } catch (err) {
-      console.error('Error simpan profil:', err);
-      setFeedbackError(err.response?.data?.message || err.message || 'Gagal memperbarui data profil.');
-    } finally {
-      setSavingProfile(false);
-    }
-  };
 
   // Handler Simpan Dossier Mandiri (Lapbul 16 Atribut + 11 Kompetensi)
   const handleSaveDossierModal = async (formData) => {
@@ -152,7 +86,7 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
           throw errAuth;
         }
       }
-      setFeedbackSuccess('Data profil & kualifikasi Lapbul berhasil diperbarui.');
+      setFeedbackSuccess('Data profil & kualifikasi dossier berhasil diperbarui.');
       setIsEditingDossier(false);
       await refreshUser();
       await loadData();
@@ -198,7 +132,7 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
 
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
-          {/* Visual Feedback Toast (GEMINI.md Rule 10) */}
+          {/* Visual Feedback Toast */}
           {feedbackSuccess && (
             <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between gap-3 shadow-xs">
               <div className="flex items-center gap-2">
@@ -239,21 +173,6 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
             onError={setFeedbackError}
           />
 
-          {/* Form Edit Data Profil (Inline Card/Dropdown) */}
-          <ProfileEditCard
-            isOpen={isEditingProfile && !isPureAdmin}
-            onClose={() => setIsEditingProfile(false)}
-            activeUser={activeUser}
-            editFormData={editFormData}
-            setEditFormData={setEditFormData}
-            onSubmit={handleSaveProfile}
-            savingProfile={savingProfile}
-            onOpenDossier={() => {
-              setIsEditingProfile(false);
-              setIsEditingDossier(true);
-            }}
-          />
-
           {/* CARD 1: PROFIL & KREDENSIAL */}
           <div className="space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200">
@@ -274,15 +193,12 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
                     className="px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 hover:bg-emerald-100 text-xs font-semibold flex items-center gap-1.5 transition-colors duration-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer"
                   >
                     <Award className="w-3.5 h-3.5 text-emerald-700" />
-                    <span>Edit Kualifikasi & Kompetensi</span>
+                    <span>Edit Profil & Dossier</span>
                   </button>
                 )}
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsChangingPassword((prev) => !prev);
-                    setIsEditingProfile(false);
-                  }}
+                  onClick={() => setIsChangingPassword((prev) => !prev)}
                   className="px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 hover:bg-amber-100 text-xs font-semibold flex items-center gap-1.5 transition-colors duration-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer"
                 >
                   <KeyRound className="w-3.5 h-3.5 text-amber-700" />

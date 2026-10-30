@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, UserCheck, Download, Settings, FileText } from 'lucide-react';
+import { Search, Plus, UserCheck, Settings, FileText } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { TEAMS, cleanTeam, formatTeam, OPERATIONAL_ROLES } from '../utils/shiftHelper';
-import { downloadBlob } from '../utils/fileHelper';
 import api from '../services/api';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
@@ -81,7 +80,6 @@ export default function PersonnelPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [personnelList, setPersonnelList] = useState([]);
-  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
 
   // Filters
@@ -105,16 +103,11 @@ export default function PersonnelPage() {
   const [successNotification, setSuccessNotification] = useState(null);
   const [errorNotification, setErrorNotification] = useState(null);
 
-  // Pagination State
-  const [currentPage, setCurrentPage] = useState(1);
-  const [perPage, setPerPage] = useState(10);
-
   const fetchPersonnel = useCallback(async (signal) => {
     setLoading(true);
     setError(null);
     try {
-      const url = selectedTeam !== 'ALL' ? `/personnel?team_group=${selectedTeam}` : '/personnel';
-      const res = await api.get(url, { signal });
+      const res = await api.get('/personnel', { signal });
       const list = Array.isArray(res.data?.data)
         ? res.data.data
         : (Array.isArray(res.data?.personnel)
@@ -129,12 +122,11 @@ export default function PersonnelPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedTeam]);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
     fetchPersonnel(controller.signal);
-    setCurrentPage(1);
     return () => controller.abort();
   }, [fetchPersonnel]);
 
@@ -184,27 +176,6 @@ export default function PersonnelPage() {
     }
   };
 
-  const handleDownloadAccountList = async () => {
-    try {
-      setDownloadingPdf(true);
-      const queryParams = selectedTeam !== 'ALL' ? `?team_group=${selectedTeam}` : '';
-      const response = await api.get(`/personnel/export/pdf${queryParams}`, {
-        responseType: 'blob',
-      });
-
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const now = new Date().toISOString().split('T')[0];
-      const reguSuffix = selectedTeam !== 'ALL' ? `_Regu_${selectedTeam}` : '';
-      downloadBlob(blob, `Daftar_Akun_Personel_ARFF_YIA${reguSuffix}_${now}.pdf`);
-    } catch (err) {
-      console.error('Error downloading personnel PDF:', err);
-      const rawErr = err.response?.data?.message || err.message;
-      setErrorNotification(typeof rawErr === 'string' ? rawErr : (rawErr?.message || 'Gagal mengunduh dokumen PDF akun personel.'));
-    } finally {
-      setDownloadingPdf(false);
-    }
-  };
-
   const teamsToDisplay = selectedTeam === 'ALL'
     ? ['Alpha', 'Bravo', 'Charlie', 'Delta']
     : ['Alpha', 'Bravo', 'Charlie', 'Delta'].filter(
@@ -246,19 +217,7 @@ export default function PersonnelPage() {
                 icon={FileText}
                 onClick={() => setPdfPreviewOpen(true)}
               >
-                Pratinjau PDF
-              </Button>
-            )}
-
-            {isAdmin && (
-              <Button
-                variant="outline"
-                size="sm"
-                icon={Download}
-                loading={downloadingPdf}
-                onClick={handleDownloadAccountList}
-              >
-                Unduh PDF
+                Buku Induk PDF
               </Button>
             )}
 
@@ -307,10 +266,7 @@ export default function PersonnelPage() {
               type="text"
               placeholder="Cari nama atau NIP..."
               value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1);
-              }}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-red-500 transition-colors duration-100"
             />
           </div>
@@ -398,7 +354,7 @@ export default function PersonnelPage() {
               (p) => cleanTeam(p.team_group).toLowerCase() === teamKey
             );
 
-            // Filter pencarian client-side: sembunyikan baris non-matching secara total (bukan sekadar opacity)
+            // Filter pencarian client-side: sembunyikan baris non-matching secara total
             if (searchQuery.trim()) {
               const q = searchQuery.trim().toLowerCase();
               members = members.filter(
@@ -428,9 +384,9 @@ export default function PersonnelPage() {
 
             const cardBody = (
               <>
-                <div>
+                <div className="flex-1 flex flex-col min-h-0">
                   {/* Header Nama Regu */}
-                  <div className="text-center pb-3 mb-3 border-b border-slate-100">
+                  <div className="text-center pb-3 mb-3 border-b border-slate-100 flex-shrink-0">
                     <h3 className={`text-base font-extrabold tracking-wider uppercase ${theme.title}`}>
                       {teamName.toUpperCase()}
                     </h3>
@@ -439,67 +395,64 @@ export default function PersonnelPage() {
                     </span>
                   </div>
 
-                  {/* List Nama Anggota */}
+                  {/* List Nama Anggota - scroll container rapi tanpa paginasi */}
                   {sortedMembers.length === 0 ? (
                     <div className="py-6 text-center text-xs text-slate-400 italic">
                       Tidak ada personel yang sesuai pencarian.
                     </div>
                   ) : (
-                    <div className="space-y-1">
-                      {sortedMembers
-                        .slice((currentPage - 1) * perPage, currentPage * perPage)
-                        .map((person, idx) => {
-                          const isChief = isActualChief(person);
-                          const isAssistant = isChiefAssistant(person);
+                    <div className="space-y-1 max-h-[580px] overflow-y-auto pr-1">
+                      {sortedMembers.map((person, idx) => {
+                        const isChief = isActualChief(person);
+                        const isAssistant = isChiefAssistant(person);
 
-                          // Nomor urut: Bintang ★ HANYA untuk Chief resmi
-                          const globalIdx = (currentPage - 1) * perPage + idx;
-                          const memberNumber = isChief
-                            ? '★'
-                            : String(hasChief ? globalIdx : globalIdx + 1).padStart(2, '0');
+                        // Nomor urut: Bintang ★ HANYA untuk Chief resmi
+                        const memberNumber = isChief
+                          ? '★'
+                          : String(hasChief ? idx : idx + 1).padStart(2, '0');
 
-                          return (
-                            <div
-                              key={person.id || `person-${idx}`}
-                              onClick={() => navigate(`/personnel/${person.id}`)}
-                              className={`group px-2.5 py-1.5 rounded transition-colors duration-100 cursor-pointer flex items-center justify-between gap-2 border ${isChief
-                                  ? `${theme.chiefRow} font-semibold shadow-xs`
-                                  : isAssistant
-                                    ? 'bg-amber-50/50 border-amber-200/60 hover:bg-amber-50 text-slate-800'
-                                    : 'border-transparent hover:bg-slate-50 text-slate-800 hover:text-slate-900'
-                                }`}
-                              title={`Klik untuk melihat detail profil ${typeof person.full_name === 'string' ? person.full_name : ''}`}
-                            >
-                              <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <span
-                                  className={`text-xs font-mono shrink-0 ${isChief ? `${theme.chiefStar} font-bold` : 'text-slate-400'
-                                    }`}
-                                >
-                                  {memberNumber}
-                                </span>
-                                <span
-                                  className={`truncate text-xs ${isChief ? 'font-bold text-slate-900' : 'font-medium'
-                                    }`}
-                                >
-                                  {typeof person.full_name === 'string' ? person.full_name : String(person.full_name || '')}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1 shrink-0">
-                                {getStkpBadge(person)}
-                                {isChief && (
-                                  <span className={`text-[10px] ${theme.chiefBadge} font-bold px-1.5 py-0.5 rounded border uppercase tracking-tight`}>
-                                    Ketua
-                                  </span>
-                                )}
-                                {isAssistant && !isChief && (
-                                  <span className="text-[10px] bg-amber-100 text-amber-800 border border-amber-300 font-semibold px-1.5 py-0.5 rounded uppercase tracking-tight">
-                                    Asisten
-                                  </span>
-                                )}
-                              </div>
+                        return (
+                          <div
+                            key={person.id || `person-${idx}`}
+                            onClick={() => navigate(`/personnel/${person.id}`)}
+                            className={`group px-2.5 py-1.5 rounded transition-colors duration-100 cursor-pointer flex items-center justify-between gap-2 border ${isChief
+                                ? `${theme.chiefRow} font-semibold shadow-xs`
+                                : isAssistant
+                                  ? 'bg-amber-50/50 border-amber-200/60 hover:bg-amber-50 text-slate-800'
+                                  : 'border-transparent hover:bg-slate-50 text-slate-800 hover:text-slate-900'
+                              }`}
+                            title={`Klik untuk melihat detail profil ${typeof person.full_name === 'string' ? person.full_name : ''}`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <span
+                                className={`text-xs font-mono shrink-0 ${isChief ? `${theme.chiefStar} font-bold` : 'text-slate-400'
+                                  }`}
+                              >
+                                {memberNumber}
+                              </span>
+                              <span
+                                className={`truncate text-xs ${isChief ? 'font-bold text-slate-900' : 'font-medium'
+                                  }`}
+                              >
+                                {typeof person.full_name === 'string' ? person.full_name : String(person.full_name || '')}
+                              </span>
                             </div>
-                          );
-                        })}
+                            <div className="flex items-center gap-1 shrink-0">
+                              {getStkpBadge(person)}
+                              {isChief && (
+                                <span className={`text-[10px] ${theme.chiefBadge} font-bold px-1.5 py-0.5 rounded border uppercase tracking-tight`}>
+                                  Ketua
+                                </span>
+                              )}
+                              {isAssistant && !isChief && (
+                                <span className="text-[10px] bg-amber-100 text-amber-800 border border-amber-300 font-semibold px-1.5 py-0.5 rounded uppercase tracking-tight">
+                                  Asisten
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -531,62 +484,6 @@ export default function PersonnelPage() {
             );
           })}
         </div>
-
-        {/* Komponen Paginasi Terstandar */}
-        {(() => {
-          const maxTeamCount = Math.max(
-            ...teamsToDisplay.map(
-              (k) => personnelList.filter((p) => cleanTeam(p.team_group).toLowerCase() === k.toLowerCase()).length
-            ),
-            1
-          );
-          const totalPages = Math.max(1, Math.ceil(maxTeamCount / perPage));
-
-          return (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs mb-6">
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <span>Tampilkan:</span>
-                <select
-                  value={perPage}
-                  onChange={(e) => {
-                    setPerPage(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="border border-slate-300 rounded px-2 py-1 text-xs font-semibold text-slate-700 bg-slate-50 focus:outline-none"
-                >
-                  <option value={10}>10 per regu</option>
-                  <option value={20}>20 per regu</option>
-                  <option value={25}>25 per regu</option>
-                  <option value={50}>Semua (50)</option>
-                </select>
-                <span className="text-slate-300">|</span>
-                <span>Total <strong>{personnelList.length}</strong> personel pada daftar</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="xs"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage <= 1}
-                >
-                  Sebelumnya
-                </Button>
-                <span className="text-xs font-semibold px-2 text-slate-700">
-                  Halaman {currentPage} dari {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="xs"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage >= totalPages}
-                >
-                  Selanjutnya
-                </Button>
-              </div>
-            </div>
-          );
-        })()}
       </StateView>
 
       {/* Add Personnel Modal */}
