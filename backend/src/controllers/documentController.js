@@ -49,8 +49,12 @@ export const viewDocument = async (req, res) => {
     }
 
     const rawFileUrl = doc.file_url || '';
-    const cleanFileName = path.basename(rawFileUrl);
+    const cleanFileName = path.basename(rawFileUrl.replace(/\\/g, '/'));
     const filePath = path.resolve(uploadsDir, cleanFileName);
+
+    if (!cleanFileName || cleanFileName === '.' || cleanFileName === '..' || cleanFileName.includes('..') || !filePath.startsWith(uploadsDir + path.sep)) {
+      return errorResponse(res, 'Akses berkas tidak sah: Deteksi path traversal', 400);
+    }
 
     if (!fs.existsSync(filePath)) {
       return errorResponse(res, `Berkas fisik dokumen (${cleanFileName}) tidak ditemukan pada disk server`, 404);
@@ -105,8 +109,12 @@ export const downloadDocument = async (req, res) => {
     }
 
     const rawFileUrl = doc.file_url || '';
-    const cleanFileName = path.basename(rawFileUrl);
+    const cleanFileName = path.basename(rawFileUrl.replace(/\\/g, '/'));
     const filePath = path.resolve(uploadsDir, cleanFileName);
+
+    if (!cleanFileName || cleanFileName === '.' || cleanFileName === '..' || cleanFileName.includes('..') || !filePath.startsWith(uploadsDir + path.sep)) {
+      return errorResponse(res, 'Akses berkas tidak sah: Deteksi path traversal', 400);
+    }
 
     if (!fs.existsSync(filePath)) {
       return errorResponse(res, `Berkas fisik dokumen (${cleanFileName}) tidak ditemukan pada disk server`, 404);
@@ -148,8 +156,12 @@ export const viewSignature = async (req, res) => {
       return errorResponse(res, 'Akses ditolak: Anda tidak memiliki wewenang untuk melihat tanda tangan ini', 403);
     }
 
-    const cleanFileName = path.basename(pers.signature_url);
+    const cleanFileName = path.basename(String(pers.signature_url || '').replace(/\\/g, '/'));
     const filePath = path.resolve(uploadsDir, cleanFileName);
+
+    if (!cleanFileName || cleanFileName === '.' || cleanFileName === '..' || cleanFileName.includes('..') || !filePath.startsWith(uploadsDir + path.sep)) {
+      return errorResponse(res, 'Akses berkas tidak sah: Deteksi path traversal', 400);
+    }
 
     if (!fs.existsSync(filePath)) {
       return errorResponse(res, `Berkas fisik spesimen tanda tangan (${cleanFileName}) tidak ditemukan`, 404);

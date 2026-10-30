@@ -335,8 +335,13 @@ export const getAnnouncementAttachment = async (req, res) => {
       return errorResponse(res, 'Lampiran pengumuman tidak ditemukan', 404);
     }
 
-    const cleanFileName = path.basename(rows[0].file_path);
-    const filePath = path.resolve(__dirname, '../../uploads', cleanFileName);
+    const cleanFileName = path.basename(String(rows[0].file_path || '').replace(/\\/g, '/'));
+    const uploadsDir = path.resolve(__dirname, '../../uploads');
+    const filePath = path.resolve(uploadsDir, cleanFileName);
+
+    if (!cleanFileName || cleanFileName === '.' || cleanFileName === '..' || cleanFileName.includes('..') || !filePath.startsWith(uploadsDir + path.sep)) {
+      return errorResponse(res, 'Akses berkas tidak sah: Deteksi path traversal', 400);
+    }
 
     if (!fs.existsSync(filePath)) {
       return errorResponse(res, 'Berkas fisik tidak ditemukan pada server', 404);
