@@ -255,7 +255,7 @@ export default function IncidentModal({
             label="Lokasi Kejadian (Airside / Grid)"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            placeholder="Contoh: Apron Selatan, Taxiway Echo"
+            placeholder="Contoh: Apron Stand 04 / Taxiway Echo / Grid C-4"
             required
           />
 

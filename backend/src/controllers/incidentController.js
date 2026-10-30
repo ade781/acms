@@ -51,11 +51,11 @@ export const getIncidents = async (req, res) => {
       query += ` AND i.team_group = ?`;
       params.push(team_group);
     }
-    if (category) {
+    if (category && category !== 'ALL') {
       query += ` AND i.category = ?`;
       params.push(category);
     }
-    if (status) {
+    if (status && status !== 'ALL') {
       query += ` AND i.status = ?`;
       params.push(status);
     }
@@ -359,11 +359,11 @@ export const getIncidentSummaryReport = async (req, res) => {
     `;
     const params = [startDateStr, endDateStr];
 
-    if (category) {
+    if (category && category !== 'ALL') {
       query += ` AND i.category = ?`;
       params.push(category);
     }
-    if (status) {
+    if (status && status !== 'ALL') {
       query += ` AND i.status = ?`;
       params.push(status);
     }
@@ -399,7 +399,7 @@ export const getIncidentSummaryReport = async (req, res) => {
       menunggu_tindak_lanjut: incidents.filter((i) => (i.status || '').toLowerCase() === 'menunggu_tindak_lanjut').length,
       kritis: incidents.filter((i) => {
         const l = (i.priority_level || '').toLowerCase();
-        return l === 'kritis' || l === 'critical' || l === 'tinggi' || l === 'high';
+        return l === 'kritis' || l === 'critical';
       }).length,
     };
 
@@ -454,11 +454,11 @@ export const getIncidentSummaryReportPdf = async (req, res) => {
     `;
     const params = [startDateStr, endDateStr];
 
-    if (category) {
+    if (category && category !== 'ALL') {
       query += ` AND i.category = ?`;
       params.push(category);
     }
-    if (status) {
+    if (status && status !== 'ALL') {
       query += ` AND i.status = ?`;
       params.push(status);
     }

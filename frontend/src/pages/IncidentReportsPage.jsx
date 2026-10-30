@@ -107,17 +107,24 @@ export default function IncidentReportsPage() {
   };
 
   // Metrik Triage Interaktif
+  const incidentList = Array.isArray(reportData.incidents) ? reportData.incidents : [];
   const triageStats = {
-    total: reportData.stats?.total ?? reportData.incidents?.length ?? 0,
-    kritis: reportData.stats?.kritis ?? (reportData.incidents || []).filter((i) => {
-      const p = (i.priority_level || i.priority || '').toLowerCase();
-      return p.includes('kritis') || p.includes('critical');
-    }).length,
-    proses: ((reportData.stats?.dalam_proses || 0) + (reportData.stats?.menunggu_tindak_lanjut || 0)) || (reportData.incidents || []).filter((i) => {
-      const s = (i.status || '').toLowerCase();
-      return s === 'dalam_proses' || s === 'menunggu_tindak_lanjut';
-    }).length,
-    selesai: reportData.stats?.selesai ?? (reportData.incidents || []).filter((i) => (i.status || '').toLowerCase() === 'selesai').length,
+    total: incidentList.length || (reportData.stats?.total ?? 0),
+    kritis: incidentList.length > 0
+      ? incidentList.filter((i) => {
+          const p = (i.priority_level || i.priority || '').toLowerCase();
+          return p.includes('kritis') || p.includes('critical');
+        }).length
+      : (reportData.stats?.kritis ?? 0),
+    proses: incidentList.length > 0
+      ? incidentList.filter((i) => {
+          const s = (i.status || '').toLowerCase();
+          return s === 'dalam_proses' || s === 'menunggu_tindak_lanjut';
+        }).length
+      : ((reportData.stats?.dalam_proses || 0) + (reportData.stats?.menunggu_tindak_lanjut || 0)),
+    selesai: incidentList.length > 0
+      ? incidentList.filter((i) => (i.status || '').toLowerCase() === 'selesai').length
+      : (reportData.stats?.selesai ?? 0),
   };
 
   // Filter teks pencarian & status triage (Layer 1)
