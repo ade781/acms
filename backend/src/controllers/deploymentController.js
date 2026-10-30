@@ -247,40 +247,50 @@ export const saveDeploymentBatch = async (req, res) => {
       assignedPersonnelIds.add(pId);
     }
 
-    // Validasi aturan: Setiap unit operasional yang ditugaskan wajib memiliki tepat 1 PIC dan maksimal 4 personel
+    // Validasi aturan: Setiap unit operasional yang ditugaskan wajib memiliki tepat 1 PIC dan maksimal 4 personel (armada) / 2 personel (posko)
     const unitCrewCount = {};
     const unitPicCount = {};
 
     for (const d of deployments) {
       if (d.deployment_type === 'vehicle_utama' || d.deployment_type === 'vehicle_pendukung' || d.deployment_type === 'watchroom') {
-        if (d.vehicle_id) {
-          unitCrewCount[d.vehicle_id] = (unitCrewCount[d.vehicle_id] || 0) + 1;
-          if (d.is_pic) {
-            unitPicCount[d.vehicle_id] = (unitPicCount[d.vehicle_id] || 0) + 1;
-          }
+        if (!d.vehicle_id) {
+          connection.release();
+          return errorResponse(
+            res,
+            `Penugasan personel (ID: ${d.personnel_id}) wajib mencantumkan unit armada/posko yang valid.`,
+            400
+          );
+        }
+        unitCrewCount[d.vehicle_id] = (unitCrewCount[d.vehicle_id] || 0) + 1;
+        if (d.is_pic) {
+          unitPicCount[d.vehicle_id] = (unitPicCount[d.vehicle_id] || 0) + 1;
         }
       }
     }
 
     const unitIds = Object.keys(unitCrewCount);
-    let vehicleNamesMap = {};
+    let vehicleMap = {};
     if (unitIds.length > 0) {
       const [vList] = await connection.query(
-        'SELECT id, code_name, vehicle_name FROM vehicles WHERE id IN (?)',
+        'SELECT id, code_name, vehicle_name, category FROM vehicles WHERE id IN (?)',
         [unitIds]
       );
       vList.forEach(v => {
-        vehicleNamesMap[v.id] = v.code_name || v.vehicle_name || `Unit ID ${v.id}`;
+        vehicleMap[v.id] = v;
       });
     }
 
     for (const [vId, count] of Object.entries(unitCrewCount)) {
-      const unitName = vehicleNamesMap[vId] || `Unit ID ${vId}`;
-      if (count > 4) {
+      const vObj = vehicleMap[vId];
+      const unitName = vObj?.code_name || vObj?.vehicle_name || `Unit ID ${vId}`;
+      const isPosko = vObj?.category === 'posko' || vObj?.code_name === 'WATCHROOM';
+      const maxSlots = isPosko ? 2 : 4;
+
+      if (count > maxSlots) {
         connection.release();
         return errorResponse(
           res,
-          `Unit ${unitName} memiliki ${count} kru (maksimal 4 personel per unit).`,
+          `${isPosko ? 'Posko' : 'Unit'} ${unitName} memiliki ${count} personel (maksimal ${maxSlots} personel per ${isPosko ? 'posko' : 'unit armada'}).`,
           400
         );
       }
@@ -289,7 +299,7 @@ export const saveDeploymentBatch = async (req, res) => {
         connection.release();
         return errorResponse(
           res,
-          `Unit ${unitName} belum memiliki Penanggung Jawab (PIC). Silakan tunjuk tepat 1 PIC untuk unit ini.`,
+          `${isPosko ? 'Posko' : 'Unit'} ${unitName} belum memiliki Penanggung Jawab (PIC). Silakan tunjuk tepat 1 PIC untuk ${isPosko ? 'posko' : 'unit'} ini.`,
           400
         );
       }
@@ -297,7 +307,7 @@ export const saveDeploymentBatch = async (req, res) => {
         connection.release();
         return errorResponse(
           res,
-          `Unit ${unitName} memiliki ${picCount} PIC. Tepat 1 personel wajib ditunjuk sebagai Penanggung Jawab (PIC).`,
+          `${isPosko ? 'Posko' : 'Unit'} ${unitName} memiliki ${picCount} PIC. Tepat 1 personel wajib ditunjuk sebagai Penanggung Jawab (PIC).`,
           400
         );
       }
@@ -412,15 +422,15 @@ export const saveDeploymentBatch = async (req, res) => {
       await connection.query(
         `UPDATE vehicle_readiness_logs SET
           pic_personnel_id = NULL
-         WHERE shift_date = ? AND shift_number = ? AND vehicle_id NOT IN (?)`,
-        [shift_date, shift_number, assignedVehicleIds]
+         WHERE shift_date = ? AND shift_number = ? AND team_group = ? AND vehicle_id NOT IN (?)`,
+        [shift_date, shift_number, team_group, assignedVehicleIds]
       );
     } else {
       await connection.query(
         `UPDATE vehicle_readiness_logs SET
           pic_personnel_id = NULL
-         WHERE shift_date = ? AND shift_number = ?`,
-        [shift_date, shift_number]
+         WHERE shift_date = ? AND shift_number = ? AND team_group = ?`,
+        [shift_date, shift_number, team_group]
       );
     }
 

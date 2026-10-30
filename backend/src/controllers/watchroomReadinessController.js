@@ -83,8 +83,9 @@ export const submitWatchroomReadiness = async (req, res) => {
       return errorResponse(res, 'Status watchroom harus serviceable atau unserviceable', 400);
     }
 
-    if (status === 'unserviceable' && (!notes || notes.trim().length === 0)) {
-      return errorResponse(res, 'Justifikasi kendala wajib diisi jika kondisi watchroom unserviceable', 400);
+    const cleanNotes = (notes || '').replace(/\[Fasilitas:[^\]]+\]\s*/g, '').trim();
+    if (status === 'unserviceable' && (!notes || notes.trim().length === 0 || cleanNotes.length === 0)) {
+      return errorResponse(res, 'Justifikasi kendala fasilitas watchroom wajib diisi jika kondisi unserviceable', 400);
     }
 
     const targetTeam = team_group || req.user.team_group || 'Alpha';
