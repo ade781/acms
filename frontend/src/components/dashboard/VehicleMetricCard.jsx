@@ -4,6 +4,11 @@ import { getVehicleIcon } from '../../utils/vehicleHelper';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
 
+/**
+ * VehicleMetricCard
+ * Kartu metrik inspeksi armada operasional untuk VehicleReadinessPage.
+ * Menampilkan status kelaikan fisik, PIC penanggung jawab, carry-over status, dan tombol aksi inspeksi.
+ */
 export default function VehicleMetricCard({
   vehicle,
   canInspect = false,

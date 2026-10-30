@@ -1,9 +1,11 @@
 import React from 'react';
-import { Truck, Radio, CheckCircle2, AlertTriangle, HelpCircle } from 'lucide-react';
+import { Truck, Radio, AlertTriangle, HelpCircle } from 'lucide-react';
 
 /**
  * Kolom Kiri: Kesiapan Armada & Posko Operasional
  * Menampilkan daftar kendaraan ARFF YIA dan Posko Watchroom beserta status kelaikan dan PIC.
+ * Menggunakan Exception-Based Indicator: unit serviceable menampilkan dot hijau kompak,
+ * badge mencolok hanya digunakan untuk pengecualian (Unserviceable / Belum Dicek).
  */
 export default function DashboardFleetSection({
   vehicles,
@@ -48,14 +50,10 @@ export default function DashboardFleetSection({
             const isServiceable = status === 'serviceable';
             const isPosko = vehicle.category === 'posko' || vehicle.code_name === 'WATCHROOM';
 
-            const picName = isPosko
-              ? vehicle.pic_name ||
-                vehicleDeploymentDetails.picMap['watchroom'] ||
-                watchroomLog?.inspector_name ||
-                'Belum Ditunjuk'
-              : vehicle.pic_name ||
-                vehicleDeploymentDetails.picMap[vId] ||
-                'Belum Ditunjuk';
+            const picName = vehicle.pic_name ||
+              vehicleDeploymentDetails?.picMap?.[isPosko ? 'watchroom' : vId] ||
+              (isPosko && watchroomLog?.inspector_name) ||
+              'Belum Ditunjuk';
 
             return (
               <div
@@ -97,22 +95,22 @@ export default function DashboardFleetSection({
                   </div>
                 </div>
 
-                {/* Sisi Kanan: Badge Status Kelaikan */}
-                <div className="shrink-0">
+                {/* Sisi Kanan: Exception-Based Status Indicator */}
+                <div className="shrink-0 flex items-center">
                   {isUnserviceable ? (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-800 border border-red-200">
                       <AlertTriangle className="w-3 h-3 text-red-600" />
                       <span>Unserviceable</span>
                     </span>
-                  ) : isServiceable ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                      <span>Serviceable</span>
+                  ) : !isServiceable ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                      <HelpCircle className="w-3 h-3 text-slate-500" />
+                      <span>Belum Dicek</span>
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-200">
-                      <HelpCircle className="w-3 h-3 text-slate-400" />
-                      <span>Belum Dicek</span>
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-medium text-emerald-700 bg-emerald-50/50 rounded border border-emerald-100">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                      <span>Siap Operasi</span>
                     </span>
                   )}
                 </div>

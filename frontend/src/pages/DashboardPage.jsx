@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Users, UserX, Truck, Radio } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
-  TEAMS,
   cleanTeam,
   formatIndoDate,
   getCurrentOperationalShift,
-  getDailyRoster,
 } from '../utils/shiftHelper';
 import api from '../services/api';
 import DashboardScorecards from '../components/dashboard/DashboardScorecards';
@@ -50,9 +48,8 @@ export default function DashboardPage() {
   const [shiftInfo, setShiftInfo] = useState(null);
   const [deployments, setDeployments] = useState([]);
   const [absents, setAbsents] = useState([]);
-  const [allLeaves, setAllLeaves] = useState([]);
+  const [rawDeploymentPayload, setRawDeploymentPayload] = useState(null);
   const [activities, setActivities] = useState([]);
-  const [allPersonnel, setAllPersonnel] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [incidents, setIncidents] = useState([]);
   const [selectedIncidentDetail, setSelectedIncidentDetail] = useState(null);
@@ -73,8 +70,6 @@ export default function DashboardPage() {
   const currentTeam = useMemo(() => {
     return cleanTeam(shiftInfo?.team_group || authTeam || fallbackShift.scheduledTeam || 'Alpha');
   }, [shiftInfo, authTeam, fallbackShift]);
-
-  const dailyRoster = useMemo(() => getDailyRoster(activeDate), [activeDate]);
 
   const getShiftHours = (shiftNum) => {
     switch (Number(shiftNum)) {
@@ -138,18 +133,16 @@ export default function DashboardPage() {
         const teamParam = cleanTeam(authTeam || fallbackShift.scheduledTeam || 'Alpha');
         const queryParams = `date=${activeDate}&shift=${activeShiftNumber}&team_group=${teamParam}`;
 
-        const [vRes, wRes, depRes, actRes, pRes, annRes, incRes, leaveRes] = await Promise.allSettled([
+        // 5 Pemanggilan API Terpadu (Data shift aktif dan presensi lengkap tersedia di /deployments/current)
+        const [vRes, depRes, actRes, annRes, incRes] = await Promise.allSettled([
           api.get(`/readiness/vehicles?${queryParams}`, { signal }),
-          api.get(`/readiness/watchroom?${queryParams}`, { signal }),
           api.get(`/deployments/current?${queryParams}`, { signal }),
           api.get(`/activities?date=${activeDate}&shift=${activeShiftNumber}&team_group=${teamParam}`, { signal }),
-          api.get('/personnel?is_active=1&compact=true', { signal }),
           api.get('/announcements', { signal }),
           api.get('/incidents?limit=15', { signal }),
-          api.get(`/deployments/leave-history?date=${activeDate}`, { signal }),
         ]);
 
-        const allResults = [vRes, wRes, depRes, actRes, pRes, annRes, incRes, leaveRes];
+        const allResults = [vRes, depRes, actRes, annRes, incRes];
         if (
           allResults.some(
             (r) =>
@@ -160,23 +153,25 @@ export default function DashboardPage() {
           return;
         }
 
-        // 1. Armada Operasional
+        // 1. Armada Operasional (Termasuk Unit Posko Watchroom)
+        let vehicleList = [];
         if (vRes.status === 'fulfilled' && vRes.value?.data) {
           const rawV = vRes.value.data.data || vRes.value.data;
-          const list = Array.isArray(rawV) ? rawV : Array.isArray(rawV?.vehicles) ? rawV.vehicles : [];
-          setVehicles(list);
+          vehicleList = Array.isArray(rawV) ? rawV : Array.isArray(rawV?.vehicles) ? rawV.vehicles : [];
+          setVehicles(vehicleList);
         } else {
           setVehicles([]);
         }
 
-        // 2. Watchroom Log
-        if (wRes.status === 'fulfilled' && wRes.value?.data) {
-          setWatchroomLog(wRes.value.data.data || wRes.value.data || null);
+        // Posko Watchroom Log diekstrak langsung dari unit posko armada
+        const poskoUnit = vehicleList.find((v) => v.category === 'posko' || v.code_name === 'WATCHROOM');
+        if (poskoUnit) {
+          setWatchroomLog({ ...poskoUnit, inspector_name: poskoUnit.pic_name });
         } else {
           setWatchroomLog(null);
         }
 
-        // 3. Ploting Shift & Absensi
+        // 2. Ploting Shift & Absensi
         if (depRes.status === 'fulfilled' && depRes.value?.data) {
           const depPayload = depRes.value.data.data || depRes.value.data;
           const list = Array.isArray(depPayload?.deployments) ? depPayload.deployments : [];
@@ -186,13 +181,15 @@ export default function DashboardPage() {
           setShiftInfo(depPayload?.shift || null);
           setDeployments(list);
           setAbsents(absentList);
+          setRawDeploymentPayload(depPayload);
         } else {
           setShiftInfo(null);
           setDeployments([]);
           setAbsents([]);
+          setRawDeploymentPayload(null);
         }
 
-        // 4. Kegiatan Shift
+        // 3. Kegiatan Shift
         if (actRes.status === 'fulfilled' && actRes.value?.data) {
           const actPayload = actRes.value.data.data || actRes.value.data;
           const actList = Array.isArray(actPayload)
@@ -205,19 +202,7 @@ export default function DashboardPage() {
           setActivities([]);
         }
 
-        // 5. Katalog Personel Aktif (Untuk Komposisi Regu & Organik/Outsourcing)
-        if (pRes.status === 'fulfilled' && pRes.value?.data) {
-          const pList = Array.isArray(pRes.value.data.data)
-            ? pRes.value.data.data
-            : Array.isArray(pRes.value.data.personnel)
-            ? pRes.value.data.personnel
-            : [];
-          setAllPersonnel(pList);
-        } else {
-          setAllPersonnel([]);
-        }
-
-        // 6. Pengumuman Terbaru
+        // 4. Pengumuman Terbaru
         if (annRes.status === 'fulfilled' && annRes.value?.data) {
           const annPayload = annRes.value.data.data || annRes.value.data;
           const annList = Array.isArray(annPayload?.announcements)
@@ -230,7 +215,7 @@ export default function DashboardPage() {
           setAnnouncements([]);
         }
 
-        // 7. Laporan Insiden Operasional
+        // 5. Laporan Insiden Operasional
         if (incRes.status === 'fulfilled' && incRes.value?.data) {
           const incPayload = incRes.value.data.data || incRes.value.data;
           const incList = Array.isArray(incPayload?.incidents)
@@ -241,15 +226,6 @@ export default function DashboardPage() {
           setIncidents(incList);
         } else {
           setIncidents([]);
-        }
-
-        // 8. Seluruh Riwayat Cuti (Semua 4 Regu pada Tanggal Ini)
-        if (leaveRes.status === 'fulfilled' && leaveRes.value?.data) {
-          const lPayload = leaveRes.value.data.data || leaveRes.value.data;
-          const lList = Array.isArray(lPayload) ? lPayload : [];
-          setAllLeaves(lList);
-        } else {
-          setAllLeaves([]);
         }
       } catch (err) {
         if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
@@ -284,186 +260,101 @@ export default function DashboardPage() {
     return map;
   }, [deployments]);
 
-  // Pemetaan PIC & kru per kendaraan/watchroom dari data deployment
+  // Detail penugasan per armada langsung dari payload currentDeployment
   const vehicleDeploymentDetails = useMemo(() => {
     const picMap = {};
     const crewMap = {};
 
-    deployments.forEach((d) => {
-      if (d.deployment_type === 'absent') return;
-      if (d.deployment_type === 'watchroom') {
-        if (!crewMap['watchroom']) crewMap['watchroom'] = [];
-        crewMap['watchroom'].push(d);
-        if (d.is_pic) {
-          picMap['watchroom'] = d.full_name || d.personnel_name;
+    if (rawDeploymentPayload?.vehicles) {
+      rawDeploymentPayload.vehicles.forEach((v) => {
+        crewMap[v.vehicle_id] = v.crew || [];
+        if (v.pic?.full_name) {
+          picMap[v.vehicle_id] = v.pic.full_name;
         }
-      } else if (d.vehicle_id) {
-        const vId = d.vehicle_id;
-        if (!crewMap[vId]) crewMap[vId] = [];
-        crewMap[vId].push(d);
-        if (d.is_pic) {
-          picMap[vId] = d.full_name || d.personnel_name;
-        }
+      });
+    }
+    if (rawDeploymentPayload?.watchroom) {
+      crewMap['watchroom'] = rawDeploymentPayload.watchroom;
+      const watchPic = rawDeploymentPayload.watchroom.find((w) => w.is_pic === 1);
+      if (watchPic?.full_name) {
+        picMap['watchroom'] = watchPic.full_name;
       }
-    });
+    }
+
+    // Fallback dari deployments jika payload vehicles belum terstruktur
+    if (Object.keys(crewMap).length === 0 && deployments.length > 0) {
+      deployments.forEach((d) => {
+        if (d.deployment_type === 'absent') return;
+        const key = d.deployment_type === 'watchroom' ? 'watchroom' : d.vehicle_id;
+        if (key) {
+          if (!crewMap[key]) crewMap[key] = [];
+          crewMap[key].push(d);
+          if (d.is_pic) {
+            picMap[key] = d.full_name || d.personnel_name;
+          }
+        }
+      });
+    }
 
     return { picMap, crewMap };
-  }, [deployments]);
+  }, [rawDeploymentPayload, deployments]);
 
-  // Filter personel khusus 4 Regu Dinas Operasional (Alpha, Bravo, Charlie, Delta)
-  const operationalPersonnel = useMemo(() => {
-    return allPersonnel.filter((p) =>
-      TEAMS.some((t) => t.toLowerCase() === cleanTeam(p.team_group).toLowerCase())
-    );
-  }, [allPersonnel]);
-
-  // Helper penentu Ketua Regu (Chief) dari daftar personel regu
-  const findTeamChief = useCallback((members) => {
-    return (
-      members.find((p) => {
-        const rank = String(p.rank_position || '').toLowerCase();
-        return (
-          (rank.includes('chief') || rank.includes('ketua')) &&
-          !rank.includes('assistant') &&
-          !rank.includes('asisten') &&
-          !rank.includes('wakil')
-        );
-      }) || null
-    );
-  }, []);
-
-  // Kalkulasi Komposisi 4 Regu Operasional & Status Kepegawaian (Organik vs Outsourcing/Training)
+  // Ringkasan Kekuatan & Formasi Shift Aktif (Langsung dari currentDeployment)
   const personnelComposition = useMemo(() => {
     const onDutyDeployments = deployments.filter((d) => d.deployment_type !== 'absent');
     const absentDeployments =
       absents.length > 0 ? absents : deployments.filter((d) => d.deployment_type === 'absent');
+    const onDutyCount = onDutyDeployments.length;
+    const absentCount = absentDeployments.length;
+    const totalTeam = rawDeploymentPayload?.total_team_members || (onDutyCount + absentCount);
 
-    // Cuti personel untuk regu shift saat ini
-    const activeTeamAbsentList =
-      absentDeployments.length > 0
-        ? absentDeployments
-        : allLeaves.filter(
-            (l) => cleanTeam(l.personnel_team || '').toLowerCase() === currentTeam.toLowerCase()
-          );
-
-    // Cuti seluruh personel dari semua 4 regu pada tanggal hari ini (Alpha, Bravo, Charlie, Delta)
-    const combinedAllLeavesMap = new Map();
-    allLeaves.forEach((l) => {
-      if (l.personnel_id) {
-        combinedAllLeavesMap.set(Number(l.personnel_id), {
-          id: l.id,
-          personnel_id: l.personnel_id,
-          personnel_name: l.personnel_name || l.full_name,
-          personnel_nip: l.personnel_nip || l.nip,
-          personnel_team: l.personnel_team || l.shift_team,
-          personnel_role: l.personnel_role || l.rank_position,
-          absent_reason: l.absent_reason || 'cuti',
-          notes: l.notes || l.raw_notes || '-',
-          start_date: l.start_date,
-          end_date: l.end_date,
-        });
-      }
-    });
-
-    absentDeployments.forEach((d) => {
-      if (d.personnel_id && !combinedAllLeavesMap.has(Number(d.personnel_id))) {
-        combinedAllLeavesMap.set(Number(d.personnel_id), {
-          id: d.id,
-          personnel_id: d.personnel_id,
-          personnel_name: d.full_name || d.personnel_name,
-          personnel_nip: d.nip || d.personnel_nip,
-          personnel_team: d.personnel_team || currentTeam,
-          personnel_role: d.rank_position || d.personnel_role,
-          absent_reason: d.absent_reason || 'cuti',
-          notes: d.notes || '-',
-          start_date: activeDate,
-          end_date: activeDate,
-        });
-      }
-    });
-
-    const combinedAllLeaves = Array.from(combinedAllLeavesMap.values());
-    const totalAllAbsentCount = Math.max(combinedAllLeaves.length, activeTeamAbsentList.length);
-    const activeTeamAbsentCount = activeTeamAbsentList.length;
-
-    const byTeam = TEAMS.map((teamName) => {
-      const members = operationalPersonnel.filter(
-        (p) => cleanTeam(p.team_group).toLowerCase() === teamName.toLowerCase()
-      );
-      const organikMembers = members.filter(
-        (p) => String(p.employment_status || 'organik').toLowerCase() === 'organik'
-      );
-      const outsourcingMembers = members.filter(
-        (p) => String(p.employment_status || '').toLowerCase() === 'outsourcing'
-      );
-      const chief = findTeamChief(members);
-      const isCurrentShiftTeam = teamName.toLowerCase() === currentTeam.toLowerCase();
-
-      const teamOnDutyCount = isCurrentShiftTeam
-        ? onDutyDeployments.length
-        : onDutyDeployments.filter(
-            (d) => cleanTeam(d.personnel_team || '').toLowerCase() === teamName.toLowerCase()
-          ).length;
-
-      const teamAbsentCount = isCurrentShiftTeam
-        ? activeTeamAbsentCount
-        : combinedAllLeaves.filter(
-            (l) => cleanTeam(l.personnel_team || '').toLowerCase() === teamName.toLowerCase()
-          ).length;
-
-      return {
-        team: teamName,
-        total: members.length,
-        organik: organikMembers.length,
-        outsourcing: outsourcingMembers.length,
-        chiefName: chief?.full_name || null,
-        dutySchedule: dailyRoster?.duties?.[teamName] || '-',
-        isCurrentShiftTeam,
-        onDutyCount: teamOnDutyCount,
-        absentCount: teamAbsentCount,
-        members,
-      };
-    });
-
-    const activeTeamStats =
-      byTeam.find((t) => t.team.toLowerCase() === currentTeam.toLowerCase()) || {
-        team: currentTeam,
-        total: 0,
-        organik: 0,
-        outsourcing: 0,
-        chiefName: null,
-        members: [],
-      };
-
-    const totalAllTeams = operationalPersonnel.length;
-    const totalAllOrganik = operationalPersonnel.filter(
-      (p) => String(p.employment_status || 'organik').toLowerCase() === 'organik'
+    const organikCount = onDutyDeployments.filter(
+      (d) => String(d.employment_status || 'organik').toLowerCase() === 'organik'
     ).length;
-    const totalAllOutsourcing = operationalPersonnel.filter(
-      (p) => String(p.employment_status || '').toLowerCase() === 'outsourcing'
+    const outsourcingCount = onDutyDeployments.filter(
+      (d) => String(d.employment_status || '').toLowerCase() === 'outsourcing'
     ).length;
 
     return {
-      byTeam,
-      activeTeamStats,
-      totalAllTeams,
-      totalAllOrganik,
-      totalAllOutsourcing,
-      onDutyCount: onDutyDeployments.length,
-      absentCount: activeTeamAbsentCount,
-      totalAllAbsentCount,
-      activeTeamAbsentCount,
+      onDutyCount,
+      absentCount,
+      activeTeamAbsentCount: absentCount,
+      totalAllAbsentCount: absentCount,
+      totalTeamMembers: totalTeam,
+      totalAllTeams: totalTeam,
+      totalAllOrganik: organikCount,
+      totalAllOutsourcing: outsourcingCount,
       onDutyDeployments,
-      absentDeployments: activeTeamAbsentList,
-      allLeaves: combinedAllLeaves,
+      absentDeployments,
+      allLeaves: absentDeployments,
+      activeTeamStats: {
+        team: currentTeam,
+        total: totalTeam,
+        organik: organikCount,
+        outsourcing: outsourcingCount,
+        chiefName: shiftInfo?.supervisor_name || 'Ketua Regu',
+        members: onDutyDeployments,
+      },
+      byTeam: [
+        {
+          team: currentTeam,
+          total: totalTeam,
+          organik: organikCount,
+          outsourcing: outsourcingCount,
+          chiefName: shiftInfo?.supervisor_name || 'Ketua Regu',
+          isCurrentShiftTeam: true,
+          onDutyCount,
+          absentCount,
+          members: onDutyDeployments,
+        },
+      ],
     };
-  }, [operationalPersonnel, deployments, absents, allLeaves, currentTeam, dailyRoster, findTeamChief, activeDate]);
+  }, [deployments, absents, rawDeploymentPayload, currentTeam, shiftInfo]);
 
   // Nama Ketua Regu (Chief) dinamis untuk shift aktif
   const supervisorName = useMemo(() => {
     return (
       shiftInfo?.supervisor_name ||
-      personnelComposition.activeTeamStats?.chiefName ||
       deployments.find(
         (d) =>
           d.rank_position?.toLowerCase().includes('chief') &&
@@ -471,7 +362,7 @@ export default function DashboardPage() {
       )?.full_name ||
       'Belum Ditentukan'
     );
-  }, [shiftInfo, personnelComposition.activeTeamStats, deployments]);
+  }, [shiftInfo, deployments]);
 
   // Ringkasan Kelaikan Armada
   const fleetMetrics = useMemo(() => {
@@ -502,10 +393,6 @@ export default function DashboardPage() {
     }
   };
 
-  const openPersonnelModal = (initialTeam = 'ALL') => {
-    setSelectedTeamTab(initialTeam);
-    setActiveModal({ type: 'personnel', initialTeam });
-  };
 
   const openIncidentModal = async (inc) => {
     setSelectedIncidentDetail(inc);
@@ -526,18 +413,9 @@ export default function DashboardPage() {
     }
   };
 
-  // Anggota yang ditampilkan pada Modal Layer 2 Personel sesuai tab regu yang dipilih
+  // Anggota yang ditampilkan pada Modal Layer 2 Personel
   const filteredModalPersonnel = useMemo(() => {
-    const list =
-      selectedTeamTab === 'ALL'
-        ? operationalPersonnel
-        : operationalPersonnel.filter(
-            (p) => cleanTeam(p.team_group).toLowerCase() === selectedTeamTab.toLowerCase()
-          );
-
-    return [...list].sort((a, b) => {
-      const teamCmp = cleanTeam(a.team_group).localeCompare(cleanTeam(b.team_group));
-      if (teamCmp !== 0) return teamCmp;
+    return [...deployments].sort((a, b) => {
       const aChief =
         String(a.rank_position || '').toLowerCase().includes('chief') &&
         !String(a.rank_position || '').toLowerCase().includes('assistant');
@@ -548,7 +426,7 @@ export default function DashboardPage() {
       if (!aChief && bChief) return 1;
       return String(a.full_name || '').localeCompare(String(b.full_name || ''));
     });
-  }, [operationalPersonnel, selectedTeamTab]);
+  }, [deployments]);
 
   return (
     <div className="space-y-5 text-slate-800">
@@ -600,101 +478,139 @@ export default function DashboardPage() {
 
         {/* KANAN (lg:col-span-6): MATRIKS KOMPOSISI REGU (h-[312px]) & LAPORAN INSIDEN (h-[232px]) */}
         <div className="lg:col-span-6 flex flex-col gap-5">
-          {/* Panel Kanan Atas: Komposisi Anggota 4 Regu (UKURAN FIX h-[312px]) */}
+          {/* Panel Kanan Atas: Kesiapan Formasi Shift Berjalan / Shift Manning Status (UKURAN FIX h-[312px]) */}
           <div className="h-[312px] bg-white rounded-xl border border-slate-200 flex flex-col overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-2 bg-slate-50/50 shrink-0">
               <div>
                 <h2 className="text-sm font-bold text-slate-900 tracking-tight">
-                  Komposisi Personel Regu Operasional
+                  Kesiapan Formasi Shift Berjalan
                 </h2>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  Rincian jumlah anggota regu, personel sedang shift, dan status Organik / Outsourcing (Training)
+                  Ringkasan formasi personel, absensi, dan kesiapan armada operasional shift aktif
                 </p>
               </div>
-              <span className="text-xs font-medium text-slate-600 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shrink-0">
-                4 Regu Dinas
+              <span className="text-xs font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg shrink-0">
+                Regu {currentTeam} • {getShiftLabel(activeShiftNumber)}
               </span>
             </div>
 
-            <div className="flex-1 divide-y divide-slate-100 overflow-y-auto">
-              {loading ? (
-                <div className="h-full flex items-center justify-center text-xs text-slate-500">
-                  Memuat komposisi personel regu...
-                </div>
-              ) : (
-                personnelComposition.byTeam.map((tStat) => (
-                  <div
-                    key={String(tStat.team)}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => openPersonnelModal(tStat.team)}
-                    onKeyDown={(e) =>
-                      handleInteractiveKeyDown(e, () => openPersonnelModal(tStat.team))
-                    }
-                    className={`px-4 py-2.5 hover:bg-slate-50 transition-colors duration-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs cursor-pointer focus-visible:outline-none focus-visible:bg-slate-50 ${
-                      tStat.isCurrentShiftTeam ? 'bg-emerald-50/30' : ''
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span
-                        className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold shrink-0 ${
-                          tStat.isCurrentShiftTeam
-                            ? 'bg-emerald-700 text-white'
-                            : 'bg-slate-100 text-slate-700'
-                        }`}
-                      >
-                        {tStat.team.charAt(0)}
-                      </span>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900">Regu {tStat.team}</span>
-                          {tStat.isCurrentShiftTeam ? (
-                            <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                              Sedang Shift
-                            </span>
-                          ) : (
-                            <span className="px-1.5 py-0.2 rounded text-[10px] font-medium bg-slate-100 text-slate-600">
-                              Jadwal: {typeof tStat.dutySchedule === 'string' ? tStat.dutySchedule : String(tStat.dutySchedule || '-')}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-slate-500 truncate mt-0.5">
-                          Chief: <span className="text-slate-700 font-medium">{typeof tStat.chiefName === 'string' ? tStat.chiefName : '-'}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 sm:gap-3 self-end sm:self-center shrink-0 text-[11px] font-mono tabular-nums">
-                      <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 font-semibold">
-                        Total: {tStat.total}
-                      </span>
-                      <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200 font-semibold">
-                        Organik: {tStat.organik}
-                      </span>
-                      <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 font-semibold">
-                        Outsourcing: {tStat.outsourcing}
-                      </span>
-                    </div>
+            <div className="flex-1 p-3.5 grid grid-cols-2 gap-2.5 overflow-y-auto">
+              {/* 1. Kru Hadir Dinas */}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setActiveModal({ type: 'shift' })}
+                onKeyDown={(e) => handleInteractiveKeyDown(e, () => setActiveModal({ type: 'shift' }))}
+                className="p-3 rounded-xl bg-slate-50 border border-slate-200 hover:border-slate-300 hover:bg-slate-100/60 transition-colors duration-100 cursor-pointer flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-600">Kru Hadir Dinas</span>
+                  <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                    <Users className="w-4 h-4" />
                   </div>
-                ))
-              )}
+                </div>
+                <div>
+                  <div className="text-2xl font-bold font-mono text-slate-900 tabular-nums">
+                    {personnelComposition.onDutyCount}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    Personel Siap Operasi
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Kru Cuti / Izin */}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setActiveModal({ type: 'leave' })}
+                onKeyDown={(e) => handleInteractiveKeyDown(e, () => setActiveModal({ type: 'leave' }))}
+                className="p-3 rounded-xl bg-slate-50 border border-slate-200 hover:border-slate-300 hover:bg-slate-100/60 transition-colors duration-100 cursor-pointer flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-600">Kru Cuti / Izin</span>
+                  <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                    <UserX className="w-4 h-4" />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold font-mono text-slate-900 tabular-nums">
+                    {personnelComposition.absentCount}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    {personnelComposition.absentCount > 0 ? 'Personel Berhalangan' : 'Nihil (Hadir Lengkap)'}
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Armada Siap Operasi */}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setActiveModal({ type: 'shift' })}
+                onKeyDown={(e) => handleInteractiveKeyDown(e, () => setActiveModal({ type: 'shift' }))}
+                className="p-3 rounded-xl bg-slate-50 border border-slate-200 hover:border-slate-300 hover:bg-slate-100/60 transition-colors duration-100 cursor-pointer flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-600">Armada Siap Operasi</span>
+                  <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                    <Truck className="w-4 h-4" />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold font-mono text-slate-900 tabular-nums">
+                    {fleetMetrics.serviceable}/{fleetMetrics.total}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    {fleetMetrics.unserviceable > 0 ? `${fleetMetrics.unserviceable} unit kendala` : '100% Siaga Operasi'}
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. Posko Komunikasi / Watchroom */}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  const watchUnit = vehicles.find((v) => v.category === 'posko' || v.code_name === 'WATCHROOM');
+                  if (watchUnit) setActiveModal({ type: 'vehicle_item', item: watchUnit });
+                }}
+                onKeyDown={(e) =>
+                  handleInteractiveKeyDown(e, () => {
+                    const watchUnit = vehicles.find((v) => v.category === 'posko' || v.code_name === 'WATCHROOM');
+                    if (watchUnit) setActiveModal({ type: 'vehicle_item', item: watchUnit });
+                  })
+                }
+                className="p-3 rounded-xl bg-slate-50 border border-slate-200 hover:border-slate-300 hover:bg-slate-100/60 transition-colors duration-100 cursor-pointer flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-600">Posko Terisi</span>
+                  <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                    <Radio className="w-4 h-4" />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-base font-bold text-slate-900 truncate">
+                    {watchroomLog?.pic_name ? 'Terisi (Siaga)' : 'Posko Terisi'}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5 truncate">
+                    PIC: {watchroomLog?.pic_name || 'Petugas Watchroom'}
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="px-4 py-2.5 bg-slate-50/60 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600 shrink-0">
-              <span className="font-medium text-slate-700">
-                Total Kekuatan 4 Regu:{' '}
-                <strong className="font-mono text-slate-900 font-bold">
-                  {personnelComposition.totalAllTeams} Personel
-                </strong>
+            <div className="px-4 py-2.5 bg-slate-50/60 border-t border-slate-200 flex items-center justify-between gap-2 text-[11px] text-slate-600 shrink-0">
+              <span className="font-medium truncate">
+                Pimpinan Shift: <strong className="text-slate-900 font-semibold">{supervisorName}</strong>
               </span>
-              <div className="flex items-center gap-3 font-mono tabular-nums">
-                <span>
-                  Organik: <strong className="text-blue-800 font-bold">{personnelComposition.totalAllOrganik}</strong>
-                </span>
-                <span>
-                  Outsourcing (Training): <strong className="text-amber-800 font-bold">{personnelComposition.totalAllOutsourcing}</strong>
-                </span>
-              </div>
+              <button
+                type="button"
+                onClick={() => setActiveModal({ type: 'shift' })}
+                className="text-emerald-700 hover:text-emerald-800 font-semibold hover:underline cursor-pointer shrink-0"
+              >
+                Lihat Formasi Ploting &rarr;
+              </button>
             </div>
           </div>
 
