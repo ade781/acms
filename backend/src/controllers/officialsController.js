@@ -38,44 +38,61 @@ async function generateUniqueUsername(nip, fullName) {
 
 export const getOfficials = async (req, res) => {
   try {
-    // 1. Dept Head (Airport Technology & ARFF Dept. Head)
-    const [deptHeads] = await pool.query(
-      `SELECT p.*, u.username, u.email as user_email, u.role as user_role,
-              COALESCE(u.signature_url, p.signature_url) as signature_url
-       FROM personnel p
-       LEFT JOIN users u ON u.id = p.user_id
-       WHERE (p.rank_position LIKE '%Dept%Head%' OR p.rank_position LIKE '%Department Head%' OR u.role = 'dept_head')
-         AND p.rank_position NOT LIKE '%Section%'
-       ORDER BY p.id ASC
-       LIMIT 1`
-    );
+    // Jalankan 4 query serial independen secara paralel via Promise.all
+    const [
+      [deptHeads],
+      [sectionHeads],
+      [chiefs],
+      [administrasi]
+    ] = await Promise.all([
+      // 1. Dept Head (Airport Technology & ARFF Dept. Head)
+      pool.query(
+        `SELECT p.*, u.username, u.email as user_email, u.role as user_role,
+                COALESCE(u.signature_url, p.signature_url) as signature_url
+         FROM personnel p
+         LEFT JOIN users u ON u.id = p.user_id
+         WHERE (p.rank_position LIKE '%Dept%Head%' OR p.rank_position LIKE '%Department Head%' OR u.role = 'dept_head')
+           AND p.rank_position NOT LIKE '%Section%'
+         ORDER BY p.id ASC
+         LIMIT 1`
+      ),
+      // 2. Section Head (Airport Technology & ARFF Section Head)
+      pool.query(
+        `SELECT p.*, u.username, u.email as user_email, u.role as user_role,
+                COALESCE(u.signature_url, p.signature_url) as signature_url
+         FROM personnel p
+         LEFT JOIN users u ON u.id = p.user_id
+         WHERE p.rank_position LIKE '%Section%Head%' OR p.rank_position LIKE '%Seksi%' OR u.role = 'section_head'
+         ORDER BY p.id ASC
+         LIMIT 1`
+      ),
+      // 3. 4 Chiefs for Alpha, Bravo, Charlie, Delta (Case-Insensitive Normalization)
+      pool.query(
+        `SELECT p.*, u.username, u.email as user_email, u.role as user_role,
+                COALESCE(u.signature_url, p.signature_url) as signature_url
+         FROM personnel p
+         LEFT JOIN users u ON u.id = p.user_id
+         WHERE (u.role IN ('chief', 'supervisor') OR p.rank_position LIKE '%Chief%' OR p.rank_position LIKE '%Ketua%')
+           AND p.rank_position NOT LIKE '%Assistant%'
+           AND p.rank_position NOT LIKE '%Asisten%'
+           AND p.rank_position NOT LIKE '%Wakil%'
+           AND u.role != 'chief_assistant'
+         ORDER BY p.team_group ASC, p.id ASC`
+      ),
+      // 4. Staf Administrasi (Personel Non-Shift / Role Admin)
+      pool.query(
+        `SELECT p.*, u.username, u.email as user_email, u.role as user_role,
+                COALESCE(u.signature_url, p.signature_url) as signature_url
+         FROM personnel p
+         LEFT JOIN users u ON u.id = p.user_id
+         WHERE (p.team_group = 'Non-Shift' OR p.team_group IS NULL)
+           AND (p.rank_position NOT LIKE '%Dept%Head%' AND (u.role IS NULL OR u.role != 'dept_head'))
+         ORDER BY p.id ASC`
+      )
+    ]);
+
     const deptHead = deptHeads.length > 0 ? deptHeads[0] : null;
-
-    // 2. Section Head (Airport Technology & ARFF Section Head)
-    const [sectionHeads] = await pool.query(
-      `SELECT p.*, u.username, u.email as user_email, u.role as user_role,
-              COALESCE(u.signature_url, p.signature_url) as signature_url
-       FROM personnel p
-       LEFT JOIN users u ON u.id = p.user_id
-       WHERE p.rank_position LIKE '%Section%Head%' OR p.rank_position LIKE '%Seksi%' OR u.role = 'section_head'
-       ORDER BY p.id ASC
-       LIMIT 1`
-    );
     const sectionHead = sectionHeads.length > 0 ? sectionHeads[0] : null;
-
-    // 3. 4 Chiefs for Alpha, Bravo, Charlie, Delta (Case-Insensitive Normalization)
-    const [chiefs] = await pool.query(
-      `SELECT p.*, u.username, u.email as user_email, u.role as user_role,
-              COALESCE(u.signature_url, p.signature_url) as signature_url
-       FROM personnel p
-       LEFT JOIN users u ON u.id = p.user_id
-       WHERE (u.role IN ('chief', 'supervisor') OR p.rank_position LIKE '%Chief%' OR p.rank_position LIKE '%Ketua%')
-         AND p.rank_position NOT LIKE '%Assistant%'
-         AND p.rank_position NOT LIKE '%Asisten%'
-         AND p.rank_position NOT LIKE '%Wakil%'
-         AND u.role != 'chief_assistant'
-       ORDER BY p.team_group ASC, p.id ASC`
-    );
 
     const chiefsByTeam = {
       Alpha: chiefs.find((c) => (c.team_group || '').toLowerCase().trim() === 'alpha') || null,
@@ -83,17 +100,6 @@ export const getOfficials = async (req, res) => {
       Charlie: chiefs.find((c) => (c.team_group || '').toLowerCase().trim() === 'charlie') || null,
       Delta: chiefs.find((c) => (c.team_group || '').toLowerCase().trim() === 'delta') || null,
     };
-
-    // 4. Staf Administrasi (Personel Non-Shift / Role Admin)
-    const [administrasi] = await pool.query(
-      `SELECT p.*, u.username, u.email as user_email, u.role as user_role,
-              COALESCE(u.signature_url, p.signature_url) as signature_url
-       FROM personnel p
-       LEFT JOIN users u ON u.id = p.user_id
-       WHERE (p.team_group = 'Non-Shift' OR p.team_group IS NULL)
-         AND (p.rank_position NOT LIKE '%Dept%Head%' AND (u.role IS NULL OR u.role != 'dept_head'))
-       ORDER BY p.id ASC`
-    );
 
     return successResponse(res, 'Data pejabat berhasil diambil', {
       dept_head: deptHead,

@@ -10,7 +10,7 @@ export const getDashboardSummary = async (req, res) => {
     const shiftNumber = shift ? Number(shift) : 1;
     const cleanTeamGroup = cleanTeam(team_group || 'Alpha');
 
-    // 1. Data shift aktif
+    // 1. Persiapkan Query Batch 1 (Semua query independen)
     let shiftQuery = `
       SELECT ps.*, u.name as supervisor_name
       FROM personnel_shifts ps
@@ -23,61 +23,131 @@ export const getDashboardSummary = async (req, res) => {
       shiftParams.push(cleanTeamGroup);
     }
 
-    const [shifts] = await pool.query(shiftQuery, shiftParams);
+    const vehiclesQuery = `
+      SELECT v.id, v.code_name, v.vehicle_name, v.category,
+             COALESCE(vrl.status, 'belum_dilaporkan') as status,
+             vrl.justification, vrl.photo_webp_url, vrl.follow_up_status,
+             COALESCE(deploy_pic.full_name, p_log.full_name) as pic_name
+      FROM vehicles v
+      LEFT JOIN vehicle_readiness_logs vrl
+        ON vrl.vehicle_id = v.id
+       AND vrl.shift_date = ?
+       AND vrl.shift_number = ?
+       AND vrl.team_group = ?
+      LEFT JOIN (
+        SELECT pd.vehicle_id, p.full_name
+        FROM personnel_deployments pd
+        JOIN personnel_shifts ps ON ps.id = pd.shift_id
+        JOIN personnel p ON p.id = pd.personnel_id
+        WHERE ps.shift_date = ?
+          AND ps.shift_number = ?
+          AND ps.team_group = ?
+          AND pd.is_pic = 1
+      ) deploy_pic ON deploy_pic.vehicle_id = v.id
+      LEFT JOIN personnel p_log
+        ON p_log.id = vrl.pic_personnel_id
+      WHERE v.is_active = 1
+    `;
+    const vehiclesParams = [shiftDate, shiftNumber, cleanTeamGroup, shiftDate, shiftNumber, cleanTeamGroup];
+
+    const watchroomsQuery = `
+      SELECT vrl.*, p.full_name as inspector_name
+      FROM vehicle_readiness_logs vrl
+      JOIN vehicles v ON v.id = vrl.vehicle_id
+      LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
+      WHERE (v.category = 'posko' OR v.code_name = 'WATCHROOM')
+        AND vrl.shift_date = ? AND vrl.shift_number = ? AND vrl.team_group = ?
+      LIMIT 1
+    `;
+    const watchroomsParams = [shiftDate, shiftNumber, cleanTeamGroup];
+
+    const rosterQuery = `
+      SELECT COUNT(*) as total_members FROM personnel WHERE team_group = ? AND is_active = 1
+    `;
+    const rosterParams = [cleanTeamGroup];
+
+    const incidentsQuery = `
+      SELECT id, report_number, title, location, priority_level, status, incident_time
+      FROM incidents
+      WHERE incident_date = ? OR status IN ('dalam_proses', 'menunggu_tindak_lanjut')
+      ORDER BY id DESC LIMIT 5
+    `;
+    const incidentsParams = [shiftDate];
+
+    // Eksekusi paralel Batch 1 (5 query independen secara serentak)
+    const [
+      [shifts],
+      [vehicles],
+      [watchrooms],
+      [teamRosterRows],
+      [incidents]
+    ] = await Promise.all([
+      pool.query(shiftQuery, shiftParams),
+      pool.query(vehiclesQuery, vehiclesParams),
+      pool.query(watchroomsQuery, watchroomsParams),
+      pool.query(rosterQuery, rosterParams),
+      pool.query(incidentsQuery, incidentsParams)
+    ]);
+
     const activeShift = shifts.length > 0 ? shifts[0] : null;
-
-    // 2. Ringkasan kesiapan armada (terikat ketat pada shift_date, shift_number, dan cleanTeamGroup)
-    const [vehicles] = await pool.query(
-      `SELECT v.id, v.code_name, v.vehicle_name, v.category,
-              COALESCE(vrl.status, 'belum_dilaporkan') as status,
-              vrl.justification, vrl.photo_webp_url, vrl.follow_up_status,
-              COALESCE(deploy_pic.full_name, p_log.full_name) as pic_name
-       FROM vehicles v
-       LEFT JOIN vehicle_readiness_logs vrl
-         ON vrl.vehicle_id = v.id
-        AND vrl.shift_date = ?
-        AND vrl.shift_number = ?
-        AND vrl.team_group = ?
-       LEFT JOIN (
-         SELECT pd.vehicle_id, p.full_name
-         FROM personnel_deployments pd
-         JOIN personnel_shifts ps ON ps.id = pd.shift_id
-         JOIN personnel p ON p.id = pd.personnel_id
-         WHERE ps.shift_date = ?
-           AND ps.shift_number = ?
-           AND ps.team_group = ?
-           AND pd.is_pic = 1
-       ) deploy_pic ON deploy_pic.vehicle_id = v.id
-       LEFT JOIN personnel p_log
-         ON p_log.id = vrl.pic_personnel_id
-       WHERE v.is_active = 1`,
-      [shiftDate, shiftNumber, cleanTeamGroup, shiftDate, shiftNumber, cleanTeamGroup]
-    );
-
-    // Carry-over status unserviceable dari shift sebelumnya jika belum dilaporkan di shift ini
     const unreportedVehicleIds = vehicles.filter(v => v.status === 'belum_dilaporkan').map(v => v.id);
 
-    if (unreportedVehicleIds.length > 0) {
-      const [prevLogs] = await pool.query(
-        `SELECT vrl.vehicle_id, vrl.status, vrl.justification, vrl.photo_webp_url, vrl.follow_up_status,
-                vrl.shift_date, vrl.shift_number, vrl.team_group, p.full_name as prev_pic_name
-         FROM vehicle_readiness_logs vrl
-         JOIN (
-           SELECT vehicle_id, MAX(CONCAT(shift_date, '_', LPAD(shift_number, 2, '0'))) as max_shift
-           FROM vehicle_readiness_logs
-           WHERE vehicle_id IN (?)
-             AND (shift_date < ? OR (shift_date = ? AND shift_number < ?))
-             AND status = 'unserviceable'
-             AND follow_up_status != 'resolved'
-           GROUP BY vehicle_id
-         ) latest ON latest.vehicle_id = vrl.vehicle_id
-                 AND CONCAT(vrl.shift_date, '_', LPAD(vrl.shift_number, 2, '0')) = latest.max_shift
-         LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
-         WHERE vrl.status = 'unserviceable'
-           AND vrl.follow_up_status != 'resolved'`,
-        [unreportedVehicleIds, shiftDate, shiftDate, shiftNumber]
-      );
+    // Persiapkan Query Batch 2 (Tergantung hasil Batch 1)
+    const prevLogsPromise = unreportedVehicleIds.length > 0
+      ? pool.query(
+          `SELECT vrl.vehicle_id, vrl.status, vrl.justification, vrl.photo_webp_url, vrl.follow_up_status,
+                  vrl.shift_date, vrl.shift_number, vrl.team_group, p.full_name as prev_pic_name
+           FROM vehicle_readiness_logs vrl
+           JOIN (
+             SELECT vehicle_id, MAX(CONCAT(shift_date, '_', LPAD(shift_number, 2, '0'))) as max_shift
+             FROM vehicle_readiness_logs
+             WHERE vehicle_id IN (?)
+               AND (shift_date < ? OR (shift_date = ? AND shift_number < ?))
+               AND status = 'unserviceable'
+               AND follow_up_status != 'resolved'
+             GROUP BY vehicle_id
+           ) latest ON latest.vehicle_id = vrl.vehicle_id
+                   AND CONCAT(vrl.shift_date, '_', LPAD(vrl.shift_number, 2, '0')) = latest.max_shift
+           LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
+           WHERE vrl.status = 'unserviceable'
+             AND vrl.follow_up_status != 'resolved'`,
+          [unreportedVehicleIds, shiftDate, shiftDate, shiftNumber]
+        )
+      : Promise.resolve([[]]);
 
+    const deploymentsPromise = activeShift
+      ? pool.query(
+          `SELECT pd.*, p.full_name, p.rank_position
+           FROM personnel_deployments pd
+           JOIN personnel p ON p.id = pd.personnel_id
+           WHERE pd.shift_id = ?`,
+          [activeShift.id]
+        )
+      : Promise.resolve([[]]);
+
+    const activitiesPromise = activeShift
+      ? pool.query(
+          `SELECT id, activity_type, activity_time, title, description
+           FROM daily_shift_activities
+           WHERE shift_id = ?
+           ORDER BY activity_time DESC, id DESC LIMIT 5`,
+          [activeShift.id]
+        )
+      : Promise.resolve([[]]);
+
+    // Eksekusi paralel Batch 2 (Carry-over log, Deployments, Activities)
+    const [
+      [prevLogs],
+      [deployments],
+      [recentActivities]
+    ] = await Promise.all([
+      prevLogsPromise,
+      deploymentsPromise,
+      activitiesPromise
+    ]);
+
+    // Carry-over status unserviceable dari shift sebelumnya jika belum dilaporkan di shift ini
+    if (prevLogs.length > 0) {
       const carryOverMap = new Map();
       for (const prev of prevLogs) {
         if (!carryOverMap.has(prev.vehicle_id)) {
@@ -128,31 +198,15 @@ export const getDashboardSummary = async (req, res) => {
       critical_issues: criticalIssues
     };
 
-    // 3. Kesiapan watchroom
-    const [watchrooms] = await pool.query(
-      `SELECT vrl.*, p.full_name as inspector_name
-       FROM vehicle_readiness_logs vrl
-       JOIN vehicles v ON v.id = vrl.vehicle_id
-       LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
-       WHERE (v.category = 'posko' OR v.code_name = 'WATCHROOM')
-         AND vrl.shift_date = ? AND vrl.shift_number = ? AND vrl.team_group = ?
-       LIMIT 1`,
-      [shiftDate, shiftNumber, cleanTeamGroup]
-    );
-
+    // Watchroom
     const watchroomSummary = watchrooms.length > 0 ? watchrooms[0] : {
       status: 'belum_dilaporkan',
       notes: 'Belum ada laporan checklist watchroom',
       inspector_name: null
     };
 
-    // 4. Kekuatan Personel Dinas (Berdasarkan Regu yang Sedang Bertugas)
-    const [teamRosterRows] = await pool.query(
-      `SELECT COUNT(*) as total_members FROM personnel WHERE team_group = ? AND is_active = 1`,
-      [cleanTeamGroup]
-    );
+    // Kekuatan Personel
     const totalTeamMembers = Number(teamRosterRows[0]?.total_members) || 0;
-
     let personnelSummary = {
       total_roster: totalTeamMembers,
       present_count: 0,
@@ -163,14 +217,6 @@ export const getDashboardSummary = async (req, res) => {
     };
 
     if (activeShift) {
-      const [deployments] = await pool.query(
-        `SELECT pd.*, p.full_name, p.rank_position
-         FROM personnel_deployments pd
-         JOIN personnel p ON p.id = pd.personnel_id
-         WHERE pd.shift_id = ?`,
-        [activeShift.id]
-      );
-
       const present = deployments.filter(d => d.deployment_type !== 'absent');
       const absent = deployments.filter(d => d.deployment_type === 'absent');
 
@@ -189,29 +235,8 @@ export const getDashboardSummary = async (req, res) => {
       };
     }
 
-    // 5. Insiden Terbuka & Total Hari Ini
-    const [incidents] = await pool.query(
-      `SELECT id, report_number, title, location, priority_level, status, incident_time
-       FROM incidents
-       WHERE incident_date = ? OR status IN ('dalam_proses', 'menunggu_tindak_lanjut')
-       ORDER BY id DESC LIMIT 5`,
-      [shiftDate]
-    );
-
+    // Insiden
     const openIncidents = incidents.filter(i => i.status !== 'selesai');
-
-    // 6. Aktivitas Terkini
-    let recentActivities = [];
-    if (activeShift) {
-      const [acts] = await pool.query(
-        `SELECT id, activity_type, activity_time, title, description
-         FROM daily_shift_activities
-         WHERE shift_id = ?
-         ORDER BY activity_time DESC, id DESC LIMIT 5`,
-        [activeShift.id]
-      );
-      recentActivities = acts;
-    }
 
     return successResponse(res, 'Ringkasan KPI dashboard berhasil diambil', {
       shift_date: shiftDate,

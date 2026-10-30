@@ -356,6 +356,7 @@ export const saveDeploymentBatch = async (req, res) => {
     );
 
     const vehiclePics = {};
+    const batchValues = [];
 
     for (const d of deployments) {
       // Hapus backdoor: Abaikan deployment_type absent karena cuti hanya boleh dicatat via requestLeaveRange
@@ -364,26 +365,31 @@ export const saveDeploymentBatch = async (req, res) => {
       }
 
       const isPicVal = d.is_pic ? 1 : 0;
-      await connection.query(
-        `INSERT INTO personnel_deployments (
-          shift_id, personnel_id, deployment_type, vehicle_id,
-          is_pic, absent_reason, assigned_by, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          shiftId,
-          d.personnel_id,
-          d.deployment_type,
-          d.vehicle_id || null,
-          isPicVal,
-          d.absent_reason || null,
-          req.user?.id || null,
-          d.notes || null
-        ]
-      );
+      batchValues.push([
+        shiftId,
+        d.personnel_id,
+        d.deployment_type,
+        d.vehicle_id || null,
+        isPicVal,
+        d.absent_reason || null,
+        req.user?.id || null,
+        d.notes || null
+      ]);
 
       if (isPicVal && d.vehicle_id) {
         vehiclePics[d.vehicle_id] = d.personnel_id;
       }
+    }
+
+    // Eksekusi multi-row batch insert sekaligus (memangkas latensi N-roundtrip menjadi 1 roundtrip tunggal)
+    if (batchValues.length > 0) {
+      await connection.query(
+        `INSERT INTO personnel_deployments (
+          shift_id, personnel_id, deployment_type, vehicle_id,
+          is_pic, absent_reason, assigned_by, notes
+        ) VALUES ?`,
+        [batchValues]
+      );
     }
 
     // 4. Sinkronisasikan baris vehicle_readiness_logs secara atomik agar PIC tercatat presisi tanpa tabrakan duplikasi
@@ -434,10 +440,6 @@ export const saveDeploymentBatch = async (req, res) => {
   }
 };
 
-
-
-
-
 // Re-export domain perizinan cuti dari leaveController.js untuk menjamin 100% backward compatibility
 export {
   requestLeaveRange,
@@ -445,5 +447,3 @@ export {
   getLeaveHistory,
   submitLeave
 } from './leaveController.js';
-
-
