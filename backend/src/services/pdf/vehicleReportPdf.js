@@ -1,10 +1,15 @@
 import PDFDocument from 'pdfkit';
-import { resolveSignatureBuffer, applyWatermarkAndPageNumbers } from './pdfHelpers.js';
-
+import {
+  resolveSignatureBuffer,
+  applyWatermarkAndPageNumbers,
+  drawOfficialHeader,
+  drawSectionHeadSignature,
+  checkPageBreak,
+} from './pdfHelpers.js';
 
 /**
  * Membuat dokumen PDF Laporan Rekapitulasi Kesiapan & Kelaikan Armada ARFF YIA (Format A4 Portrait)
- * Mendukung Halaman Laporan Armada (Agent 2) dengan filter 1 Bulan, 3 Bulan, 1 Tahun, atau Rentang Kustom
+ * Mendukung Halaman Laporan Armada dengan filter 1 Bulan, 3 Bulan, 1 Tahun, atau Rentang Kustom
  */
 export const generateVehicleReadinessReportPdf = async (data = {}) => {
   const doc = new PDFDocument({
@@ -33,24 +38,14 @@ export const generateVehicleReadinessReportPdf = async (data = {}) => {
   const startX = 40;
   const contentWidth = 515;
 
-  // Header Dokumen Resmi
-  doc.fontSize(13).font('Helvetica-Bold').fillColor('#0f172a').text(
+  // Header Dokumen Resmi Terpusat (Kop PT Angkasa Pura Indonesia & Garis Ganda)
+  drawOfficialHeader(
+    doc,
     'AIRPORT RESCUE & FIRE FIGHTING (ARFF) SECTION',
-    startX, 35, { align: 'center', width: contentWidth }
-  );
-  doc.fontSize(10).font('Helvetica-Bold').fillColor('#b91c1c').text(
-    'BANDARA INTERNASIONAL YOGYAKARTA (YIA)',
-    startX, 52, { align: 'center', width: contentWidth }
-  );
-  doc.fontSize(8.5).font('Helvetica').fillColor('#475569').text(
     'LAPORAN RESMI REKAPITULASI KESIAPAN ARMADA & AUDIT STATUS KELAIKAN',
-    startX, 67, { align: 'center', width: contentWidth }
+    contentWidth,
+    startX
   );
-
-  doc.moveTo(startX, 82).lineTo(startX + contentWidth, 82).lineWidth(1.5).strokeColor('#1e293b').stroke();
-  doc.moveTo(startX, 84).lineTo(startX + contentWidth, 84).lineWidth(0.5).strokeColor('#94a3b8').stroke();
-
-  doc.y = 92;
 
   // Box Informasi Periode (KPI Ringkasan)
   doc.rect(startX, doc.y, contentWidth, 38).fillAndStroke('#f8fafc', '#cbd5e1');
@@ -83,15 +78,6 @@ export const generateVehicleReadinessReportPdf = async (data = {}) => {
 
   doc.y = 140;
 
-  const checkPageBreak = (neededHeight) => {
-    if (doc.y + neededHeight > 740) {
-      doc.addPage();
-      doc.y = 35;
-      return true;
-    }
-    return false;
-  };
-
   // Tabel 1: Rekapitulasi Kelaikan & Siklus Kendala Per Unit
   doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('1. REKAPITULASI KELAIKAN & FREKUENSI KENDALA PER UNIT ARMADA');
   doc.moveDown(0.3);
@@ -109,7 +95,7 @@ export const generateVehicleReadinessReportPdf = async (data = {}) => {
   doc.y = tableHeaderY + 18;
 
   vehicles.forEach((v, idx) => {
-    checkPageBreak(20);
+    checkPageBreak(doc, 20);
     const rowY = doc.y;
     if (idx % 2 === 1) {
       doc.rect(startX, rowY, contentWidth, 18).fill('#f8fafc');
@@ -148,15 +134,14 @@ export const generateVehicleReadinessReportPdf = async (data = {}) => {
     } else if (!isServ) {
       statusDesc = 'Menunggu Laporan Inspeksi PIC';
       statusDescColor = '#64748b';
-    } else if (periodCount > 0) {
-      statusDesc = `${periodCount}x Kendala (Telah Pulih)`;
+    } else if (v.notes) {
+      statusDesc = v.notes;
       statusDescColor = '#475569';
     }
 
-    doc.fontSize(7.5).font('Helvetica').fillColor(statusDescColor).text(
+    doc.fontSize(7).font('Helvetica').fillColor(statusDescColor).text(
       statusDesc,
-      startX + 392, rowY + 5,
-      { width: 120, align: 'left', lineBreak: false, ellipsis: true }
+      startX + 392, rowY + 5, { width: 120, align: 'left', lineBreak: false, ellipsis: true }
     );
 
     doc.moveTo(startX, rowY + 18).lineTo(startX + contentWidth, rowY + 18).lineWidth(0.5).strokeColor('#e2e8f0').stroke();
@@ -165,27 +150,29 @@ export const generateVehicleReadinessReportPdf = async (data = {}) => {
 
   doc.moveDown(0.8);
 
-  // Tabel 2: Riwayat Periode Kendala & Pergantian Status Kelaikan (Log Transisi)
-  checkPageBreak(50);
-  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('2. RIWAYAT KENDALA FISIK & LOG PERGANTIAN STATUS KELAIKAN');
+  // Tabel 2: Riwayat Log Transisi Gangguan & Pemulihan
+  checkPageBreak(doc, 40);
+  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('2. AUDIT LOG PERGANTIAN STATUS & KRONOLOGI GANGGUAN FISIK');
   doc.moveDown(0.3);
 
-  if (transitionLogs.length > 0) {
+  if (transitionLogs && transitionLogs.length > 0) {
     const logHeaderY = doc.y;
-    doc.rect(startX, logHeaderY, contentWidth, 18).fill('#334155');
+    doc.rect(startX, logHeaderY, contentWidth, 18).fill('#1e293b');
     doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#ffffff');
-    doc.text('Mulai Kendala', startX + 4, logHeaderY + 5, { width: 75, align: 'left' });
-    doc.text('Armada', startX + 82, logHeaderY + 5, { width: 65, align: 'left' });
-    doc.text('Status Pemulihan', startX + 150, logHeaderY + 5, { width: 95, align: 'center' });
-    doc.text('Pelapor / PIC', startX + 248, logHeaderY + 5, { width: 80, align: 'left' });
-    doc.text('Deskripsi Kendala & Catatan Penanganan', startX + 332, logHeaderY + 5, { width: 178, align: 'left' });
+    doc.text('Tanggal/Shift', startX + 4, logHeaderY + 5, { width: 75 });
+    doc.text('Unit Armada', startX + 82, logHeaderY + 5, { width: 65 });
+    doc.text('Status Transisi', startX + 150, logHeaderY + 5, { width: 95, align: 'center' });
+    doc.text('Pelapor (PIC)', startX + 248, logHeaderY + 5, { width: 80 });
+    doc.text('Justifikasi & Kronologi Kerusakan', startX + 332, logHeaderY + 5, { width: 180 });
 
     doc.y = logHeaderY + 18;
 
-    transitionLogs.slice(0, 35).forEach((t, idx) => {
-      checkPageBreak(22);
+    transitionLogs.forEach((t, idx) => {
+      checkPageBreak(doc, 24);
       const rowY = doc.y;
-      if (idx % 2 === 1) doc.rect(startX, rowY, contentWidth, 20).fill('#f8fafc');
+      if (idx % 2 === 1) {
+        doc.rect(startX, rowY, contentWidth, 20).fill('#f8fafc');
+      }
 
       const shiftInfo = t.start_shift_number ? ` (S${t.start_shift_number})` : '';
       doc.fontSize(7).font('Helvetica').fillColor('#475569').text(`${t.start_date}${shiftInfo}`, startX + 4, rowY + 5, { width: 75 });
@@ -218,32 +205,12 @@ export const generateVehicleReadinessReportPdf = async (data = {}) => {
     doc.y = emptyY + 28;
   }
 
-
-  // Tanda Tangan Dept Head
-  if (doc.y + 100 > 740) {
-    doc.addPage();
-    doc.y = 45;
-  } else {
-    doc.moveDown(1.5);
-  }
-
-  const signY = doc.y;
-  doc.fontSize(8.5).font('Helvetica').fillColor('#0f172a').text('Mengetahui / Mengesahkan,', startX + contentWidth - 220, signY, { width: 220, align: 'center' });
-  doc.fontSize(8).font('Helvetica-Bold').text('AIRPORT RESCUE & FIRE FIGHTING SECTION HEAD', startX + contentWidth - 220, signY + 12, { width: 220, align: 'center' });
-
-  const deptSigBuffer = await resolveSignatureBuffer(dept_head_signature_url);
-  if (deptSigBuffer) {
-    try {
-      doc.image(deptSigBuffer, startX + contentWidth - 165, signY + 25, { fit: [110, 40], align: 'center' });
-    } catch (e) {
-      console.warn('Gagal memuat tanda tangan Dept Head:', e.message);
-    }
-  }
-
-  doc.fontSize(8.5).font('Helvetica-Bold').text(`( ${dept_head_name} )`, startX + contentWidth - 220, signY + 68, { width: 220, align: 'center' });
-  if (dept_head_nip && dept_head_nip !== '-') {
-    doc.fontSize(7.5).font('Helvetica').fillColor('#475569').text(`NIP. ${dept_head_nip}`, startX + contentWidth - 220, signY + 80, { width: 220, align: 'center' });
-  }
+  // Tanda Tangan Section Head Terpusat
+  await drawSectionHeadSignature(doc, {
+    dept_head_name,
+    dept_head_nip,
+    dept_head_signature_url
+  }, startX, contentWidth);
 
   applyWatermarkAndPageNumbers(doc, contentWidth, startX, 'ARFF YIA • FLEET READINESS REPORT');
 

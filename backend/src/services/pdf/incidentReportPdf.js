@@ -1,10 +1,15 @@
 import PDFDocument from 'pdfkit';
-import { resolveSignatureBuffer, applyWatermarkAndPageNumbers } from './pdfHelpers.js';
-
+import {
+  resolveSignatureBuffer,
+  applyWatermarkAndPageNumbers,
+  drawOfficialHeader,
+  drawSectionHeadSignature,
+  checkPageBreak,
+} from './pdfHelpers.js';
 
 /**
  * Membuat dokumen PDF Laporan Rekapitulasi Insiden Operasional ARFF YIA (Format A4 Portrait)
- * Mendukung Halaman Laporan Insiden (Agent 4) dengan filter 1 Bulan, 3 Bulan, 1 Tahun, atau Rentang Kustom
+ * Mendukung Halaman Laporan Insiden dengan filter 1 Bulan, 3 Bulan, 1 Tahun, atau Rentang Kustom
  */
 export const generateIncidentSummaryReportPdf = async (data = {}) => {
   const doc = new PDFDocument({
@@ -32,24 +37,14 @@ export const generateIncidentSummaryReportPdf = async (data = {}) => {
   const startX = 40;
   const contentWidth = 515;
 
-  // Header Dokumen Resmi
-  doc.fontSize(13).font('Helvetica-Bold').fillColor('#0f172a').text(
+  // Header Dokumen Resmi Terpusat (Kop PT Angkasa Pura Indonesia & Garis Ganda)
+  drawOfficialHeader(
+    doc,
     'AIRPORT RESCUE & FIRE FIGHTING (ARFF) SECTION',
-    startX, 35, { align: 'center', width: contentWidth }
-  );
-  doc.fontSize(10).font('Helvetica-Bold').fillColor('#b91c1c').text(
-    'BANDARA INTERNASIONAL YOGYAKARTA (YIA)',
-    startX, 52, { align: 'center', width: contentWidth }
-  );
-  doc.fontSize(8.5).font('Helvetica').fillColor('#475569').text(
     'LAPORAN RESMI REKAPITULASI KEJADIAN & INSIDEN OPERASIONAL AIRSIDE',
-    startX, 67, { align: 'center', width: contentWidth }
+    contentWidth,
+    startX
   );
-
-  doc.moveTo(startX, 82).lineTo(startX + contentWidth, 82).lineWidth(1.5).strokeColor('#1e293b').stroke();
-  doc.moveTo(startX, 84).lineTo(startX + contentWidth, 84).lineWidth(0.5).strokeColor('#94a3b8').stroke();
-
-  doc.y = 92;
 
   // Box Informasi Periode & Statistik
   doc.rect(startX, doc.y, contentWidth, 38).fillAndStroke('#f8fafc', '#cbd5e1');
@@ -74,15 +69,6 @@ export const generateIncidentSummaryReportPdf = async (data = {}) => {
   doc.font('Helvetica').text(summary.topCategory || '-', startX + 425, infoY2);
 
   doc.y = 140;
-
-  const checkPageBreak = (neededHeight) => {
-    if (doc.y + neededHeight > 740) {
-      doc.addPage();
-      doc.y = 35;
-      return true;
-    }
-    return false;
-  };
 
   // Ringkasan Daftar Insiden
   doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('1. DAFTAR LOGBOOK INSIDEN OPERASIONAL (LAYER 1)');
@@ -110,7 +96,7 @@ export const generateIncidentSummaryReportPdf = async (data = {}) => {
     doc.y = incHeaderY + 18;
 
     incidents.forEach((inc, idx) => {
-      checkPageBreak(22);
+      checkPageBreak(doc, 22);
       const rowY = doc.y;
       if (idx % 2 === 1) doc.rect(startX, rowY, contentWidth, 18).fill('#f8fafc');
 
@@ -142,12 +128,12 @@ export const generateIncidentSummaryReportPdf = async (data = {}) => {
     doc.moveDown(0.8);
 
     // Detail Kronologi & Tindakan (Layer 2)
-    checkPageBreak(50);
+    checkPageBreak(doc, 50);
     doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('2. DETAIL KRONOLOGI & TINDAKAN PENANGANAN INSIDEN (LAYER 2)');
     doc.moveDown(0.3);
 
     incidents.slice(0, 20).forEach((inc, idx) => {
-      checkPageBreak(65);
+      checkPageBreak(doc, 65);
       doc.rect(startX, doc.y, contentWidth, 58).fillAndStroke('#f8fafc', '#e2e8f0');
       const boxY = doc.y + 5;
 
@@ -172,31 +158,12 @@ export const generateIncidentSummaryReportPdf = async (data = {}) => {
     });
   }
 
-  // Tanda Tangan Dept Head
-  if (doc.y + 100 > 740) {
-    doc.addPage();
-    doc.y = 45;
-  } else {
-    doc.moveDown(1.5);
-  }
-
-  const signY = doc.y;
-  doc.fontSize(8.5).font('Helvetica').fillColor('#0f172a').text('Mengetahui / Mengesahkan,', startX + contentWidth - 220, signY, { width: 220, align: 'center' });
-  doc.fontSize(8).font('Helvetica-Bold').text('AIRPORT RESCUE & FIRE FIGHTING SECTION HEAD', startX + contentWidth - 220, signY + 12, { width: 220, align: 'center' });
-
-  const deptSigBuffer = await resolveSignatureBuffer(dept_head_signature_url);
-  if (deptSigBuffer) {
-    try {
-      doc.image(deptSigBuffer, startX + contentWidth - 165, signY + 25, { fit: [110, 40], align: 'center' });
-    } catch (e) {
-      console.warn('Gagal memuat tanda tangan Dept Head:', e.message);
-    }
-  }
-
-  doc.fontSize(8.5).font('Helvetica-Bold').text(`( ${dept_head_name} )`, startX + contentWidth - 220, signY + 68, { width: 220, align: 'center' });
-  if (dept_head_nip && dept_head_nip !== '-') {
-    doc.fontSize(7.5).font('Helvetica').fillColor('#475569').text(`NIP. ${dept_head_nip}`, startX + contentWidth - 220, signY + 80, { width: 220, align: 'center' });
-  }
+  // Tanda Tangan Section Head Terpusat
+  await drawSectionHeadSignature(doc, {
+    dept_head_name,
+    dept_head_nip,
+    dept_head_signature_url
+  }, startX, contentWidth);
 
   applyWatermarkAndPageNumbers(doc, contentWidth, startX, 'ARFF YIA • INCIDENT SUMMARY REPORT');
 

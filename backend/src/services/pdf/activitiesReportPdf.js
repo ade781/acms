@@ -1,5 +1,11 @@
 import PDFDocument from 'pdfkit';
-import { resolveSignatureBuffer, applyWatermarkAndPageNumbers } from './pdfHelpers.js';
+import {
+  resolveSignatureBuffer,
+  applyWatermarkAndPageNumbers,
+  drawOfficialHeader,
+  drawSectionHeadSignature,
+  checkPageBreak,
+} from './pdfHelpers.js';
 
 /**
  * Membuat stream PDF Laporan Rekapitulasi Logbook Kegiatan Rutin Operasional ARFF (A4 Portrait)
@@ -30,24 +36,14 @@ export const generateActivitiesReportPdf = async (reportData) => {
   const contentWidth = 515;
   const startX = 40;
 
-  // Header Kop Instansi
-  doc.fontSize(11).font('Helvetica-Bold').fillColor('#0f172a').text(
-    'PT ANGKASA PURA INDONESIA - BANDARA INTERNASIONAL YOGYAKARTA',
-    startX, 35, { align: 'center', width: contentWidth }
-  );
-  doc.fontSize(10).font('Helvetica-Bold').fillColor('#1e293b').text(
-    'UNIT AIRPORT RESCUE & FIRE FIGHTING (PKP-PK)',
-    startX, 50, { align: 'center', width: contentWidth }
-  );
-  doc.fontSize(8.5).font('Helvetica').fillColor('#475569').text(
+  // Header Dokumen Resmi Terpusat (Kop PT Angkasa Pura Indonesia & Garis Ganda)
+  drawOfficialHeader(
+    doc,
+    'AIRPORT RESCUE & FIRE FIGHTING (ARFF) SECTION',
     'LAPORAN RESMI REKAPITULASI LOGBOOK KEGIATAN OPERASIONAL DINAS',
-    startX, 67, { align: 'center', width: contentWidth }
+    contentWidth,
+    startX
   );
-
-  doc.moveTo(startX, 82).lineTo(startX + contentWidth, 82).lineWidth(1.5).strokeColor('#1e293b').stroke();
-  doc.moveTo(startX, 84).lineTo(startX + contentWidth, 84).lineWidth(0.5).strokeColor('#94a3b8').stroke();
-
-  doc.y = 92;
 
   // Box Informasi Periode & Statistik
   doc.rect(startX, doc.y, contentWidth, 38).fillAndStroke('#f8fafc', '#cbd5e1');
@@ -69,15 +65,6 @@ export const generateActivitiesReportPdf = async (reportData) => {
   doc.font('Helvetica').text(summary.teamLabel || 'Seluruh Regu (A-D)', startX + 415, infoY2);
 
   doc.y = 140;
-
-  const checkPageBreak = (neededHeight) => {
-    if (doc.y + neededHeight > 740) {
-      doc.addPage();
-      doc.y = 35;
-      return true;
-    }
-    return false;
-  };
 
   // Tabel Logbook Kegiatan
   doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('DAFTAR LOGBOOK AKTIVITAS & KEGIATAN DINAS OPERASIONAL');
@@ -103,7 +90,7 @@ export const generateActivitiesReportPdf = async (reportData) => {
     doc.y = actHeaderY + 18;
 
     activities.forEach((act, idx) => {
-      checkPageBreak(28);
+      checkPageBreak(doc, 28);
       const rowY = doc.y;
       if (idx % 2 === 1) doc.rect(startX, rowY, contentWidth, 24).fill('#f8fafc');
 
@@ -131,31 +118,12 @@ export const generateActivitiesReportPdf = async (reportData) => {
     });
   }
 
-  // Tanda Tangan Section Head
-  if (doc.y + 100 > 740) {
-    doc.addPage();
-    doc.y = 45;
-  } else {
-    doc.moveDown(1.5);
-  }
-
-  const signY = doc.y;
-  doc.fontSize(8.5).font('Helvetica').fillColor('#0f172a').text('Mengetahui / Mengesahkan,', startX + contentWidth - 220, signY, { width: 220, align: 'center' });
-  doc.fontSize(8).font('Helvetica-Bold').text('AIRPORT RESCUE & FIRE FIGHTING SECTION HEAD', startX + contentWidth - 220, signY + 12, { width: 220, align: 'center' });
-
-  const deptSigBuffer = await resolveSignatureBuffer(dept_head_signature_url);
-  if (deptSigBuffer) {
-    try {
-      doc.image(deptSigBuffer, startX + contentWidth - 165, signY + 25, { fit: [110, 40], align: 'center' });
-    } catch (e) {
-      console.warn('Gagal memuat tanda tangan Dept Head:', e.message);
-    }
-  }
-
-  doc.fontSize(8.5).font('Helvetica-Bold').text(`( ${dept_head_name} )`, startX + contentWidth - 220, signY + 68, { width: 220, align: 'center' });
-  if (dept_head_nip && dept_head_nip !== '-') {
-    doc.fontSize(7.5).font('Helvetica').fillColor('#475569').text(`NIP. ${dept_head_nip}`, startX + contentWidth - 220, signY + 80, { width: 220, align: 'center' });
-  }
+  // Tanda Tangan Section Head Terpusat
+  await drawSectionHeadSignature(doc, {
+    dept_head_name,
+    dept_head_nip,
+    dept_head_signature_url
+  }, startX, contentWidth);
 
   applyWatermarkAndPageNumbers(doc, contentWidth, startX, 'ARFF YIA • ACTIVITIES LOGBOOK REPORT');
 

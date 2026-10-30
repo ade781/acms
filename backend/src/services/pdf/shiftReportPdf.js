@@ -1,5 +1,11 @@
 import PDFDocument from 'pdfkit';
-import { resolveSignatureBuffer, applyWatermarkAndPageNumbers } from './pdfHelpers.js';
+import {
+  resolveSignatureBuffer,
+  applyWatermarkAndPageNumbers,
+  drawOfficialHeader,
+  drawSectionHeadSignature,
+  checkPageBreak,
+} from './pdfHelpers.js';
 
 /**
  * Membuat stream PDF Dokumen Resmi Laporan Shift ARFF (Format A4)
@@ -46,30 +52,14 @@ export const generateShiftReportPdf = async (reportData) => {
   const startX = 40;
   const contentWidth = 515;
 
-  // Header Dokumen Resmi
-  doc.fontSize(13).font('Helvetica-Bold').fillColor('#0f172a').text(
+  // Header Dokumen Resmi Terpusat (Kop PT Angkasa Pura Indonesia & Garis Ganda)
+  drawOfficialHeader(
+    doc,
     'AIRPORT RESCUE & FIRE FIGHTING (ARFF) SECTION',
-    startX,
-    35,
-    { align: 'center', width: contentWidth }
-  );
-  doc.fontSize(10).font('Helvetica-Bold').fillColor('#b91c1c').text(
-    'BANDARA INTERNASIONAL YOGYAKARTA (YIA)',
-    startX,
-    52,
-    { align: 'center', width: contentWidth }
-  );
-  doc.fontSize(8.5).font('Helvetica').fillColor('#475569').text(
     'LAPORAN RESMI PELAKSANAAN DINAS SHIFT OPERASIONAL',
-    startX,
-    67,
-    { align: 'center', width: contentWidth }
+    contentWidth,
+    startX
   );
-
-  doc.moveTo(startX, 82).lineTo(startX + contentWidth, 82).lineWidth(1.5).strokeColor('#1e293b').stroke();
-  doc.moveTo(startX, 84).lineTo(startX + contentWidth, 84).lineWidth(0.5).strokeColor('#94a3b8').stroke();
-
-  doc.y = 92;
 
   // Box Informasi Shift
   doc.rect(startX, doc.y, contentWidth, 42).fillAndStroke('#f8fafc', '#cbd5e1');
@@ -109,17 +99,8 @@ export const generateShiftReportPdf = async (reportData) => {
 
   doc.y = 145;
 
-  const checkPageBreak = (neededHeight) => {
-    if (doc.y + neededHeight > 740) {
-      doc.addPage();
-      doc.y = 35;
-      return true;
-    }
-    return false;
-  };
-
   // 1. Kesiapan Fasilitas Posko Watch Room
-  checkPageBreak(40);
+  checkPageBreak(doc, 40);
   doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('1. KESIAPAN FASILITAS WATCH ROOM & KOMUNIKASI');
   doc.moveDown(0.3);
 
@@ -138,7 +119,7 @@ export const generateShiftReportPdf = async (reportData) => {
   doc.y += 28;
 
   // 2. Kesiapan Armada Utama & Pendukung
-  checkPageBreak(50);
+  checkPageBreak(doc, 50);
   doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('2. KESIAPAN ARMADA PEMADAM & KENDARAAN OPERASIONAL');
   doc.moveDown(0.3);
 
@@ -202,7 +183,7 @@ export const generateShiftReportPdf = async (reportData) => {
   doc.y = curY + 10;
 
   // 3. Ploting Kekuatan Personel
-  checkPageBreak(45);
+  checkPageBreak(doc, 45);
   doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('3. KEKUATAN & DISTRIBUSI PERSONEL DINAS');
   doc.moveDown(0.3);
 
@@ -220,12 +201,12 @@ export const generateShiftReportPdf = async (reportData) => {
   doc.moveDown(0.8);
 
   // 4. Rekapitulasi Insiden & Kejadian
-  checkPageBreak(40);
+  checkPageBreak(doc, 40);
   doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('4. REKAPITULASI KEJADIAN & INSIDEN OPERASIONAL');
   doc.moveDown(0.3);
 
   if (incidents.length === 0) {
-    checkPageBreak(25);
+    checkPageBreak(doc, 25);
     doc.rect(startX, doc.y, contentWidth, 18).fillAndStroke('#f0fdf4', '#bbf7d0');
     doc.fontSize(8).font('Helvetica-Bold').fillColor('#15803d').text(
       'NIHIL — Seluruh operasional penerbangan dan fasilitas bandara berlangsung dalam kondisi aman terkendali.',
@@ -245,7 +226,7 @@ export const generateShiftReportPdf = async (reportData) => {
       const detailH = doc.heightOfString(detailText, { width: contentWidth - 20 });
 
       const totalBoxH = Math.max(26, titleH + detailH + 10);
-      checkPageBreak(totalBoxH + 4);
+      checkPageBreak(doc, totalBoxH + 4);
 
       const incBoxY = doc.y;
       doc.rect(startX, incBoxY, contentWidth, totalBoxH).fillAndStroke('#fef2f2', '#fecaca');
@@ -267,7 +248,7 @@ export const generateShiftReportPdf = async (reportData) => {
   }
 
   // 5. Logbook Kegiatan Shift
-  checkPageBreak(40);
+  checkPageBreak(doc, 40);
   doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('5. JURNAL KEGIATAN RUTIN SHIFT OPERASIONAL');
   doc.moveDown(0.3);
 
@@ -282,7 +263,7 @@ export const generateShiftReportPdf = async (reportData) => {
       doc.fontSize(8).font('Helvetica');
       const actHeight = doc.heightOfString(fullText, { width: contentWidth }) + 4;
 
-      checkPageBreak(actHeight);
+      checkPageBreak(doc, actHeight);
 
       doc.fontSize(8).font('Helvetica-Bold').fillColor('#0f172a').text(
         prefix,
@@ -294,56 +275,43 @@ export const generateShiftReportPdf = async (reportData) => {
   }
 
   // Tanda Tangan Pengesahan Pejabat (Pindah halaman jika ruang di bawah tidak cukup)
-  checkPageBreak(115);
+  checkPageBreak(doc, 115);
   doc.moveDown(1.5);
 
   const signY = doc.y;
-  doc.fontSize(8.5).font('Helvetica').fillColor('#0f172a');
-  doc.text('Mengetahui / Menyetujui,', startX + 20, signY, { width: 200, align: 'center' });
-  doc.text('Pejabat Penanggung Jawab Shift,', startX + 295, signY, { width: 200, align: 'center' });
 
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#0f172a');
-  doc.text('AIRPORT RESCUE & FIRE FIGHTING SECTION HEAD', startX + 20, signY + 12, { width: 200, align: 'center' });
-  doc.text('KETUA REGU / SUPERVISOR DINAS', startX + 295, signY + 12, { width: 200, align: 'center' });
+  // 1. Pengesahan Section Head (Kiri)
+  await drawSectionHeadSignature(doc, {
+    name: dept_head_name,
+    nip: dept_head_nip,
+    signature_url: dept_head_signature_url,
+    title: 'Mengetahui / Menyetujui,',
+    role: 'AIRPORT RESCUE & FIRE FIGHTING SECTION HEAD',
+    x: startX + 20,
+    width: 200,
+    imgFit: [100, 38],
+    isDraft: !isShiftClosed
+  }, startX, contentWidth, signY);
 
-  // Sematkan tanda tangan digital Dept Head HANYA jika status shift sudah disahkan (closed)
-  const deptSigBuffer = isShiftClosed ? await resolveSignatureBuffer(dept_head_signature_url) : null;
-  if (deptSigBuffer) {
-    try {
-      doc.image(deptSigBuffer, startX + 70, signY + 25, { fit: [100, 38], align: 'center' });
-    } catch (e) {
-      console.warn('Gagal memuat tanda tangan Dept Head:', e.message);
-    }
-  } else if (!isShiftClosed) {
-    // Penanda status draf pada kolom pengesahan Section Head
-    doc.fontSize(8).font('Helvetica-Oblique').fillColor('#94a3b8').text(
-      '( Menunggu Pengesahan Dinas )',
-      startX + 20,
-      signY + 40,
-      { width: 200, align: 'center' }
-    );
-  }
+  // 2. Pengesahan Supervisor Dinas / Ketua Regu (Kanan)
+  const supX = startX + 295;
+  const supWidth = 200;
+  doc.fontSize(8.5).font('Helvetica').fillColor('#0f172a').text('Pejabat Penanggung Jawab Shift,', supX, signY, { width: supWidth, align: 'center' });
+  doc.fontSize(8).font('Helvetica-Bold').fillColor('#0f172a').text('KETUA REGU / SUPERVISOR DINAS', supX, signY + 12, { width: supWidth, align: 'center' });
 
-  // Sematkan tanda tangan digital Supervisor dinas jika tersedia (mendukung PNG, JPEG, dan transcoding otomatis WebP)
+  // Sematkan tanda tangan digital Supervisor dinas jika tersedia (menggunakan signatureBufferCache)
   const supSigBuffer = await resolveSignatureBuffer(supervisor_signature_url);
   if (supSigBuffer) {
     try {
-      doc.image(supSigBuffer, startX + 345, signY + 25, { fit: [100, 38], align: 'center' });
+      doc.image(supSigBuffer, supX + 50, signY + 25, { fit: [100, 38], align: 'center' });
     } catch (e) {
       console.warn('Gagal memuat tanda tangan Supervisor:', e.message);
     }
   }
 
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0f172a');
-  doc.text(`( ${dept_head_name} )`, startX + 20, signY + 68, { width: 200, align: 'center' });
-  doc.text(`( ${supervisor_name || `Ketua Regu ${team_group}`} )`, startX + 295, signY + 68, { width: 200, align: 'center' });
-
-  doc.fontSize(7.5).font('Helvetica').fillColor('#475569');
-  if (dept_head_nip && dept_head_nip !== '-') {
-    doc.text(`NIP. ${dept_head_nip}`, startX + 20, signY + 79, { width: 200, align: 'center' });
-  }
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0f172a').text(`( ${supervisor_name || `Ketua Regu ${team_group}`} )`, supX, signY + 68, { width: supWidth, align: 'center' });
   if (supervisor_nip && supervisor_nip !== '-') {
-    doc.text(`NIP. ${supervisor_nip}`, startX + 295, signY + 79, { width: 200, align: 'center' });
+    doc.fontSize(7.5).font('Helvetica').fillColor('#475569').text(`NIP. ${supervisor_nip}`, supX, signY + 80, { width: supWidth, align: 'center' });
   }
 
   // Watermark Resmi & Penomoran Halaman Otomatis (Watermark 'DRAFT • BELUM DISAHKAN' jika belum closed)
