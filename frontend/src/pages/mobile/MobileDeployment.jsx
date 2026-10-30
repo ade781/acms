@@ -6,8 +6,7 @@ import api from '../../services/api';
 import MobilePlotCard from '../../components/mobile/ploting/MobilePlotCard';
 import MobileCrewPickerSheet from '../../components/mobile/ploting/MobileCrewPickerSheet';
 import MobileAbsentCrewSection from '../../components/mobile/ploting/MobileAbsentCrewSection';
-import MobileCancelLeaveConfirmModal from '../../components/mobile/ploting/MobileCancelLeaveConfirmModal';
-import WatchroomReadinessModal from '../../components/forms/WatchroomReadinessModal';
+import CancelLeaveModal from '../../components/leave/CancelLeaveModal';
 import VehicleReadinessModal from '../../components/forms/VehicleReadinessModal';
 
 export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) {
@@ -720,63 +719,39 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
       />
 
       {/* Modal Konfirmasi Pembatalan Cuti */}
-      <MobileCancelLeaveConfirmModal
+      <CancelLeaveModal
         isOpen={cancelModalOpen}
         onClose={() => {
           setCancelModalOpen(false);
           setTargetCancelLeave(null);
         }}
         onConfirm={handleConfirmCancelLeave}
-        personnelName={targetCancelLeave?.name || ''}
-        reason={targetCancelLeave?.reason || 'cuti'}
-        loading={cancelingLeave}
+        targetLeave={targetCancelLeave}
+        deleting={cancelingLeave}
       />
 
-      {/* Modal Pemeriksaan Kesiapan Fisik Armada / Posko Watchroom Mobile */}
+      {/* Modal Pemeriksaan Kesiapan Fisik Armada & Posko Watchroom Mobile */}
       {inspectionModalOpen && selectedUnitForInspection && (
-        (selectedUnitForInspection.category === 'posko' || selectedUnitForInspection.code_name === 'WATCHROOM') ? (
-          <WatchroomReadinessModal
-            isOpen={inspectionModalOpen}
-            onClose={() => {
-              setInspectionModalOpen(false);
-              setSelectedUnitForInspection(null);
-            }}
-            logItem={selectedUnitForInspection}
-            activeDate={activeDate}
-            activeShiftNumber={activeShiftNumber}
-            activeTeam={activeTeam}
-            onSuccess={(customMsg) => {
-              loadPlotingData();
-              setToastMsg(
-                customMsg ||
-                `Kesiapan fasilitas posko ${
-                  selectedUnitForInspection.code_name || selectedUnitForInspection.vehicle_name
-                } berhasil diperbarui.`
-              );
-            }}
-          />
-        ) : (
-          <VehicleReadinessModal
-            isOpen={inspectionModalOpen}
-            onClose={() => {
-              setInspectionModalOpen(false);
-              setSelectedUnitForInspection(null);
-            }}
-            vehicle={selectedUnitForInspection}
-            activeDate={activeDate}
-            activeShiftNumber={activeShiftNumber}
-            activeTeam={activeTeam}
-            onSuccess={(customMsg) => {
-              loadPlotingData();
-              setToastMsg(
-                customMsg ||
-                `Kesiapan fisik kendaraan ${
-                  selectedUnitForInspection.code_name || selectedUnitForInspection.vehicle_name
-                } berhasil diperbarui.`
-              );
-            }}
-          />
-        )
+        <VehicleReadinessModal
+          isOpen={inspectionModalOpen}
+          onClose={() => {
+            setInspectionModalOpen(false);
+            setSelectedUnitForInspection(null);
+          }}
+          vehicle={selectedUnitForInspection}
+          activeDate={activeDate}
+          activeShiftNumber={activeShiftNumber}
+          activeTeam={activeTeam}
+          onSuccess={(customMsg) => {
+            loadPlotingData();
+            setToastMsg(
+              customMsg ||
+              `Kesiapan ${
+                selectedUnitForInspection.code_name || selectedUnitForInspection.vehicle_name || 'Unit'
+              } berhasil diperbarui.`
+            );
+          }}
+        />
       )}
     </div>
   );

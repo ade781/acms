@@ -9,12 +9,14 @@ export default function CancelLeaveModal({
   targetLeave = null,
   onConfirm,
   deleting = false,
+  loading = false,
 }) {
   if (!isOpen || !targetLeave) return null;
 
+  const isDeleting = deleting || loading;
   const dateDisplay = targetLeave.start_date && targetLeave.end_date && targetLeave.start_date !== targetLeave.end_date
     ? `${targetLeave.start_date} s/d ${targetLeave.end_date}`
-    : (targetLeave.start_date || targetLeave.shift_date || '-');
+    : (targetLeave.start_date || targetLeave.shift_date || 'Shift Aktif');
 
   return (
     <Modal
@@ -26,14 +28,14 @@ export default function CancelLeaveModal({
           <Button
             variant="outline"
             onClick={onClose}
-            disabled={deleting}
+            disabled={isDeleting}
           >
             Kembali
           </Button>
           <Button
             variant="danger"
             onClick={onConfirm}
-            loading={deleting}
+            loading={isDeleting}
           >
             Ya, Batalkan Cuti Ini
           </Button>
@@ -46,7 +48,7 @@ export default function CancelLeaveModal({
         </p>
         <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-1.5">
           <div className="font-bold text-slate-900 text-sm">
-            {targetLeave.personnel_name || targetLeave.full_name || `Personel #${targetLeave.personnel_id}`}
+            {targetLeave.personnel_name || targetLeave.full_name || targetLeave.name || `Personel #${targetLeave.personnel_id}`}
           </div>
           <div className="text-slate-600 flex items-center gap-2">
             <span>Periode: <strong className="font-mono text-slate-800">{dateDisplay}</strong></span>

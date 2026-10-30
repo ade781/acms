@@ -6,7 +6,7 @@ import MobileHeader from './MobileHeader';
 import MobileBottomNav from './MobileBottomNav';
 import MobileProfileView from './profile/MobileProfileView';
 import MobileAnnouncementsModal from './announcements/MobileAnnouncementsModal';
-import MobileLeaveModal from './dashboard/MobileLeaveModal';
+import LeaveModal from '../forms/LeaveModal';
 import MandatoryPasswordChangeModal from '../forms/MandatoryPasswordChangeModal';
 import OfflineBanner from '../common/OfflineBanner';
 
@@ -140,14 +140,11 @@ export default function MobileLayout({ children }) {
         />
 
         {/* Global Mobile Leave Modal */}
-        <MobileLeaveModal
+        <LeaveModal
           isOpen={isLeaveModalOpen}
           onClose={() => setIsLeaveModalOpen(false)}
           user={user}
           activeDate={activeDate}
-          activeShiftNumber={activeShiftNumber}
-          activeTeam={activeTeam}
-          activeUserLeave={activeUserLeaveDetail}
           onSuccess={() => {
             setIsLeaveModalOpen(false);
             window.dispatchEvent(new CustomEvent('arff:leave-updated'));
