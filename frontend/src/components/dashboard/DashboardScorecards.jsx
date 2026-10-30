@@ -9,17 +9,19 @@ import { ShieldCheck, Bell, UserX, Activity } from 'lucide-react';
  * 4. Agenda & Log Kegiatan Shift
  */
 export default function DashboardScorecards({
-  currentTeam,
-  supervisorName,
-  latestAnnouncement,
-  personnelComposition,
-  activities,
-  onOpenModal,
-  onKeyDown
+  currentTeam = 'Alpha',
+  supervisorName = 'Belum Ditentukan',
+  latestAnnouncement = null,
+  personnelComposition = { onDutyCount: 0, absentCount: 0, totalAllAbsentCount: 0, activeTeamAbsentCount: 0 },
+  activities = [],
+  onOpenModal = () => {},
+  onKeyDown = () => {}
 }) {
   const chiefDisplayName = typeof supervisorName === 'string'
     ? supervisorName
     : (supervisorName?.full_name || 'Belum Ditentukan');
+
+  const safeActivities = Array.isArray(activities) ? activities : [];
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
@@ -47,7 +49,7 @@ export default function DashboardScorecards({
         <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
           <span className="text-slate-500">Kekuatan Dinas:</span>
           <span className="font-bold font-mono text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-            {personnelComposition.onDutyCount} Personel Hadir
+            {personnelComposition?.onDutyCount ?? 0} Personel Hadir
           </span>
         </div>
       </div>
@@ -108,7 +110,7 @@ export default function DashboardScorecards({
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold font-mono tabular-nums text-slate-900">
-              {personnelComposition.totalAllAbsentCount ?? personnelComposition.absentCount ?? 0}
+              {personnelComposition?.totalAllAbsentCount ?? personnelComposition?.absentCount ?? 0}
             </span>
             <span className="text-xs text-slate-500 font-medium">
               Total Izin / Cuti Hari Ini
@@ -118,7 +120,7 @@ export default function DashboardScorecards({
 
         <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
           <span className="truncate">
-            {(personnelComposition.activeTeamAbsentCount ?? 0) > 0
+            {(personnelComposition?.activeTeamAbsentCount ?? 0) > 0
               ? `${personnelComposition.activeTeamAbsentCount} personel shift aktif berhalangan`
               : `Regu ${String(currentTeam || '')} hadir lengkap tanpa cuti/izin`}
           </span>
@@ -140,7 +142,7 @@ export default function DashboardScorecards({
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold font-mono tabular-nums text-slate-900">
-              {activities.length}
+              {safeActivities.length}
             </span>
             <span className="text-xs text-slate-500 font-medium">Kegiatan Shift Ini</span>
           </div>
@@ -148,8 +150,8 @@ export default function DashboardScorecards({
 
         <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
           <span className="truncate">
-            {activities.length > 0
-              ? `Terbaru: ${typeof activities[0]?.title === 'string' ? activities[0].title : (typeof activities[0]?.activity_name === 'string' ? activities[0].activity_name : 'Kegiatan Operasional')}`
+            {safeActivities.length > 0
+              ? `Terbaru: ${typeof safeActivities[0]?.title === 'string' ? safeActivities[0].title : (typeof safeActivities[0]?.activity_name === 'string' ? safeActivities[0].activity_name : 'Kegiatan Operasional')}`
               : 'Belum ada kegiatan tercatat'}
           </span>
         </div>

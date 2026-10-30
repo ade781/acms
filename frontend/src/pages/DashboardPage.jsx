@@ -252,8 +252,8 @@ export default function DashboardPage() {
   // Pemetaan penugasan personel pada shift berjalan (personnel_id -> informasi penugasan)
   const deploymentByPersonnelId = useMemo(() => {
     const map = new Map();
-    deployments.forEach((d) => {
-      if (d.personnel_id) {
+    (Array.isArray(deployments) ? deployments : []).forEach((d) => {
+      if (d?.personnel_id) {
         map.set(Number(d.personnel_id), d);
       }
     });
@@ -265,26 +265,27 @@ export default function DashboardPage() {
     const picMap = {};
     const crewMap = {};
 
-    if (rawDeploymentPayload?.vehicles) {
+    if (Array.isArray(rawDeploymentPayload?.vehicles)) {
       rawDeploymentPayload.vehicles.forEach((v) => {
-        crewMap[v.vehicle_id] = v.crew || [];
+        if (!v) return;
+        crewMap[v.vehicle_id] = Array.isArray(v.crew) ? v.crew : [];
         if (v.pic?.full_name) {
           picMap[v.vehicle_id] = v.pic.full_name;
         }
       });
     }
-    if (rawDeploymentPayload?.watchroom) {
+    if (Array.isArray(rawDeploymentPayload?.watchroom)) {
       crewMap['watchroom'] = rawDeploymentPayload.watchroom;
-      const watchPic = rawDeploymentPayload.watchroom.find((w) => w.is_pic === 1);
+      const watchPic = rawDeploymentPayload.watchroom.find((w) => w && w.is_pic === 1);
       if (watchPic?.full_name) {
         picMap['watchroom'] = watchPic.full_name;
       }
     }
 
     // Fallback dari deployments jika payload vehicles belum terstruktur
-    if (Object.keys(crewMap).length === 0 && deployments.length > 0) {
+    if (Object.keys(crewMap).length === 0 && Array.isArray(deployments) && deployments.length > 0) {
       deployments.forEach((d) => {
-        if (d.deployment_type === 'absent') return;
+        if (!d || d.deployment_type === 'absent') return;
         const key = d.deployment_type === 'watchroom' ? 'watchroom' : d.vehicle_id;
         if (key) {
           if (!crewMap[key]) crewMap[key] = [];
@@ -301,18 +302,20 @@ export default function DashboardPage() {
 
   // Ringkasan Kekuatan & Formasi Shift Aktif (Langsung dari currentDeployment)
   const personnelComposition = useMemo(() => {
-    const onDutyDeployments = deployments.filter((d) => d.deployment_type !== 'absent');
+    const safeDeployments = Array.isArray(deployments) ? deployments : [];
+    const safeAbsents = Array.isArray(absents) ? absents : [];
+    const onDutyDeployments = safeDeployments.filter((d) => d && d.deployment_type !== 'absent');
     const absentDeployments =
-      absents.length > 0 ? absents : deployments.filter((d) => d.deployment_type === 'absent');
+      safeAbsents.length > 0 ? safeAbsents : safeDeployments.filter((d) => d && d.deployment_type === 'absent');
     const onDutyCount = onDutyDeployments.length;
     const absentCount = absentDeployments.length;
     const totalTeam = rawDeploymentPayload?.total_team_members || (onDutyCount + absentCount);
 
     const organikCount = onDutyDeployments.filter(
-      (d) => String(d.employment_status || 'organik').toLowerCase() === 'organik'
+      (d) => String(d?.employment_status || 'organik').toLowerCase() === 'organik'
     ).length;
     const outsourcingCount = onDutyDeployments.filter(
-      (d) => String(d.employment_status || '').toLowerCase() === 'outsourcing'
+      (d) => String(d?.employment_status || '').toLowerCase() === 'outsourcing'
     ).length;
 
     return {
@@ -355,10 +358,10 @@ export default function DashboardPage() {
   const supervisorName = useMemo(() => {
     return (
       shiftInfo?.supervisor_name ||
-      deployments.find(
+      (Array.isArray(deployments) ? deployments : []).find(
         (d) =>
-          d.rank_position?.toLowerCase().includes('chief') &&
-          !d.rank_position?.toLowerCase().includes('assistant')
+          d?.rank_position?.toLowerCase().includes('chief') &&
+          !d?.rank_position?.toLowerCase().includes('assistant')
       )?.full_name ||
       'Belum Ditentukan'
     );
@@ -415,16 +418,16 @@ export default function DashboardPage() {
 
   // Anggota yang ditampilkan pada Modal Layer 2 Personel
   const filteredModalPersonnel = useMemo(() => {
-    return [...deployments].sort((a, b) => {
+    return [...(Array.isArray(deployments) ? deployments : [])].sort((a, b) => {
       const aChief =
-        String(a.rank_position || '').toLowerCase().includes('chief') &&
-        !String(a.rank_position || '').toLowerCase().includes('assistant');
+        String(a?.rank_position || '').toLowerCase().includes('chief') &&
+        !String(a?.rank_position || '').toLowerCase().includes('assistant');
       const bChief =
-        String(b.rank_position || '').toLowerCase().includes('chief') &&
-        !String(b.rank_position || '').toLowerCase().includes('assistant');
+        String(b?.rank_position || '').toLowerCase().includes('chief') &&
+        !String(b?.rank_position || '').toLowerCase().includes('assistant');
       if (aChief && !bChief) return -1;
       if (!aChief && bChief) return 1;
-      return String(a.full_name || '').localeCompare(String(b.full_name || ''));
+      return String(a?.full_name || '').localeCompare(String(b?.full_name || ''));
     });
   }, [deployments]);
 

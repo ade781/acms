@@ -8,14 +8,16 @@ import { Truck, Radio, AlertTriangle, HelpCircle } from 'lucide-react';
  * badge mencolok hanya digunakan untuk pengecualian (Unserviceable / Belum Dicek).
  */
 export default function DashboardFleetSection({
-  vehicles,
-  loading,
-  fleetMetrics,
-  vehicleDeploymentDetails,
-  watchroomLog,
-  onOpenModal,
-  onKeyDown
+  vehicles = [],
+  loading = false,
+  fleetMetrics = { total: 0, serviceable: 0, unserviceable: 0, unchecked: 0 },
+  vehicleDeploymentDetails = { picMap: {}, crewMap: {} },
+  watchroomLog = null,
+  onOpenModal = () => {},
+  onKeyDown = () => {}
 }) {
+  const safeVehicles = Array.isArray(vehicles) ? vehicles : [];
+
   return (
     <div className="lg:col-span-6 h-[564px] bg-white rounded-xl border border-slate-200 flex flex-col overflow-hidden">
       <div className="px-4 py-3.5 border-b border-slate-200 flex items-center justify-between gap-3 bg-slate-50/50 shrink-0">
@@ -28,7 +30,7 @@ export default function DashboardFleetSection({
           </p>
         </div>
         <span className="text-xs font-mono tabular-nums font-bold text-slate-800 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shrink-0">
-          {fleetMetrics.serviceable}/{fleetMetrics.total} Siap Operasi
+          {fleetMetrics?.serviceable ?? 0}/{fleetMetrics?.total ?? 0} Siap Operasi
         </span>
       </div>
 
@@ -38,12 +40,13 @@ export default function DashboardFleetSection({
           <div className="h-full flex items-center justify-center text-xs text-slate-500">
             Memuat data kesiapan armada dan posko...
           </div>
-        ) : vehicles.length === 0 ? (
+        ) : safeVehicles.length === 0 ? (
           <div className="h-full flex items-center justify-center px-4 text-center text-xs text-slate-500">
             Belum ada unit armada operasional yang terdaftar di database.
           </div>
         ) : (
-          vehicles.map((vehicle) => {
+          safeVehicles.map((vehicle) => {
+            if (!vehicle) return null;
             const vId = vehicle.id || vehicle.vehicle_id;
             const status = vehicle.status || vehicle.readiness || 'belum_dilaporkan';
             const isUnserviceable = status === 'unserviceable';

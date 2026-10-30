@@ -35,6 +35,15 @@ const DAY_NAME_TO_SHORT = {
   Sabtu: 'Sab',
 };
 
+const getDayOfWeekIndex = (dateStr) => {
+  if (!dateStr) return 0;
+  const parts = String(dateStr).split('-').map(Number);
+  if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+    return new Date(parts[0], parts[1] - 1, parts[2]).getDay();
+  }
+  return new Date(dateStr).getDay();
+};
+
 const getTeamPillClass = (teamName) => {
   switch (cleanTeam(teamName).toLowerCase()) {
     case 'alpha':
@@ -443,8 +452,8 @@ export default function RosterSchedulePage() {
                       const todayCheck = isToday(item.date);
                       const dayShort = item.day_name
                         ? (DAY_NAME_TO_SHORT[item.day_name] || item.day_name.slice(0, 3))
-                        : (item.date ? DAY_SHORT_NAMES[new Date(item.date).getDay()] : '');
-                      const isSunday = item.day_name ? item.day_name === 'Minggu' : (item.date ? new Date(item.date).getDay() === 0 : false);
+                        : (item.date ? DAY_SHORT_NAMES[getDayOfWeekIndex(item.date)] : '');
+                      const isSunday = item.day_name ? item.day_name === 'Minggu' : (item.date ? getDayOfWeekIndex(item.date) === 0 : false);
 
                       return (
                         <th
