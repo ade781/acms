@@ -86,12 +86,3 @@ export function getVehicleIcon(vehicle) {
   return DefaultTruckSvg;
 }
 
-export {
-  FoamTenderSvg,
-  AmbulanceSvg,
-  NurseTenderSvg,
-  RIVSvg,
-  CommandoCarSvg,
-  WatchroomSvg,
-  DefaultTruckSvg
-};

@@ -23,8 +23,6 @@ import ActivityDeleteModal from '../components/activities/ActivityDeleteModal';
 import ActivityExportModal from '../components/activities/ActivityExportModal';
 import ActivityPhotoModal from '../components/activities/ActivityPhotoModal';
 
-// Re-export untuk kompatibilitas penuh
-export { OFFICIAL_ACTIVITY_CATEGORIES, getActivityCategoryMeta };
 
 export default function ActivitiesPage() {
   const { user, isAdmin, isSupervisor, activeDate, activeShiftNumber, activeTeam } = useAuth();

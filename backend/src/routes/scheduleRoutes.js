@@ -1,9 +1,6 @@
 import { Router } from 'express';
 import {
   getMonthlySchedule,
-  saveScheduleOverride,
-  deleteScheduleOverride,
-  updateAnchorDate,
   getScheduleCyclePreview,
   saveScheduleCycle,
   resetScheduleCycles,
@@ -20,9 +17,5 @@ router.get('/monthly', getMonthlySchedule);
 router.get('/cycle', getScheduleCyclePreview);
 router.post('/cycle', requireRole(['admin', 'supervisor', 'chief', 'chief_assistant', 'operation_chief', 'dept_head']), saveScheduleCycle);
 router.delete('/cycle', requireRole(['admin', 'supervisor', 'chief', 'chief_assistant', 'operation_chief', 'dept_head']), resetScheduleCycles);
-
-router.post('/override', requireRole(['admin', 'supervisor', 'chief', 'chief_assistant', 'operation_chief', 'dept_head']), saveScheduleOverride);
-router.delete('/override/:date', requireRole(['admin', 'supervisor', 'chief', 'chief_assistant', 'operation_chief', 'dept_head']), deleteScheduleOverride);
-router.post('/anchor', requireRole(['admin']), updateAnchorDate);
 
 export default router;

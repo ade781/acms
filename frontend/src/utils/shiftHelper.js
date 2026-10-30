@@ -84,7 +84,7 @@ export const SHIFT_DEFINITIONS = [
  * - Regu Charlie: Siang, Siang, Pagi, Pagi, Malam, Malam, Libur, Libur
  * - Regu Delta:   Pagi,  Pagi,  Malam, Malam, Libur, Libur, Siang, Siang
  */
-export const ROTATION_8_DAYS = [
+const ROTATION_8_DAYS = [
   // Day 0 & 1
   { 1: 'Delta', 2: 'Charlie', 3: 'Alpha', off: 'Bravo' },
   { 1: 'Delta', 2: 'Charlie', 3: 'Alpha', off: 'Bravo' },

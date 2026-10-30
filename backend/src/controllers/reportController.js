@@ -3,7 +3,6 @@
  * Modul dipecah berdasarkan domain spesifik:
  * - shiftReportsController: PDF Laporan Shift & Ringkasan Agregasi Shift
  * - vehicleReportsController: Pelacakan Kendala & PDF Kesiapan Armada
- * - incidentReportsController: PDF Rekapitulasi Insiden
  * - activityReportsController: PDF Logbook Kegiatan
  */
 
@@ -19,10 +18,6 @@ export {
   getVehicleIssuesAudit,
   getVehiclesReportPdf
 } from './reports/vehicleReportsController.js';
-
-export {
-  getIncidentsReportPdf
-} from './reports/incidentReportsController.js';
 
 export {
   getActivitiesReportPdf

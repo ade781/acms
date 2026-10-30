@@ -150,15 +150,6 @@ export default function MobileActivities() {
         </div>
       </div>
 
-      {/* Banner Ringkas Informatif Mode Pratinjau (Read-Only) */}
-      {!isLeader && (
-        <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2 shadow-2xs">
-          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-          <span className="text-[11px] font-medium leading-tight">
-            Mode Pratinjau (Read-Only) - Log kegiatan operasional dikelola oleh Chief / Asisten Regu.
-          </span>
-        </div>
-      )}
 
       {/* Filter Kategori Chips */}
       {activities.length > 0 && (

@@ -129,15 +129,6 @@ export default function MobileIncidents() {
         </div>
       </div>
 
-      {/* Banner Ringkas Informatif Mode Pratinjau (Read-Only) */}
-      {!isLeader && (
-        <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2 shadow-2xs">
-          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-          <span className="text-[11px] font-medium leading-tight">
-            Mode Pratinjau (Read-Only) - Pelaporan dan pembaruan status penanganan insiden dikelola oleh Chief / Asisten Regu.
-          </span>
-        </div>
-      )}
 
       {/* Toggle Filter Scope: Shift Ini vs Semua Riwayat */}
       <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-100 text-[10px] font-semibold">

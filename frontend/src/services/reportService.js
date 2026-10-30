@@ -2,8 +2,6 @@ import api from './api';
 import { cleanTeam } from '../utils/shiftHelper';
 import { downloadBlob } from '../utils/fileHelper';
 
-export { downloadBlob };
-
 /**
  * Service Terpadu Rekapitulasi Laporan Dinas Shift ARFF YIA
  * Single Source of Truth (DRY) untuk penarikan data laporan lintas perangkat (Desktop & Mobile)
@@ -129,11 +127,3 @@ export async function downloadActivityReportPdf({ period = '1month', start_date 
   downloadBlob(blob, `Laporan-Logbook-Kegiatan-${period}.pdf`);
 }
 
-export default {
-  fetchShiftReportData,
-  downloadShiftReportPdf,
-  downloadVehicleReportPdf,
-  downloadIncidentReportPdf,
-  downloadActivityReportPdf,
-  downloadBlob,
-};
