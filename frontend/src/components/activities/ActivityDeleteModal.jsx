@@ -37,7 +37,7 @@ export default function ActivityDeleteModal({
         <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
           <div className="font-bold text-slate-900">{targetActivity.title}</div>
           <div className="text-slate-500 mt-0.5">
-            Pukul {targetActivity.activity_time ? targetActivity.activity_time.slice(0, 5) : '-'} WIB •{' '}
+            Pukul <span className="font-mono tabular-nums">{targetActivity.activity_time ? targetActivity.activity_time.slice(0, 5) : '-'}</span> WIB •{' '}
             {categoryLabel}
           </div>
         </div>

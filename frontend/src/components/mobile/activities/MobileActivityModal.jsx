@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Check, AlertCircle } from 'lucide-react';
+import { Camera, Check, AlertCircle, X } from 'lucide-react';
 import api from '../../../services/api';
-import { ACTIVITY_CATEGORIES } from './MobileActivityTimelineItem';
+import { OFFICIAL_ACTIVITY_CATEGORIES } from '../../../utils/activityCategories';
 import { cleanTeam } from '../../../utils/shiftHelper';
 import { compressImageToWebP } from '../../../utils/imageCompressor';
 
@@ -132,12 +132,12 @@ export default function MobileActivityModal({
         await api.put(`/activities/${editingActivity.id}`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
-        onSuccess?.('✓ Catatan kegiatan berhasil diperbarui.');
+        onSuccess?.('Catatan kegiatan berhasil diperbarui.');
       } else {
         await api.post('/activities', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
-        onSuccess?.('✓ Kegiatan operasional berhasil dicatat ke logbook.');
+        onSuccess?.('Kegiatan operasional berhasil dicatat ke logbook.');
       }
 
       onClose();
@@ -172,15 +172,15 @@ export default function MobileActivityModal({
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 text-sm font-bold p-1 rounded"
+            className="text-slate-400 hover:text-slate-700 p-1 rounded"
             aria-label="Tutup"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {errorMsg && (
-          <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-800 text-[10.5px] flex items-center gap-1.5 shrink-0">
+          <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs flex items-center gap-1.5 shrink-0">
             <AlertCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
             <span className="leading-tight">
               {typeof errorMsg === 'string' ? errorMsg : (errorMsg?.message || 'Gagal menyimpan kegiatan.')}
@@ -192,7 +192,7 @@ export default function MobileActivityModal({
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-2 pr-0.5 text-xs">
           {/* Waktu Pelaksanaan */}
           <div>
-            <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+            <label className="text-xs font-bold text-slate-700 block mb-0.5">
               Waktu Pelaksanaan (WIB) *
             </label>
             <div className="relative">
@@ -201,23 +201,23 @@ export default function MobileActivityModal({
                 value={activityTime}
                 onChange={(e) => setActivityTime(e.target.value)}
                 required
-                className="w-full p-1.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 font-mono text-xs outline-none focus:bg-white focus:border-red-500 transition-colors duration-100"
+                className="w-full p-1.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 font-mono tabular-nums text-xs outline-none focus:bg-white focus:border-red-500 transition-colors duration-100"
               />
             </div>
           </div>
 
           {/* Kategori Baku Operasional */}
           <div>
-            <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+            <label className="text-xs font-bold text-slate-700 block mb-0.5">
               Kategori Baku Operasional *
             </label>
             <select
               value={activityType}
               onChange={(e) => setActivityType(e.target.value)}
-              className="w-full p-1.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 text-xs outline-none focus:bg-white focus:border-red-500 transition-colors duration-100"
+              className="w-full p-1.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 text-xs outline-none focus:bg-white focus:border-slate-400 focus:ring-1 focus:ring-slate-400 transition-colors duration-100"
             >
-              {Object.entries(ACTIVITY_CATEGORIES).map(([key, cat]) => (
-                <option key={key} value={key}>
+              {OFFICIAL_ACTIVITY_CATEGORIES.map((cat) => (
+                <option key={cat.value} value={cat.value}>
                   {cat.label}
                 </option>
               ))}
@@ -226,7 +226,7 @@ export default function MobileActivityModal({
 
           {/* Judul Kegiatan */}
           <div>
-            <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+            <label className="text-xs font-bold text-slate-700 block mb-0.5">
               Nama / Judul Kegiatan *
             </label>
             <input
@@ -241,7 +241,7 @@ export default function MobileActivityModal({
 
           {/* Uraian Kronologis Pelaksanaan */}
           <div>
-            <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+            <label className="text-xs font-bold text-slate-700 block mb-0.5">
               Uraian Kronologis Pelaksanaan *
             </label>
             <textarea
@@ -256,7 +256,7 @@ export default function MobileActivityModal({
 
           {/* Hasil Pelaksanaan & Catatan Khusus */}
           <div>
-            <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+            <label className="text-xs font-bold text-slate-700 block mb-0.5">
               Hasil Pelaksanaan & Catatan Khusus (Opsional)
             </label>
             <textarea
@@ -270,7 +270,7 @@ export default function MobileActivityModal({
 
           {/* Foto Dokumentasi Kegiatan */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-700 block">
+            <label className="text-xs font-bold text-slate-700 block">
               Foto Dokumentasi Kegiatan (Opsional)
             </label>
 
@@ -298,17 +298,17 @@ export default function MobileActivityModal({
                   <button
                     type="button"
                     onClick={handleRemovePhoto}
-                    className="absolute top-0 right-0 bg-red-600 text-white rounded-bl p-0.5 text-[8px] leading-none"
+                    className="absolute top-0 right-0 bg-red-600 text-white rounded-bl p-1 leading-none"
                     title="Hapus foto"
                   >
-                    ✕
+                    <X className="w-3 h-3" />
                   </button>
                 </div>
               )}
             </div>
             {selectedPhoto && (
-              <p className="text-[9px] text-slate-500 italic">
-                Berkas siap diunggah: {selectedPhoto.name} ({(selectedPhoto.size / 1024).toFixed(0)} KB)
+              <p className="text-xs text-slate-500 italic">
+                Berkas siap diunggah: {selectedPhoto.name} (<span className="font-mono tabular-nums">{(selectedPhoto.size / 1024).toFixed(0)}</span> KB)
               </p>
             )}
           </div>

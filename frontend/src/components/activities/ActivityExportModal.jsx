@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import InputField from '../common/InputField';
@@ -19,17 +19,16 @@ export default function ActivityExportModal({
   setExportCategory,
   exportTeam = 'ALL',
   setExportTeam,
-  onExport,
-  isExporting = false,
+  onPreview,
+  isLoadingPreview = false,
 }) {
   if (!isOpen) return null;
 
   return (
     <Modal
       isOpen={isOpen}
-      onClose={() => !isExporting && onClose()}
+      onClose={() => !isLoadingPreview && onClose()}
       title="Cetak Rekapitulasi Logbook Kegiatan Resmi"
-      subtitle="Unduh berkas PDF logbook rangkaian kegiatan dinas bertandatangan pimpinan dinas ARFF YIA"
     >
       <div className="space-y-4">
         <SelectField
@@ -90,18 +89,11 @@ export default function ActivityExportModal({
           />
         </div>
 
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 space-y-1">
-          <p className="font-semibold">Format Dokumen Cetak Standar D-OPS ARFF YIA:</p>
-          <p className="text-[11px] text-blue-700">
-            Dokumen PDF memuat daftar kronologis aktivitas dinas, jam pelaksanaan (WIB), kategori kegiatan, uraian teknis hasil pelaksanaan, serta lembar tanda tangan dinas Section Head.
-          </p>
-        </div>
-
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
           <Button
             type="button"
             variant="outline"
-            disabled={isExporting}
+            disabled={isLoadingPreview}
             onClick={onClose}
           >
             Batal
@@ -109,12 +101,12 @@ export default function ActivityExportModal({
           <Button
             type="button"
             variant="primary"
-            icon={Download}
-            loading={isExporting}
-            disabled={isExporting || (exportPeriod === 'custom' && (!exportStartDate || !exportEndDate))}
-            onClick={onExport}
+            icon={FileText}
+            loading={isLoadingPreview}
+            disabled={isLoadingPreview || (exportPeriod === 'custom' && (!exportStartDate || !exportEndDate))}
+            onClick={onPreview}
           >
-            {isExporting ? 'Memproses Dokumen PDF...' : 'Unduh Dokumen PDF'}
+            {isLoadingPreview ? 'Menyusun Pratinjau...' : 'Buka Pratinjau PDF'}
           </Button>
         </div>
       </div>

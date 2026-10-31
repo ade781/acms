@@ -110,9 +110,9 @@ export async function downloadIncidentReportPdf({ period = '1month', start_date 
 }
 
 /**
- * Mengunduh dokumen PDF Laporan Rekapitulasi Logbook Kegiatan Resmi
+ * Mengambil Blob dokumen PDF Laporan Rekapitulasi Logbook Kegiatan Resmi untuk pratinjau
  */
-export async function downloadActivityReportPdf({ period = '1month', start_date = '', end_date = '', category = '', team = '' } = {}) {
+export async function fetchActivityReportPdfBlob({ period = '1month', start_date = '', end_date = '', category = '', team = '' } = {}) {
   const query = new URLSearchParams({ period });
   if (start_date) query.append('start_date', start_date);
   if (end_date) query.append('end_date', end_date);
@@ -123,7 +123,14 @@ export async function downloadActivityReportPdf({ period = '1month', start_date 
     responseType: 'blob',
   });
 
-  const blob = new Blob([res.data], { type: 'application/pdf' });
-  downloadBlob(blob, `Laporan-Logbook-Kegiatan-${period}.pdf`);
+  return new Blob([res.data], { type: 'application/pdf' });
+}
+
+/**
+ * Mengunduh dokumen PDF Laporan Rekapitulasi Logbook Kegiatan Resmi
+ */
+export async function downloadActivityReportPdf(params = {}) {
+  const blob = await fetchActivityReportPdfBlob(params);
+  downloadBlob(blob, `Laporan-Logbook-Kegiatan-${params.period || '1month'}.pdf`);
 }
 

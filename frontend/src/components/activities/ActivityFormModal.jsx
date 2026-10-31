@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, X, AlertCircle } from 'lucide-react';
+import { Camera, X, AlertCircle, Clock } from 'lucide-react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import InputField from '../common/InputField';
@@ -62,13 +62,34 @@ export default function ActivityFormModal({
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <InputField
-            label="Waktu Pelaksanaan (WIB)"
-            type="time"
-            value={activityTime}
-            onChange={(e) => setActivityTime(e.target.value)}
-            required
-          />
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label htmlFor="activity-time-input" className="text-xs font-semibold text-slate-700">
+                Waktu Pelaksanaan (WIB) <span className="text-red-500">*</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  const now = new Date();
+                  const hours = String(now.getHours()).padStart(2, '0');
+                  const minutes = String(now.getMinutes()).padStart(2, '0');
+                  setActivityTime(`${hours}:${minutes}`);
+                }}
+                className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200/60 px-2 py-0.5 rounded transition-colors duration-100 flex items-center gap-1 cursor-pointer"
+                title="Isi otomatis dengan waktu jam sekarang"
+              >
+                <Clock className="w-3 h-3" />
+                <span>Waktu Sekarang</span>
+              </button>
+            </div>
+            <InputField
+              id="activity-time-input"
+              type="time"
+              value={activityTime}
+              onChange={(e) => setActivityTime(e.target.value)}
+              required
+            />
+          </div>
 
           <SelectField
             label="Kategori Baku Operasional"
@@ -106,9 +127,14 @@ export default function ActivityFormModal({
 
         {/* Input Foto Dokumentasi */}
         <div>
-          <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-            Foto Dokumentasi Kegiatan (Opsional)
-          </label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-semibold text-slate-700">
+              Foto Dokumentasi Kegiatan (Opsional)
+            </label>
+            <span className="text-xs text-slate-500 font-medium">
+              Maks. 5 MB • WebP
+            </span>
+          </div>
           <div className="flex items-center gap-3">
             <label className="cursor-pointer inline-flex items-center gap-2 px-3.5 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-colors duration-100 min-h-[40px]">
               <Camera className="w-4 h-4 text-slate-500" />
@@ -117,7 +143,7 @@ export default function ActivityFormModal({
                 type="file"
                 accept="image/*"
                 onChange={handlePhotoSelect}
-                disabled={submitting}
+                disabled={submitting || compressing}
                 className="hidden"
               />
             </label>
@@ -130,7 +156,7 @@ export default function ActivityFormModal({
                   setPhotoPreview(null);
                   setPhotoRemoved(true);
                 }}
-                className="text-xs text-red-600 hover:text-red-800 font-semibold flex items-center gap-1"
+                className="text-xs text-red-600 hover:text-red-800 font-semibold flex items-center gap-1 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
                 <span>Hapus Foto</span>

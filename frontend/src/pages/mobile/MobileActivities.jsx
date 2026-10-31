@@ -75,7 +75,7 @@ export default function MobileActivities() {
     try {
       await api.delete(`/activities/${targetDeleteId}`);
       setActivities((prev) => prev.filter((a) => a.id !== targetDeleteId));
-      setToastMsg({ type: 'success', text: '✓ Kegiatan berhasil dihapus dari logbook.' });
+      setToastMsg({ type: 'success', text: 'Kegiatan berhasil dihapus dari logbook.' });
       setTargetDeleteId(null);
     } catch (err) {
       const msg = typeof err.response?.data?.message === 'string'
@@ -96,18 +96,17 @@ export default function MobileActivities() {
     <div className="space-y-2 pb-6">
       {/* Toast Feedback */}
       {toastMsg && (
-        <div className={`p-2.5 rounded-lg border text-xs flex items-center justify-between shadow-xs ${
-          toastMsg.type === 'error'
+        <div className={`p-2.5 rounded-lg border text-xs flex items-center justify-between shadow-xs ${toastMsg.type === 'error'
             ? 'bg-red-50 border-red-200 text-red-800'
             : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-        }`}>
+          }`}>
           <div className="flex items-center gap-1.5">
             {toastMsg.type === 'error' ? (
               <AlertCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
             ) : (
               <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
             )}
-            <span className="font-semibold text-[11px]">
+            <span className="font-semibold text-xs">
               {typeof toastMsg.text === 'string' ? toastMsg.text : (toastMsg.text?.message || 'Notifikasi')}
             </span>
           </div>
@@ -128,8 +127,8 @@ export default function MobileActivities() {
           <h3 className="text-xs font-bold text-slate-900 leading-tight">
             Logbook Kegiatan Rutin
           </h3>
-          <p className="text-[10px] text-slate-500 font-medium">
-            Shift {activeShiftNumber} • Regu {activeTeam}
+          <p className="text-xs text-slate-500 font-medium">
+            Shift <span className="font-mono tabular-nums">{activeShiftNumber}</span> • Regu {activeTeam}
           </p>
         </div>
 
@@ -141,7 +140,7 @@ export default function MobileActivities() {
                 setEditingActivity(null);
                 setIsModalOpen(true);
               }}
-              className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-xs transition-colors duration-100"
+              className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors duration-100"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Catat Kegiatan</span>
@@ -153,17 +152,16 @@ export default function MobileActivities() {
 
       {/* Filter Kategori Chips */}
       {activities.length > 0 && (
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 text-[9px]">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 text-xs">
           <button
             type="button"
             onClick={() => setSelectedCategoryFilter('ALL')}
-            className={`px-2 py-0.5 rounded-full border whitespace-nowrap font-semibold transition-colors duration-100 ${
-              selectedCategoryFilter === 'ALL'
-                ? 'bg-slate-900 text-white border-slate-900'
+            className={`px-2.5 py-1 rounded-full border whitespace-nowrap font-semibold transition-colors duration-100 ${selectedCategoryFilter === 'ALL'
+                ? 'bg-red-600 text-white border-red-600 shadow-2xs'
                 : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-            }`}
+              }`}
           >
-            Semua ({activities.length})
+            Semua (<span className="font-mono tabular-nums">{activities.length}</span>)
           </button>
           {Object.entries(ACTIVITY_CATEGORIES).map(([key, cat]) => {
             const count = activities.filter((a) => a.activity_type === key).length;
@@ -173,13 +171,12 @@ export default function MobileActivities() {
                 key={key}
                 type="button"
                 onClick={() => setSelectedCategoryFilter(key)}
-                className={`px-2 py-0.5 rounded-full border whitespace-nowrap font-semibold transition-colors duration-100 ${
-                  selectedCategoryFilter === key
+                className={`px-2.5 py-1 rounded-full border whitespace-nowrap font-semibold transition-colors duration-100 ${selectedCategoryFilter === key
                     ? 'bg-red-600 text-white border-red-600'
                     : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                }`}
+                  }`}
               >
-                {cat.label} ({count})
+                {cat.label} (<span className="font-mono tabular-nums">{count}</span>)
               </button>
             );
           })}
@@ -191,14 +188,14 @@ export default function MobileActivities() {
         <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-            <span className="text-[10.5px] leading-tight">
+            <span className="text-xs leading-tight">
               {typeof error === 'string' ? error : (error?.message || 'Gagal memuat logbook kegiatan shift.')}
             </span>
           </div>
           <button
             type="button"
             onClick={fetchActivities}
-            className="text-[10px] font-bold text-red-700 underline shrink-0 ml-2"
+            className="text-xs font-bold text-red-700 underline shrink-0 ml-2"
           >
             Coba lagi
           </button>
@@ -223,7 +220,7 @@ export default function MobileActivities() {
             <h4 className="text-xs font-bold text-slate-800">
               Belum ada kegiatan rutin
             </h4>
-            <p className="text-[10px] text-slate-500 max-w-[260px] mx-auto mt-0.5 leading-snug">
+            <p className="text-xs text-slate-500 max-w-[260px] mx-auto mt-0.5 leading-snug">
               Belum ada kegiatan operasional yang dicatat pada shift ini.
             </p>
           </div>
@@ -256,7 +253,7 @@ export default function MobileActivities() {
         }}
         onSuccess={(msg) => {
           fetchActivities();
-          setToastMsg({ type: 'success', text: msg || '✓ Kegiatan operasional berhasil dicatat.' });
+          setToastMsg({ type: 'success', text: msg || 'Kegiatan operasional berhasil dicatat.' });
         }}
         shiftDate={activeDate}
         shiftNumber={activeShiftNumber}

@@ -1,40 +1,11 @@
 import React, { useState } from 'react';
-import { Clock, Trash2, Edit2, Camera, User, ChevronDown, ChevronUp } from 'lucide-react';
+import { Clock, Trash2, Edit2, Camera, User, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { getActivityCategoryMeta, OFFICIAL_ACTIVITY_CATEGORIES } from '../../../utils/activityCategories';
 
-export const ACTIVITY_CATEGORIES = {
-  serah_terima: {
-    label: 'Serah Terima Dinas',
-    badge: 'bg-blue-50 text-blue-700 border-blue-200',
-  },
-  apel_briefing: {
-    label: 'Apel & Briefing',
-    badge: 'bg-slate-100 text-slate-700 border-slate-300',
-  },
-  periksa_armada: {
-    label: 'Pemeriksaan Kendaraan & Fasilitas',
-    badge: 'bg-amber-50 text-amber-800 border-amber-200',
-  },
-  periksa_peralatan: {
-    label: 'Pemeriksaan Peralatan',
-    badge: 'bg-cyan-50 text-cyan-800 border-cyan-200',
-  },
-  latihan_drill: {
-    label: 'Kegiatan Latihan / Drill',
-    badge: 'bg-red-50 text-red-700 border-red-200',
-  },
-  pemeliharaan: {
-    label: 'Kegiatan Pemeliharaan',
-    badge: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-  },
-  sosialisasi_keselamatan: {
-    label: 'Sosialisasi Keselamatan',
-    badge: 'bg-purple-50 text-purple-700 border-purple-200',
-  },
-  catatan_kendala: {
-    label: 'Catatan Khusus & Kendala',
-    badge: 'bg-orange-50 text-orange-800 border-orange-200',
-  },
-};
+export const ACTIVITY_CATEGORIES = OFFICIAL_ACTIVITY_CATEGORIES.reduce((acc, cat) => {
+  acc[cat.value] = { label: cat.label };
+  return acc;
+}, {});
 
 export default function MobileActivityTimelineItem({
   activity,
@@ -46,10 +17,7 @@ export default function MobileActivityTimelineItem({
   const [expanded, setExpanded] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
 
-  const categoryMeta = ACTIVITY_CATEGORIES[activity.activity_type] || {
-    label: activity.activity_type || 'Kegiatan Rutin',
-    badge: 'bg-slate-100 text-slate-700 border-slate-200',
-  };
+  const categoryMeta = getActivityCategoryMeta(activity.activity_type);
 
   // Parsing actor names or actor ids if formatted
   let actors = [];
@@ -77,11 +45,11 @@ export default function MobileActivityTimelineItem({
         {/* Header: Time, Category Badge, Delete Button */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-1">
           <div className="flex items-center gap-1.5">
-            <span className="font-mono text-red-600 text-[11px] font-bold flex items-center gap-1">
+            <span className="font-mono tabular-nums text-red-600 text-xs font-bold flex items-center gap-1">
               <Clock className="w-3 h-3 text-red-500" />
               {timeFormatted} WIB
             </span>
-            <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-semibold border ${categoryMeta.badge}`}>
+            <span className={`px-1.5 py-0.5 rounded text-xs font-semibold border ${categoryMeta.badgeBg}`}>
               {categoryMeta.label}
             </span>
           </div>
@@ -118,7 +86,7 @@ export default function MobileActivityTimelineItem({
         </h4>
 
         {/* Description */}
-        <p className={`text-[10.5px] text-slate-600 leading-snug ${expanded ? '' : 'line-clamp-2'}`}>
+        <p className={`text-xs text-slate-600 leading-snug ${expanded ? '' : 'line-clamp-2'}`}>
           {activity.description}
         </p>
 
@@ -126,7 +94,7 @@ export default function MobileActivityTimelineItem({
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
-            className="text-[9px] font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-0.5"
+            className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-0.5"
           >
             {expanded ? (
               <>
@@ -144,8 +112,8 @@ export default function MobileActivityTimelineItem({
 
         {/* Result Notes if available */}
         {activity.result_notes && (
-          <div className="p-1.5 rounded bg-slate-50 border border-slate-200/80 text-[10px] text-slate-700 space-y-0.5">
-            <span className="font-bold text-slate-800 block text-[9px] uppercase tracking-wide">
+          <div className="p-1.5 rounded bg-slate-50 border border-slate-200/80 text-xs text-slate-700 space-y-0.5">
+            <span className="font-bold text-slate-800 block text-xs uppercase tracking-wide">
               Hasil / Catatan Khusus:
             </span>
             <p className="leading-snug">{activity.result_notes}</p>
@@ -154,7 +122,7 @@ export default function MobileActivityTimelineItem({
 
         {/* Personel Pelaksana if any */}
         {actors.length > 0 && (
-          <div className="flex items-center gap-1 text-[9px] text-slate-500 pt-0.5">
+          <div className="flex items-center gap-1 text-xs text-slate-500 pt-0.5">
             <User className="w-3 h-3 text-slate-400 shrink-0" />
             <span className="truncate">
               Pelaksana: <strong className="text-slate-700">{actors.join(', ')}</strong>
@@ -168,7 +136,7 @@ export default function MobileActivityTimelineItem({
             <button
               type="button"
               onClick={() => setShowPhotoModal(true)}
-              className="flex items-center gap-1.5 p-1 rounded-md bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[9.5px] text-slate-700 transition-colors duration-100"
+              className="flex items-center gap-1.5 p-1 rounded-md bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs text-slate-700 transition-colors duration-100"
             >
               <img
                 src={photoUrl}
@@ -205,9 +173,10 @@ export default function MobileActivityTimelineItem({
               <button
                 type="button"
                 onClick={() => setShowPhotoModal(false)}
-                className="text-slate-400 hover:text-slate-700 font-bold text-sm px-1"
+                className="text-slate-400 hover:text-slate-700 p-1 rounded"
+                aria-label="Tutup foto"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
             <div className="max-h-[65vh] overflow-hidden rounded-lg bg-slate-100 flex items-center justify-center">

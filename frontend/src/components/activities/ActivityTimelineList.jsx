@@ -3,7 +3,6 @@ import {
   Clock,
   Edit2,
   Trash2,
-  Check,
   ChevronLeft,
   ChevronRight,
   Eye,
@@ -45,15 +44,16 @@ export default function ActivityTimelineList({
       >
         {/* Vertical Step Timeline Kronologis Logbook Resmi */}
         <div className="relative pl-6 sm:pl-8 before:absolute before:top-4 before:bottom-4 before:left-3 sm:before:left-4 before:w-0.5 before:bg-slate-200 space-y-6">
-          {paginatedActivities.map((act) => {
+          {paginatedActivities.map((act, index) => {
             const meta = getActivityCategoryMeta(act.activity_type);
             const NodeIcon = meta.icon;
             const photoSource = act.attachment_url || act.photo_url;
+            const itemIndex = String((currentPage - 1) * pageSize + index + 1).padStart(2, '0');
             return (
               <div key={act.id} className="relative group">
                 {/* Simpul Timeline / Timeline Node */}
                 <div
-                  className={`absolute -left-6 sm:-left-8 top-1 w-6 h-6 sm:w-8 sm:h-8 rounded-full ${meta.nodeBg} ring-4 ${meta.nodeRing} flex items-center justify-center shadow-xs z-10 transition-transform duration-100 group-hover:scale-110`}
+                  className={`absolute -left-6 sm:-left-8 top-1 w-6 h-6 sm:w-8 sm:h-8 rounded-full ${meta.nodeBg} ring-4 ${meta.nodeRing} flex items-center justify-center shadow-xs z-10`}
                   title={meta.label}
                 >
                   <NodeIcon className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -63,7 +63,7 @@ export default function ActivityTimelineList({
                 <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-xs hover:border-slate-300 transition-colors duration-100 ml-1">
                   <div className="flex items-start justify-between gap-2 pb-3 border-b border-slate-100">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-xs font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded border border-slate-200 flex items-center gap-1">
+                      <span className="font-mono tabular-nums text-xs font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded border border-slate-200 flex items-center gap-1">
                         <Clock className="w-3 h-3 text-slate-500" />
                         {act.activity_time ? act.activity_time.slice(0, 5) : '-'} WIB
                       </span>
@@ -73,7 +73,7 @@ export default function ActivityTimelineList({
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-slate-400 font-mono hidden sm:inline">
+                      <span className="text-xs text-slate-400 font-semibold hidden sm:inline">
                         Regu {formatTeam(act.team_group || activeTeam)}
                       </span>
                       {canManageActivity && (
@@ -111,7 +111,7 @@ export default function ActivityTimelineList({
 
                     {act.result_notes && (
                       <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80 mb-3 text-xs">
-                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                        <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
                           Hasil & Catatan Pelaksanaan:
                         </div>
                         <p className="text-slate-700 whitespace-pre-line leading-relaxed">
@@ -141,17 +141,16 @@ export default function ActivityTimelineList({
                       </div>
                     )}
 
-                    {/* Footer Identitas Pelapor */}
-                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+                    {/* Footer Identitas Pelapor & Nomor Urut Logbook */}
+                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
                       <span>
                         Dicatat oleh:{' '}
                         <strong className="text-slate-600 font-medium">
                           {act.reporter_name || 'Chief Regu'}
                         </strong>
                       </span>
-                      <span className="flex items-center gap-1 text-emerald-600 font-medium">
-                        <Check className="w-3 h-3" />
-                        Tercatat Resmi
+                      <span className="font-mono tabular-nums text-xs font-bold text-slate-500 bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded">
+                        #{itemIndex}
                       </span>
                     </div>
                   </div>
@@ -165,11 +164,11 @@ export default function ActivityTimelineList({
         {totalPages > 1 && (
           <div className="px-5 py-3 border border-slate-200 bg-white rounded-xl shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 mt-4">
             <span>
-              Menampilkan <strong className="text-slate-700">{(currentPage - 1) * pageSize + 1}</strong> -{' '}
-              <strong className="text-slate-700">
+              Menampilkan <strong className="text-slate-700 font-mono tabular-nums">{(currentPage - 1) * pageSize + 1}</strong> -{' '}
+              <strong className="text-slate-700 font-mono tabular-nums">
                 {Math.min(currentPage * pageSize, activities.length)}
               </strong>{' '}
-              dari <strong className="text-slate-700">{activities.length}</strong> kegiatan
+              dari <strong className="text-slate-700 font-mono tabular-nums">{activities.length}</strong> kegiatan
             </span>
             <div className="flex items-center gap-2">
               <Button
@@ -182,7 +181,7 @@ export default function ActivityTimelineList({
                 Sebelumnya
               </Button>
               <span className="text-xs font-semibold px-2">
-                Halaman {currentPage} dari {totalPages}
+                Halaman <span className="font-mono tabular-nums">{currentPage}</span> dari <span className="font-mono tabular-nums">{totalPages}</span>
               </span>
               <Button
                 variant="outline"

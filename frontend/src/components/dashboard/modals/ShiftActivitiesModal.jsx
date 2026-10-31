@@ -29,11 +29,11 @@ export default function ShiftActivitiesModal({
       }
     >
       {activities.length === 0 ? (
-        <div className="py-8 text-center text-xs text-slate-500">
+        <div className="py-8 text-center text-xs font-sans text-slate-500">
           Belum ada kegiatan operasional yang dicatat pada shift ini.
         </div>
       ) : (
-        <div className="space-y-3 text-xs">
+        <div className="space-y-3 text-xs font-sans">
           {activities.map((act, idx) => (
             <div
               key={act.id || `act-${idx}`}
@@ -48,11 +48,14 @@ export default function ShiftActivitiesModal({
                     : 'Kegiatan Operasional'}
                 </span>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-white border border-slate-200 text-slate-700">
+                  <span className="px-2 py-0.5 rounded text-xs font-bold uppercase bg-white border border-slate-200 text-slate-700">
                     {act.activity_type || act.category || 'Rutin'}
                   </span>
-                  <span className="font-mono font-bold text-slate-800 bg-white border border-slate-200 px-2 py-0.5 rounded">
-                    {String(act.activity_time || '-').slice(0, 5)} WIB
+                  <span className="font-semibold text-slate-800 bg-white border border-slate-200 px-2 py-0.5 rounded">
+                    <span className="font-mono tabular-nums font-bold">
+                      {String(act.activity_time || '-').slice(0, 5)}
+                    </span>{' '}
+                    WIB
                   </span>
                 </div>
               </div>
@@ -60,7 +63,7 @@ export default function ShiftActivitiesModal({
                 <p className="text-slate-700 leading-relaxed">{act.description}</p>
               )}
               {act.result_notes && (
-                <div className="text-[11px] text-slate-600 pt-1 border-t border-slate-200/70">
+                <div className="text-xs text-slate-600 pt-1 border-t border-slate-200/70">
                   <strong>Hasil / Tindak Lanjut:</strong> {act.result_notes}
                 </div>
               )}

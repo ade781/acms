@@ -4,24 +4,25 @@ import {
   Check,
   X,
   Download,
+  ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam } from '../utils/shiftHelper';
 import api from '../services/api';
-import { downloadActivityReportPdf } from '../services/reportService';
+import { downloadActivityReportPdf, fetchActivityReportPdfBlob } from '../services/reportService';
 import Button from '../components/common/Button';
 import { compressImageToWebP } from '../utils/imageCompressor';
 
 // Import Modular Components & Utilities
 import {
   OFFICIAL_ACTIVITY_CATEGORIES,
-  getActivityCategoryMeta
 } from '../utils/activityCategories';
 import ActivityTimelineList from '../components/activities/ActivityTimelineList';
 import ActivityFormModal from '../components/activities/ActivityFormModal';
 import ActivityDeleteModal from '../components/activities/ActivityDeleteModal';
 import ActivityExportModal from '../components/activities/ActivityExportModal';
 import ActivityPhotoModal from '../components/activities/ActivityPhotoModal';
+import ActivityPdfPreviewModal from '../components/activities/ActivityPdfPreviewModal';
 
 
 export default function ActivitiesPage() {
@@ -65,17 +66,30 @@ export default function ActivitiesPage() {
   // Mode Tampilan: 'shift' (Shift Ini) | 'range' (Rentang Periode / Riwayat)
   const [viewMode, setViewMode] = useState('shift');
   const [rangePeriod, setRangePeriod] = useState('1month');
-  const [rangeStartDate, setRangeStartDate] = useState('');
-  const [rangeEndDate, setRangeEndDate] = useState('');
 
-  // State Modal Ekspor PDF Logbook Kegiatan
+  // State Modal Konfigurasi Ekspor PDF Logbook Kegiatan
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportPeriod, setExportPeriod] = useState('1month');
   const [exportStartDate, setExportStartDate] = useState('');
   const [exportEndDate, setExportEndDate] = useState('');
   const [exportCategory, setExportCategory] = useState('ALL');
   const [exportTeam, setExportTeam] = useState('ALL');
-  const [isExporting, setIsExporting] = useState(false);
+
+  // State Modal Pratinjau Dokumen PDF Resmi
+  const [previewPdfModalOpen, setPreviewPdfModalOpen] = useState(false);
+  const [previewPdfUrl, setPreviewPdfUrl] = useState(null);
+  const [isLoadingPreviewPdf, setIsLoadingPreviewPdf] = useState(false);
+  const [previewPdfError, setPreviewPdfError] = useState(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  // Bersihkan object URL PDF saat komponen unmount
+  useEffect(() => {
+    return () => {
+      if (previewPdfUrl) {
+        window.URL.revokeObjectURL(previewPdfUrl);
+      }
+    };
+  }, [previewPdfUrl]);
 
   const fetchActivities = useCallback(async (signal) => {
     setLoading(true);
@@ -85,11 +99,7 @@ export default function ActivitiesPage() {
       if (viewMode === 'shift') {
         endpoint = `/activities?date=${activeDate}&shift=${activeShiftNumber}&team_group=${cleanTeam(activeTeam)}`;
       } else {
-        if (rangePeriod === 'custom' && rangeStartDate && rangeEndDate) {
-          endpoint = `/activities?start_date=${rangeStartDate}&end_date=${rangeEndDate}`;
-        } else {
-          endpoint = `/activities?period=${rangePeriod === 'custom' ? '1month' : rangePeriod}`;
-        }
+        endpoint = `/activities?period=${rangePeriod || '1month'}`;
       }
 
       const res = await api.get(endpoint, { signal });
@@ -103,7 +113,7 @@ export default function ActivitiesPage() {
     } finally {
       setLoading(false);
     }
-  }, [viewMode, activeDate, activeShiftNumber, activeTeam, rangePeriod, rangeStartDate, rangeEndDate]);
+  }, [viewMode, activeDate, activeShiftNumber, activeTeam, rangePeriod]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -111,9 +121,47 @@ export default function ActivitiesPage() {
     return () => controller.abort();
   }, [fetchActivities]);
 
-  const handleExportPdf = async () => {
+  // Label Periode untuk Header Pratinjau PDF
+  const exportPeriodLabel = useMemo(() => {
+    if (exportPeriod === '1week') return '1 Minggu Terakhir (7 Hari)';
+    if (exportPeriod === '1month') return '1 Bulan Terakhir (30 Hari)';
+    if (exportPeriod === '3months') return '3 Bulan Terakhir (Triwulan)';
+    if (exportPeriod === '1year') return '1 Tahun Terakhir (Tahunan)';
+    if (exportPeriod === 'custom') return `${exportStartDate || '...'} s/d ${exportEndDate || '...'}`;
+    return 'Periode Logbook';
+  }, [exportPeriod, exportStartDate, exportEndDate]);
+
+  // Handler Buka Pratinjau Dokumen PDF
+  const handleOpenPreviewPdf = async () => {
+    setExportModalOpen(false);
+    setPreviewPdfModalOpen(true);
+    setIsLoadingPreviewPdf(true);
+    setPreviewPdfError(null);
     try {
-      setIsExporting(true);
+      const blob = await fetchActivityReportPdfBlob({
+        period: exportPeriod,
+        start_date: exportPeriod === 'custom' ? exportStartDate : '',
+        end_date: exportPeriod === 'custom' ? exportEndDate : '',
+        category: exportCategory,
+        team: exportTeam,
+      });
+      const url = window.URL.createObjectURL(blob);
+      setPreviewPdfUrl((prev) => {
+        if (prev) window.URL.revokeObjectURL(prev);
+        return url;
+      });
+    } catch (err) {
+      console.error('Error generating PDF preview:', err);
+      setPreviewPdfError('Gagal menyusun pratinjau dokumen PDF logbook kegiatan.');
+    } finally {
+      setIsLoadingPreviewPdf(false);
+    }
+  };
+
+  // Handler Unduh Berkas PDF dari Modal Pratinjau
+  const handleDownloadFromPreview = async () => {
+    try {
+      setIsDownloadingPdf(true);
       await downloadActivityReportPdf({
         period: exportPeriod,
         start_date: exportPeriod === 'custom' ? exportStartDate : '',
@@ -122,13 +170,21 @@ export default function ActivitiesPage() {
         team: exportTeam,
       });
       setToastMsg('Dokumen rekapitulasi logbook kegiatan resmi berhasil diunduh.');
-      setExportModalOpen(false);
     } catch (err) {
       console.error('Gagal mengunduh PDF logbook kegiatan:', err);
       setToastMsg('Gagal mengunduh berkas logbook kegiatan. Silakan coba kembali.');
     } finally {
-      setIsExporting(false);
+      setIsDownloadingPdf(false);
     }
+  };
+
+  const handleClosePreviewPdf = () => {
+    setPreviewPdfModalOpen(false);
+    if (previewPdfUrl) {
+      window.URL.revokeObjectURL(previewPdfUrl);
+      setPreviewPdfUrl(null);
+    }
+    setPreviewPdfError(null);
   };
 
   const handleOpenCreateModal = () => {
@@ -296,22 +352,40 @@ export default function ActivitiesPage() {
 
   return (
     <div className="space-y-4">
-      {/* Row 1: Compact Header, Mode Switcher, & Action Buttons in One Line */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+      {/* Row 1: Header Halaman & Tombol Aksi Utama */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-slate-900">
+          <h2 className="text-xl font-bold tracking-tight text-slate-900 whitespace-nowrap">
             Logbook Kegiatan Rutin
           </h2>
-          <p className="text-xs text-slate-500 font-medium mt-0.5">
-            {viewMode === 'shift'
-              ? 'Pencatatan dan dokumentasi aktivitas operasional shift berjalan'
-              : 'Menampilkan riwayat & arsip aktivitas lintas sesi dinas'}
-          </p>
         </div>
 
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            icon={Download}
+            onClick={() => setExportModalOpen(true)}
+          >
+            Cetak Logbook PDF
+          </Button>
+
+          {canManageActivity && (
+            <Button
+              variant="primary"
+              icon={Plus}
+              onClick={handleOpenCreateModal}
+            >
+              Tambah Kegiatan
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Row 2: Unified Command Bar (Switcher Shift Berjalan + Dropdown Kategori) */}
+      <div className="bg-white rounded-xl border border-slate-200 p-2.5 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-2.5">
         <div className="flex items-center gap-2 flex-wrap">
           {/* Segmented Switcher: Shift Berjalan vs Riwayat Periode */}
-          <div className="inline-flex rounded-lg bg-slate-200/70 p-1 text-xs font-semibold border border-slate-200">
+          <div className="inline-flex rounded-lg bg-slate-100 p-0.5 text-xs font-semibold border border-slate-200 shrink-0">
             <button
               type="button"
               onClick={() => {
@@ -342,24 +416,59 @@ export default function ActivitiesPage() {
             </button>
           </div>
 
-          <Button
-            variant="outline"
-            icon={Download}
-            onClick={() => setExportModalOpen(true)}
-          >
-            Cetak Logbook PDF
-          </Button>
-
-          {canManageActivity && (
-            <Button
-              variant="primary"
-              icon={Plus}
-              onClick={handleOpenCreateModal}
+          {/* Dropdown Filter Kategori di samping Switcher Shift Berjalan */}
+          <div className="relative inline-flex items-center">
+            <select
+              value={selectedFilterCategory}
+              onChange={(e) => {
+                setSelectedFilterCategory(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="pl-2.5 pr-8 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 shadow-2xs hover:bg-slate-50 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400 transition-colors duration-100 cursor-pointer appearance-none"
+              aria-label="Filter Kategori Kegiatan"
             >
-              Tambah Kegiatan
-            </Button>
-          )}
+              <option value="ALL">Semua Kategori ({categoryCounts.ALL || 0})</option>
+              {OFFICIAL_ACTIVITY_CATEGORIES.map((cat) => {
+                const count = categoryCounts[cat.value] || 0;
+                return (
+                  <option key={cat.value} value={cat.value}>
+                    {cat.label.split('(')[0].trim()} ({count})
+                  </option>
+                );
+              })}
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2.5 pointer-events-none" />
+          </div>
         </div>
+
+        {/* Kontrol Periode jika dalam mode Riwayat & Arsip (Hanya 7 Hari, 30 Hari, Triwulan) */}
+        {viewMode === 'range' && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="inline-flex items-center gap-1 p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs flex-wrap">
+              {[
+                { id: '1week', label: '7 Hari Terakhir' },
+                { id: '1month', label: '30 Hari Terakhir' },
+                { id: '3months', label: '3 Bulan (Triwulan)' },
+              ].map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    setRangePeriod(p.id);
+                    setCurrentPage(1);
+                  }}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors duration-100 cursor-pointer ${
+                    rangePeriod === p.id
+                      ? 'bg-white text-slate-900 shadow-2xs font-bold border border-slate-200/80'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Toast Feedback */}
@@ -372,109 +481,13 @@ export default function ActivitiesPage() {
           <button
             type="button"
             onClick={() => setToastMsg(null)}
-            className="text-emerald-500 hover:text-emerald-700 p-0.5"
+            className="text-emerald-500 hover:text-emerald-700 p-0.5 transition-colors duration-100"
             aria-label="Tutup Notifikasi"
           >
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
-
-      {/* Row 2: Unified Compact Filter Toolbar (Range Controls + Category Chips) */}
-      <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-2xs space-y-2.5">
-        {viewMode === 'range' && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1">
-                Periode:
-              </span>
-              {[
-                { id: '1week', label: '7 Hari Terakhir' },
-                { id: '1month', label: '30 Hari Terakhir' },
-                { id: '3months', label: '3 Bulan (Triwulan)' },
-                { id: 'custom', label: 'Rentang Kustom' },
-              ].map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => {
-                    setRangePeriod(p.id);
-                    setCurrentPage(1);
-                  }}
-                  className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors duration-100 cursor-pointer ${
-                    rangePeriod === p.id
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-
-            {rangePeriod === 'custom' && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <input
-                  type="date"
-                  value={rangeStartDate}
-                  onChange={(e) => setRangeStartDate(e.target.value)}
-                  className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-md text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-red-500 tabular-nums"
-                  aria-label="Tanggal Mulai"
-                />
-                <span className="text-xs text-slate-400">s/d</span>
-                <input
-                  type="date"
-                  value={rangeEndDate}
-                  onChange={(e) => setRangeEndDate(e.target.value)}
-                  className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-md text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-red-500 tabular-nums"
-                  aria-label="Tanggal Selesai"
-                />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Category Filter Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1 flex-shrink-0">
-            Kategori:
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedFilterCategory('ALL');
-              setCurrentPage(1);
-            }}
-            className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors duration-100 flex-shrink-0 cursor-pointer ${
-              selectedFilterCategory === 'ALL'
-                ? 'bg-slate-900 text-white'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-            }`}
-          >
-            Semua ({categoryCounts.ALL || 0})
-          </button>
-          {OFFICIAL_ACTIVITY_CATEGORIES.map((cat) => {
-            const count = categoryCounts[cat.value] || 0;
-            return (
-              <button
-                key={cat.value}
-                type="button"
-                onClick={() => {
-                  setSelectedFilterCategory(cat.value);
-                  setCurrentPage(1);
-                }}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors duration-100 flex-shrink-0 cursor-pointer ${
-                  selectedFilterCategory === cat.value
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                {cat.label.split('(')[0].trim()} {count > 0 && `(${count})`}
-              </button>
-            );
-          })}
-        </div>
-      </div>
 
       {/* Row 3: Immediate Timeline & Daftar Kegiatan Content */}
       <ActivityTimelineList
@@ -538,7 +551,7 @@ export default function ActivitiesPage() {
         onClose={() => setPreviewImageUrl(null)}
       />
 
-      {/* Modal Ekspor PDF Logbook Kegiatan Resmi */}
+      {/* Modal Konfigurasi Ekspor PDF Logbook Kegiatan Resmi */}
       <ActivityExportModal
         isOpen={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
@@ -552,8 +565,21 @@ export default function ActivitiesPage() {
         setExportCategory={setExportCategory}
         exportTeam={exportTeam}
         setExportTeam={setExportTeam}
-        onExport={handleExportPdf}
-        isExporting={isExporting}
+        onPreview={handleOpenPreviewPdf}
+        isLoadingPreview={isLoadingPreviewPdf}
+      />
+
+      {/* Modal Pratinjau Dokumen PDF Resmi (Standard ACMS Preview & Download) */}
+      <ActivityPdfPreviewModal
+        isOpen={previewPdfModalOpen}
+        onClose={handleClosePreviewPdf}
+        previewPdfUrl={previewPdfUrl}
+        isLoading={isLoadingPreviewPdf}
+        error={previewPdfError}
+        onRetry={handleOpenPreviewPdf}
+        onDownload={handleDownloadFromPreview}
+        isDownloading={isDownloadingPdf}
+        periodLabel={exportPeriodLabel}
       />
     </div>
   );
