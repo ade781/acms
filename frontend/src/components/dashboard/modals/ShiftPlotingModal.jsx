@@ -33,23 +33,24 @@ export default function ShiftPlotingModal({
         </Button>
       }
     >
-      <div className="space-y-4 text-xs">
+      <div className="space-y-4 text-xs font-sans">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-            <div className="text-slate-500 text-[11px]">Ketua Regu (Chief)</div>
+            <div className="text-slate-500 text-xs font-medium">Ketua Regu (Chief)</div>
             <div className="font-bold text-slate-900 text-sm mt-0.5">{supervisorName || '-'}</div>
           </div>
           <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-            <div className="text-slate-500 text-[11px]">Kekuatan Shift Regu {currentTeam}</div>
-            <div className="font-bold font-mono text-slate-900 text-sm mt-0.5">
-              {personnelComposition?.onDutyCount ?? 0} Hadir / {activeTeamStats.total} Anggota
+            <div className="text-slate-500 text-xs font-medium">Kekuatan Shift Regu {currentTeam}</div>
+            <div className="font-semibold text-slate-900 text-sm mt-0.5">
+              <span className="font-mono tabular-nums font-bold">{personnelComposition?.onDutyCount ?? 0}</span> Hadir /{' '}
+              <span className="font-mono tabular-nums font-bold">{activeTeamStats.total}</span> Anggota
             </div>
           </div>
           <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-            <div className="text-slate-500 text-[11px]">Komposisi Regu {currentTeam}</div>
-            <div className="font-bold font-mono text-slate-900 text-sm mt-0.5">
-              {activeTeamStats.organik} Organik •{' '}
-              {activeTeamStats.outsourcing} Outsourcing
+            <div className="text-slate-500 text-xs font-medium">Komposisi Regu {currentTeam}</div>
+            <div className="font-semibold text-slate-900 text-sm mt-0.5">
+              <span className="font-mono tabular-nums font-bold">{activeTeamStats.organik}</span> Organik •{' '}
+              <span className="font-mono tabular-nums font-bold">{activeTeamStats.outsourcing}</span> Outsourcing
             </div>
           </div>
         </div>
@@ -63,7 +64,8 @@ export default function ShiftPlotingModal({
 
         <div>
           <h4 className="font-bold text-slate-900 mb-2">
-            Daftar Penugasan Personel pada Shift Ini ({onDutyDeployments.length} Orang)
+            Daftar Penugasan Personel pada Shift Ini (
+            <span className="font-mono tabular-nums">{onDutyDeployments.length}</span> Orang)
           </h4>
           {onDutyDeployments.length === 0 ? (
             <div className="py-6 text-center text-slate-400 border border-dashed border-slate-200 rounded-lg">
@@ -77,13 +79,13 @@ export default function ShiftPlotingModal({
                     <div className="font-semibold text-slate-900">
                       {typeof dep.full_name === 'string' ? dep.full_name : String(dep.full_name || '')}
                       {dep.is_pic ? (
-                        <span className="ml-2 px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                        <span className="ml-2 px-1.5 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800">
                           PIC Unit
                         </span>
                       ) : null}
                     </div>
-                    <div className="text-[11px] text-slate-500">
-                      NIP: {dep.nip || '-'} •{' '}
+                    <div className="text-xs text-slate-500">
+                      NIP: <span className="font-mono tabular-nums">{dep.nip || '-'}</span> •{' '}
                       {String(dep.employment_status || 'organik').toLowerCase() === 'organik'
                         ? 'Organik'
                         : 'Outsourcing (Training)'}

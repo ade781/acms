@@ -1,20 +1,22 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   CheckCircle,
   AlertCircle,
   Save,
   ShieldAlert,
-  UserX,
   X,
+  FileBarChart2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam, getScheduledTeam } from '../utils/shiftHelper';
 import api from '../services/api';
 import DeploymentSlotCard from '../components/forms/DeploymentSlotCard';
-import VehicleReadinessModal from '../components/forms/VehicleReadinessModal';
 import StateView from '../components/common/StateView';
+import Button from '../components/common/Button';
 
 export default function DeploymentPage() {
+  const navigate = useNavigate();
   const {
     user,
     activeDate,
@@ -32,15 +34,10 @@ export default function DeploymentPage() {
   const [vehicles, setVehicles] = useState([]);
   const [teamPersonnel, setTeamPersonnel] = useState([]);
 
-  // Modal Kesiapan Kendaraan di Ploting
-  const [selectedVehicleForInspection, setSelectedVehicleForInspection] = useState(null);
-  const [inspectionModalOpen, setInspectionModalOpen] = useState(false);
-
   // Ploting state: vehicleId -> Array of { personnel_id, is_pic, personnel_name }
-  // Slot 0 FIX PIC, slot 1-3 Kru (untuk Watchroom: Slot 0 PIC, Slot 1 Kru)
   const [vehicleSlots, setVehicleSlots] = useState({});
 
-  // Absent personnel: Array of { personnel_id, reason: 'cuti'|'sakit'|'dinas'|'tukar_dinas', notes }
+  // Absent personnel: Array of { personnel_id, reason, notes } (dipertahankan untuk proteksi dropdown pilihan personel)
   const [absentList, setAbsentList] = useState([]);
 
   const [saving, setSaving] = useState(false);
@@ -63,7 +60,7 @@ export default function DeploymentPage() {
   const isUserScheduledTeam = isAdmin || isDeptHead || cleanTeam(user?.team_group) === cleanTeam(scheduledTeam);
   const canAccessPlot = isUserScheduledTeam && (isScheduledTeam || isAdmin || isDeptHead);
 
-  // Hak edit: Hanya supervisor/admin/dept_head, dan regu harus terjadwal dinas aktif (serta personil bertugas di shift tersebut)
+  // Hak edit: Hanya supervisor/admin/dept_head, dan regu harus terjadwal dinas aktif
   const canEditPlot = (isAdmin || isDeptHead || isSupervisor) && canAccessPlot;
 
   // Status perubahan yang belum disimpan (Dirty state tracking)
@@ -104,37 +101,40 @@ export default function DeploymentPage() {
     return set;
   }, [absentList]);
 
-  // Ringkasan Kesiapan Visual Formasi Kru & Armada
-  const formationSummary = useMemo(() => {
-    let readyCount = 0;
-    let incompleteCount = 0;
+  const getVehicleStatusKey = useCallback((v) => {
+    const raw = v.status || v.current_log?.status || v.readiness || 'belum_dilaporkan';
+    if (raw === 'serviceable' || raw === 'unserviceable') return raw;
+    return 'belum_dilaporkan';
+  }, []);
+
+  const getVehicleCategoryKey = useCallback((v) => {
+    if (v.category === 'posko' || v.code_name === 'WATCHROOM') return 'posko';
+    if (v.category === 'pendukung') return 'pendukung';
+    return 'utama';
+  }, []);
+
+  // Ringkasan Kesiapan Fisik Armada (Murni 3 status: Belum Dicek, Serviceable, Unserviceable)
+  const statusSummary = useMemo(() => {
+    let serviceableCount = 0;
     let unserviceableCount = 0;
+    let belumDicekCount = 0;
 
     vehicles.forEach((v) => {
-      const vId = v.id || v.vehicle_id;
-      const slots = vehicleSlots[vId] || [];
-      const isUnserviceable = (v.status || v.readiness) === 'unserviceable';
-      const picAssigned = Boolean(slots[0]?.personnel_id);
-      const filledCount = slots.filter((s) => Boolean(s.personnel_id)).length;
-      const isComplete = filledCount >= 2 && picAssigned;
-
-      if (isUnserviceable) {
+      const st = getVehicleStatusKey(v);
+      if (st === 'serviceable') {
+        serviceableCount++;
+      } else if (st === 'unserviceable') {
         unserviceableCount++;
-      } else if (isComplete) {
-        readyCount++;
       } else {
-        incompleteCount++;
+        belumDicekCount++;
       }
     });
 
-    return { readyCount, incompleteCount, unserviceableCount, total: vehicles.length };
-  }, [vehicles, vehicleSlots]);
-
+    return { serviceableCount, unserviceableCount, belumDicekCount, total: vehicles.length };
+  }, [vehicles, getVehicleStatusKey]);
 
   // Fetch current deployment & master data concurrently
   const fetchDeploymentData = useCallback(async (options = {}) => {
-    // Proteksi Penghematan Bandwidth & Aturan GEMINI.md:
-    // Jika user bukan Admin/Dept Head dan bukan regu yang terjadwal aktif dinas, DILARANG request fetch data berat
     if (!canAccessPlot) {
       setLoading(false);
       return;
@@ -149,7 +149,6 @@ export default function DeploymentPage() {
     try {
       const currentTeam = cleanTeam(activeTeam);
 
-      // Concurrent fetch (Promise.all) to prevent request waterfalls
       const [pRes, vRes, depRes] = await Promise.all([
         api.get(`/personnel?team_group=${currentTeam}&is_active=1`, { signal: options?.signal }),
         api.get(`/readiness/vehicles?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`, { signal: options?.signal }),
@@ -166,7 +165,6 @@ export default function DeploymentPage() {
       const rawVehicles = Array.isArray(vRes.data?.vehicles)
         ? vRes.data.vehicles
         : (Array.isArray(vRes.data) ? vRes.data : []);
-      // Ensure id is always valid and consistent
       const fetchedVehicles = rawVehicles.map((v) => ({
         ...v,
         id: v.id || v.vehicle_id,
@@ -178,7 +176,7 @@ export default function DeploymentPage() {
         ? depPayload.deployments
         : (Array.isArray(depRes.data?.deployments) ? depRes.data.deployments : []);
 
-      // Absent personnel
+      // Absent personnel (untuk memfilter dropdown agar personel cuti tidak terpilih bertugas)
       const existingAbsent = (deploymentsList || []).filter(
         (d) => d.deployment_type === 'absent'
       );
@@ -196,14 +194,12 @@ export default function DeploymentPage() {
         setAbsentList([]);
       }
 
-      // Initialize vehicle & watchroom slots
-      // Slot 0 (paling atas) selalu FIX sebagai PIC
-      // Auto-evict: Jika personel tercatat cuti/izin, otomatis lepaskan dari slot kendaraan
+      // Initialize vehicle & watchroom slots secara fleksibel (tanpa paksaan harus 3 kru)
       const initialSlots = {};
       fetchedVehicles.forEach((v) => {
         const vId = v.id;
         const isPosko = v.category === 'posko' || v.code_name === 'WATCHROOM';
-        const targetSlotsCount = isPosko ? 2 : 3;
+        const defaultEmptyCount = 3;
 
         const existingForUnit = (deploymentsList || []).filter((d) =>
           isPosko
@@ -212,30 +208,24 @@ export default function DeploymentPage() {
         );
 
         if (existingForUnit.length > 0) {
-          // Sort so that PIC is at slot 0
           const sorted = [...existingForUnit].sort((a, b) => (b.is_pic ? 1 : 0) - (a.is_pic ? 1 : 0));
           initialSlots[vId] = sorted.map((d, idx) => {
             const isAbsentCrew = d.personnel_id && absentIdSet.has(Number(d.personnel_id));
             return {
               personnel_id: isAbsentCrew ? '' : (d.personnel_id || ''),
-              is_pic: idx === 0, // Slot 0 selalu PIC
+              is_pic: idx === 0,
               personnel_name: isAbsentCrew ? '' : (d.full_name || ''),
             };
           });
-          while (initialSlots[vId].length < targetSlotsCount) {
+          while (initialSlots[vId].length < defaultEmptyCount) {
             initialSlots[vId].push({ personnel_id: '', is_pic: false, personnel_name: '' });
           }
         } else {
-          initialSlots[vId] = isPosko
-            ? [
-              { personnel_id: '', is_pic: true, personnel_name: '' },   // Slot 0: PIC / Operator Utama
-              { personnel_id: '', is_pic: false, personnel_name: '' },  // Slot 1: Operator Pendukung
-            ]
-            : [
-              { personnel_id: '', is_pic: true, personnel_name: '' },   // Slot 0: FIX PIC
-              { personnel_id: '', is_pic: false, personnel_name: '' },  // Slot 1: Kru
-              { personnel_id: '', is_pic: false, personnel_name: '' },  // Slot 2: Kru
-            ];
+          initialSlots[vId] = [
+            { personnel_id: '', is_pic: true, personnel_name: '' },
+            { personnel_id: '', is_pic: false, personnel_name: '' },
+            { personnel_id: '', is_pic: false, personnel_name: '' },
+          ];
         }
       });
       setVehicleSlots(initialSlots);
@@ -262,30 +252,29 @@ export default function DeploymentPage() {
       currentList[slotIndex] = {
         ...currentList[slotIndex],
         personnel_id: personnelId ? Number(personnelId) : '',
-        is_pic: slotIndex === 0, // Slot 0 selalu FIX sebagai PIC
+        is_pic: slotIndex === 0,
       };
       return { ...prev, [vehicleId]: currentList };
     });
   }, []);
 
-  // Add 4th slot to vehicle
+  // Add slot to vehicle (fleksibel)
   const handleAddSlot = useCallback((vehicleId) => {
     setVehicleSlots((prev) => {
       const currentList = [...(prev[vehicleId] || [])];
-      if (currentList.length < 4) {
+      if (currentList.length < 6) {
         currentList.push({ personnel_id: '', is_pic: false });
       }
       return { ...prev, [vehicleId]: currentList };
     });
   }, []);
 
-  // Remove slot from vehicle
+  // Remove slot from vehicle (fleksibel selama masih ada minimal 1 slot PIC)
   const handleRemoveSlot = useCallback((vehicleId, slotIndex) => {
     setVehicleSlots((prev) => {
       const currentList = [...(prev[vehicleId] || [])];
-      if (currentList.length > 3) {
+      if (currentList.length > 1) {
         const removed = currentList.splice(slotIndex, 1)[0];
-        // If removed was PIC, set first slot as PIC
         if (removed.is_pic && currentList.length > 0) {
           currentList[0].is_pic = true;
         }
@@ -302,10 +291,9 @@ export default function DeploymentPage() {
 
     try {
       const payloadDeployments = [];
-      const assignedMap = new Map(); // personnel_id -> unitName
+      const assignedMap = new Map();
       let duplicateErrorMsg = null;
 
-      // Collect all operational units (armada & posko watchroom)
       for (const [vId, slots] of Object.entries(vehicleSlots)) {
         const unitObj = vehicles.find((v) => Number(v.id) === Number(vId));
         const unitName = unitObj?.code_name || unitObj?.vehicle_name || `Unit #${vId}`;
@@ -319,7 +307,6 @@ export default function DeploymentPage() {
           if (s.personnel_id) {
             const pId = Number(s.personnel_id);
 
-            // Cek duplikasi personel di lebih dari satu slot armada
             if (assignedMap.has(pId)) {
               const prevUnit = assignedMap.get(pId);
               const personObj = teamPersonnel.find((p) => Number(p.id) === pId);
@@ -334,7 +321,7 @@ export default function DeploymentPage() {
               personnel_id: pId,
               deployment_type: depType,
               vehicle_id: Number(vId),
-              is_pic: idx === 0, // Slot 0 paling atas FIX sebagai PIC
+              is_pic: idx === 0,
               notes: isPosko ? 'Operator Komunikasi Watchroom' : (idx === 0 ? 'PIC Armada' : 'Kru Armada'),
             });
           }
@@ -349,7 +336,6 @@ export default function DeploymentPage() {
         return;
       }
 
-      // Validasi proteksi: Cegah personel cuti/izin ditugaskan pada unit operasional
       for (const abs of absentList) {
         if (abs.personnel_id) {
           const pId = Number(abs.personnel_id);
@@ -383,22 +369,17 @@ export default function DeploymentPage() {
     }
   };
 
-  const handleInspectVehicle = (vehicle) => {
-    setSelectedVehicleForInspection(vehicle);
-    setInspectionModalOpen(true);
-  };
-
   return (
-    <div>
-      {/* Floating Viewport Toast Notifikasi (Selalu Terlihat di Mana Pun Pengguna Scroll) */}
+    <div className="space-y-4">
+      {/* Floating Viewport Toast Notifikasi */}
       {successMsg && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-emerald-600 text-white shadow-xl text-xs font-semibold animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-emerald-600 text-white shadow-xl text-xs font-semibold font-sans animate-in fade-in slide-in-from-top-2 duration-150">
           <CheckCircle className="w-4 h-4 flex-shrink-0 text-white" />
           <span>{typeof successMsg === 'string' ? successMsg : successMsg?.message || 'Ploting berhasil disimpan'}</span>
           <button
             type="button"
             onClick={() => setSuccessMsg(null)}
-            className="ml-2 hover:bg-emerald-700 p-0.5 rounded text-emerald-100"
+            className="ml-2 hover:bg-emerald-700 p-0.5 rounded text-emerald-100 cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -406,22 +387,22 @@ export default function DeploymentPage() {
       )}
 
       {error && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-red-600 text-white shadow-xl text-xs font-semibold animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-red-600 text-white shadow-xl text-xs font-semibold font-sans animate-in fade-in slide-in-from-top-2 duration-150">
           <AlertCircle className="w-4 h-4 flex-shrink-0 text-white" />
           <span>{typeof error === 'string' ? error : error?.message || 'Terjadi kendala pada ploting'}</span>
           <button
             type="button"
             onClick={() => setError(null)}
-            className="ml-2 hover:bg-red-700 p-0.5 rounded text-red-100"
+            className="ml-2 hover:bg-red-700 p-0.5 rounded text-red-100 cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
 
-      {/* Proteksi Hak Akses Ploting Berdasarkan Shift Dinas (Aturan GEMINI.md) */}
+      {/* Proteksi Hak Akses Ploting Berdasarkan Shift Dinas */}
       {!canAccessPlot ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-8 sm:p-10 text-center max-w-2xl mx-auto shadow-sm my-4">
+        <div className="bg-white rounded-2xl border border-slate-200 p-8 sm:p-10 text-center max-w-2xl mx-auto shadow-sm my-4 font-sans">
           <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto mb-3">
             <ShieldAlert className="w-7 h-7" />
           </div>
@@ -429,85 +410,89 @@ export default function DeploymentPage() {
             Bukan Shift Dinas Anda
           </h3>
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mb-5">
-            Regu <strong>{cleanTeam(user?.team_group || activeTeam)}</strong> sedang tidak bertugas aktif (libur/off) pada tanggal <strong>{activeDate}</strong> Shift <strong>{activeShiftNumber}</strong>.
+            Regu <strong>{cleanTeam(user?.team_group || activeTeam)}</strong> sedang tidak bertugas aktif (libur/off) pada tanggal <strong className="font-mono tabular-nums">{activeDate}</strong> Shift <strong className="font-mono tabular-nums">{activeShiftNumber}</strong>.
             Operasional dan ploting penugasan shift ini dipimpin oleh <strong>Regu {cleanTeam(scheduledTeam)}</strong>.
           </p>
           <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 inline-block text-left space-y-1">
             <div className="font-semibold text-slate-800 mb-1">Status Roster Operasional:</div>
-            <div>• Shift Berjalan: <strong>Shift {activeShiftNumber}</strong></div>
+            <div>• Shift Berjalan: <strong className="font-mono tabular-nums">Shift {activeShiftNumber}</strong></div>
             <div>• Regu Terjadwal Aktif: <strong className="text-emerald-700">Regu {cleanTeam(scheduledTeam)}</strong></div>
             <div>• Status Regu Anda ({cleanTeam(user?.team_group || activeTeam)}): <span className="text-amber-700 font-semibold">Siaga Cadangan / Libur</span></div>
           </div>
         </div>
       ) : (
         <>
-          {/* Command Ribbon: Header + Inline Formation Strip + Save Action */}
-          <div className="bg-white rounded-xl border border-slate-200 px-4 py-3 shadow-2xs mb-4 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg font-bold tracking-tight text-slate-900">
-                  Ploting Personel Armada
-                </h2>
-                {!isScheduledTeam && (isAdmin || isDeptHead) && (
-                  <span
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-800"
-                    title={`Regu aktif terjadwal: Regu ${cleanTeam(scheduledTeam)}`}
-                  >
-                    <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
-                    Mode Tinjau Manajemen (Jadwal: Regu {cleanTeam(scheduledTeam)})
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between xl:justify-end gap-3 flex-wrap">
-              {/* Inline Segmented Crew & Fleet Readiness Strip */}
-              <div className="inline-flex items-center divide-x divide-slate-200 rounded-lg bg-slate-50 border border-slate-200 text-xs overflow-hidden">
-                <div className="px-2.5 py-1.5 flex items-center gap-1.5" title="Armada & kru lengkap siap operasi">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <span className="text-slate-500 font-medium">Siap:</span>
-                  <span className="font-bold text-slate-900 tabular-nums">{formationSummary.readyCount}</span>
-                </div>
-                <div className="px-2.5 py-1.5 flex items-center gap-1.5" title="Kru belum lengkap / tanpa PIC">
-                  <span className="w-2 h-2 rounded-full bg-amber-500" />
-                  <span className="text-slate-500 font-medium">Kurang Kru:</span>
-                  <span className="font-bold text-slate-900 tabular-nums">{formationSummary.incompleteCount}</span>
-                </div>
-                <div className="px-2.5 py-1.5 flex items-center gap-1.5" title="Kendaraan kendala teknis / unserviceable">
-                  <span className="w-2 h-2 rounded-full bg-red-500" />
-                  <span className="text-slate-500 font-medium">Rusak:</span>
-                  <span className="font-bold text-slate-900 tabular-nums">{formationSummary.unserviceableCount}</span>
-                </div>
-                <div className="px-2.5 py-1.5 flex items-center gap-1.5" title="Total personel regu yang telah diploting">
-                  <span className="text-slate-500 font-medium">Tertugas:</span>
-                  <span className="font-bold text-slate-900 tabular-nums">
-                    {assignedPersonnelIds.size}/{teamPersonnel.length}
-                  </span>
-                </div>
-              </div>
-
-              {canEditPlot && (
-                <div className="flex items-center gap-2">
-                  {hasUnsavedChanges && (
-                    <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-md font-semibold">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                      Belum disimpan
+          {/* Header & Status Summary (Identik dengan VehicleReadinessPage) */}
+          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs font-sans">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-lg font-bold tracking-tight text-slate-900">
+                    Ploting Personel Armada
+                  </h2>
+                  {!isScheduledTeam && (isAdmin || isDeptHead) && (
+                    <span
+                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-xs font-bold text-amber-800"
+                      title={`Regu aktif terjadwal: Regu ${cleanTeam(scheduledTeam)}`}
+                    >
+                      <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
+                      Mode Tinjau Manajemen (Jadwal: Regu {cleanTeam(scheduledTeam)})
                     </span>
                   )}
-                  <button
-                    type="button"
-                    onClick={handleSaveDeployments}
-                    disabled={saving || !hasUnsavedChanges}
-                    className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold shadow-2xs transition-colors duration-100 ${hasUnsavedChanges
-                        ? 'bg-arff-primary text-white hover:bg-red-700 cursor-pointer'
-                        : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-                      } disabled:opacity-60`}
-                  >
-                    <Save className="w-4 h-4" />
-                    <span>{saving ? 'Menyimpan...' : 'Simpan Draf Ploting'}</span>
-                  </button>
                 </div>
-              )}
+              </div>
+
+              <div className="flex items-center justify-between xl:justify-end gap-3 flex-wrap">
+                {/* Ringkasan Kelaikan Fisik Armada (Murni 3 Kondisi: Belum Dicek, Serviceable, Unserviceable) */}
+                <div className="inline-flex items-center divide-x divide-slate-200 rounded-lg bg-slate-50 border border-slate-200 text-xs overflow-hidden">
+                  <div className="px-2.5 py-1.5 flex items-center gap-1.5" title="Unit belum diperiksa PIC pada shift ini">
+                    <span className="w-2 h-2 rounded-full bg-slate-400" />
+                    <span className="text-slate-500 font-medium">Belum Dicek:</span>
+                    <span className="font-bold text-slate-900 font-mono tabular-nums">{statusSummary.belumDicekCount}</span>
+                  </div>
+                  <div className="px-2.5 py-1.5 flex items-center gap-1.5" title="Unit berstatus serviceable (laik)">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span className="text-slate-500 font-medium">Serviceable:</span>
+                    <span className="font-bold text-slate-900 font-mono tabular-nums">{statusSummary.serviceableCount}</span>
+                  </div>
+                  <div className="px-2.5 py-1.5 flex items-center gap-1.5" title="Unit berstatus unserviceable (kendala/rusak)">
+                    <span className="w-2 h-2 rounded-full bg-red-500" />
+                    <span className="text-slate-500 font-medium">Unserviceable:</span>
+                    <span className="font-bold text-slate-900 font-mono tabular-nums">{statusSummary.unserviceableCount}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={FileBarChart2}
+                    onClick={() => navigate('/reports')}
+                  >
+                    Laporan Shift
+                  </Button>
+                  {canEditPlot && (
+                    <>
+                      {hasUnsavedChanges && (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-md font-semibold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                          Belum disimpan
+                        </span>
+                      )}
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        icon={Save}
+                        onClick={handleSaveDeployments}
+                        disabled={saving || !hasUnsavedChanges}
+                        loading={saving}
+                      >
+                        Simpan Ploting
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -515,7 +500,7 @@ export default function DeploymentPage() {
             loading={loading}
             isEmpty={vehicles.length === 0}
             emptyTitle="Belum Ada Armada Terdaftar"
-            emptyDescription="Daftarkan kendaraan operasional terlebih dahulu pada menu Pengaturan Master untuk memulai ploting kru."
+            emptyDescription="Daftarkan kendaraan operasional terlebih dahulu pada menu Kesiapan Armada untuk memulai ploting kru."
             onRetry={fetchDeploymentData}
           >
             {/* Vehicles Deployment Grid */}
@@ -539,7 +524,6 @@ export default function DeploymentPage() {
                       absentPersonnelIds={absentPersonnelIds}
                       currentPersonnelId={user?.personnel_id ? Number(user.personnel_id) : undefined}
                       currentUserName={typeof user?.name === 'string' ? user.name : (user?.name?.toString() || '')}
-                      onInspectVehicle={handleInspectVehicle}
                       isAdmin={isAdmin}
                       isSupervisor={isSupervisor}
                     />
@@ -547,101 +531,8 @@ export default function DeploymentPage() {
                 })}
               </div>
             </div>
-
-            {/* Panel Daftar Personel Izin / Cuti Shift Ini (Read-Only Transparan) */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mb-8">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4 flex-wrap gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
-                    <UserX className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900">
-                      Daftar Personel Izin / Cuti Shift Ini
-                    </h4>
-                    <p className="text-xs text-slate-500">
-                      Informasi absensi mandiri personel regu yang berhalangan dinas aktif ({absentList.length} orang)
-                    </p>
-                  </div>
-                </div>
-                <span className="text-[11px] font-medium text-slate-400 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-md">
-                  Kelola di Menu Cuti / Izin
-                </span>
-              </div>
-
-              {absentList.length === 0 ? (
-                <div className="py-6 text-center text-xs text-slate-500">
-                  <CheckCircle className="w-6 h-6 text-emerald-500 mx-auto mb-1 opacity-80" />
-                  <p className="font-semibold text-slate-700">Seluruh Personel Hadir</p>
-                  <p className="text-slate-400 mt-0.5">
-                    Tidak ada personel regu yang tercatat cuti atau berhalangan pada shift ini.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {absentList.map((abs, idx) => {
-                    const person = teamPersonnel.find((p) => Number(p.id) === Number(abs.personnel_id));
-                    const reasonLabels = {
-                      cuti: 'Cuti Tahunan',
-                      sakit: 'Sakit',
-                      dinas: 'Dinas Luar',
-                      tukar_dinas: 'Tukar Dinas',
-                    };
-                    return (
-                      <div
-                        key={abs.personnel_id ? `absent-${abs.personnel_id}-${idx}` : `absent-${idx}`}
-                        className="p-3 rounded-lg border border-slate-200 bg-slate-50/70 flex flex-col justify-between text-xs space-y-1.5"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <div className="font-bold text-slate-900">
-                              {person?.full_name || `Personel #${abs.personnel_id}`}
-                            </div>
-                            <div className="text-[11px] text-slate-500">
-                              NIP: {person?.nip || '-'}
-                            </div>
-                          </div>
-                          <span className="inline-block px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold text-[10px] uppercase">
-                            {reasonLabels[abs.reason] || (typeof abs.reason === 'string' ? abs.reason : 'Cuti')}
-                          </span>
-                        </div>
-
-                        {abs.notes && (
-                          <p className="text-[11px] text-slate-600 italic bg-white p-2 rounded border border-slate-100">
-                            "{typeof abs.notes === 'string' ? abs.notes : String(abs.notes)}"
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
           </StateView>
         </>
-      )}
-
-      {/* Modal Pemeriksaan Kesiapan Fisik Armada & Posko Watchroom */}
-      {inspectionModalOpen && selectedVehicleForInspection && (
-        <VehicleReadinessModal
-          isOpen={inspectionModalOpen}
-          onClose={() => {
-            setInspectionModalOpen(false);
-            setSelectedVehicleForInspection(null);
-          }}
-          vehicle={selectedVehicleForInspection}
-          activeDate={activeDate}
-          activeShiftNumber={activeShiftNumber}
-          activeTeam={activeTeam}
-          onSuccess={(customMsg) => {
-            fetchDeploymentData({ keepSuccessMsg: true });
-            const msgStr = typeof customMsg === 'string' ? customMsg : customMsg?.message;
-            setSuccessMsg(
-              msgStr ||
-              `Kesiapan ${selectedVehicleForInspection.code_name || selectedVehicleForInspection.vehicle_name || 'Unit'} berhasil diperbarui.`
-            );
-          }}
-        />
       )}
     </div>
   );

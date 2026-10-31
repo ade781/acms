@@ -28,7 +28,7 @@ export default function MobileCrewPickerSheet({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 font-sans">
       <div className="w-full max-w-[412px] bg-white rounded-t-2xl border-t border-slate-200 p-3 space-y-2 max-h-[80vh] flex flex-col shadow-2xl">
         {/* Header Sheet */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
@@ -37,7 +37,7 @@ export default function MobileCrewPickerSheet({
               {title}
             </h4>
             {subtitle && (
-              <p className="text-[10px] text-slate-500 truncate leading-tight mt-0.5">
+              <p className="text-xs text-slate-500 truncate leading-tight mt-0.5">
                 {subtitle}
               </p>
             )}
@@ -73,7 +73,7 @@ export default function MobileCrewPickerSheet({
           }}
           className="w-full p-2 rounded-lg border border-dashed border-red-200 bg-red-50/50 hover:bg-red-50 text-red-700 flex items-center justify-between text-xs font-bold transition-colors duration-100 cursor-pointer"
         >
-          <span className="text-[11px]">— Kosongkan Slot Ini (Hapus) —</span>
+          <span className="text-xs">— Kosongkan Slot Ini (Hapus) —</span>
           <Trash2 className="w-3.5 h-3.5 text-red-500 shrink-0" />
         </button>
 
@@ -111,17 +111,17 @@ export default function MobileCrewPickerSheet({
                 >
                   <div className="truncate pr-2">
                     <div className="flex items-center gap-1.5 truncate">
-                      <p className="font-bold text-slate-900 text-[11px] truncate">
+                      <p className="font-bold text-slate-900 text-xs truncate">
                         {p.full_name || p.name}
                       </p>
                       {isCurrent && (
-                        <span className="px-1 py-0.2 rounded bg-blue-100 text-blue-800 text-[8px] font-bold shrink-0">
+                        <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-xs font-bold shrink-0">
                           Slot Ini
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-[9px] text-slate-500 font-mono mt-0.5">
-                      <span>NIP: {p.nip || '-'}</span>
+                    <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                      <span>NIP: <span className="font-mono tabular-nums">{p.nip || '-'}</span></span>
                       {p.cert_level && (
                         <span className="text-slate-600 font-sans font-semibold">
                           • {p.cert_level}
@@ -132,18 +132,18 @@ export default function MobileCrewPickerSheet({
 
                   <div className="text-right shrink-0">
                     {isAbsent ? (
-                      <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[8.5px] font-bold">
+                      <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-xs font-bold">
                         Izin / Cuti
                       </span>
                     ) : isAssignedElsewhere ? (
-                      <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[8.5px] font-semibold flex items-center gap-0.5">
-                        <AlertCircle className="w-2.5 h-2.5 text-amber-600" />
+                      <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-xs font-semibold flex items-center gap-0.5">
+                        <AlertCircle className="w-3 h-3 text-amber-600" />
                         <span>Di: {assignedUnit}</span>
                       </span>
                     ) : isCurrent ? (
                       <Check className="w-4 h-4 text-blue-600" />
                     ) : (
-                      <span className="text-[10px] text-blue-600 font-semibold hover:underline">
+                      <span className="text-xs text-blue-600 font-semibold hover:underline">
                         Pilih
                       </span>
                     )}

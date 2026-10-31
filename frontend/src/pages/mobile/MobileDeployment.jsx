@@ -5,11 +5,9 @@ import { cleanTeam, getScheduledTeam, formatTeam, formatIndoDate } from '../../u
 import api from '../../services/api';
 import MobilePlotCard from '../../components/mobile/ploting/MobilePlotCard';
 import MobileCrewPickerSheet from '../../components/mobile/ploting/MobileCrewPickerSheet';
-import MobileAbsentCrewSection from '../../components/mobile/ploting/MobileAbsentCrewSection';
-import CancelLeaveModal from '../../components/leave/CancelLeaveModal';
 import VehicleReadinessModal from '../../components/forms/VehicleReadinessModal';
 
-export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) {
+export default function MobileDeployment({ onOpenAuditModal }) {
   const { user, isAdmin, isDeptHead, isSupervisor, isChief, activeDate, activeShiftNumber, activeTeam } = useAuth();
 
   // Verifikasi apakah user berhak memploting shift ini
@@ -52,11 +50,6 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
     slotIndex: 0,
     isPic: false,
   });
-
-  // Cancel Leave Confirm Modal State
-  const [cancelModalOpen, setCancelModalOpen] = useState(false);
-  const [targetCancelLeave, setTargetCancelLeave] = useState(null);
-  const [cancelingLeave, setCancelingLeave] = useState(false);
 
   // Inspection Modal State (Dukungan Posko Watchroom & Armada Bermotor)
   const [inspectionModalOpen, setInspectionModalOpen] = useState(false);
@@ -213,13 +206,14 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
             is_pic: idx === 0,
             personnel_name: d.full_name || '',
           }));
-          // Ensure at least 1 PIC + 1 crew minimum slot exists
-          while (initialSlots[vId].length < (isPosko ? 2 : 2)) {
+          // Ensure at least 3 slots (1 PIC + 2 crew) default slot exists
+          while (initialSlots[vId].length < 3) {
             initialSlots[vId].push({ personnel_id: '', is_pic: false, personnel_name: '' });
           }
         } else {
           initialSlots[vId] = [
             { personnel_id: '', is_pic: true, personnel_name: '' },
+            { personnel_id: '', is_pic: false, personnel_name: '' },
             { personnel_id: '', is_pic: false, personnel_name: '' },
           ];
         }
@@ -329,8 +323,8 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
         if (isPic) {
           unitList[0] = { ...unitList[0], personnel_id: '', personnel_name: '' };
         } else {
-          // If crew slot, remove slot if > 2 slots, otherwise clear
-          if (unitList.length > 2) {
+          // If crew slot, remove slot if > 3 slots, otherwise clear
+          if (unitList.length > 3) {
             unitList.splice(slotIndex, 1);
           } else {
             unitList[slotIndex] = { ...unitList[slotIndex], personnel_id: '', personnel_name: '' };
@@ -427,7 +421,7 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
         deployments: payloadDeployments,
       });
 
-      setToastMsg('✓ Ploting penugasan armada berhasil disimpan.');
+      setToastMsg('Ploting penugasan armada berhasil disimpan.');
       setInitialSnapshot(JSON.stringify(vehicleSlots));
     } catch (err) {
       console.error('Error saving deployments:', err);
@@ -440,125 +434,33 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
     }
   };
 
-  // Open Cancel Leave Modal
-  const handleRequestCancelLeave = (item) => {
-    const pId = Number(item.personnel_id);
-    const person = personnelMap[pId];
-    setTargetCancelLeave({
-      ...item,
-      personnel_id: pId,
-      name: person?.full_name || person?.name || item.name,
-    });
-    setCancelModalOpen(true);
-  };
-
-  // Confirm and execute Cancel Leave (Kembalikan kru ke status dinas)
-  const handleConfirmCancelLeave = async () => {
-    if (!targetCancelLeave) return;
-    setCancelingLeave(true);
-    try {
-      const pId = Number(targetCancelLeave.personnel_id);
-      const leaveId = targetCancelLeave.id;
-      const isLocalEntry = Boolean(targetCancelLeave.isLocal || (typeof leaveId === 'number' && leaveId > 1000000000000));
-
-      // Coba panggil DELETE /api/deployments/leave/:id hanya jika ID riil database
-      if (!isLocalEntry && leaveId && typeof leaveId === 'number') {
-        try {
-          await api.delete(`/deployments/leave/${leaveId}`);
-        } catch (delErr) {
-          console.warn('DELETE /deployments/leave/:id fallback to batch sync:', delErr.message);
-        }
-      }
-
-      const updatedAbsentList = absentList.filter((a) => Number(a.personnel_id) !== pId);
-      setAbsentList(updatedAbsentList);
-
-      // Re-build payload without this absent person and persist to backend
-      const payloadDeployments = [];
-      vehicles.forEach((unit) => {
-        const slots = vehicleSlots[unit.id] || [];
-        const isPosko = unit.category === 'posko' || unit.code_name === 'WATCHROOM';
-        const depType = isPosko
-          ? 'watchroom'
-          : (unit.category === 'pendukung' ? 'vehicle_pendukung' : 'vehicle_utama');
-
-        slots.forEach((slot, idx) => {
-          if (slot.personnel_id) {
-            payloadDeployments.push({
-              personnel_id: Number(slot.personnel_id),
-              deployment_type: depType,
-              vehicle_id: Number(unit.id),
-              is_pic: idx === 0,
-              notes: isPosko
-                ? (idx === 0 ? 'PIC Watchroom' : 'Operator Komunikasi')
-                : (idx === 0 ? 'PIC Armada' : `Kru ${idx}`),
-            });
-          }
-        });
-      });
-
-      updatedAbsentList.forEach((abs) => {
-        if (abs.personnel_id) {
-          payloadDeployments.push({
-            personnel_id: Number(abs.personnel_id),
-            deployment_type: 'absent',
-            vehicle_id: null,
-            is_pic: false,
-            absent_reason: abs.reason || 'cuti',
-            notes: abs.notes || 'Izin/Cuti Dinas Shift',
-          });
-        }
-      });
-
-      await api.post('/deployments/batch', {
-        shift_date: activeDate,
-        shift_number: activeShiftNumber,
-        team_group: cleanTeam(activeTeam),
-        deployments: payloadDeployments,
-      });
-
-      setToastMsg(`✓ Cuti ${targetCancelLeave.name || 'personel'} dibatalkan. Personel kini aktif berdinas.`);
-      setCancelModalOpen(false);
-      setTargetCancelLeave(null);
-    } catch (err) {
-      console.error('Error canceling leave:', err);
-      const msg = typeof err.response?.data?.message === 'string'
-        ? err.response.data.message
-        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal membatalkan cuti.'));
-      setErrorMsg(`Gagal membatalkan cuti: ${msg}`);
-    } finally {
-      setCancelingLeave(false);
-    }
-  };
-
-
   // Layar santun jika pengguna sedang lepas piket / bukan shift dinas regunya
   if (!isAuthorizedShift) {
     return (
-      <div className="space-y-3 pb-20">
+      <div className="space-y-3 pb-20 font-sans">
         <div className="bg-white rounded-xl border border-slate-200 p-5 text-center space-y-3 shadow-xs">
           <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto">
             <CalendarOff className="w-6 h-6" />
           </div>
 
           <div className="space-y-1">
-            <span className="inline-block px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold uppercase tracking-wider">
+            <span className="inline-block px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs font-bold uppercase tracking-wider">
               Bukan Shift Dinas Anda
             </span>
             <h3 className="text-sm font-bold text-slate-900 pt-1">
               Operasional Regu {scheduledTeam}
             </h3>
             <p className="text-xs text-slate-600 max-w-xs mx-auto leading-relaxed">
-              Anda terdaftar pada <span className="font-semibold text-slate-800">{formatTeam(userTeam) || 'Regu Lain'}</span>. Wewenang penyusunan ploting armada dan kru untuk <span className="font-semibold text-slate-800">Shift {activeShiftNumber}</span> ({formatIndoDate(activeDate)}) dikelola oleh Chief / Pengawas Regu yang bertugas aktif saat ini.
+              Anda terdaftar pada <span className="font-semibold text-slate-800">{formatTeam(userTeam) || 'Regu Lain'}</span>. Wewenang penyusunan ploting armada dan kru untuk <span className="font-semibold text-slate-800">Shift <span className="font-mono tabular-nums">{activeShiftNumber}</span></span> ({formatIndoDate(activeDate)}) dikelola oleh Chief / Pengawas Regu yang bertugas aktif saat ini.
             </p>
           </div>
 
-          <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 text-[11px] text-slate-500 text-left space-y-1">
+          <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 text-xs text-slate-500 text-left space-y-1">
             <div className="flex items-center gap-1.5 font-semibold text-slate-700">
               <ShieldAlert className="w-3.5 h-3.5 text-amber-600 shrink-0" />
               <span>Informasi Akses Operasional</span>
             </div>
-            <p className="text-[10.5px] leading-snug">
+            <p className="text-xs leading-snug">
               Untuk memantau kesiapan armada dan logbook shift berjalan tanpa mengubah susunan kru, silakan akses tab <span className="font-semibold text-slate-700">Laporan</span> atau kembali ke layar <span className="font-semibold text-slate-700">Dashboard</span>.
             </p>
           </div>
@@ -568,13 +470,13 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
   }
 
   return (
-    <div className="space-y-1.5 pb-20">
+    <div className="space-y-1.5 pb-20 font-sans">
       {/* Floating Viewport Toast Feedback */}
       {toastMsg && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm p-2.5 rounded-xl bg-emerald-600 text-white text-xs flex items-center justify-between shadow-lg animate-in fade-in slide-in-from-top-2 duration-150">
           <div className="flex items-center gap-2">
             <Check className="w-4 h-4 text-white shrink-0" />
-            <span className="font-bold text-[11.5px] leading-tight">
+            <span className="font-bold text-xs leading-tight">
               {typeof toastMsg === 'string' ? toastMsg : (toastMsg?.message || 'Berhasil')}
             </span>
           </div>
@@ -593,7 +495,7 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm p-2.5 rounded-xl bg-red-600 text-white text-xs flex items-center justify-between shadow-lg animate-in fade-in slide-in-from-top-2 duration-150">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-white shrink-0" />
-            <span className="font-bold text-[11.5px] leading-tight">
+            <span className="font-bold text-xs leading-tight">
               {typeof errorMsg === 'string' ? errorMsg : (errorMsg?.message || 'Terjadi kesalahan')}
             </span>
           </div>
@@ -613,21 +515,21 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
           <h3 className="text-xs font-bold text-slate-900 leading-tight">
             Ploting & Kesiapan Armada
           </h3>
-          <div className="flex items-center gap-1.5 text-[9px] font-mono mt-0.5 flex-wrap">
-            <span className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-              {readinessSummary.serviceable}/{readinessSummary.total} Siap
+          <div className="flex items-center gap-1.5 text-xs mt-0.5 flex-wrap">
+            <span className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+              <span className="font-mono tabular-nums">{readinessSummary.serviceable}/{readinessSummary.total}</span> Serviceable
             </span>
             {readinessSummary.unserviceable > 0 && (
-              <span className="text-red-700 font-bold bg-red-50 px-1.5 py-0.2 rounded border border-red-200">
-                {readinessSummary.unserviceable} Kendala
+              <span className="text-red-700 font-bold bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
+                <span className="font-mono tabular-nums">{readinessSummary.unserviceable}</span> Kendala
               </span>
             )}
             {readinessSummary.belumDicek > 0 ? (
-              <span className="text-amber-700 font-bold bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
-                {readinessSummary.belumDicek} Belum Dicek
+              <span className="text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                <span className="font-mono tabular-nums">{readinessSummary.belumDicek}</span> Belum Dicek
               </span>
             ) : (
-              <span className="text-slate-500 font-medium">100% Selesai</span>
+              <span className="text-slate-500 font-medium"><span className="font-mono tabular-nums">100%</span> Selesai</span>
             )}
           </div>
         </div>
@@ -640,11 +542,10 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
               type="button"
               onClick={handleSavePloting}
               disabled={saving || loading || !hasUnsavedChanges}
-              className={`px-2.5 py-1 rounded font-bold text-[10px] flex items-center gap-1 shadow-xs transition-colors duration-100 ${
-                hasUnsavedChanges
+              className={`px-2.5 py-1 rounded font-bold text-xs flex items-center gap-1 shadow-xs transition-colors duration-100 ${hasUnsavedChanges
                   ? 'bg-red-600 hover:bg-red-700 text-white cursor-pointer'
                   : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-              } disabled:opacity-60`}
+                } disabled:opacity-60`}
             >
               {saving ? (
                 <RefreshCw className="w-3 h-3 animate-spin" />
@@ -654,7 +555,7 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
               <span>{saving ? 'Menyimpan...' : 'Simpan'}</span>
             </button>
           ) : (
-            <span className="text-[9.5px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.8 rounded border border-slate-200">
+            <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
               Mode Tinjau (Read-Only)
             </span>
           )}
@@ -676,7 +577,7 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
           ))}
         </div>
       ) : (
-        /* Kontainer Kartu Ploting 8 Unit Armada (Dense Ops Layout) */
+        /* Kontainer Kartu Ploting Armada (Dense Ops Layout) */
         <div className="space-y-1.5">
           {vehicles.map((unit, unitIdx) => (
             <MobilePlotCard
@@ -697,14 +598,6 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
         </div>
       )}
 
-      {/* Bagian Bawah: Personel Izin / Cuti */}
-      <MobileAbsentCrewSection
-        absentList={absentList}
-        personnelMap={personnelMap}
-        onRequestCancel={handleRequestCancelLeave}
-        onOpenCutiSaya={onOpenCutiModal}
-      />
-
       {/* Crew Picker Bottom Sheet */}
       <MobileCrewPickerSheet
         isOpen={pickerOpen}
@@ -716,18 +609,6 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
         assignedMap={assignedMap}
         absentSet={absentSet}
         onSelect={handleSelectPersonnel}
-      />
-
-      {/* Modal Konfirmasi Pembatalan Cuti */}
-      <CancelLeaveModal
-        isOpen={cancelModalOpen}
-        onClose={() => {
-          setCancelModalOpen(false);
-          setTargetCancelLeave(null);
-        }}
-        onConfirm={handleConfirmCancelLeave}
-        targetLeave={targetCancelLeave}
-        deleting={cancelingLeave}
       />
 
       {/* Modal Pemeriksaan Kesiapan Fisik Armada & Posko Watchroom Mobile */}
@@ -746,8 +627,7 @@ export default function MobileDeployment({ onOpenCutiModal, onOpenAuditModal }) 
             loadPlotingData();
             setToastMsg(
               customMsg ||
-              `Kesiapan ${
-                selectedUnitForInspection.code_name || selectedUnitForInspection.vehicle_name || 'Unit'
+              `Kesiapan ${selectedUnitForInspection.code_name || selectedUnitForInspection.vehicle_name || 'Unit'
               } berhasil diperbarui.`
             );
           }}

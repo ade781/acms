@@ -52,11 +52,36 @@ export const getCurrentDeployment = async (req, res) => {
     }));
 
     if (shifts.length === 0) {
+      // Ambil Ketua Regu sah untuk regu tersebut jika sesi shift baru
+      const [teamChiefs] = await pool.query(
+        `SELECT COALESCE(p.full_name, u.name) as supervisor_name, p.nip as supervisor_nip, COALESCE(u.signature_url, p.signature_url) as supervisor_signature_url
+         FROM personnel p
+         LEFT JOIN users u ON u.id = p.user_id
+         WHERE p.team_group = ?
+           AND (u.role IN ('chief', 'supervisor') OR p.rank_position LIKE '%Chief%' OR p.rank_position LIKE '%Ketua%')
+           AND p.rank_position NOT LIKE '%Assistant%'
+           AND p.rank_position NOT LIKE '%Asisten%'
+           AND p.rank_position NOT LIKE '%Wakil%'
+           AND (u.role IS NULL OR u.role != 'chief_assistant')
+         ORDER BY p.id ASC
+         LIMIT 1`,
+        [targetTeam]
+      );
+      const defaultSupervisor = teamChiefs.length > 0 ? teamChiefs[0] : null;
+
       return successResponse(res, 'Sesi shift belum dibuat, form ploting dimulai dari kondisi kosong', {
-        shift: null,
+        shift: {
+          shift_date: shiftDate,
+          shift_number: shiftNumber,
+          team_group: targetTeam,
+          supervisor_name: defaultSupervisor?.supervisor_name || null,
+          supervisor_nip: defaultSupervisor?.supervisor_nip || null,
+          supervisor_signature_url: defaultSupervisor?.supervisor_signature_url || null,
+          status: 'open'
+        },
         shift_date: shiftDate,
         shift_number: shiftNumber,
-        team_group: team_group || null,
+        team_group: targetTeam,
         total_team_members: totalTeamMembers,
         dept_head: deptHeadData,
         deployments: [],
@@ -71,7 +96,7 @@ export const getCurrentDeployment = async (req, res) => {
     // Jika supervisor belum tercatat di sesi shift, cari Ketua Regu sah untuk regu tersebut
     if (!currentShift.supervisor_name && currentShift.team_group) {
       const [teamChiefs] = await pool.query(
-        `SELECT u.name as supervisor_name, p.nip as supervisor_nip, COALESCE(u.signature_url, p.signature_url) as supervisor_signature_url
+        `SELECT COALESCE(p.full_name, u.name) as supervisor_name, p.nip as supervisor_nip, COALESCE(u.signature_url, p.signature_url) as supervisor_signature_url
          FROM personnel p
          LEFT JOIN users u ON u.id = p.user_id
          WHERE p.team_group = ?
