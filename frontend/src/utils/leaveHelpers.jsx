@@ -44,6 +44,12 @@ export const getReasonBadge = (reason) => {
           Tukar Dinas
         </span>
       );
+    case 'libur':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+          Libur
+        </span>
+      );
     default:
       return (
         <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-800 border border-slate-200 uppercase">

@@ -35,7 +35,7 @@ export default function OngoingLeavesView({
           <select
             value={ongoingTeam}
             onChange={(e) => setOngoingTeam(e.target.value)}
-            className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-arff-primary"
+            className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white transition-colors duration-100 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400"
           >
             <option value="ALL">Semua Regu</option>
             {TEAMS.map((t) => (

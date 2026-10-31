@@ -43,7 +43,7 @@ export default function CurrentShiftAbsentsView({
         ) : (
           <div className="overflow-x-auto rounded-lg border border-slate-200">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-semibold uppercase text-[10px] tracking-wider">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-semibold uppercase text-xs tracking-wider">
                 <tr>
                   <th className="py-3 px-3 text-center w-12">No</th>
                   <th className="py-3 px-4">Nama Personel & NIP</th>
@@ -63,26 +63,26 @@ export default function CurrentShiftAbsentsView({
 
                   return (
                     <tr key={abs.id || idx} className="hover:bg-slate-50/70 transition-colors duration-100">
-                      <td className="py-3 px-3 text-center text-slate-400 font-mono text-[11px]">
+                      <td className="py-3 px-3 text-center text-slate-400 font-mono tabular-nums text-xs">
                         {idx + 1}
                       </td>
                       <td className="py-3 px-4">
                         <div className="font-bold text-slate-900">
                           {person?.full_name || abs.full_name || `Personel #${abs.personnel_id}`}
                         </div>
-                        <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                        <div className="text-xs text-slate-500 font-mono tabular-nums mt-0.5">
                           NIP: {person?.nip || abs.nip || '-'}
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                        <span className="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                           Regu {pTeam}
                         </span>
                       </td>
                       <td className="py-3 px-4">
                         {getReasonBadge(abs.reason)}
                       </td>
-                      <td className="py-3 px-4 font-mono text-slate-700 text-[11px]">
+                      <td className="py-3 px-4 font-mono tabular-nums text-slate-700 text-xs">
                         {extractDateRange(abs.notes, activeDate)}
                       </td>
                       <td className="py-3 px-4 text-slate-600 max-w-xs">

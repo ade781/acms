@@ -42,7 +42,7 @@ export default function MonthlyLeaveHistoryView({
           <select
             value={historyMonth}
             onChange={(e) => setHistoryMonth(Number(e.target.value))}
-            className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-arff-primary"
+            className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white transition-colors duration-100 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400"
           >
             {MONTH_NAMES.map((m, idx) => (
               <option key={m} value={idx + 1}>{m}</option>
@@ -52,7 +52,7 @@ export default function MonthlyLeaveHistoryView({
           <select
             value={historyYear}
             onChange={(e) => setHistoryYear(Number(e.target.value))}
-            className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-arff-primary"
+            className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-mono tabular-nums font-semibold text-slate-700 bg-white transition-colors duration-100 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400"
           >
             {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map((y) => (
               <option key={y} value={y}>{y}</option>
@@ -62,7 +62,7 @@ export default function MonthlyLeaveHistoryView({
           <select
             value={historyTeam}
             onChange={(e) => setHistoryTeam(e.target.value)}
-            className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-arff-primary"
+            className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white transition-colors duration-100 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400"
           >
             <option value="ALL">Semua Regu</option>
             {TEAMS.map((t) => (

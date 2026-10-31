@@ -26,11 +26,11 @@ export default function LeaveTable({
   return (
     <div className="overflow-x-auto rounded-lg border border-slate-200">
       <table className="w-full text-left text-xs border-collapse">
-        <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-semibold uppercase text-[10px] tracking-wider">
+        <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-semibold uppercase text-xs tracking-wider">
           <tr>
             <th className="py-3 px-3 text-center w-12">No</th>
             <th className="py-3 px-4 w-48">Periode Cuti</th>
-            <th className="py-3 px-4 w-28 text-center">Status</th>
+            {!isOngoingOnly && <th className="py-3 px-4 w-28 text-center">Status</th>}
             <th className="py-3 px-4">Nama Personel & NIP</th>
             <th className="py-3 px-4 w-28">Regu</th>
             <th className="py-3 px-4 w-32">Kategori</th>
@@ -49,36 +49,38 @@ export default function LeaveTable({
 
             return (
               <tr key={item.id || idx} className="hover:bg-slate-50/70 transition-colors duration-100">
-                <td className="py-3 px-3 text-center text-slate-400 font-mono text-[11px]">
+                <td className="py-3 px-3 text-center text-slate-400 font-mono tabular-nums text-xs">
                   {idx + 1}
                 </td>
-                <td className="py-3 px-4 font-mono text-[11px] text-slate-800">
+                <td className="py-3 px-4 font-mono tabular-nums text-xs text-slate-800">
                   <div className="font-semibold">{dateDisplay}</div>
-                  <div className="text-[10px] text-slate-500 font-sans mt-0.5">
-                    Durasi: <span className="font-bold text-slate-700">{item.days_count || 1} Hari</span>
+                  <div className="text-xs text-slate-500 font-sans mt-0.5">
+                    Durasi: <span className="font-bold font-mono tabular-nums text-slate-700">{item.days_count || 1}</span> Hari
                   </div>
                 </td>
-                <td className="py-3 px-4 text-center">
-                  {isOngoing ? (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                      Berjalan
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                      Selesai
-                    </span>
-                  )}
-                </td>
+                {!isOngoingOnly && (
+                  <td className="py-3 px-4 text-center">
+                    {isOngoing ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                        Berjalan
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                        Selesai
+                      </span>
+                    )}
+                  </td>
+                )}
                 <td className="py-3 px-4">
                   <div className="font-bold text-slate-900">
                     {item.personnel_name || item.full_name || item.name || `Personel #${item.personnel_id}`}
                   </div>
-                  <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                  <div className="text-xs text-slate-500 font-mono tabular-nums mt-0.5">
                     NIP: {item.personnel_nip || item.nip || '-'}
                   </div>
                 </td>
                 <td className="py-3 px-4">
-                  <span className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                  <span className="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                     Regu {item.personnel_team || item.shift_team || item.team || '-'}
                   </span>
                 </td>

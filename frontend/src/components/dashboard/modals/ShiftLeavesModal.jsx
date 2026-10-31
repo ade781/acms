@@ -34,7 +34,7 @@ export default function ShiftLeavesModal({
         </Button>
       }
     >
-      <div className="space-y-3">
+      <div className="space-y-3 font-sans">
         {/* Segmented Tab: Regu Shift Ini vs Semua 4 Regu */}
         <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg text-xs">
           <button
@@ -46,7 +46,7 @@ export default function ShiftLeavesModal({
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Regu {cleanTeam(currentTeam)} (Shift Ini) ({activeAbsentCount})
+            Regu {cleanTeam(currentTeam)} (Shift Ini) (<span className="font-mono tabular-nums">{activeAbsentCount}</span>)
           </button>
           <button
             type="button"
@@ -57,7 +57,7 @@ export default function ShiftLeavesModal({
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Semua Regu ({totalAbsentCount})
+            Semua Regu (<span className="font-mono tabular-nums">{totalAbsentCount}</span>)
           </button>
         </div>
 
@@ -76,20 +76,20 @@ export default function ShiftLeavesModal({
                       <span className="font-bold text-slate-900">
                         {typeof item.full_name === 'string' ? item.full_name : (item.personnel_name || '-')}
                       </span>
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                      <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                         Regu {cleanTeam(item.personnel_team || currentTeam)}
                       </span>
                     </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      NIP: {item.nip || item.personnel_nip || '-'} • {formatRoleName(item.rank_position || item.personnel_role)}
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      NIP: <span className="font-mono tabular-nums">{item.nip || item.personnel_nip || '-'}</span> • {formatRoleName(item.rank_position || item.personnel_role)}
                     </div>
                     {item.notes && (
-                      <div className="text-[11px] text-slate-600 mt-1">
+                      <div className="text-xs text-slate-600 mt-1">
                         Keterangan: {typeof item.notes === 'string' ? item.notes : String(item.notes)}
                       </div>
                     )}
                   </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
+                  <span className="px-2 py-0.5 rounded text-xs font-bold uppercase bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
                     {typeof item.absent_reason === 'string' ? item.absent_reason : 'Cuti / Izin'}
                   </span>
                 </div>
@@ -110,20 +110,20 @@ export default function ShiftLeavesModal({
                       <span className="font-bold text-slate-900">
                         {item.personnel_name || item.full_name || '-'}
                       </span>
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                      <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                         Regu {cleanTeam(item.personnel_team || item.shift_team || currentTeam)}
                       </span>
                     </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      NIP: {item.personnel_nip || item.nip || '-'} • {formatRoleName(item.personnel_role || item.rank_position)}
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      NIP: <span className="font-mono tabular-nums">{item.personnel_nip || item.nip || '-'}</span> • {formatRoleName(item.personnel_role || item.rank_position)}
                     </div>
                     {(item.notes || item.raw_notes) && (
-                      <div className="text-[11px] text-slate-600 mt-1">
+                      <div className="text-xs text-slate-600 mt-1">
                         Keterangan: {item.notes || item.raw_notes}
                       </div>
                     )}
                   </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
+                  <span className="px-2 py-0.5 rounded text-xs font-bold uppercase bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
                     {item.absent_reason || 'Cuti / Izin'}
                   </span>
                 </div>

@@ -153,12 +153,12 @@ export default function LeaveModal({
                 <div className="text-xs font-bold text-slate-900 leading-tight">
                   {user?.name || user?.full_name || 'Personel Mandiri'}
                 </div>
-                <div className="text-[11px] text-slate-500 font-mono mt-0.5">
-                  NIP: {user?.nip || user?.username || '-'} • Regu: {user?.team_group || user?.team || '-'}
+                <div className="text-xs text-slate-500 font-sans mt-0.5">
+                  NIP: <span className="font-mono tabular-nums">{user?.nip || user?.username || '-'}</span> • Regu: <span className="font-semibold text-slate-700">{user?.team_group || user?.team || '-'}</span>
                 </div>
               </div>
             </div>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 flex-shrink-0">
+            <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 flex-shrink-0">
               Terkunci (Diri Sendiri)
             </span>
           </div>
@@ -201,7 +201,7 @@ export default function LeaveModal({
           <select
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 min-h-[38px] transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-red-500"
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 min-h-[38px] transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
             required
           >
             <option value="cuti">Cuti Tahunan</option>
@@ -221,7 +221,7 @@ export default function LeaveModal({
             placeholder="Contoh: Keperluan keluarga mendesak / Istirahat rawat jalan..."
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-red-500"
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
           />
         </div>
 
@@ -236,7 +236,7 @@ export default function LeaveModal({
             onChange={handleFileChange}
             className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
           />
-          <span className="text-[11px] text-slate-400 mt-1 block">
+          <span className="text-xs text-slate-400 mt-1 block">
             Format berkas: PDF, WebP, JPEG, atau PNG (Maks. 5 MB)
           </span>
         </div>

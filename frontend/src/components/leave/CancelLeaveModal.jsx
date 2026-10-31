@@ -44,17 +44,17 @@ export default function CancelLeaveModal({
     >
       <div className="space-y-3 text-xs text-slate-700">
         <p>
-          Apakah Anda yakin ingin membatalkan pengajuan cuti ini? Personel yang bersangkutan akan dikembalikan ke status siap dinas operasional.
+          Apakah Anda yakin ingin membatalkan pengajuan cuti ini? Personel yang bersangkutan akan dikembalikan ke status aktif berdinas.
         </p>
         <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-1.5">
           <div className="font-bold text-slate-900 text-sm">
             {targetLeave.personnel_name || targetLeave.full_name || targetLeave.name || `Personel #${targetLeave.personnel_id}`}
           </div>
           <div className="text-slate-600 flex items-center gap-2">
-            <span>Periode: <strong className="font-mono text-slate-800">{dateDisplay}</strong></span>
+            <span>Periode: <strong className="font-mono tabular-nums text-slate-800">{dateDisplay}</strong></span>
             {targetLeave.days_count && (
-              <span className="text-[11px] text-slate-500 font-sans">
-                ({targetLeave.days_count} Hari)
+              <span className="text-xs text-slate-500 font-sans">
+                (<span className="font-mono tabular-nums">{targetLeave.days_count}</span> Hari)
               </span>
             )}
           </div>
@@ -63,7 +63,7 @@ export default function CancelLeaveModal({
             {getReasonBadge(targetLeave.absent_reason || targetLeave.reason)}
           </div>
         </div>
-        <p className="text-slate-500 text-[11px]">
+        <p className="text-slate-500 text-xs">
           Tindakan ini akan menghapus catatan izin/cuti untuk seluruh rentang tanggal pengajuan yang berkaitan.
         </p>
       </div>

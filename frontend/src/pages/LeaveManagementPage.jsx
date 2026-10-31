@@ -281,12 +281,12 @@ export default function LeaveManagementPage() {
             <h2 className="text-xl font-bold tracking-tight text-slate-900">
               Pencatatan Izin & Cuti
             </h2>
-            <span className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-800 tabular-nums">
-              Hadir Shift Ini: {Math.max(0, teamPersonnel.length - absentList.length)}/{teamPersonnel.length}
+            <span className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800">
+              Hadir Shift Ini: <span className="font-mono tabular-nums">{Math.max(0, teamPersonnel.length - absentList.length)}/{teamPersonnel.length}</span>
             </span>
             {absentList.length > 0 && (
-              <span className="px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-800 tabular-nums">
-                Izin/Cuti: {absentList.length}
+              <span className="px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-xs font-bold text-amber-800">
+                Izin/Cuti: <span className="font-mono tabular-nums">{absentList.length}</span>
               </span>
             )}
           </div>
@@ -315,7 +315,7 @@ export default function LeaveManagementPage() {
             <CalendarCheck className="w-3.5 h-3.5 text-amber-600" />
             <span>Status Berjalan</span>
             {ongoingLeaves.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-100 text-amber-800 font-extrabold">
+              <span className="px-1.5 py-0.5 rounded-full text-xs font-mono tabular-nums bg-amber-100 text-amber-800 font-extrabold">
                 {ongoingLeaves.length}
               </span>
             )}
@@ -331,7 +331,7 @@ export default function LeaveManagementPage() {
             <Clock className="w-3.5 h-3.5" />
             <span>Shift Berjalan</span>
             {absentList.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-red-100 text-red-700 font-extrabold">
+              <span className="px-1.5 py-0.5 rounded-full text-xs font-mono tabular-nums bg-red-100 text-red-700 font-extrabold">
                 {absentList.length}
               </span>
             )}
