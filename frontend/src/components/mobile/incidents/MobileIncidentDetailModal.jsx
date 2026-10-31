@@ -3,6 +3,7 @@ import {
   MapPin,
   Camera,
   ExternalLink,
+  X,
 } from 'lucide-react';
 import api from '../../../services/api';
 import { INCIDENT_PRIORITIES, INCIDENT_STATUSES } from './MobileIncidentTimelineItem';
@@ -69,7 +70,7 @@ export default function MobileIncidentDetailModal({
       setIncident((prev) => ({ ...prev, status: newStatus }));
       setToastMsg({
         type: 'success',
-        text: `✓ Status berhasil diubah ke ${newStatus === 'selesai' ? 'Selesai' : newStatus}.`,
+        text: `Status berhasil diubah ke ${newStatus === 'selesai' ? 'Selesai' : newStatus}.`,
       });
       onStatusUpdated?.();
     } catch (err) {
@@ -103,7 +104,7 @@ export default function MobileIncidentDetailModal({
                 <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wide truncate">
                   Rincian Laporan Insiden
                 </h4>
-                <p className="text-[9px] text-slate-500 font-mono">
+                <p className="text-xs text-slate-500 font-mono tabular-nums">
                   {currentInc.report_number || `INC-${currentInc.id}`}
                 </p>
               </div>
@@ -112,10 +113,10 @@ export default function MobileIncidentDetailModal({
             <button
               type="button"
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-700 text-sm font-bold p-1 rounded"
+              className="text-slate-400 hover:text-slate-700 p-1 rounded"
               aria-label="Tutup"
             >
-              ✕
+              <X className="w-4 h-4" />
             </button>
           </div>
 
@@ -124,11 +125,10 @@ export default function MobileIncidentDetailModal({
             {/* Toast Feedback */}
             {toastMsg && (
               <div
-                className={`p-2 rounded-lg border text-[11px] flex items-center justify-between shadow-xs ${
-                  toastMsg.type === 'error'
+                className={`p-2 rounded-lg border text-xs flex items-center justify-between shadow-xs ${toastMsg.type === 'error'
                     ? 'bg-red-50 border-red-200 text-red-800'
                     : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                }`}
+                  }`}
               >
                 <span className="font-semibold">
                   {typeof toastMsg.text === 'string' ? toastMsg.text : (toastMsg.text?.message || 'Pemberitahuan')}
@@ -139,7 +139,7 @@ export default function MobileIncidentDetailModal({
                   className="p-0.5 text-slate-400 hover:text-slate-700"
                   aria-label="Tutup"
                 >
-                  ✕
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
             )}
@@ -147,15 +147,15 @@ export default function MobileIncidentDetailModal({
             {/* Priority & Status Banner */}
             <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200/80">
               <div className="space-y-0.5">
-                <span className="text-[9px] text-slate-500 block">Tingkat Prioritas:</span>
-                <span className={`px-2 py-0.5 rounded text-[9.5px] font-bold border inline-block ${priorityMeta.badge}`}>
+                <span className="text-xs text-slate-500 block">Tingkat Prioritas:</span>
+                <span className={`px-2 py-0.5 rounded text-xs font-bold border inline-block ${priorityMeta.badge}`}>
                   {priorityMeta.label}
                 </span>
               </div>
 
               <div className="text-right space-y-0.5">
-                <span className="text-[9px] text-slate-500 block">Status Tindak Lanjut:</span>
-                <span className={`px-2 py-0.5 rounded text-[9.5px] font-bold border inline-block ${statusMeta.badge}`}>
+                <span className="text-xs text-slate-500 block">Status Tindak Lanjut:</span>
+                <span className={`px-2 py-0.5 rounded text-xs font-bold border inline-block ${statusMeta.badge}`}>
                   {statusMeta.label}
                 </span>
               </div>
@@ -163,7 +163,7 @@ export default function MobileIncidentDetailModal({
 
             {/* Title / Classification */}
             <div className="space-y-0.5">
-              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wide">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">
                 Klasifikasi Kejadian
               </span>
               <h3 className="font-bold text-slate-900 text-xs leading-snug">
@@ -174,23 +174,23 @@ export default function MobileIncidentDetailModal({
             {/* Time, Date, Location Grid */}
             <div className="grid grid-cols-2 gap-1.5 text-xs">
               <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 space-y-0.5">
-                <span className="text-[9px] text-slate-500 block">Waktu & Tanggal</span>
-                <span className="font-bold text-slate-900 font-mono text-[10.5px] block">
+                <span className="text-xs text-slate-500 block">Waktu & Tanggal</span>
+                <span className="font-bold text-slate-900 font-mono tabular-nums text-xs block">
                   {timeFormatted} WIB
                 </span>
-                <span className="text-[9px] text-slate-500 font-mono block">
+                <span className="text-xs text-slate-500 font-mono tabular-nums block">
                   {currentInc.incident_date}
                 </span>
               </div>
 
               <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 space-y-0.5">
-                <span className="text-[9px] text-slate-500 block">Lokasi Sisi Udara</span>
-                <div className="flex items-center gap-1 font-bold text-slate-900 text-[10.5px]">
+                <span className="text-xs text-slate-500 block">Lokasi Sisi Udara</span>
+                <div className="flex items-center gap-1 font-bold text-slate-900 text-xs">
                   <MapPin className="w-3 h-3 text-red-500 shrink-0" />
                   <span className="truncate">{currentInc.location || 'Airside'}</span>
                 </div>
                 {currentInc.aircraft_info && (
-                  <span className="text-[9px] text-slate-600 font-mono block truncate">
+                  <span className="text-xs text-slate-600 block truncate">
                     Penerbangan: {currentInc.aircraft_info}
                   </span>
                 )}
@@ -199,10 +199,10 @@ export default function MobileIncidentDetailModal({
 
             {/* Chronology */}
             <div className="space-y-0.5">
-              <span className="text-[9px] font-bold text-slate-700 uppercase tracking-wide block">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wide block">
                 Uraian Kronologis Kejadian
               </span>
-              <div className="p-2 rounded-lg bg-slate-50 border border-slate-200/80 text-[10.5px] text-slate-800 leading-relaxed whitespace-pre-line">
+              <div className="p-2 rounded-lg bg-slate-50 border border-slate-200/80 text-xs text-slate-800 leading-relaxed whitespace-pre-line">
                 {currentInc.chronology}
               </div>
             </div>
@@ -210,10 +210,10 @@ export default function MobileIncidentDetailModal({
             {/* Action Taken */}
             {currentInc.action_taken && (
               <div className="space-y-0.5">
-                <span className="text-[9px] font-bold text-slate-700 uppercase tracking-wide block">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide block">
                   Tindakan Penanganan Operasional
                 </span>
-                <div className="p-2 rounded-lg bg-emerald-50/50 border border-emerald-200/80 text-[10.5px] text-emerald-900 leading-relaxed whitespace-pre-line">
+                <div className="p-2 rounded-lg bg-emerald-50/50 border border-emerald-200/80 text-xs text-emerald-900 leading-relaxed whitespace-pre-line">
                   {currentInc.action_taken}
                 </div>
               </div>
@@ -221,7 +221,7 @@ export default function MobileIncidentDetailModal({
 
             {/* Last Condition & Coordinated Parties */}
             {(currentInc.last_condition || currentInc.coordinated_parties) && (
-              <div className="space-y-1 p-2 rounded-lg bg-slate-50 border border-slate-100 text-[10px] text-slate-700">
+              <div className="space-y-1 p-2 rounded-lg bg-slate-50 border border-slate-100 text-xs text-slate-700">
                 {currentInc.last_condition && (
                   <div>
                     <strong className="text-slate-800">Kondisi Terakhir:</strong>{' '}
@@ -240,9 +240,9 @@ export default function MobileIncidentDetailModal({
             {/* Photo Attachments Gallery */}
             {attachments.length > 0 && (
               <div className="space-y-1 pt-1 border-t border-slate-100">
-                <span className="text-[9.5px] font-bold text-slate-700 block flex items-center gap-1">
+                <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
                   <Camera className="w-3 h-3 text-red-500" />
-                  Foto Bukti Lapangan ({attachments.length})
+                  Foto Bukti Lapangan (<span className="font-mono tabular-nums">{attachments.length}</span>)
                 </span>
 
                 <div className="grid grid-cols-3 gap-1.5">
@@ -275,7 +275,7 @@ export default function MobileIncidentDetailModal({
             {/* Quick Status Control for Chief / Supervisor */}
             {canManage && (
               <div className="space-y-1 pt-2 border-t border-slate-100">
-                <span className="text-[9.5px] font-bold text-slate-700 block">
+                <span className="text-xs font-bold text-slate-700 block">
                   Ubah Status Tindak Lanjut:
                 </span>
                 <div className="grid grid-cols-3 gap-1">
@@ -283,11 +283,10 @@ export default function MobileIncidentDetailModal({
                     type="button"
                     disabled={updatingStatus || currentInc.status === 'dalam_proses'}
                     onClick={() => handleUpdateStatus('dalam_proses')}
-                    className={`py-1.5 px-1 rounded-lg text-[9px] font-bold border transition-colors duration-100 ${
-                      currentInc.status === 'dalam_proses'
+                    className={`py-1.5 px-1 rounded-lg text-xs font-bold border transition-colors duration-100 ${currentInc.status === 'dalam_proses'
                         ? 'bg-amber-100 text-amber-900 border-amber-300'
                         : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                    }`}
+                      }`}
                   >
                     Dalam Proses
                   </button>
@@ -295,11 +294,10 @@ export default function MobileIncidentDetailModal({
                     type="button"
                     disabled={updatingStatus || currentInc.status === 'selesai'}
                     onClick={() => handleUpdateStatus('selesai')}
-                    className={`py-1.5 px-1 rounded-lg text-[9px] font-bold border transition-colors duration-100 ${
-                      currentInc.status === 'selesai'
+                    className={`py-1.5 px-1 rounded-lg text-xs font-bold border transition-colors duration-100 ${currentInc.status === 'selesai'
                         ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
                         : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                    }`}
+                      }`}
                   >
                     Selesai
                   </button>
@@ -307,11 +305,10 @@ export default function MobileIncidentDetailModal({
                     type="button"
                     disabled={updatingStatus || currentInc.status === 'menunggu_tindak_lanjut'}
                     onClick={() => handleUpdateStatus('menunggu_tindak_lanjut')}
-                    className={`py-1.5 px-1 rounded-lg text-[9px] font-bold border transition-colors duration-100 ${
-                      currentInc.status === 'menunggu_tindak_lanjut'
+                    className={`py-1.5 px-1 rounded-lg text-xs font-bold border transition-colors duration-100 ${currentInc.status === 'menunggu_tindak_lanjut'
                         ? 'bg-rose-100 text-rose-900 border-rose-300'
                         : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                    }`}
+                      }`}
                   >
                     Tindak Lanjut
                   </button>
@@ -350,9 +347,10 @@ export default function MobileIncidentDetailModal({
               <button
                 type="button"
                 onClick={() => setActivePhoto(null)}
-                className="text-slate-400 hover:text-slate-700 font-bold text-sm px-1"
+                className="text-slate-400 hover:text-slate-700 p-1 rounded"
+                aria-label="Tutup foto"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
             <div className="max-h-[70vh] overflow-hidden rounded bg-slate-100 flex items-center justify-center">

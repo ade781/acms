@@ -14,6 +14,8 @@ import {
   Camera,
   X,
   ArrowLeft,
+  FileText,
+  AlertCircle,
 } from 'lucide-react';
 import api from '../services/api';
 import { downloadIncidentReportPdf } from '../services/reportService';
@@ -31,6 +33,15 @@ export default function IncidentReportsPage() {
   const [endDate, setEndDate] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTriage, setFilterTriage] = useState('ALL'); // 'ALL' | 'kritis' | 'proses' | 'selesai'
+
+  // State Feedback Notifikasi Visual (Toast)
+  const [toastMsg, setToastMsg] = useState(null);
+
+  useEffect(() => {
+    if (!toastMsg) return;
+    const timer = setTimeout(() => setToastMsg(null), 4000);
+    return () => clearTimeout(timer);
+  }, [toastMsg]);
 
   // Data State
   const [loading, setLoading] = useState(true);
@@ -69,7 +80,10 @@ export default function IncidentReportsPage() {
         setReportData({
           startDate: typeof data.startDate === 'string' ? data.startDate : '',
           endDate: typeof data.endDate === 'string' ? data.endDate : '',
-          stats: data.stats && typeof data.stats === 'object' ? data.stats : { total: 0, selesai: 0, dalam_proses: 0, menunggu_tindak_lanjut: 0, kritis: 0 },
+          stats:
+            data.stats && typeof data.stats === 'object'
+              ? data.stats
+              : { total: 0, selesai: 0, dalam_proses: 0, menunggu_tindak_lanjut: 0, kritis: 0 },
           incidents: Array.isArray(data.incidents) ? data.incidents : [],
         });
       }
@@ -99,8 +113,16 @@ export default function IncidentReportsPage() {
         category: 'ALL',
         status: 'ALL',
       });
+      setToastMsg({
+        type: 'success',
+        text: 'Dokumen PDF Laporan Rekapitulasi Insiden berhasil diunduh.',
+      });
     } catch (err) {
       console.error('Gagal mengunduh PDF insiden:', err);
+      setToastMsg({
+        type: 'error',
+        text: 'Gagal mengunduh dokumen PDF laporan insiden. Silakan coba lagi.',
+      });
     } finally {
       setIsExporting(false);
     }
@@ -110,21 +132,25 @@ export default function IncidentReportsPage() {
   const incidentList = Array.isArray(reportData.incidents) ? reportData.incidents : [];
   const triageStats = {
     total: incidentList.length || (reportData.stats?.total ?? 0),
-    kritis: incidentList.length > 0
-      ? incidentList.filter((i) => {
-          const p = (i.priority_level || i.priority || '').toLowerCase();
-          return p.includes('kritis') || p.includes('critical');
-        }).length
-      : (reportData.stats?.kritis ?? 0),
-    proses: incidentList.length > 0
-      ? incidentList.filter((i) => {
-          const s = (i.status || '').toLowerCase();
-          return s === 'dalam_proses' || s === 'menunggu_tindak_lanjut';
-        }).length
-      : ((reportData.stats?.dalam_proses || 0) + (reportData.stats?.menunggu_tindak_lanjut || 0)),
-    selesai: incidentList.length > 0
-      ? incidentList.filter((i) => (i.status || '').toLowerCase() === 'selesai').length
-      : (reportData.stats?.selesai ?? 0),
+    kritis:
+      incidentList.length > 0
+        ? incidentList.filter((i) => {
+            const p = (i.priority_level || i.priority || '').toLowerCase();
+            return p.includes('kritis') || p.includes('critical');
+          }).length
+        : (reportData.stats?.kritis ?? 0),
+    proses:
+      incidentList.length > 0
+        ? incidentList.filter((i) => {
+            const s = (i.status || '').toLowerCase();
+            return s === 'dalam_proses' || s === 'menunggu_tindak_lanjut';
+          }).length
+        : (reportData.stats?.dalam_proses || 0) +
+          (reportData.stats?.menunggu_tindak_lanjut || 0),
+    selesai:
+      incidentList.length > 0
+        ? incidentList.filter((i) => (i.status || '').toLowerCase() === 'selesai').length
+        : (reportData.stats?.selesai ?? 0),
   };
 
   // Filter teks pencarian & status triage (Layer 1)
@@ -155,17 +181,36 @@ export default function IncidentReportsPage() {
 
   const getPriorityBadge = (lvl) => {
     const l = (lvl || '').toLowerCase();
-    if (l === 'kritis' || l === 'critical') return <Badge variant="unserviceable" size="sm">Siaga I (Kritis)</Badge>;
-    if (l === 'tinggi' || l === 'high') return <Badge variant="pending" size="sm">Siaga II (Tinggi)</Badge>;
-    if (l === 'sedang' || l === 'medium') return <Badge variant="info" size="sm">Sedang</Badge>;
-    return <Badge variant="default" size="sm">Rendah</Badge>;
+    if (l === 'kritis' || l === 'critical')
+      return (
+        <Badge variant="unserviceable" size="sm">
+          Siaga I (Kritis)
+        </Badge>
+      );
+    if (l === 'tinggi' || l === 'high')
+      return (
+        <Badge variant="pending" size="sm">
+          Siaga II (Tinggi)
+        </Badge>
+      );
+    if (l === 'sedang' || l === 'medium')
+      return (
+        <Badge variant="info" size="sm">
+          Sedang
+        </Badge>
+      );
+    return (
+      <Badge variant="default" size="sm">
+        Rendah
+      </Badge>
+    );
   };
 
   const getStatusBadge = (st) => {
     const s = (st || 'dalam_proses').toLowerCase();
     if (s === 'selesai') {
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
           <CheckCircle2 className="w-3 h-3 text-emerald-600" />
           Selesai Ditangani
         </span>
@@ -173,14 +218,14 @@ export default function IncidentReportsPage() {
     }
     if (s === 'menunggu_tindak_lanjut') {
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
           <AlertTriangle className="w-3 h-3 text-rose-600" />
           Tindak Lanjut
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
         <Clock className="w-3 h-3 text-amber-600" />
         Dalam Proses
       </span>
@@ -188,54 +233,137 @@ export default function IncidentReportsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Top Header: Navigasi Back & Tombol Aksi */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            icon={ArrowLeft}
-            onClick={() => navigate('/incidents')}
+    <div className="space-y-4 font-sans">
+      {/* Toast Feedback Notifikasi Visual */}
+      {toastMsg && (
+        <div
+          className={`flex items-center justify-between p-3.5 rounded-xl border text-xs font-semibold shadow-xs transition-colors duration-100 ${
+            toastMsg.type === 'error'
+              ? 'bg-red-50 border-red-200 text-red-800'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            {toastMsg.type === 'error' ? (
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            )}
+            <span>
+              {typeof toastMsg?.text === 'string'
+                ? toastMsg.text
+                : toastMsg?.text?.message || 'Pemberitahuan'}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setToastMsg(null)}
+            className="p-1 rounded-md hover:bg-black/5 text-current cursor-pointer transition-colors duration-100"
+            title="Tutup Notifikasi"
           >
-            Kembali
-          </Button>
-          <div>
-            <h2 className="text-xl font-bold tracking-tight text-slate-900">
-              Laporan Rekapitulasi Insiden
-            </h2>
-            <p className="text-xs text-slate-500 font-medium">
-              Unit Airport Rescue & Fire Fighting (PKP-PK) • Bandara Internasional Yogyakarta (YIA)
-            </p>
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Executive Document Control Card + Integrated Horizontal Metric Ledger */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+        {/* Top Row: Navigasi Back, Title, & Tombol Aksi */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              icon={ArrowLeft}
+              onClick={() => navigate('/incidents')}
+            >
+              Kembali
+            </Button>
+            <div>
+              <h2 className="text-lg font-bold tracking-tight text-slate-900 font-sans">
+                Laporan Rekapitulasi Insiden
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5 font-sans">
+                Periode:{' '}
+                <span className="font-mono tabular-nums font-semibold text-slate-700">
+                  {typeof reportData.startDate === 'string' && reportData.startDate
+                    ? `${reportData.startDate} s.d. ${reportData.endDate || '-'}`
+                    : period}
+                </span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              icon={RefreshCw}
+              onClick={fetchSummaryReport}
+              disabled={loading || isExporting}
+            >
+              Segarkan
+            </Button>
+
+            <Button
+              variant="primary"
+              size="sm"
+              icon={Download}
+              onClick={handleExportPdf}
+              loading={isExporting}
+              disabled={isExporting}
+            >
+              {isExporting ? 'Mengunduh...' : 'Unduh PDF Resmi'}
+            </Button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            icon={RefreshCw}
-            onClick={fetchSummaryReport}
-            disabled={loading}
-          >
-            Segarkan
-          </Button>
+        {/* Bottom Row: Compact 4-Column Tabular Ledger Strip */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 bg-slate-50/60 text-xs font-sans">
+          <div className="px-4 py-2.5 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-slate-600">
+              <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="font-semibold">Total Insiden</span>
+            </div>
+            <span className="font-black text-slate-900 font-mono tabular-nums">
+              {triageStats.total} Kejadian
+            </span>
+          </div>
 
-          <Button
-            variant="danger"
-            size="sm"
-            icon={Download}
-            onClick={handleExportPdf}
-            loading={isExporting}
-            disabled={isExporting}
-          >
-            {isExporting ? 'Mengunduh...' : 'Unduh PDF Resmi'}
-          </Button>
+          <div className="px-4 py-2.5 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-slate-600">
+              <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+              <span className="font-semibold">Siaga I / Kritis</span>
+            </div>
+            <span className="font-black text-red-600 font-mono tabular-nums">
+              {triageStats.kritis} Kejadian
+            </span>
+          </div>
+
+          <div className="px-4 py-2.5 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-slate-600">
+              <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+              <span className="font-semibold">Dalam Penanganan</span>
+            </div>
+            <span className="font-black text-amber-700 font-mono tabular-nums">
+              {triageStats.proses} Kejadian
+            </span>
+          </div>
+
+          <div className="px-4 py-2.5 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-slate-600">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+              <span className="font-semibold">Selesai Ditangani</span>
+            </div>
+            <span className="font-black text-emerald-700 font-mono tabular-nums">
+              {triageStats.selesai} Kejadian
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Filter Bar: Preset Periode & Rentang Tanggal Kustom */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3">
+      {/* Uniform Filter Bar: Preset Periode, Pencarian, & Triage Status */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3 print:hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Preset Buttons */}
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -243,28 +371,30 @@ export default function IncidentReportsPage() {
               <Calendar className="w-3.5 h-3.5 text-slate-400" />
               Periode:
             </span>
-            {[
-              { id: '1month', label: '1 Bulan Terakhir (Default)' },
-              { id: '3months', label: '3 Bulan' },
-              { id: '1year', label: '1 Tahun' },
-              { id: 'custom', label: 'Rentang Kustom' },
-            ].map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => {
-                  setPeriod(p.id);
-                  setCurrentPage(1);
-                }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-100 ${
-                  period === p.id
-                    ? 'bg-red-600 text-white shadow-xs font-bold'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
+            <div className="inline-flex items-center gap-1 p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs flex-wrap">
+              {[
+                { id: '1month', label: '1 Bulan Terakhir (Default)' },
+                { id: '3months', label: '3 Bulan' },
+                { id: '1year', label: '1 Tahun' },
+                { id: 'custom', label: 'Rentang Kustom' },
+              ].map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    setPeriod(p.id);
+                    setCurrentPage(1);
+                  }}
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors duration-100 cursor-pointer ${
+                    period === p.id
+                      ? 'bg-white text-slate-900 shadow-2xs font-bold border border-slate-200/80'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Search Box */}
@@ -272,7 +402,7 @@ export default function IncidentReportsPage() {
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Cari nomor laporan/lokasi..."
+              placeholder="Cari nomor laporan atau lokasi..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -285,43 +415,41 @@ export default function IncidentReportsPage() {
 
         {/* Input Rentang Tanggal Kustom */}
         {period === 'custom' && (
-          <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-3">
+          <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-3 text-xs">
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-600 font-medium">Dari:</span>
+              <span className="font-semibold text-slate-700">Dari:</span>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="px-2.5 py-1 text-xs border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-red-500 transition-colors duration-100"
+                className="px-2.5 py-1.5 text-xs font-mono tabular-nums border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-red-600 transition-colors duration-100"
               />
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-600 font-medium">Sampai:</span>
+              <span className="font-semibold text-slate-700">Sampai:</span>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="px-2.5 py-1 text-xs border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-red-500 transition-colors duration-100"
+                className="px-2.5 py-1.5 text-xs font-mono tabular-nums border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-red-600 transition-colors duration-100"
               />
             </div>
             <Button
-              variant="secondary"
+              variant="primary"
               size="sm"
               onClick={() => {
                 setCurrentPage(1);
                 fetchSummaryReport();
               }}
             >
-              Terapkan Filter
+              Terapkan Rentang
             </Button>
           </div>
         )}
-      </div>
 
-      {/* Segmented Interactive Triage Filter Pills */}
-      <div className="bg-white rounded-xl border border-slate-200 p-2.5 shadow-2xs flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1">
+        {/* Segmented Interactive Triage Filter Pills */}
+        <div className="pt-2.5 border-t border-slate-100 flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">
             Triage:
           </span>
           {[
@@ -341,17 +469,17 @@ export default function IncidentReportsPage() {
                 }}
                 className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-100 cursor-pointer ${
                   isActive
-                    ? 'bg-slate-900 text-white shadow-2xs font-bold'
-                    : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/80'
+                    ? 'bg-white text-slate-900 border border-slate-300 font-bold shadow-2xs ring-1 ring-slate-300/50'
+                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
                 }`}
               >
                 {pill.dot && <span className={`w-2 h-2 rounded-full ${pill.dot}`} />}
                 <span>{pill.label}</span>
                 <span
-                  className={`text-[11px] px-1.5 py-0.2 rounded-full font-bold tabular-nums ${
+                  className={`text-xs px-1.5 py-0.5 rounded-full font-bold font-mono tabular-nums ${
                     isActive
-                      ? 'bg-white/20 text-white'
-                      : 'bg-slate-200/80 text-slate-800'
+                      ? 'bg-slate-100 text-slate-900 border border-slate-200'
+                      : 'bg-slate-200/80 text-slate-700'
                   }`}
                 >
                   {pill.count}
@@ -360,25 +488,16 @@ export default function IncidentReportsPage() {
             );
           })}
         </div>
-
-        <div className="text-[11px] text-slate-400 font-medium hidden sm:block">
-          Periode: {typeof reportData.startDate === 'string' && reportData.startDate ? reportData.startDate : '-'} s.d. {typeof reportData.endDate === 'string' && reportData.endDate ? reportData.endDate : '-'}
-        </div>
       </div>
 
       {/* LAYER 1: TABEL DAFTAR RINGKASAN KEJADIAN */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
         <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900">
-              Daftar Rekapitulasi Kejadian (Layer 1)
-            </h3>
-            <p className="text-[11px] text-slate-500 font-medium">
-              Klik baris insiden untuk membuka Layer 2 (Detail kronologi, tindakan, koordinasi ATC & foto TKP)
-            </p>
-          </div>
+          <h3 className="text-sm font-bold text-slate-900">
+            Daftar Rekapitulasi Kejadian
+          </h3>
           <span className="text-xs font-semibold text-slate-500">
-            Menampilkan {filteredList.length} kejadian
+            Menampilkan <span className="font-mono tabular-nums">{filteredList.length}</span> kejadian
           </span>
         </div>
 
@@ -393,7 +512,7 @@ export default function IncidentReportsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                <tr className="border-b border-slate-200 bg-slate-50 text-xs font-bold text-slate-600 uppercase tracking-wider">
                   <th className="py-3 px-4">No. Laporan</th>
                   <th className="py-3 px-4">Waktu Kejadian</th>
                   <th className="py-3 px-4">Klasifikasi & Judul</th>
@@ -407,35 +526,31 @@ export default function IncidentReportsPage() {
                   <tr
                     key={inc.id || inc.report_number || `inc-rep-${inc.incident_date}`}
                     onClick={() => setSelectedIncident(inc)}
-                    className="hover:bg-red-50/40 cursor-pointer transition-colors duration-100 group"
+                    className="hover:bg-slate-50/80 cursor-pointer transition-colors duration-100 group"
                   >
-                    <td className="py-3 px-4 font-bold text-red-700 font-mono text-[11.5px]">
+                    <td className="py-3 px-4 font-bold text-red-700 font-mono tabular-nums text-xs">
                       {inc.report_number || `INC-${inc.id}`}
                     </td>
-                    <td className="py-3 px-4 text-slate-700 font-medium">
+                    <td className="py-3 px-4 text-slate-700 font-medium font-mono tabular-nums">
                       <div>{inc.incident_date}</div>
-                      <div className="text-[10.5px] text-slate-400">
+                      <div className="text-xs text-slate-400">
                         {(inc.incident_time || '').slice(0, 5)} WIB
                       </div>
                     </td>
                     <td className="py-3 px-4 text-slate-900 font-semibold max-w-xs">
                       <div className="truncate">{inc.title}</div>
-                      <div className="text-[10.5px] text-slate-400 font-normal">
+                      <div className="text-xs text-slate-400 font-normal">
                         {inc.aircraft_info || 'Non-Aircraft'}
                       </div>
                     </td>
                     <td className="py-3 px-4 text-slate-600 font-medium">
                       <div className="flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         <span className="truncate">{inc.location || '-'}</span>
                       </div>
                     </td>
-                    <td className="py-3 px-4">
-                      {getPriorityBadge(inc.priority_level)}
-                    </td>
-                    <td className="py-3 px-4">
-                      {getStatusBadge(inc.status)}
-                    </td>
+                    <td className="py-3 px-4">{getPriorityBadge(inc.priority_level)}</td>
+                    <td className="py-3 px-4">{getStatusBadge(inc.status)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -446,7 +561,8 @@ export default function IncidentReportsPage() {
           {totalPages > 1 && (
             <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
               <span>
-                Halaman {currentPage} dari {totalPages}
+                Halaman <span className="font-mono tabular-nums">{currentPage}</span> dari{' '}
+                <span className="font-mono tabular-nums">{totalPages}</span>
               </span>
               <div className="flex items-center gap-1.5">
                 <Button
@@ -482,11 +598,11 @@ export default function IncidentReportsPage() {
           title={`Detail Insiden Operasional: ${selectedIncident.report_number || `INC-${selectedIncident.id}`}`}
           size="lg"
         >
-          <div className="space-y-5 text-xs text-slate-700">
+          <div className="space-y-5 text-xs text-slate-700 font-sans">
             {/* Header Status & Klasifikasi */}
             <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wide block">
                   Judul & Klasifikasi
                 </span>
                 <h4 className="text-sm font-bold text-slate-900 mt-0.5">
@@ -502,40 +618,66 @@ export default function IncidentReportsPage() {
             {/* Grid Informasi Waktu & Lokasi */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Tanggal Kejadian</span>
-                <span className="font-semibold text-slate-900">{selectedIncident.incident_date}</span>
+                <span className="text-xs font-bold text-slate-400 uppercase block">
+                  Tanggal Kejadian
+                </span>
+                <span className="font-semibold text-slate-900 font-mono tabular-nums">
+                  {selectedIncident.incident_date}
+                </span>
               </div>
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Waktu Alarm</span>
-                <span className="font-semibold text-slate-900 font-mono">
+                <span className="text-xs font-bold text-slate-400 uppercase block">
+                  Waktu Alarm
+                </span>
+                <span className="font-semibold text-slate-900 font-mono tabular-nums">
                   {(selectedIncident.incident_time || '').slice(0, 5)} WIB
                 </span>
               </div>
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Waktu Tiba TKP</span>
-                <span className="font-semibold text-slate-900 font-mono">
-                  {selectedIncident.activation_time ? `${selectedIncident.activation_time.slice(0, 5)} WIB` : '-'}
+                <span className="text-xs font-bold text-slate-400 uppercase block">
+                  Waktu Tiba TKP
+                </span>
+                <span className="font-semibold text-slate-900 font-mono tabular-nums">
+                  {selectedIncident.activation_time
+                    ? `${selectedIncident.activation_time.slice(0, 5)} WIB`
+                    : '-'}
                 </span>
               </div>
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Lokasi / Area</span>
-                <span className="font-semibold text-slate-900">{selectedIncident.location || '-'}</span>
+                <span className="text-xs font-bold text-slate-400 uppercase block">
+                  Lokasi / Area
+                </span>
+                <span className="font-semibold text-slate-900">
+                  {selectedIncident.location || '-'}
+                </span>
               </div>
             </div>
 
             {/* Asal Informasi, Pesawat, & Koordinasi */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Asal Informasi (ATC/Tower)</span>
-                <p className="font-medium text-slate-800">{selectedIncident.source_info || 'Radio HT Tower ATC'}</p>
+                <span className="text-xs font-bold text-slate-500 uppercase block mb-1">
+                  Asal Informasi (ATC/Tower)
+                </span>
+                <p className="font-medium text-slate-800">
+                  {selectedIncident.source_info || 'Radio HT Tower ATC'}
+                </p>
               </div>
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Pesawat / Objek</span>
-                <p className="font-medium text-slate-800">{selectedIncident.aircraft_info || 'Non-Pesawat'}</p>
+                <span className="text-xs font-bold text-slate-500 uppercase block mb-1">
+                  Pesawat / Objek
+                </span>
+                <p className="font-medium text-slate-800">
+                  {selectedIncident.aircraft_info || 'Non-Pesawat'}
+                </p>
               </div>
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Pihak Terkoordinasi</span>
-                <p className="font-medium text-slate-800">{selectedIncident.coordinated_parties || 'ATC YIA, Avsec, AMC'}</p>
+                <span className="text-xs font-bold text-slate-500 uppercase block mb-1">
+                  Pihak Terkoordinasi
+                </span>
+                <p className="font-medium text-slate-800">
+                  {selectedIncident.coordinated_parties || 'ATC YIA, Avsec, AMC'}
+                </p>
               </div>
             </div>
 
@@ -558,7 +700,7 @@ export default function IncidentReportsPage() {
                   Tindakan Penanganan Operasional
                 </span>
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-800 min-h-[60px] whitespace-pre-wrap">
-                  {selectedIncident.action_taken || 'Telah dilakukan tindakan penanganan darurat sesuai SOP ARFF.'}
+                  {selectedIncident.action_taken || '-'}
                 </div>
               </div>
               <div className="space-y-1">
@@ -567,7 +709,7 @@ export default function IncidentReportsPage() {
                   Kondisi Terakhir TKP
                 </span>
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-800 min-h-[60px] whitespace-pre-wrap">
-                  {selectedIncident.last_condition || 'Area dinyatakan aman, bersih, dan terkendali.'}
+                  {selectedIncident.last_condition || '-'}
                 </div>
               </div>
             </div>
@@ -576,9 +718,13 @@ export default function IncidentReportsPage() {
             <div className="space-y-2">
               <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                 <Camera className="w-3.5 h-3.5 text-slate-500" />
-                Foto Dokumentasi TKP ({selectedIncident.attachments?.length || 0})
+                Foto Dokumentasi TKP (
+                <span className="font-mono tabular-nums">
+                  {selectedIncident.attachments?.length || 0}
+                </span>
+                )
               </span>
-              {(!selectedIncident.attachments || selectedIncident.attachments.length === 0) ? (
+              {!selectedIncident.attachments || selectedIncident.attachments.length === 0 ? (
                 <div className="p-4 rounded-xl border border-dashed border-slate-200 text-center text-slate-400 text-xs">
                   Tidak ada berkas lampiran foto untuk kejadian ini.
                 </div>
@@ -588,7 +734,7 @@ export default function IncidentReportsPage() {
                     <div
                       key={att.id || att.file_path || `att-rep-${aIdx}`}
                       onClick={() => setActivePhoto(att.file_path)}
-                      className="group relative aspect-video rounded-lg overflow-hidden border border-slate-200 bg-slate-100 cursor-pointer shadow-2xs hover:border-red-500 transition-colors duration-100"
+                      className="group relative aspect-video rounded-lg overflow-hidden border border-slate-200 bg-slate-100 cursor-pointer shadow-xs hover:border-red-500 transition-colors duration-100"
                     >
                       <img
                         src={att.file_path}

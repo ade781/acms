@@ -37,11 +37,11 @@ export default function IncidentQuickDetailModal({
         </Button>
       }
     >
-      <div className="space-y-4 text-xs">
+      <div className="space-y-4 text-xs font-sans">
         {/* Strip Operasional Ringkas (Anti-Redundansi) */}
         <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg bg-slate-50 border border-slate-200">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs font-bold text-slate-800 bg-white border border-slate-200 px-2 py-0.5 rounded">
+            <span className="font-mono tabular-nums text-xs font-bold text-slate-800 bg-white border border-slate-200 px-2 py-0.5 rounded">
               {incident.report_number}
             </span>
             <span className="font-semibold text-slate-900">
@@ -53,7 +53,7 @@ export default function IncidentQuickDetailModal({
               Lokasi: <strong className="text-slate-800 font-medium">{incident.location || '-'}</strong>
             </span>
             <span
-              className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold border ${
+              className={`inline-flex px-2 py-0.5 rounded text-xs font-bold border ${
                 incident.status === 'selesai'
                   ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                   : incident.status === 'menunggu_tindak_lanjut'
@@ -67,7 +67,7 @@ export default function IncidentQuickDetailModal({
         </div>
 
         <div>
-          <div className="text-[11px] font-semibold text-slate-500 mb-1">Kronologi Kejadian</div>
+          <div className="text-xs font-semibold text-slate-500 mb-1">Kronologi Kejadian</div>
           <div className="p-3 rounded-lg border border-slate-200 bg-white text-slate-800 leading-relaxed whitespace-pre-line">
             {incident.chronology || 'Tidak ada catatan kronologi.'}
           </div>
@@ -75,7 +75,7 @@ export default function IncidentQuickDetailModal({
 
         {incident.action_taken && (
           <div>
-            <div className="text-[11px] font-semibold text-slate-500 mb-1">
+            <div className="text-xs font-semibold text-slate-500 mb-1">
               Tindakan Penanganan ARFF
             </div>
             <div className="p-3 rounded-lg border border-slate-200 bg-white text-slate-800 leading-relaxed whitespace-pre-line">
@@ -86,7 +86,7 @@ export default function IncidentQuickDetailModal({
 
         {incident.last_condition && (
           <div>
-            <div className="text-[11px] font-semibold text-slate-500 mb-1">Kondisi Terakhir</div>
+            <div className="text-xs font-semibold text-slate-500 mb-1">Kondisi Terakhir</div>
             <div className="p-3 rounded-lg border border-slate-200 bg-slate-50 text-slate-800 leading-relaxed">
               {incident.last_condition}
             </div>
@@ -99,8 +99,8 @@ export default function IncidentQuickDetailModal({
           Array.isArray(incident.attachments) &&
           incident.attachments.length > 0 && (
             <div>
-              <div className="text-[11px] font-semibold text-slate-500 mb-1.5">
-                Dokumentasi Lapangan ({incident.attachments.length})
+              <div className="text-xs font-semibold text-slate-500 mb-1.5">
+                Dokumentasi Lapangan (<span className="font-mono tabular-nums">{incident.attachments.length}</span>)
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {incident.attachments.map((att, idx) => (

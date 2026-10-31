@@ -10,6 +10,7 @@ import {
   Clock,
   MapPin,
   CheckCircle2,
+  ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam } from '../utils/shiftHelper';
@@ -123,7 +124,7 @@ export default function IncidentsPage() {
     const s = (st || 'dalam_proses').toLowerCase();
     if (s === 'selesai') {
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
           <CheckCircle2 className="w-3 h-3 text-emerald-600" />
           Selesai
         </span>
@@ -131,14 +132,14 @@ export default function IncidentsPage() {
     }
     if (s === 'menunggu_tindak_lanjut') {
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
           <AlertTriangle className="w-3 h-3 text-rose-600" />
           Tindak Lanjut
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
         <Clock className="w-3 h-3 text-amber-600" />
         Dalam Proses
       </span>
@@ -153,9 +154,6 @@ export default function IncidentsPage() {
           <h2 className="text-xl font-bold tracking-tight text-slate-900">
             Pemantauan & Laporan Insiden
           </h2>
-          <p className="text-xs text-slate-500 font-medium mt-0.5">
-            Dokumentasi kejadian darurat, lokasi penugasan, dan status tindak lanjut operasional
-          </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -189,7 +187,7 @@ export default function IncidentsPage() {
           <button
             type="button"
             onClick={() => setToastMsg(null)}
-            className="text-emerald-500 hover:text-emerald-700 p-0.5"
+            className="text-emerald-500 hover:text-emerald-700 p-0.5 transition-colors duration-100"
             aria-label="Tutup Notifikasi"
           >
             <X className="w-3.5 h-3.5" />
@@ -232,41 +230,23 @@ export default function IncidentsPage() {
             </button>
           </div>
 
-          {/* Interactive Triage Filter Pills with Metrics */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {[
-              { id: 'ALL', label: 'Semua', count: summaryStats.total },
-              { id: 'kritis', label: 'Siaga I / Kritis', count: summaryStats.critical, dot: 'bg-red-600' },
-              { id: 'in_progress', label: 'Dalam Proses', count: summaryStats.inProgress, dot: 'bg-amber-500' },
-              { id: 'resolved', label: 'Selesai', count: summaryStats.resolved, dot: 'bg-emerald-500' },
-            ].map((pill) => {
-              const isActive = filterTriage === pill.id;
-              return (
-                <button
-                  key={pill.id}
-                  type="button"
-                  onClick={() => {
-                    setFilterTriage(pill.id);
-                    setCurrentPage(1);
-                  }}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors duration-100 cursor-pointer ${
-                    isActive
-                      ? 'bg-slate-900 text-white shadow-2xs font-bold'
-                      : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/80'
-                  }`}
-                >
-                  {pill.dot && <span className={`w-2 h-2 rounded-full ${pill.dot}`} />}
-                  <span>{pill.label}</span>
-                  <span
-                    className={`text-[11px] px-1.5 py-0.2 rounded-full font-bold tabular-nums ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-800'
-                    }`}
-                  >
-                    {pill.count}
-                  </span>
-                </button>
-              );
-            })}
+          {/* Dropdown Filter Status / Prioritas Insiden */}
+          <div className="relative inline-flex items-center">
+            <select
+              value={filterTriage}
+              onChange={(e) => {
+                setFilterTriage(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="pl-2.5 pr-8 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 shadow-2xs hover:bg-slate-50 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400 transition-colors duration-100 cursor-pointer appearance-none"
+              aria-label="Filter Status Insiden"
+            >
+              <option value="ALL">Semua Status ({summaryStats.total})</option>
+              <option value="kritis">Siaga I / Kritis ({summaryStats.critical})</option>
+              <option value="in_progress">Dalam Proses ({summaryStats.inProgress})</option>
+              <option value="resolved">Selesai ({summaryStats.resolved})</option>
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2.5 pointer-events-none" />
           </div>
         </div>
 
@@ -281,7 +261,7 @@ export default function IncidentsPage() {
               setSearchQuery(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-red-500 transition-colors duration-100"
+            className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400 transition-colors duration-100"
           />
         </div>
       </div>
@@ -303,7 +283,7 @@ export default function IncidentsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                <tr className="border-b border-slate-200 bg-slate-50 text-xs font-bold text-slate-600 uppercase tracking-wider">
                   <th className="py-3 px-4">No. Laporan</th>
                   <th className="py-3 px-4">Waktu Kejadian</th>
                   <th className="py-3 px-4">Regu / Shift</th>
@@ -320,22 +300,22 @@ export default function IncidentsPage() {
                     onClick={() => navigate(`/incidents/${inc.id}`)}
                     className="hover:bg-red-50/40 cursor-pointer transition-colors duration-100 group"
                   >
-                    <td className="py-3 px-4 font-bold text-red-700 font-mono text-[11.5px]">
+                    <td className="py-3 px-4 font-bold text-red-700 font-mono tabular-nums text-xs">
                       {inc.report_number || `INC-${inc.id || ''}`}
                     </td>
-                    <td className="py-3 px-4 text-slate-700 font-medium">
+                    <td className="py-3 px-4 text-slate-700 font-medium font-mono tabular-nums">
                       <div>{typeof inc.incident_date === 'string' ? inc.incident_date : '-'}</div>
-                      <div className="text-[10.5px] text-slate-400">
+                      <div className="text-xs text-slate-400">
                         {typeof inc.incident_time === 'string' ? inc.incident_time.slice(0, 5) : ''} WIB
                       </div>
                     </td>
                     <td className="py-3 px-4 text-slate-600 font-medium">
                       <div>Regu {typeof inc.team_group === 'string' ? inc.team_group : 'Alpha'}</div>
-                      <div className="text-[10.5px] text-slate-400">Shift #{inc.shift_number || 1}</div>
+                      <div className="text-xs text-slate-400">Shift <span className="font-mono tabular-nums">#{inc.shift_number || 1}</span></div>
                     </td>
                     <td className="py-3 px-4 text-slate-900 font-semibold max-w-xs">
                       <div className="truncate">{typeof inc.title === 'string' ? inc.title : '-'}</div>
-                      <div className="text-[10.5px] text-slate-400 font-normal">
+                      <div className="text-xs text-slate-400 font-normal">
                         {typeof inc.aircraft_info === 'string' ? inc.aircraft_info : 'Non-Pesawat'}
                       </div>
                     </td>
@@ -361,7 +341,7 @@ export default function IncidentsPage() {
           {totalPages > 1 && (
             <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
               <span>
-                Halaman {currentPage} dari {totalPages}
+                Halaman <span className="font-mono tabular-nums font-bold text-slate-700">{currentPage}</span> dari <span className="font-mono tabular-nums font-bold text-slate-700">{totalPages}</span>
               </span>
               <div className="flex items-center gap-1.5">
                 <Button

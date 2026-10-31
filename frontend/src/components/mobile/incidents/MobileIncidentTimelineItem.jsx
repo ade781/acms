@@ -80,18 +80,18 @@ export default function MobileIncidentTimelineItem({ incident, onClick }) {
       {/* Top line: Report number, time, and priority badge */}
       <div className="flex items-center justify-between border-b border-slate-100 pb-1">
         <div className="flex items-center gap-1.5">
-          <span className="font-mono text-slate-800 text-[10.5px] font-bold">
+          <span className="font-mono tabular-nums text-slate-800 text-xs font-bold">
             {incident.report_number || `INC-${incident.id}`}
           </span>
-          <span className="text-[10px] text-slate-400">•</span>
-          <span className="font-mono text-red-600 text-[10px] font-bold flex items-center gap-0.5">
+          <span className="text-xs text-slate-400">•</span>
+          <span className="font-mono tabular-nums text-red-600 text-xs font-bold flex items-center gap-0.5">
             <Clock className="w-3 h-3 text-red-500" />
             {timeFormatted} WIB
           </span>
         </div>
 
         <div className="flex items-center gap-1">
-          <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-bold border flex items-center gap-1 ${priorityMeta.badge}`}>
+          <span className={`px-1.5 py-0.5 rounded text-xs font-bold border flex items-center gap-1 ${priorityMeta.badge}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${priorityMeta.dot}`}></span>
             {priorityMeta.label}
           </span>
@@ -107,20 +107,20 @@ export default function MobileIncidentTimelineItem({ incident, onClick }) {
       </div>
 
       {/* Chronology snippet */}
-      <p className="text-[10.5px] text-slate-600 line-clamp-2 leading-snug">
+      <p className="text-xs text-slate-600 line-clamp-2 leading-snug">
         {incident.chronology}
       </p>
 
       {/* Footer: Location, aircraft info, status, photo count */}
-      <div className="flex items-center justify-between text-[9px] text-slate-500 pt-0.5 border-t border-slate-100">
+      <div className="flex items-center justify-between text-xs text-slate-500 pt-0.5 border-t border-slate-100">
         <div className="flex items-center gap-2 truncate">
           <span className="flex items-center gap-0.5 font-medium text-slate-700 truncate">
-            <MapPin className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+            <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
             <span className="truncate">{incident.location || 'Airside'}</span>
           </span>
 
           {incident.aircraft_info && (
-            <span className="px-1 rounded bg-slate-100 text-slate-700 font-mono text-[8.5px] truncate">
+            <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-xs truncate">
               {incident.aircraft_info}
             </span>
           )}
@@ -128,13 +128,13 @@ export default function MobileIncidentTimelineItem({ incident, onClick }) {
 
         <div className="flex items-center gap-1.5 shrink-0">
           {attachmentCount > 0 && (
-            <span className="flex items-center gap-0.5 text-slate-500 font-semibold text-[8.5px]">
-              <Paperclip className="w-2.5 h-2.5" />
+            <span className="flex items-center gap-0.5 text-slate-500 font-semibold font-mono tabular-nums text-xs">
+              <Paperclip className="w-3 h-3" />
               {attachmentCount}
             </span>
           )}
 
-          <span className={`px-1.5 py-0.2 rounded text-[8px] font-bold border ${statusMeta.badge}`}>
+          <span className={`px-1.5 py-0.5 rounded text-xs font-bold border ${statusMeta.badge}`}>
             {statusMeta.label}
           </span>
         </div>

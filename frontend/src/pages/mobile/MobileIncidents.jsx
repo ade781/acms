@@ -93,14 +93,14 @@ export default function MobileIncidents() {
           <h3 className="text-xs font-bold text-slate-900 leading-tight">
             Pemantauan & Laporan Insiden
           </h3>
-          <p className="text-[10px] text-slate-500 font-medium">
-            Shift {activeShiftNumber} • Regu {activeTeam}
+          <p className="text-xs text-slate-500 font-medium">
+            Shift <span className="font-mono tabular-nums">{activeShiftNumber}</span> • Regu {activeTeam}
           </p>
         </div>
 
         <div className="flex items-center gap-1.5">
           {!isLeader && (
-            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-semibold">
+            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 text-xs font-semibold">
               Read-Only
             </span>
           )}
@@ -108,7 +108,7 @@ export default function MobileIncidents() {
           <button
             type="button"
             onClick={() => setIsReportModalOpen(true)}
-            className="p-1 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-100 flex items-center gap-1 text-[10px] font-bold border border-slate-200 px-2 py-0.5"
+            className="rounded text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-100 flex items-center gap-1 text-xs font-bold border border-slate-200 px-2 py-1"
             title="Rekap Laporan Insiden"
             aria-label="Rekap Laporan Insiden"
           >
@@ -120,7 +120,7 @@ export default function MobileIncidents() {
             <button
               type="button"
               onClick={() => setIsCreateModalOpen(true)}
-              className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-xs transition-colors duration-100"
+              className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors duration-100"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Lapor Insiden</span>
@@ -131,7 +131,7 @@ export default function MobileIncidents() {
 
 
       {/* Toggle Filter Scope: Shift Ini vs Semua Riwayat */}
-      <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-100 text-[10px] font-semibold">
+      <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-100 text-xs font-semibold">
         <button
           type="button"
           onClick={() => setFilterScope('shift')}
@@ -159,45 +159,45 @@ export default function MobileIncidents() {
       {/* Ringkasan Situasi Insiden Card */}
       <div className="grid grid-cols-3 gap-1.5 text-xs">
         <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-xs space-y-0.5">
-          <span className="text-[8.5px] font-bold text-slate-500 uppercase block">Total Kejadian</span>
-          <span className="text-base font-black text-slate-900 block leading-tight">
+          <span className="text-xs font-bold text-slate-500 uppercase block">Total Kejadian</span>
+          <span className="text-base font-black font-mono tabular-nums text-slate-900 block leading-tight">
             {totalIncidents}
           </span>
-          <span className="text-[8.5px] text-slate-500 font-medium block">
+          <span className="text-xs text-slate-500 font-medium block">
             {filterScope === 'shift' ? 'Shift Ini' : 'Semua'}
           </span>
         </div>
 
         <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-xs space-y-0.5">
-          <span className="text-[8.5px] font-bold text-slate-500 uppercase block">Prioritas Siaga</span>
-          <span className={`text-base font-black block leading-tight ${criticalCount > 0 ? 'text-red-600' : 'text-slate-800'}`}>
+          <span className="text-xs font-bold text-slate-500 uppercase block">Prioritas Siaga</span>
+          <span className={`text-base font-black font-mono tabular-nums block leading-tight ${criticalCount > 0 ? 'text-red-600' : 'text-slate-800'}`}>
             {criticalCount}
           </span>
-          <span className="text-[8.5px] text-slate-500 font-medium block">Siaga I & II</span>
+          <span className="text-xs text-slate-500 font-medium block">Siaga I & II</span>
         </div>
 
         <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-xs space-y-0.5">
-          <span className="text-[8.5px] font-bold text-slate-500 uppercase block">Status Aktif</span>
-          <span className={`text-base font-black block leading-tight ${inProgressCount > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+          <span className="text-xs font-bold text-slate-500 uppercase block">Status Aktif</span>
+          <span className={`text-base font-black font-mono tabular-nums block leading-tight ${inProgressCount > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
             {inProgressCount}
           </span>
-          <span className="text-[8.5px] text-slate-500 font-medium block">Dalam Proses</span>
+          <span className="text-xs text-slate-500 font-medium block">Dalam Proses</span>
         </div>
       </div>
 
       {/* Filter Prioritas Chips if incidents exist */}
       {incidents.length > 0 && (
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 text-[9px]">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 text-xs">
           <button
             type="button"
             onClick={() => setFilterPriority('ALL')}
-            className={`px-2 py-0.5 rounded-full border whitespace-nowrap font-semibold transition-colors duration-100 ${
+            className={`px-2.5 py-1 rounded-full border whitespace-nowrap font-semibold transition-colors duration-100 ${
               filterPriority === 'ALL'
-                ? 'bg-slate-900 text-white border-slate-900'
+                ? 'bg-red-600 text-white border-red-600 shadow-2xs'
                 : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
             }`}
           >
-            Semua ({incidents.length})
+            Semua (<span className="font-mono tabular-nums">{incidents.length}</span>)
           </button>
           {['kritis', 'tinggi', 'sedang', 'rendah'].map((p) => {
             const count = incidents.filter((i) => (i.priority_level || '').toLowerCase() === p).length;
@@ -207,13 +207,13 @@ export default function MobileIncidents() {
                 key={p}
                 type="button"
                 onClick={() => setFilterPriority(p)}
-                className={`px-2 py-0.5 rounded-full border whitespace-nowrap font-semibold uppercase transition-colors duration-100 ${
+                className={`px-2.5 py-1 rounded-full border whitespace-nowrap font-semibold uppercase transition-colors duration-100 ${
                   filterPriority === p
                     ? 'bg-red-600 text-white border-red-600'
                     : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                 }`}
               >
-                {p} ({count})
+                {p} (<span className="font-mono tabular-nums">{count}</span>)
               </button>
             );
           })}
@@ -225,14 +225,14 @@ export default function MobileIncidents() {
         <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-            <span className="text-[10.5px] leading-tight">
+            <span className="text-xs leading-tight">
               {typeof error === 'string' ? error : (error?.message || 'Gagal memuat daftar insiden operasional.')}
             </span>
           </div>
           <button
             type="button"
             onClick={fetchIncidents}
-            className="text-[10px] font-bold text-red-700 underline shrink-0 ml-2"
+            className="text-xs font-bold text-red-700 underline shrink-0 ml-2"
           >
             Coba lagi
           </button>
@@ -255,10 +255,10 @@ export default function MobileIncidents() {
           </div>
           <div>
             <h4 className="text-xs font-bold text-slate-900">
-              Kondisi Sisi Udara Aman Terkendali
+              Belum Ada Laporan Insiden
             </h4>
-            <p className="text-[10px] text-slate-500 max-w-[270px] mx-auto mt-0.5 leading-snug">
-              Belum ada laporan insiden pada shift ini. Seluruh pergerakan dan fasilitas operasional berjalan normal.
+            <p className="text-xs text-slate-500 max-w-[270px] mx-auto mt-0.5 leading-snug">
+              Belum ada laporan insiden pada shift ini.
             </p>
           </div>
         </div>

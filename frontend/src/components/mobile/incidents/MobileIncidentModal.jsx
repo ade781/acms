@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Camera, Check, AlertCircle } from 'lucide-react';
+import { Camera, Check, AlertCircle, X } from 'lucide-react';
 import api from '../../../services/api';
 import { cleanTeam } from '../../../utils/shiftHelper';
 import { compressImageToWebP } from '../../../utils/imageCompressor';
@@ -200,15 +200,15 @@ export default function MobileIncidentModal({
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 text-sm font-bold p-1 rounded"
+            className="text-slate-400 hover:text-slate-700 p-1 rounded"
             aria-label="Tutup"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {errorMsg && (
-          <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-800 text-[10.5px] flex items-center gap-1.5 shrink-0">
+          <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs flex items-center gap-1.5 shrink-0">
             <AlertCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
             <span className="leading-tight">
               {typeof errorMsg === 'string' ? errorMsg : (errorMsg?.message || 'Gagal menyimpan laporan insiden.')}
@@ -221,7 +221,7 @@ export default function MobileIncidentModal({
           {/* Tanggal & Waktu Kejadian */}
           <div className="grid grid-cols-2 gap-1.5">
             <div>
-              <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+              <label className="text-xs font-bold text-slate-700 block mb-0.5">
                 Tanggal Kejadian *
               </label>
               <input
@@ -229,11 +229,11 @@ export default function MobileIncidentModal({
                 value={incidentDate}
                 onChange={(e) => setIncidentDate(e.target.value)}
                 required
-                className="w-full p-1.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 font-mono text-xs outline-none focus:bg-white focus:border-red-500 transition-colors duration-100"
+                className="w-full p-1.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 font-mono tabular-nums text-xs outline-none focus:bg-white focus:border-red-500 transition-colors duration-100"
               />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+              <label className="text-xs font-bold text-slate-700 block mb-0.5">
                 Waktu Kejadian (WIB) *
               </label>
               <input
@@ -241,32 +241,31 @@ export default function MobileIncidentModal({
                 value={incidentTime}
                 onChange={(e) => setIncidentTime(e.target.value)}
                 required
-                className="w-full p-1.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 font-mono text-xs outline-none focus:bg-white focus:border-red-500 transition-colors duration-100"
+                className="w-full p-1.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 font-mono tabular-nums text-xs outline-none focus:bg-white focus:border-red-500 transition-colors duration-100"
               />
             </div>
           </div>
 
           {/* Tingkat Prioritas Siaga */}
           <div>
-            <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+            <label className="text-xs font-bold text-slate-700 block mb-0.5">
               Tingkat Prioritas Siaga *
             </label>
             <div className="grid grid-cols-4 gap-1">
               {[
-                { key: 'rendah', label: 'Rendah (Info)', color: 'border-blue-200 hover:bg-blue-50 text-blue-800' },
-                { key: 'sedang', label: 'Sedang (III)', color: 'border-amber-200 hover:bg-amber-50 text-amber-800' },
-                { key: 'tinggi', label: 'Tinggi (II)', color: 'border-orange-200 hover:bg-orange-50 text-orange-800' },
-                { key: 'kritis', label: 'Kritis (I)', color: 'border-red-200 hover:bg-red-50 text-red-800' },
+                { key: 'rendah', label: 'Rendah', color: 'border-blue-200 hover:bg-blue-50 text-blue-800', active: 'bg-blue-600 text-white border-blue-600 shadow-2xs' },
+                { key: 'sedang', label: 'Sedang', color: 'border-amber-200 hover:bg-amber-50 text-amber-800', active: 'bg-amber-600 text-white border-amber-600 shadow-2xs' },
+                { key: 'tinggi', label: 'Tinggi', color: 'border-orange-200 hover:bg-orange-50 text-orange-800', active: 'bg-orange-600 text-white border-orange-600 shadow-2xs' },
+                { key: 'kritis', label: 'Kritis', color: 'border-red-200 hover:bg-red-50 text-red-800', active: 'bg-red-600 text-white border-red-600 shadow-2xs' },
               ].map((p) => (
                 <button
                   key={p.key}
                   type="button"
                   onClick={() => setPriorityLevel(p.key)}
-                  className={`py-1.5 px-0.5 rounded-lg border text-[9px] font-bold transition-colors duration-100 text-center ${
-                    priorityLevel === p.key
-                      ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                  className={`py-1.5 px-1 rounded-lg border text-xs font-bold transition-colors duration-100 text-center ${priorityLevel === p.key
+                      ? p.active
                       : `bg-white ${p.color}`
-                  }`}
+                    }`}
                 >
                   {p.label}
                 </button>
@@ -276,7 +275,7 @@ export default function MobileIncidentModal({
 
           {/* 10 Klasifikasi Baku Kejadian ARFF */}
           <div>
-            <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+            <label className="text-xs font-bold text-slate-700 block mb-0.5">
               10 Klasifikasi Baku Kejadian ARFF *
             </label>
             <select
@@ -294,7 +293,7 @@ export default function MobileIncidentModal({
 
           {classification === 'Kejadian Lainnya' && (
             <div>
-              <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+              <label className="text-xs font-bold text-slate-700 block mb-0.5">
                 Keterangan Klasifikasi Tambahan *
               </label>
               <input
@@ -311,7 +310,7 @@ export default function MobileIncidentModal({
           {/* Lokasi Kejadian (Sisi Udara) & Info Pesawat */}
           <div className="grid grid-cols-2 gap-1.5">
             <div>
-              <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+              <label className="text-xs font-bold text-slate-700 block mb-0.5">
                 Lokasi Kejadian *
               </label>
               <input
@@ -324,7 +323,7 @@ export default function MobileIncidentModal({
               />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+              <label className="text-xs font-bold text-slate-700 block mb-0.5">
                 Pesawat / Flight (Opsional)
               </label>
               <input
@@ -332,14 +331,14 @@ export default function MobileIncidentModal({
                 placeholder="Contoh: PK-GIA / GA-204"
                 value={aircraftInfo}
                 onChange={(e) => setAircraftInfo(e.target.value)}
-                className="w-full p-1.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 text-xs outline-none focus:bg-white focus:border-red-500 transition-colors duration-100 font-mono"
+                className="w-full p-1.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 text-xs outline-none focus:bg-white focus:border-red-500 transition-colors duration-100"
               />
             </div>
           </div>
 
           {/* Uraian Kronologis Kejadian */}
           <div>
-            <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+            <label className="text-xs font-bold text-slate-700 block mb-0.5">
               Uraian Kronologis Kejadian *
             </label>
             <textarea
@@ -354,7 +353,7 @@ export default function MobileIncidentModal({
 
           {/* Tindakan Penanganan Operasional */}
           <div>
-            <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+            <label className="text-xs font-bold text-slate-700 block mb-0.5">
               Tindakan Penanganan Operasional
             </label>
             <textarea
@@ -369,7 +368,7 @@ export default function MobileIncidentModal({
           {/* Kondisi Terakhir & Pihak yang Dikoordinasikan */}
           <div className="grid grid-cols-2 gap-1.5">
             <div>
-              <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+              <label className="text-xs font-bold text-slate-700 block mb-0.5">
                 Kondisi Terakhir
               </label>
               <input
@@ -381,7 +380,7 @@ export default function MobileIncidentModal({
               />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+              <label className="text-xs font-bold text-slate-700 block mb-0.5">
                 Pihak Koordinasi
               </label>
               <input
@@ -397,10 +396,10 @@ export default function MobileIncidentModal({
           {/* Upload Foto Bukti Lapangan (Maks 5) */}
           <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <label className="text-[10px] font-bold text-slate-700">
-                Foto Bukti Visual Lapangan ({selectedPhotos.length}/5)
+              <label className="text-xs font-bold text-slate-700">
+                Foto Bukti Visual Lapangan (<span className="font-mono tabular-nums">{selectedPhotos.length}/5</span>)
               </label>
-              <span className="text-[9px] text-slate-400">WebP / JPG / PNG</span>
+              <span className="text-xs text-slate-400">WebP / JPG / PNG</span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -436,10 +435,10 @@ export default function MobileIncidentModal({
                     <button
                       type="button"
                       onClick={() => handleRemovePhoto(idx)}
-                      className="absolute top-0 right-0 bg-red-600 text-white rounded-bl p-0.5 text-[8px] leading-none"
+                      className="absolute top-0 right-0 bg-red-600 text-white rounded-bl p-1 leading-none"
                       title="Hapus foto"
                     >
-                      ✕
+                      <X className="w-3 h-3" />
                     </button>
                   </div>
                 ))}

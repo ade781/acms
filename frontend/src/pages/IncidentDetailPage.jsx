@@ -192,7 +192,7 @@ export default function IncidentDetailPage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
                 <div>
                   <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                    <span className="font-mono text-xs font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded">
+                    <span className="font-mono tabular-nums text-xs font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded">
                       {incident.report_number || `INC-${String(incident.id).padStart(4, '0')}`}
                     </span>
                     <Badge variant={`team${cleanTeam(incident.team_group) || 'Alpha'}`} size="md">
@@ -218,7 +218,7 @@ export default function IncidentDetailPage() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 text-xs">
                 <div>
                   <span className="text-slate-500 block mb-0.5">Tanggal & Jam</span>
-                  <div className="font-semibold text-slate-800 flex items-center gap-1">
+                  <div className="font-semibold text-slate-800 flex items-center gap-1 font-mono tabular-nums">
                     <Calendar className="w-3.5 h-3.5 text-slate-400" />
                     <span>{incident.incident_date} {incident.incident_time}</span>
                   </div>
@@ -236,7 +236,7 @@ export default function IncidentDetailPage() {
                   <span className="text-slate-500 block mb-0.5">Shift Operasional</span>
                   <div className="font-semibold text-slate-800 flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Shift #{incident.shift_number || 1}</span>
+                    <span>Shift <span className="font-mono tabular-nums">#{incident.shift_number || 1}</span></span>
                   </div>
                 </div>
 
@@ -302,11 +302,8 @@ export default function IncidentDetailPage() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                      Dokumentasi Foto TKP ({incident.attachments.length} Foto)
+                      Dokumentasi Foto TKP (<span className="font-mono tabular-nums">{incident.attachments.length}</span> Foto)
                     </h3>
-                    <span className="text-[11px] text-slate-500 font-medium">
-                      Klik foto untuk membuka Lightbox resolusi penuh
-                    </span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {incident.attachments.map((att, idx) => (
@@ -327,7 +324,7 @@ export default function IncidentDetailPage() {
                           <Eye className="w-4 h-4" />
                           <span>Perbesar Foto</span>
                         </div>
-                        <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/60 text-[10px] text-white font-mono">
+                        <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/60 text-xs text-white font-mono tabular-nums">
                           Foto #{idx + 1}
                         </span>
                       </div>
@@ -367,10 +364,6 @@ export default function IncidentDetailPage() {
           }
         >
           <div className="space-y-4">
-            <p className="text-xs text-slate-600">
-              Pastikan seluruh aksi penanggulangan darurat telah tuntas dan area kejadian telah dinyatakan aman (All Clear). Lengkapi catatan penanganan akhir berikut:
-            </p>
-
             <TextareaField
               label="Tindakan Akhir Penanganan Operasional (Firefighting & Rescue)"
               value={finalActionTaken}
@@ -398,11 +391,11 @@ export default function IncidentDetailPage() {
           {/* Top Bar Lightbox */}
           <div className="flex items-center justify-between text-white z-10 w-full max-w-6xl mx-auto pb-2 border-b border-slate-700/60">
             <div className="flex items-center gap-3">
-              <span className="text-xs font-mono font-bold bg-slate-800 px-2.5 py-1 rounded text-red-400 border border-slate-700">
+              <span className="text-xs font-mono tabular-nums font-bold bg-slate-800 px-2.5 py-1 rounded text-red-400 border border-slate-700">
                 Foto {activePhotoIndex + 1} / {incident.attachments.length}
               </span>
               <span className="text-xs text-slate-300 hidden sm:inline truncate max-w-md">
-                {incident.title} • {incident.incident_date}
+                {incident.title} • <span className="font-mono tabular-nums">{incident.incident_date}</span>
               </span>
             </div>
 
