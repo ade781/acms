@@ -91,14 +91,14 @@ export default function MobileChangePasswordModal({ isOpen, onClose }) {
         </div>
 
         {error && (
-          <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[11px] flex items-center gap-1.5">
+          <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-1.5">
             <AlertCircle className="w-3.5 h-3.5 shrink-0" />
             <span>{typeof error === 'string' ? error : (error?.message || 'Gagal mengubah password')}</span>
           </div>
         )}
 
         {success && (
-          <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] flex items-center gap-1.5">
+          <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
             <span>Password berhasil diperbarui!</span>
           </div>
@@ -106,7 +106,7 @@ export default function MobileChangePasswordModal({ isOpen, onClose }) {
 
         <form onSubmit={handleSubmit} className="space-y-2 text-xs">
           <div>
-            <label className="text-[10px] font-bold text-slate-600 block mb-0.5">Password Lama</label>
+            <label className="text-xs font-bold text-slate-600 block mb-0.5">Password Lama</label>
             <input
               type="password"
               value={oldPassword}
@@ -118,7 +118,7 @@ export default function MobileChangePasswordModal({ isOpen, onClose }) {
           </div>
 
           <div>
-            <label className="text-[10px] font-bold text-slate-600 block mb-0.5">Password Baru</label>
+            <label className="text-xs font-bold text-slate-600 block mb-0.5">Password Baru</label>
             <input
               type="password"
               value={newPassword}
@@ -130,7 +130,7 @@ export default function MobileChangePasswordModal({ isOpen, onClose }) {
           </div>
 
           <div>
-            <label className="text-[10px] font-bold text-slate-600 block mb-0.5">Konfirmasi Password Baru</label>
+            <label className="text-xs font-bold text-slate-600 block mb-0.5">Konfirmasi Password Baru</label>
             <input
               type="password"
               value={confirmPassword}

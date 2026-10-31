@@ -115,7 +115,7 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
                 Profil Mandiri & Kredensial
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                {formatRoleName(activeUser?.role)} {activeUser?.team_group ? `• ${formatTeam(activeUser.team_group)}` : ''} • Bandara Internasional Yogyakarta
+                {formatRoleName(activeUser?.role)} {activeUser?.team_group ? `• ${formatTeam(activeUser.team_group)}` : ''}
               </p>
             </div>
           </div>
@@ -177,9 +177,6 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
           <div className="space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200">
               <div>
-                <span className="text-[10px] font-bold tracking-wider uppercase text-slate-400 block">
-                  CARD 1
-                </span>
                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-tight">
                   Profil & Kredensial Personel
                 </h3>
@@ -212,28 +209,28 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
               /* Khusus Administrator Murni */
               <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <span className="text-[10px] font-medium text-slate-500 block">Nama Lengkap / Akun</span>
+                  <span className="text-xs font-medium text-slate-500 block">Nama Lengkap / Akun</span>
                   <span className="font-bold text-slate-900 text-sm block mt-0.5">
                     {activeUser?.name || activeUser?.username}
                   </span>
                 </div>
 
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <span className="text-[10px] font-medium text-slate-500 block">Username Sistem</span>
+                  <span className="text-xs font-medium text-slate-500 block">Username Sistem</span>
                   <span className="font-bold text-slate-900 font-mono text-sm block mt-0.5">
                     {activeUser?.username}
                   </span>
                 </div>
 
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <span className="text-[10px] font-medium text-slate-500 block">Peran & Tanggung Jawab</span>
+                  <span className="text-xs font-medium text-slate-500 block">Peran & Tanggung Jawab</span>
                   <span className="font-bold text-red-700 text-sm block mt-0.5">
                     Administrator Unit ARFF
                   </span>
                 </div>
 
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <span className="text-[10px] font-medium text-slate-500 block">Status Akses</span>
+                  <span className="text-xs font-medium text-slate-500 block">Status Akses</span>
                   <span className="font-bold text-emerald-700 text-sm block mt-0.5">
                     Akses Penuh Seluruh Sistem & Konfigurasi
                   </span>

@@ -160,7 +160,7 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 font-sans">
       <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 p-3.5 space-y-2.5 shadow-xl max-h-[85vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 shrink-0">
@@ -170,7 +170,6 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
               <h4 className="text-xs font-bold text-slate-900 uppercase tracking-tight leading-none">
                 Pengumuman Dinas
               </h4>
-              <p className="text-[9px] text-slate-500 mt-0.5">Surat Edaran & Instruksi Operasional</p>
             </div>
           </div>
           <button
@@ -185,7 +184,7 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
 
         {/* Notifikasi Toast Singkat */}
         {toastMsg && (
-          <div className="p-1.5 rounded-lg bg-slate-900 text-white text-[10px] font-semibold flex items-center gap-1.5 animate-fadeIn">
+          <div className="p-1.5 rounded-lg bg-slate-900 text-white text-xs font-semibold flex items-center gap-1.5 animate-fadeIn">
             <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
             <span>{toastMsg}</span>
           </div>
@@ -200,15 +199,15 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
               setCurrentPage(1);
             }}
             className={`py-1.5 px-2 rounded-md transition-colors duration-100 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'active'
-                ? 'bg-white text-slate-900 font-bold shadow-2xs'
-                : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-white text-slate-900 font-bold shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900'
               }`}
           >
             <Bell className="w-3.5 h-3.5 text-red-600" />
             <span>Aktif</span>
             {activeList.length > 0 && (
               <span
-                className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${activeTab === 'active' ? 'bg-red-100 text-red-700' : 'bg-slate-200 text-slate-600'
+                className={`text-xs font-mono tabular-nums px-1.5 py-0.5 rounded-full font-bold ${activeTab === 'active' ? 'bg-red-100 text-red-700' : 'bg-slate-200 text-slate-600'
                   }`}
               >
                 {activeList.length}
@@ -223,15 +222,15 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
               setCurrentPage(1);
             }}
             className={`py-1.5 px-2 rounded-md transition-colors duration-100 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'archived'
-                ? 'bg-white text-slate-900 font-bold shadow-2xs'
-                : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-white text-slate-900 font-bold shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900'
               }`}
           >
             <Archive className="w-3.5 h-3.5 text-slate-500" />
             <span>Arsip Dinas</span>
             {archivedList.length > 0 && (
               <span
-                className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${activeTab === 'archived' ? 'bg-slate-200 text-slate-800' : 'bg-slate-200 text-slate-600'
+                className={`text-xs font-mono tabular-nums px-1.5 py-0.5 rounded-full font-bold ${activeTab === 'archived' ? 'bg-slate-200 text-slate-800' : 'bg-slate-200 text-slate-600'
                   }`}
               >
                 {archivedList.length}
@@ -281,8 +280,8 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
                       {cleanTitle(item.title)}
                     </h5>
                     {item.circular_number && (
-                      <p className="text-[9.5px] font-mono text-slate-500">
-                        No: {item.circular_number}
+                      <p className="text-xs text-slate-500">
+                        No: <span className="font-mono tabular-nums">{item.circular_number}</span>
                       </p>
                     )}
                   </div>
@@ -290,7 +289,7 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
                     type="button"
                     onClick={() => handleUnarchive(item)}
                     title="Kembalikan ke Pengumuman Aktif"
-                    className="shrink-0 px-2 py-1 rounded bg-white hover:bg-slate-200 border border-slate-300 text-slate-700 font-bold text-[9px] flex items-center gap-1 transition-colors duration-100 cursor-pointer shadow-2xs"
+                    className="shrink-0 px-2 py-1 rounded bg-white hover:bg-slate-200 border border-slate-300 text-slate-700 font-bold text-xs flex items-center gap-1 transition-colors duration-100 cursor-pointer shadow-2xs"
                   >
                     <RotateCcw className="w-3 h-3 text-slate-500" />
                     <span>Pulihkan</span>
@@ -298,12 +297,12 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
                 </div>
 
                 {item.description && (
-                  <p className="text-[10px] text-slate-600 leading-snug line-clamp-2">
+                  <p className="text-xs text-slate-600 leading-snug line-clamp-2">
                     {item.description}
                   </p>
                 )}
 
-                <div className="flex items-center justify-between text-[9px] text-slate-400 pt-0.5">
+                <div className="flex items-center justify-between text-xs text-slate-400 pt-0.5">
                   <span>{formatIndoDate(item.published_date || item.created_at, { shortMonth: true })}</span>
                   <button
                     type="button"
@@ -320,7 +319,7 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
 
         {/* Pagination per 10 */}
         {!loading && currentList.length > ITEMS_PER_PAGE && (
-          <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-[10px] shrink-0">
+          <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs shrink-0">
             <button
               type="button"
               disabled={currentPage <= 1}
@@ -332,7 +331,7 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
             </button>
 
             <span className="text-slate-500 font-medium">
-              Halaman {currentPage} dari {totalPages}
+              Halaman <span className="font-mono tabular-nums">{currentPage}</span> dari <span className="font-mono tabular-nums">{totalPages}</span>
             </span>
 
             <button
@@ -359,7 +358,7 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
                   <h4 className="text-xs font-bold text-slate-900 truncate">
                     {cleanTitle(previewDoc.title)}
                   </h4>
-                  <p className="text-[9px] text-slate-500 font-mono">
+                  <p className="text-xs text-slate-500 font-mono tabular-nums">
                     {previewDoc.circular_number || 'EDARAN-ARFF'}
                   </p>
                 </div>
@@ -367,33 +366,38 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
               <button
                 type="button"
                 onClick={() => setPreviewDoc(null)}
-                className="text-slate-400 hover:text-slate-700 text-sm font-bold p-1 cursor-pointer"
+                className="text-slate-400 hover:text-slate-700 p-1 rounded cursor-pointer"
+                aria-label="Tutup pratinjau"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* In-app Document Sheet Preview */}
             <div className="overflow-y-auto border border-slate-200 rounded-lg bg-slate-50 p-3 text-xs space-y-2">
               <div className="text-center border-b border-slate-300 pb-1.5">
-                <p className="text-[10px] font-black uppercase text-slate-900">
+                <p className="text-xs font-black uppercase text-slate-900">
                   PT ANGKASA PURA INDONESIA
                 </p>
-                <p className="text-[8.5px] font-bold text-slate-700">
+                <p className="text-xs font-bold text-slate-700">
                   AIRPORT RESCUE & FIRE FIGHTING (ARFF) - YIA
                 </p>
-                <p className="text-[8px] font-mono text-slate-500 mt-0.5">
-                  Ref: {previewDoc.circular_number || 'ARFF/EDARAN/2026'}
-                </p>
+                {previewDoc.circular_number && (
+                  <p className="text-xs font-mono tabular-nums text-slate-500 mt-0.5">
+                    Ref: {previewDoc.circular_number}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1">
                 <h5 className="font-bold text-slate-900 text-xs">
                   {cleanTitle(previewDoc.title)}
                 </h5>
-                <p className="text-[10px] text-slate-700 whitespace-pre-wrap leading-relaxed">
-                  {previewDoc.description || 'Surat edaran resmi dinas operasional ARFF Bandara Internasional Yogyakarta.'}
-                </p>
+                {previewDoc.description && (
+                  <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">
+                    {previewDoc.description}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -408,25 +412,25 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
                   }
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] flex items-center justify-center gap-1 transition-colors duration-100"
+                  className="py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center justify-center gap-1 transition-colors duration-100"
                 >
-                  <ExternalLink className="w-3 h-3" />
+                  <ExternalLink className="w-3.5 h-3.5" />
                   <span>Buka Berkas</span>
                 </a>
               ) : (
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-[10px] flex items-center justify-center gap-1 transition-colors duration-100"
+                  className="py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1 transition-colors duration-100"
                 >
-                  <Download className="w-3 h-3" />
+                  <Download className="w-3.5 h-3.5" />
                   <span>Cetak / Simpan</span>
                 </button>
               )}
               <button
                 type="button"
                 onClick={() => setPreviewDoc(null)}
-                className="py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-[10px] transition-colors duration-100 cursor-pointer"
+                className="py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs transition-colors duration-100 cursor-pointer"
               >
                 Tutup
               </button>

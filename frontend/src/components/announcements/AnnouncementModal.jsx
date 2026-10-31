@@ -117,8 +117,8 @@ export default function AnnouncementModal({
       title={isEdit ? 'Edit Surat Edaran / Pengumuman' : 'Unggah Surat Edaran / Pengumuman Resmi'}
       subtitle={
         isEdit
-          ? (initialData?.circular_number || circularNumber || 'Pembaruan Dokumen Dinas')
-          : 'Publikasikan instruksi kedinasan atau SOP untuk seluruh personel ARFF'
+          ? (initialData?.circular_number || circularNumber || undefined)
+          : undefined
       }
       maxWidth="max-w-xl"
       footer={
@@ -187,16 +187,13 @@ export default function AnnouncementModal({
               Sematkan di Posisi Teratas (Pin)
             </span>
           </label>
-          <p className="text-[11px] text-slate-500 mt-1 pl-6">
-            Pengumuman yang disematkan akan selalu berada di posisi paling atas daftar pengumuman dinas.
-          </p>
         </div>
 
         {/* Berkas PDF */}
         <div>
           <label className="text-xs font-semibold text-slate-700 block mb-1.5">
             {isEdit ? (
-              <>Berkas Dokumen PDF Pengumuman (Opsional untuk pembaruan, Maks. 10 MB)</>
+              <>Berkas Dokumen PDF Pengumuman (Opsional, Maks. 10 MB)</>
             ) : (
               <>
                 Berkas Dokumen PDF Pengumuman (Maks. 10 MB) <span className="text-red-500">*</span>
@@ -229,8 +226,8 @@ export default function AnnouncementModal({
                   ? 'Pilih berkas baru jika ingin memperbarui dokumen PDF'
                   : 'Pilih atau Seret Berkas Dokumen PDF'}
               </span>
-              <span className="text-[11px] text-slate-400">
-                Format resmi Portable Document Format (.pdf)
+              <span className="text-xs text-slate-400">
+                Format PDF (.pdf)
               </span>
             </label>
           </div>

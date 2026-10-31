@@ -7,6 +7,7 @@ import {
   Eye,
   FileQuestion
 } from 'lucide-react';
+import { cleanAnnouncementDescription } from '../../utils/shiftHelper';
 
 /**
  * Panel Kanan Pratinjau Dokumen PDF Surat Edaran / Pengumuman Dinas
@@ -42,15 +43,15 @@ export default function AnnouncementPdfPreview({
       <div className="p-4 border-b border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
               Pratinjau Dokumen
             </span>
             {selectedAnnouncement.circular_number && (
-              <span className="text-xs font-mono font-semibold text-slate-700 bg-slate-200/80 px-2 py-0.5 rounded">
+              <span className="text-xs font-mono tabular-nums font-semibold text-slate-700 bg-slate-200/80 px-2 py-0.5 rounded">
                 {selectedAnnouncement.circular_number}
               </span>
             )}
-            <span className="text-[11px] text-slate-500 font-medium flex items-center gap-1">
+            <span className="text-xs text-slate-500 font-medium font-mono tabular-nums flex items-center gap-1">
               <Clock className="w-3 h-3 text-slate-400" />
               {formatDateTime(selectedAnnouncement.published_date || selectedAnnouncement.created_at)}
             </span>
@@ -105,13 +106,13 @@ export default function AnnouncementPdfPreview({
               Tidak Ada Berkas Lampiran PDF
             </h4>
             <p className="text-xs text-slate-500 max-w-sm">
-              Surat edaran atau pengumuman dinas ini diterbitkan sebagai teks pengumuman resmi tanpa dokumen fisik PDF terlampir.
+              Surat edaran atau pengumuman dinas ini diterbitkan tanpa dokumen fisik PDF terlampir.
             </p>
-            {selectedAnnouncement.description && (
+            {cleanAnnouncementDescription(selectedAnnouncement.description) && (
               <div className="mt-4 p-4 rounded-xl bg-white border border-slate-200 text-left max-w-md w-full shadow-xs">
-                <p className="text-[11px] font-bold text-slate-700 mb-1 uppercase tracking-wide">Ringkasan / Uraian:</p>
+                <p className="text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">Ringkasan / Uraian:</p>
                 <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">
-                  {selectedAnnouncement.description}
+                  {cleanAnnouncementDescription(selectedAnnouncement.description)}
                 </p>
               </div>
             )}
@@ -128,11 +129,10 @@ export default function AnnouncementPdfPreview({
               <FileText className="w-7 h-7" />
             </div>
             <h4 className="text-sm font-bold text-slate-900 mb-1">
-              Pratinjau Dokumen PDF Siap Dimuat
+              Pratinjau Dokumen PDF
             </h4>
             <p className="text-xs text-slate-500 max-w-sm mb-4">
-              {selectedAnnouncement.file_name || 'Dokumen surat edaran resmi'}.
-              Pemuatan dokumen dilakukan on-demand demi menghemat kuota dan bandwidth operasional.
+              {selectedAnnouncement.file_name || 'Dokumen surat edaran resmi'}
             </p>
             <div className="flex items-center gap-2 flex-wrap justify-center">
               <button

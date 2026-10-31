@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { FileText, Archive } from 'lucide-react';
-import { formatIndoDate } from '../../../utils/shiftHelper';
+import { formatIndoDate, cleanAnnouncementDescription, cleanAnnouncementTitle } from '../../../utils/shiftHelper';
 
 /**
  * Komponen Kartu Pengumuman dengan Gestur Geser / Swipe / Slap Mulus (Ultra Smooth).
@@ -150,7 +150,7 @@ export default function SwipeableAnnouncementCard({
     ? formatIndoDate(item.published_date || item.created_at, { shortMonth: true })
     : (item.date || '-');
   const refNo = item.circular_number || item.reference_number || item.refNo || 'ARFF-EDARAN';
-  const snippet = item.description || item.content || item.snippet || 'Surat edaran resmi dinas operasional ARFF YIA.';
+  const snippet = cleanAnnouncementDescription(item.description || item.content || item.snippet || '');
 
   return (
     <div
@@ -163,14 +163,14 @@ export default function SwipeableAnnouncementCard({
         transition: 'max-height 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease-out, margin 0.22s ease-out',
         touchAction: 'pan-y'
       }}
-      className="relative overflow-hidden rounded-lg select-none bg-red-600 border border-slate-200/80 shadow-2xs"
+      className="relative overflow-hidden rounded-lg select-none bg-red-600 border border-slate-200/80 shadow-2xs font-sans"
     >
       {/* Background Action: Tombol Arsipkan */}
       <div className="absolute inset-y-0 right-0 w-[76px] flex items-center justify-center bg-red-600">
         <button
           type="button"
           onClick={handleArchiveButtonClick}
-          className="w-full h-full flex flex-col items-center justify-center text-white text-[9.5px] font-bold gap-0.5 active:bg-red-700 hover:bg-red-700 transition-colors duration-100 cursor-pointer"
+          className="w-full h-full flex flex-col items-center justify-center text-white text-xs font-bold gap-0.5 active:bg-red-700 hover:bg-red-700 transition-colors duration-100 cursor-pointer"
           aria-label="Arsipkan pengumuman ini"
         >
           <Archive className="w-4 h-4 shrink-0" />
@@ -196,8 +196,8 @@ export default function SwipeableAnnouncementCard({
           hasFile ? 'hover:border-red-300' : ''
         }`}
       >
-        <div className="flex items-center justify-between text-[9px] text-slate-400">
-          <span className="font-mono text-slate-600 font-bold truncate max-w-[170px]">
+        <div className="flex items-center justify-between text-xs text-slate-400">
+          <span className="font-mono tabular-nums text-slate-600 font-bold truncate max-w-[170px]">
             {refNo}
           </span>
           <span className="shrink-0">{dateStr}</span>
@@ -205,21 +205,23 @@ export default function SwipeableAnnouncementCard({
 
         <div className="flex items-start justify-between gap-1.5">
           <h5 className="font-bold text-slate-900 text-xs leading-snug line-clamp-1 flex-1">
-            {item.title ? String(item.title).replace(/^\[MENDESAK\]\s*/i, '').trim() : ''}
+            {cleanAnnouncementTitle(item.title) || 'Pengumuman Dinas'}
           </h5>
           {hasFile && (
-            <span className="shrink-0 px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-bold text-[9px] flex items-center gap-0.5">
+            <span className="shrink-0 px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-bold text-xs flex items-center gap-0.5">
               <FileText className="w-3 h-3" />
               <span>PDF</span>
             </span>
           )}
         </div>
 
-        <p className="text-[10px] text-slate-600 leading-snug line-clamp-2">
-          {snippet}
-        </p>
+        {snippet && (
+          <p className="text-xs text-slate-600 leading-snug line-clamp-2">
+            {snippet}
+          </p>
+        )}
 
-        <div className="flex items-center justify-between text-[8.5px] text-slate-400 pt-0.5">
+        <div className="flex items-center justify-between text-xs text-slate-400 pt-0.5">
           <span>{item.creator_name ? `Oleh: ${item.creator_name}` : ''}</span>
           <span className="text-slate-400 font-medium flex items-center gap-0.5">
             <span>←</span>

@@ -116,19 +116,20 @@ export default function MobilePersonnelAccordion({
                 </h3>
                 <Badge
                   variant={personnel.is_active ? 'success' : 'neutral'}
-                  className="text-[9px] uppercase font-bold py-0.5 px-1.5"
+                  size="sm"
+                  className="uppercase font-bold py-0.5 px-1.5"
                 >
                   {personnel.is_active ? 'Aktif' : 'Non-Aktif'}
                 </Badge>
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5 font-mono">
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5 font-mono tabular-nums">
                 <span>NIP: {personnel.nip || '-'}</span>
                 <span>•</span>
                 <span className="font-sans font-medium text-slate-700">
                   {personnel.team_group === 'Non-Shift' ? 'Administrasi (Non-Shift)' : formatTeam(personnel.team_group)}
                 </span>
               </div>
-              <p className="text-[10px] text-slate-700 font-semibold mt-0.5">
+              <p className="text-xs text-slate-700 font-semibold mt-0.5">
                 {formatRoleName(personnel.rank_position)} <span className="text-amber-800 font-bold">• Role: {formatRoleName(personnel.user_role || (personnel.team_group === 'Non-Shift' ? 'admin' : 'junior_firefighter'))}</span>
               </p>
             </div>
@@ -140,7 +141,7 @@ export default function MobilePersonnelAccordion({
           <button
             type="button"
             onClick={onChangePasswordClick}
-            className="w-full py-1.5 px-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold text-[11px] flex items-center justify-center gap-1.5 transition-colors duration-100 shadow-2xs cursor-pointer"
+            className="w-full py-1.5 px-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors duration-100 shadow-2xs cursor-pointer"
           >
             <Lock className="w-3.5 h-3.5 text-slate-500" />
             <span>Ubah Sandi</span>
@@ -150,7 +151,7 @@ export default function MobilePersonnelAccordion({
             <button
               type="button"
               onClick={onEditClick}
-              className="w-full py-1.5 px-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-[11px] flex items-center justify-center gap-1.5 transition-colors duration-100 shadow-2xs cursor-pointer"
+              className="w-full py-1.5 px-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors duration-100 shadow-2xs cursor-pointer"
             >
               <Edit3 className="w-3.5 h-3.5" />
               <span>Edit Kualifikasi</span>
@@ -161,26 +162,26 @@ export default function MobilePersonnelAccordion({
         {/* Quick KPI Bar (4 Matriks Kompak) */}
         <div className="grid grid-cols-4 gap-1.5 mt-2.5 pt-2 border-t border-slate-100 bg-slate-50/80 p-2 rounded-lg text-center">
           <div className="border-r border-slate-200/80 pr-1">
-            <span className="text-[9px] text-slate-500 block">Kualifikasi</span>
-            <span className="font-bold text-slate-900 text-[11px] block truncate">
+            <span className="text-xs text-slate-500 block">Kualifikasi</span>
+            <span className="font-bold text-slate-900 text-xs block truncate">
               {personnel.cert_level ? `Lvl ${personnel.cert_level}` : '-'}
             </span>
           </div>
           <div className="border-r border-slate-200/80 pr-1">
-            <span className="text-[9px] text-slate-500 block">Usia</span>
-            <span className="font-bold text-slate-900 text-[11px] block truncate">
+            <span className="text-xs text-slate-500 block">Usia</span>
+            <span className="font-mono tabular-nums font-bold text-slate-900 text-xs block truncate">
               {calculateAge(personnel.birth_date)}
             </span>
           </div>
           <div className="border-r border-slate-200/80 pr-1">
-            <span className="text-[9px] text-slate-500 block">Masa Kerja</span>
-            <span className="font-bold text-slate-900 text-[11px] block truncate">
+            <span className="text-xs text-slate-500 block">Masa Kerja</span>
+            <span className="font-mono tabular-nums font-bold text-slate-900 text-xs block truncate">
               {calculateTenure(personnel.tmt_date)}
             </span>
           </div>
           <div>
-            <span className="text-[9px] text-slate-500 block">Kompetensi</span>
-            <span className="font-bold text-emerald-800 text-[11px] block truncate">
+            <span className="text-xs text-slate-500 block">Kompetensi</span>
+            <span className="font-mono tabular-nums font-bold text-emerald-800 text-xs block truncate">
               {ownedCompCount}/11
             </span>
           </div>
@@ -200,7 +201,7 @@ export default function MobilePersonnelAccordion({
             </div>
             <div>
               <h4 className="font-bold text-slate-900 text-xs">Identitas & Kepegawaian</h4>
-              <p className="text-[10px] text-slate-500">TTL, TMT, Status & Pendidikan</p>
+              <p className="text-xs text-slate-500">TTL, TMT, Status & Pendidikan</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5 text-slate-400">
@@ -212,14 +213,14 @@ export default function MobilePersonnelAccordion({
           <div className="p-3 pt-0 border-t border-slate-100 space-y-2.5">
             <div className="grid grid-cols-2 gap-2 pt-2.5">
               <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg">
-                <span className="text-[10px] text-slate-500 block">Tempat Lahir</span>
+                <span className="text-xs text-slate-500 block">Tempat Lahir</span>
                 <span className="font-semibold text-slate-900 text-xs mt-0.5 block">
                   {personnel.birth_place || '-'}
                 </span>
               </div>
               <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg">
-                <span className="text-[10px] text-slate-500 block">Tanggal Lahir</span>
-                <span className="font-semibold text-slate-900 text-xs mt-0.5 block">
+                <span className="text-xs text-slate-500 block">Tanggal Lahir</span>
+                <span className="font-mono tabular-nums font-semibold text-slate-900 text-xs mt-0.5 block">
                   {formatIndoDate(personnel.birth_date, { shortMonth: true })}
                 </span>
               </div>
@@ -227,13 +228,13 @@ export default function MobilePersonnelAccordion({
 
             <div className="grid grid-cols-2 gap-2">
               <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg">
-                <span className="text-[10px] text-slate-500 block">Usia Personel</span>
-                <span className="font-bold text-slate-900 text-xs mt-0.5 block">
+                <span className="text-xs text-slate-500 block">Usia Personel</span>
+                <span className="font-mono tabular-nums font-bold text-slate-900 text-xs mt-0.5 block">
                   {calculateAge(personnel.birth_date)}
                 </span>
               </div>
               <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg">
-                <span className="text-[10px] text-slate-500 block">Status Karyawan</span>
+                <span className="text-xs text-slate-500 block">Status Karyawan</span>
                 <span className="font-semibold text-slate-900 text-xs mt-0.5 block">
                   {personnel.employment_status || 'Karyawan Organik'}
                 </span>
@@ -242,33 +243,33 @@ export default function MobilePersonnelAccordion({
 
             <div className="grid grid-cols-2 gap-2">
               <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg">
-                <span className="text-[10px] text-slate-500 block">TMT Karyawan</span>
-                <span className="font-semibold text-slate-900 text-xs mt-0.5 block font-mono">
+                <span className="text-xs text-slate-500 block">TMT Karyawan</span>
+                <span className="font-semibold text-slate-900 text-xs mt-0.5 block font-mono tabular-nums">
                   {formatIndoDate(personnel.tmt_date, { shortMonth: true })}
                 </span>
               </div>
               <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg">
-                <span className="text-[10px] text-slate-500 block">Masa Kerja</span>
-                <span className="font-bold text-slate-900 text-xs mt-0.5 block">
+                <span className="text-xs text-slate-500 block">Masa Kerja</span>
+                <span className="font-mono tabular-nums font-bold text-slate-900 text-xs mt-0.5 block">
                   {calculateTenure(personnel.tmt_date)}
                 </span>
               </div>
             </div>
 
             <div className="p-2.5 bg-slate-50 border border-slate-100 rounded-lg space-y-1.5">
-              <div className="flex items-center gap-1.5 text-slate-700 font-semibold text-[11px]">
+              <div className="flex items-center gap-1.5 text-slate-700 font-semibold text-xs">
                 <GraduationCap className="w-3.5 h-3.5 text-slate-500" />
                 <span>Pendidikan Formal</span>
               </div>
               <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200/60">
                 <div>
-                  <span className="text-[10px] text-slate-500 block">Pendidikan Dimiliki</span>
+                  <span className="text-xs text-slate-500 block">Pendidikan Dimiliki</span>
                   <span className="font-semibold text-slate-900 text-xs mt-0.5 block">
                     {personnel.education_owned || '-'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-500 block">Pendidikan Diakui</span>
+                  <span className="text-xs text-slate-500 block">Pendidikan Diakui</span>
                   <span className="font-semibold text-slate-900 text-xs mt-0.5 block">
                     {personnel.education_recognized || '-'}
                   </span>
@@ -292,7 +293,7 @@ export default function MobilePersonnelAccordion({
             </div>
             <div>
               <h4 className="font-bold text-slate-900 text-xs">Lisensi STKP & Salvage</h4>
-              <p className="text-[10px] text-slate-500">
+              <p className="text-xs text-slate-500">
                 Rating, Basic/Junior/Senior & Salvage
               </p>
             </div>
@@ -311,7 +312,8 @@ export default function MobilePersonnelAccordion({
                 {isStkpValid !== null && (
                   <Badge
                     variant={isStkpValid ? 'success' : 'danger'}
-                    className="text-[9px] font-bold py-0.5 px-1.5"
+                    size="sm"
+                    className="font-bold py-0.5 px-1.5"
                   >
                     {isStkpValid ? 'Aktif / Berlaku' : 'Kedaluwarsa'}
                   </Badge>
@@ -319,21 +321,21 @@ export default function MobilePersonnelAccordion({
               </div>
               <div className="grid grid-cols-2 gap-2 pt-1 border-t border-amber-200/50">
                 <div>
-                  <span className="text-[10px] text-slate-600 block">Rating Lisensi</span>
+                  <span className="text-xs text-slate-600 block">Rating Lisensi</span>
                   <span className="font-bold text-slate-900 text-xs block">
                     {personnel.cert_level ? `Level ${personnel.cert_level}` : '-'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-600 block">Masa Berlaku</span>
-                  <span className="font-semibold text-slate-900 text-xs block font-mono">
+                  <span className="text-xs text-slate-600 block">Masa Berlaku</span>
+                  <span className="font-semibold text-slate-900 text-xs block font-mono tabular-nums">
                     {formatIndoDate(personnel.license_valid_until, { shortMonth: true })}
                   </span>
                 </div>
               </div>
               <div>
-                <span className="text-[10px] text-slate-600 block">Nomor Lisensi STKP</span>
-                <span className="font-mono font-bold text-slate-900 text-xs block">
+                <span className="text-xs text-slate-600 block">Nomor Lisensi STKP</span>
+                <span className="font-mono tabular-nums font-bold text-slate-900 text-xs block">
                   {personnel.license_number || '-'}
                 </span>
               </div>
@@ -341,7 +343,7 @@ export default function MobilePersonnelAccordion({
 
             {/* Riwayat Jenjang STKP (Basic, Junior, Senior) */}
             <div className="space-y-1.5">
-              <span className="font-bold text-slate-800 text-[11px] block">
+              <span className="font-bold text-slate-800 text-xs block">
                 Riwayat Jenjang Kualifikasi STKP
               </span>
 
@@ -349,12 +351,12 @@ export default function MobilePersonnelAccordion({
               <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg flex items-center justify-between">
                 <div>
                   <span className="font-bold text-slate-900 text-xs block">Basic ARFF</span>
-                  <span className="text-[10px] text-slate-500 block font-mono">
+                  <span className="text-xs text-slate-500 block font-mono tabular-nums">
                     No: {personnel.cert_basic_no || '-'}
                   </span>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] text-slate-500 block">Lemdik</span>
+                  <span className="text-xs text-slate-500 block">Lemdik</span>
                   <span className="font-semibold text-slate-800 text-xs block">
                     {personnel.cert_basic_lemdik || '-'}
                   </span>
@@ -365,12 +367,12 @@ export default function MobilePersonnelAccordion({
               <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg flex items-center justify-between">
                 <div>
                   <span className="font-bold text-slate-900 text-xs block">Junior ARFF</span>
-                  <span className="text-[10px] text-slate-500 block font-mono">
+                  <span className="text-xs text-slate-500 block font-mono tabular-nums">
                     No: {personnel.cert_junior_no || '-'}
                   </span>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] text-slate-500 block">Lemdik</span>
+                  <span className="text-xs text-slate-500 block">Lemdik</span>
                   <span className="font-semibold text-slate-800 text-xs block">
                     {personnel.cert_junior_lemdik || '-'}
                   </span>
@@ -381,12 +383,12 @@ export default function MobilePersonnelAccordion({
               <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg flex items-center justify-between">
                 <div>
                   <span className="font-bold text-slate-900 text-xs block">Senior ARFF</span>
-                  <span className="text-[10px] text-slate-500 block font-mono">
+                  <span className="text-xs text-slate-500 block font-mono tabular-nums">
                     No: {personnel.cert_senior_no || '-'}
                   </span>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] text-slate-500 block">Lemdik</span>
+                  <span className="text-xs text-slate-500 block">Lemdik</span>
                   <span className="font-semibold text-slate-800 text-xs block">
                     {personnel.cert_senior_lemdik || '-'}
                   </span>
@@ -401,28 +403,28 @@ export default function MobilePersonnelAccordion({
               </span>
               <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200/60">
                 <div>
-                  <span className="text-[10px] text-slate-500 block">No. Lisensi Salvage</span>
-                  <span className="font-mono font-semibold text-slate-900 text-xs block truncate">
+                  <span className="text-xs text-slate-500 block">No. Lisensi Salvage</span>
+                  <span className="font-mono tabular-nums font-semibold text-slate-900 text-xs block truncate">
                     {personnel.salvage_license_no || '-'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-500 block">Masa Berlaku</span>
-                  <span className="font-mono font-semibold text-slate-900 text-xs block">
+                  <span className="text-xs text-slate-500 block">Masa Berlaku</span>
+                  <span className="font-mono tabular-nums font-semibold text-slate-900 text-xs block">
                     {formatIndoDate(personnel.salvage_license_valid_until, { shortMonth: true })}
                   </span>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <div>
-                  <span className="text-[10px] text-slate-500 block">Lemdik Salvage</span>
+                  <span className="text-xs text-slate-500 block">Lemdik Salvage</span>
                   <span className="font-semibold text-slate-800 text-xs block truncate">
                     {personnel.salvage_lemdik || '-'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-500 block">Tgl Refreshing Salvage</span>
-                  <span className="font-mono font-semibold text-slate-800 text-xs block">
+                  <span className="text-xs text-slate-500 block">Tgl Refreshing Salvage</span>
+                  <span className="font-mono tabular-nums font-semibold text-slate-800 text-xs block">
                     {formatIndoDate(personnel.salvage_refreshing_date, { shortMonth: true })}
                   </span>
                 </div>
@@ -436,14 +438,14 @@ export default function MobilePersonnelAccordion({
               </span>
               <div className="grid grid-cols-2 gap-2 mt-1.5 pt-1 border-t border-slate-200/60">
                 <div>
-                  <span className="text-[10px] text-slate-500 block">No. Sertifikat</span>
-                  <span className="font-mono font-semibold text-slate-900 text-xs block truncate">
+                  <span className="text-xs text-slate-500 block">No. Sertifikat</span>
+                  <span className="font-mono tabular-nums font-semibold text-slate-900 text-xs block truncate">
                     {personnel.refreshing_cert_number || '-'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-500 block">Tanggal / Tahun</span>
-                  <span className="font-mono font-semibold text-slate-900 text-xs block">
+                  <span className="text-xs text-slate-500 block">Tanggal / Tahun</span>
+                  <span className="font-mono tabular-nums font-semibold text-slate-900 text-xs block">
                     {formatIndoDate(personnel.refreshing_date, { shortMonth: true })}
                   </span>
                 </div>
@@ -467,11 +469,11 @@ export default function MobilePersonnelAccordion({
             <div>
               <div className="flex items-center gap-1.5">
                 <h4 className="font-bold text-slate-900 text-xs">11 Kompetensi Tambahan</h4>
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                <span className="px-1.5 py-0.5 rounded text-xs font-mono tabular-nums font-bold bg-emerald-100 text-emerald-800">
                   {ownedCompCount} / 11
                 </span>
               </div>
-              <p className="text-[10px] text-slate-500">
+              <p className="text-xs text-slate-500">
                 SAR, TOT, K3, Foam, Investigator, SMS, dll
               </p>
             </div>
@@ -497,7 +499,7 @@ export default function MobilePersonnelAccordion({
                   >
                     <div className="flex items-center gap-2">
                       <div
-                        className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${
+                        className={`w-4 h-4 rounded-full flex items-center justify-center text-xs ${
                           isOwned
                             ? 'bg-emerald-600 text-white'
                             : 'bg-slate-200 text-slate-400'
@@ -514,7 +516,7 @@ export default function MobilePersonnelAccordion({
                       </span>
                     </div>
                     <span
-                      className={`text-[10px] font-semibold ${
+                      className={`text-xs font-semibold ${
                         isOwned ? 'text-emerald-700' : 'text-slate-400'
                       }`}
                     >

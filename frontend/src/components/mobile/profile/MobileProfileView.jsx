@@ -216,7 +216,7 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
             <h2 className="text-xs font-bold text-slate-900 uppercase tracking-tight leading-none">
               Profil Mandiri
             </h2>
-            <p className="text-[10px] text-slate-500 mt-0.5">Identitas & Arsip Kepegawaian</p>
+            <p className="text-xs text-slate-500 mt-0.5">Identitas & Arsip Kepegawaian</p>
           </div>
         </div>
 
@@ -225,7 +225,7 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
             <button
               type="button"
               onClick={onOpenLeaveModal}
-              className="px-2 py-1 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-bold hover:bg-amber-100 transition-colors duration-100 flex items-center gap-1"
+              className="px-2 py-1 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold hover:bg-amber-100 transition-colors duration-100 flex items-center gap-1"
             >
               <Calendar className="w-3 h-3" />
               <span>+ Cuti Mandiri</span>
@@ -288,12 +288,12 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
             <h3 className="text-xs font-bold text-slate-900 uppercase tracking-tight">
               Dokumen & Sertifikat Saya
             </h3>
-            <p className="text-[9px] text-slate-500">Arsip digital lisensi, diklat, dan MCU</p>
+            <p className="text-xs text-slate-500">Arsip digital lisensi, diklat, dan MCU</p>
           </div>
           <button
             type="button"
             onClick={() => setIsUploadDocOpen(true)}
-            className="px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold flex items-center gap-1 transition-colors duration-100 shadow-2xs"
+            className="px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-1 transition-colors duration-100 shadow-2xs"
           >
             <UploadCloud className="w-3 h-3" />
             <span>+ Upload</span>
@@ -316,11 +316,11 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
                     <FileText className="w-3.5 h-3.5" />
                   </div>
                   <div className="truncate">
-                    <p className="font-bold text-slate-800 text-[11px] truncate">
+                    <p className="font-bold text-slate-800 text-xs truncate">
                       {doc.title || DOCUMENT_TYPE_LABELS[doc.document_type] || doc.file_name}
                     </p>
-                    <span className="text-[9px] text-slate-500 font-mono block">
-                      {DOCUMENT_TYPE_LABELS[doc.document_type] || 'Dokumen'} • {formatBytes(doc.file_size)}
+                    <span className="text-xs text-slate-500 font-sans block">
+                      {DOCUMENT_TYPE_LABELS[doc.document_type] || 'Dokumen'} • <span className="font-mono tabular-nums">{formatBytes(doc.file_size)}</span>
                     </span>
                   </div>
                 </div>
@@ -329,7 +329,7 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
                   <button
                     type="button"
                     onClick={() => openProtectedDoc(doc)}
-                    className="px-2 py-1 rounded bg-white border border-slate-200 hover:bg-slate-50 text-blue-600 font-bold text-[9px] flex items-center gap-1 transition-colors duration-100 shadow-2xs"
+                    className="px-2 py-1 rounded bg-white border border-slate-200 hover:bg-slate-50 text-blue-600 font-bold text-xs flex items-center gap-1 transition-colors duration-100 shadow-2xs"
                     title="Buka Berkas PDF"
                   >
                     <ExternalLink className="w-3 h-3" />
@@ -400,7 +400,7 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
             </div>
 
             {uploadError && (
-              <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[11px] flex items-center gap-1.5">
+              <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-1.5">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                 <span>{typeof uploadError === 'string' ? uploadError : (uploadError?.message || 'Gagal mengunggah berkas')}</span>
               </div>
@@ -408,7 +408,7 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
 
             <form onSubmit={handleUploadDocument} className="space-y-2 text-xs">
               <div>
-                <label className="text-[10px] font-bold text-slate-600 block mb-0.5">Jenis Dokumen *</label>
+                <label className="text-xs font-bold text-slate-600 block mb-0.5">Jenis Dokumen *</label>
                 <select
                   value={uploadDocType}
                   onChange={(e) => setUploadDocType(e.target.value)}
@@ -423,7 +423,7 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
               </div>
 
               <div>
-                <label className="text-[10px] font-bold text-slate-600 block mb-0.5">Judul Dokumen (Opsional)</label>
+                <label className="text-xs font-bold text-slate-600 block mb-0.5">Judul Dokumen (Opsional)</label>
                 <input
                   type="text"
                   value={uploadDocTitle}
@@ -434,13 +434,13 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
               </div>
 
               <div>
-                <label className="text-[10px] font-bold text-slate-600 block mb-0.5">Berkas (PDF / Foto) *</label>
+                <label className="text-xs font-bold text-slate-600 block mb-0.5">Berkas (PDF / Foto) *</label>
                 <input
                   type="file"
                   accept=".pdf,image/*"
                   required
                   onChange={(e) => setUploadDocFile(e.target.files?.[0] || null)}
-                  className="w-full p-1 border border-slate-300 rounded-lg bg-slate-50 text-xs file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-bold file:bg-slate-200 file:text-slate-800 hover:file:bg-slate-300"
+                  className="w-full p-1 border border-slate-300 rounded-lg bg-slate-50 text-xs file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-slate-200 file:text-slate-800 hover:file:bg-slate-300"
                 />
               </div>
 

@@ -465,14 +465,11 @@ export default function AnnouncementsPage() {
                 Papan Pengumuman & Surat Edaran
               </h1>
               {unreadCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-red-100 text-red-700 border border-red-300">
+                <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-red-100 text-red-700 border border-red-300 font-mono tabular-nums">
                   {unreadCount} Baru
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Instruksi dinas resmi, nota dinas pimpinan, dan SOP operasional ARFF YIA.
-            </p>
           </div>
         </div>
 
@@ -515,7 +512,7 @@ export default function AnnouncementsPage() {
               >
                 <Bell className="w-3.5 h-3.5 text-red-600" />
                 <span>Aktif</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-slate-100 text-slate-700">
+                <span className="text-xs px-1.5 py-0.5 rounded-full font-bold font-mono tabular-nums bg-slate-100 text-slate-700">
                   {activeList.length}
                 </span>
               </button>
@@ -533,7 +530,7 @@ export default function AnnouncementsPage() {
               >
                 <Archive className="w-3.5 h-3.5 text-slate-500" />
                 <span>Arsip Dinas</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-slate-100 text-slate-700">
+                <span className="text-xs px-1.5 py-0.5 rounded-full font-bold font-mono tabular-nums bg-slate-100 text-slate-700">
                   {archivedList.length}
                 </span>
               </button>
@@ -542,20 +539,20 @@ export default function AnnouncementsPage() {
             {/* Search Bar & Header */}
             <div className="p-3.5 border-b border-slate-200 bg-slate-50/70">
               <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="Cari edaran atau no. surat..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-300 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-slate-900 transition-colors duration-100"
+                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400 transition-colors duration-100"
                 />
               </div>
-              <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 px-0.5">
-                <span>{filteredAnnouncements.length} Dokumen Tersedia</span>
+              <div className="mt-2 flex items-center justify-between text-xs text-slate-500 px-0.5">
+                <span><span className="font-mono tabular-nums font-semibold">{filteredAnnouncements.length}</span> Dokumen Tersedia</span>
                 {unreadCount > 0 && (
                   <span className="font-semibold text-red-600">
-                    {unreadCount} belum dibaca
+                    <span className="font-mono tabular-nums">{unreadCount}</span> belum dibaca
                   </span>
                 )}
               </div>
@@ -590,14 +587,14 @@ export default function AnnouncementsPage() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {isPinnedAnnouncement(ann) && (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-slate-900 text-white shadow-xs">
+                              <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded bg-slate-900 text-white shadow-xs">
                                 <Pin className="w-3 h-3 fill-white" />
                                 <span>PINNED</span>
                               </span>
                             )}
                             {ann.circular_number && (
                               <span
-                                className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold ${
+                                className={`text-xs font-mono tabular-nums px-2 py-0.5 rounded font-bold ${
                                   isSelected
                                     ? 'bg-red-100 text-red-800 border border-red-200/70'
                                     : 'bg-slate-100 text-slate-600 border border-slate-200'
@@ -621,7 +618,7 @@ export default function AnnouncementsPage() {
 
                           {ann.description && (
                             <p
-                              className={`text-[11px] mt-1 line-clamp-2 ${
+                              className={`text-xs mt-1 line-clamp-2 ${
                                 isSelected ? 'text-slate-600' : 'text-slate-500'
                               }`}
                             >
@@ -629,8 +626,8 @@ export default function AnnouncementsPage() {
                             </p>
                           )}
 
-                          <div className="mt-2.5 flex items-center gap-3 text-[10px] text-slate-500">
-                            <span className="flex items-center gap-1 font-medium">
+                          <div className="mt-2.5 flex items-center gap-3 text-xs text-slate-500">
+                            <span className="flex items-center gap-1 font-medium font-mono tabular-nums">
                               <Clock className="w-3 h-3 text-slate-400" />
                               {formatDateTime(ann.published_date || ann.created_at)}
                             </span>
@@ -759,12 +756,12 @@ export default function AnnouncementsPage() {
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
               <p className="text-xs font-bold text-slate-900">{targetDeleteAnnouncement.title}</p>
               {targetDeleteAnnouncement.circular_number && (
-                <p className="text-[11px] font-mono text-slate-500 mt-0.5">
+                <p className="text-xs font-mono tabular-nums text-slate-500 mt-0.5">
                   No. Surat: {targetDeleteAnnouncement.circular_number}
                 </p>
               )}
             </div>
-            <p className="text-[11px] text-red-600 font-medium">
+            <p className="text-xs text-red-600 font-medium">
               Tindakan ini tidak dapat dibatalkan dan berkas dokumen lampiran akan dihapus permanen dari server.
             </p>
           </div>

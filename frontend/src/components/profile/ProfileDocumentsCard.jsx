@@ -123,9 +123,6 @@ export default function ProfileDocumentsCard({
     <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
       <div className="flex items-center justify-between pb-3 border-b border-slate-100">
         <div>
-          <span className="text-[10px] font-bold tracking-wider uppercase text-slate-400 block">
-            CARD 2
-          </span>
           <h3 className="text-sm font-bold text-slate-900 uppercase tracking-tight">
             Dokumen & Sertifikat Saya
           </h3>
@@ -255,8 +252,8 @@ export default function ProfileDocumentsCard({
                   <p className="font-bold text-slate-900 text-xs truncate">
                     {doc.title || DOCUMENT_TYPE_LABELS[doc.document_type] || doc.file_name}
                   </p>
-                  <span className="text-[10px] text-slate-500 font-mono block mt-0.5">
-                    {DOCUMENT_TYPE_LABELS[doc.document_type] || 'Dokumen'} • {formatBytes(doc.file_size)} • {formatIndoDate(doc.created_at, { shortMonth: true })}
+                  <span className="text-xs text-slate-500 font-sans block mt-0.5">
+                    {DOCUMENT_TYPE_LABELS[doc.document_type] || 'Dokumen'} • <span className="font-mono tabular-nums">{formatBytes(doc.file_size)}</span> • <span className="font-mono tabular-nums">{formatIndoDate(doc.created_at, { shortMonth: true })}</span>
                   </span>
                 </div>
               </div>
