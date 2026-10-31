@@ -51,11 +51,11 @@ export default function VehicleQuickDetailModal({
         </Button>
       }
     >
-      <div className="space-y-4 text-xs">
+      <div className="space-y-4 text-xs font-sans">
         {/* Strip Status Operasional Ringkas (Anti-Redundansi) */}
         <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg bg-slate-50 border border-slate-200">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-semibold text-slate-500">Kelaikan:</span>
+            <span className="text-xs font-semibold text-slate-500">Kelaikan:</span>
             {isUnserviceable ? (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-50 text-red-800 border border-red-200">
                 <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
@@ -64,12 +64,12 @@ export default function VehicleQuickDetailModal({
             ) : isServiceable ? (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Serviceable (Laik Operasi)</span>
+                <span>Serviceable</span>
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
                 <HelpCircle className="w-3.5 h-3.5 text-slate-500" />
-                <span>Belum Dicek Shift Ini</span>
+                <span>Belum Dicek</span>
               </span>
             )}
           </div>
@@ -95,7 +95,7 @@ export default function VehicleQuickDetailModal({
 
         <div>
           <h4 className="font-bold text-slate-900 mb-2">
-            Kru Terploting pada Unit Ini ({crewList.length} Personel)
+            Kru Terploting pada Unit Ini (<span className="font-mono tabular-nums">{crewList.length}</span> Personel)
           </h4>
           {crewList.length === 0 ? (
             <div className="py-5 text-center text-slate-400 border border-dashed border-slate-200 rounded-lg">
@@ -112,16 +112,16 @@ export default function VehicleQuickDetailModal({
                     <div className="font-semibold text-slate-900">
                       {typeof member.full_name === 'string' ? member.full_name : String(member.full_name || '')}
                       {member.is_pic ? (
-                        <span className="ml-2 px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                        <span className="ml-2 px-1.5 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800">
                           PIC
                         </span>
                       ) : null}
                     </div>
-                    <div className="text-[11px] text-slate-500">
-                      NIP: {member.nip || '-'} • {formatRoleName(member.rank_position)}
+                    <div className="text-xs text-slate-500">
+                      NIP: <span className="font-mono tabular-nums">{member.nip || '-'}</span> • {formatRoleName(member.rank_position)}
                     </div>
                   </div>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
                     {String(member.employment_status || 'organik').toLowerCase() === 'organik'
                       ? 'Organik'
                       : 'Outsourcing (Training)'}
@@ -134,7 +134,7 @@ export default function VehicleQuickDetailModal({
 
         {photoUrl && (
           <div>
-            <div className="text-[11px] font-semibold text-slate-500 mb-1">
+            <div className="text-xs font-semibold text-slate-500 mb-1">
               Foto Bukti Pemeriksaan Fisik
             </div>
             <img

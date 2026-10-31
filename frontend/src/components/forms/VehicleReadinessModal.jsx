@@ -264,7 +264,7 @@ export default function VehicleReadinessModal({
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4 font-sans">
         {/* Banner Notifikasi Estafet (Carry-Over) */}
         {isCarriedOver && !isPosko && (
           <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1">
@@ -272,12 +272,12 @@ export default function VehicleReadinessModal({
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
               <span>Unit Berstatus Estafet (Carry-Over)</span>
             </div>
-            <p className="text-[11px] leading-relaxed text-amber-700">
+            <p className="text-xs leading-relaxed text-amber-700">
               Kendala unit ini diteruskan dari shift sebelumnya. Foto bukti fisik baru untuk shift berjalan <strong>wajib diunggah</strong> oleh PIC sebelum menyimpan kesiapan armada.
             </p>
             {carriedOverPhotoUrl && (
               <div className="pt-1">
-                <span className="text-[10.5px] font-semibold text-slate-600 block mb-1">Foto Bukti Shift Sebelumnya (Referensi):</span>
+                <span className="text-xs font-semibold text-slate-600 block mb-1">Foto Bukti Shift Sebelumnya (Referensi):</span>
                 <img
                   src={carriedOverPhotoUrl}
                   alt="Referensi shift sebelumnya"
@@ -294,7 +294,7 @@ export default function VehicleReadinessModal({
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
               <span>Kendala Posko Estafet (Carry-Over)</span>
             </div>
-            <p className="text-[11px] leading-relaxed text-amber-700">
+            <p className="text-xs leading-relaxed text-amber-700">
               Kendala fasilitas posko ini diteruskan dari shift sebelumnya. Periksa kondisi seluruh fasilitas dan perbarui status operasional.
             </p>
           </div>
@@ -315,7 +315,7 @@ export default function VehicleReadinessModal({
             </div>
             <div className="text-xs text-slate-600">
               <p className="font-semibold text-slate-900">Watchroom & Komunikasi Darurat</p>
-              <p>Pemeriksaan rutin kelayakan fasilitas peringatan dini dan saluran komunikasi ke Tower.</p>
+              <p>Pemeriksaan kelayakan fasilitas peringatan dini dan saluran komunikasi ke Tower.</p>
             </div>
           </div>
         ) : (
@@ -326,7 +326,7 @@ export default function VehicleReadinessModal({
             </div>
             <div className="flex justify-between">
               <span className="font-semibold text-slate-800">Plat Nomor:</span>
-              <span className="font-mono">{vehicle.license_plate || '-'}</span>
+              <span className="font-mono tabular-nums">{vehicle.license_plate || '-'}</span>
             </div>
             <div className="flex justify-between">
               <span className="font-semibold text-slate-800">Kategori:</span>
@@ -344,10 +344,10 @@ export default function VehicleReadinessModal({
                 }`}
               >
                 {vehicle.status === 'serviceable'
-                  ? '✓ Serviceable'
+                  ? 'Serviceable'
                   : vehicle.status === 'unserviceable'
-                  ? '⚠️ Unserviceable'
-                  : '⏳ Belum Dilaporkan Shift Ini'}
+                  ? 'Tidak Laik / Rusak'
+                  : 'Belum Dicek'}
               </span>
             </div>
           </div>
@@ -441,13 +441,13 @@ export default function VehicleReadinessModal({
                     Serviceable
                   </span>
                   {effectiveStatus === 'serviceable' && (
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                    <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
                       Dipilih
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                  {isPosko ? 'Siap pantau & komunikasi normal tanpa kendala.' : 'Armada siap operasi penuh tanpa kendala teknis.'}
+                <p className="text-xs text-slate-500 mt-0.5 leading-snug">
+                  {isPosko ? 'Fasilitas komunikasi berfungsi normal.' : 'Kondisi fisik dan mesin berfungsi normal.'}
                 </p>
               </div>
             </button>
@@ -477,22 +477,22 @@ export default function VehicleReadinessModal({
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wide">
-                    Unserviceable
+                    Tidak Laik / Rusak
                   </span>
                   {effectiveStatus === 'unserviceable' && (
-                    <span className="text-[10px] font-bold text-red-700 bg-red-100 px-1.5 py-0.5 rounded">
+                    <span className="text-xs font-bold text-red-700 bg-red-100 px-1.5 py-0.5 rounded">
                       Dipilih
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                  {isPosko ? 'Terdapat gangguan fasilitas / saluran komunikasi.' : 'Kendala fisik / malfungsi fungsi / dalam perbaikan.'}
+                <p className="text-xs text-slate-500 mt-0.5 leading-snug">
+                  {isPosko ? 'Terdapat gangguan fasilitas komunikasi.' : 'Kendala fisik / malfungsi / dalam perbaikan.'}
                 </p>
               </div>
             </button>
           </div>
           {!effectiveStatus && (
-            <p className="text-[10.5px] text-amber-700 italic flex items-center gap-1 mt-1">
+            <p className="text-xs text-amber-700 italic flex items-center gap-1 mt-1">
               <span>* Belum ada status yang dipilih. Silakan klik salah satu kartu di atas.</span>
             </p>
           )}
@@ -520,10 +520,10 @@ export default function VehicleReadinessModal({
                 label="Justifikasi & Rincian Kendala Kerusakan"
                 value={justification}
                 onChange={(e) => setJustification(e.target.value)}
-                placeholder="Jelaskan secara rinci komponen atau fungsi yang mengalami kerusakan / tidak memenuhi syarat operasi..."
+                placeholder="Jelaskan secara rinci komponen atau fungsi yang mengalami kerusakan..."
                 required
                 rows={3}
-                helperText="Wajib diisi untuk pelaporan tindak lanjut teknisi dan penggantian armada cadangan."
+                helperText="Wajib diisi untuk pelaporan tindak lanjut teknisi."
               />
             )}
 
@@ -542,7 +542,7 @@ export default function VehicleReadinessModal({
         {!isPosko && (
           <div className="space-y-2">
             <label className="text-xs font-semibold text-slate-700 block">
-              Dokumentasi Foto Fisik <span className="text-red-500 font-bold">* Wajib</span> (Otomatis Kompresi WebP di Klien)
+              Dokumentasi Foto Fisik <span className="text-red-500 font-bold">* Wajib</span>
             </label>
 
             <div className="flex items-center gap-4">
@@ -559,7 +559,7 @@ export default function VehicleReadinessModal({
               </label>
 
               {photoFile && (
-                <span className="text-xs text-emerald-700 font-medium flex items-center gap-1">
+                <span className="text-xs text-emerald-700 font-medium flex items-center gap-1 font-mono tabular-nums">
                   <CheckCircle2 className="w-4 h-4" />
                   Format WebP ({Math.round(photoFile.size / 1024)} KB)
                 </span>

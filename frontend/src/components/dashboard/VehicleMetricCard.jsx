@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, AlertTriangle, HelpCircle, Star, Edit3, Edit2, ShieldAlert } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, HelpCircle, Edit3, Edit2, ShieldAlert, ShieldCheck, Clock } from 'lucide-react';
 import { getVehicleIcon } from '../../utils/vehicleHelper';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
@@ -26,6 +26,18 @@ export default function VehicleMetricCard({
   const justification = vehicle.justification || log?.justification;
   const notes = vehicle.notes || log?.notes;
   const isCarriedOver = Boolean(vehicle.is_carried_over);
+
+  const lastInspected = vehicle.logged_at || log?.logged_at || vehicle.updated_at || log?.updated_at;
+  const formattedTimestamp = React.useMemo(() => {
+    if (!lastInspected) return null;
+    try {
+      const d = new Date(lastInspected);
+      if (isNaN(d.getTime())) return null;
+      return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
+    } catch {
+      return null;
+    }
+  }, [lastInspected]);
 
   const statusConfig = {
     serviceable: {
@@ -56,7 +68,7 @@ export default function VehicleMetricCard({
 
   return (
     <div
-      className={`bg-white rounded-xl border ${cfg.cardBorder} shadow-sm p-4 sm:p-5 flex flex-col justify-between transition-colors duration-100 hover:border-slate-400`}
+      className={`bg-white rounded-xl border ${cfg.cardBorder} shadow-sm p-4 sm:p-5 flex flex-col justify-between transition-colors duration-100 hover:border-slate-400 font-sans`}
     >
       <div>
         {/* Top Header */}
@@ -69,12 +81,18 @@ export default function VehicleMetricCard({
               <h4 className="text-base font-bold text-slate-900 leading-tight">
                 {vehicle.code_name || vehicle.vehicle_name}
               </h4>
-              <p className="text-xs text-slate-500 font-mono mt-0.5">
-                {isPosko ? 'Posko Komunikasi' : (vehicle.license_plate || vehicle.category || 'Armada')}
+              <p className="text-xs text-slate-500 mt-0.5">
+                {isPosko ? (
+                  'Posko Komunikasi'
+                ) : vehicle.license_plate ? (
+                  <span className="font-mono tabular-nums">{vehicle.license_plate}</span>
+                ) : (
+                  vehicle.category || 'Armada'
+                )}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
             {isAdmin && onEdit && (
               <button
                 type="button"
@@ -85,28 +103,15 @@ export default function VehicleMetricCard({
                 <Edit2 className="w-4 h-4" />
               </button>
             )}
-            <div className="flex flex-col items-end gap-1">
-              <Badge variant={cfg.badge} size="md">
-                <StatusIcon className="w-3.5 h-3.5" />
-                <span>{cfg.label}</span>
-              </Badge>
-              {isCarriedOver && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                  Carry-Over Shift Lalu
-                </span>
-              )}
-              {!isCarriedOver && status === 'serviceable' && (
-                <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-0.5">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                  Terverifikasi Fisik
-                </span>
-              )}
-              {!isCarriedOver && status === 'belum_dilaporkan' && (
-                <span className="text-[10px] text-slate-400 font-medium">
-                  Menunggu Inspeksi PIC
-                </span>
-              )}
-            </div>
+            {isCarriedOver && (
+              <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                Carry-Over
+              </span>
+            )}
+            <Badge variant={cfg.badge} size="md">
+              <StatusIcon className="w-3.5 h-3.5" />
+              <span>{cfg.label}</span>
+            </Badge>
           </div>
         </div>
 
@@ -114,9 +119,9 @@ export default function VehicleMetricCard({
         <div className="mt-4 p-2.5 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
           <span className="text-slate-500 font-medium">Penanggung Jawab (PIC):</span>
           {vehicle.pic_name ? (
-            <span className="font-bold text-slate-800 flex items-center gap-1">
-              <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-              {vehicle.pic_name}
+            <span className="font-bold text-slate-900 flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
+              <span>{vehicle.pic_name}</span>
             </span>
           ) : (
             <span className="text-slate-400 italic">Belum Ditentukan</span>
@@ -142,7 +147,7 @@ export default function VehicleMetricCard({
         )}
       </div>
 
-      {/* Action Button: ONLY ACTIVE FOR PIC OR SUPERVISOR/ADMIN */}
+      {/* Action Area: ONLY ACTIVE FOR PIC OR SUPERVISOR/ADMIN */}
       <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
         {canInspect ? (
           <Button
@@ -155,8 +160,22 @@ export default function VehicleMetricCard({
             Input Pemeriksaan / Ubah Kondisi
           </Button>
         ) : (
-          <div className="w-full text-center py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-500 font-medium">
-            Read-only (Khusus PIC Kendaraan / Ketua Regu)
+          <div className="w-full flex items-center justify-between text-xs text-slate-500 py-1">
+            <span className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+              <span>
+                {formattedTimestamp ? (
+                  <>
+                    Inspeksi: <span className="font-mono tabular-nums">{formattedTimestamp}</span>
+                  </>
+                ) : status === 'belum_dilaporkan' ? (
+                  'Menunggu inspeksi PIC'
+                ) : (
+                  'Terverifikasi shift aktif'
+                )}
+              </span>
+            </span>
+            <span className="text-xs text-slate-400 font-medium">Mode Pantau</span>
           </div>
         )}
       </div>

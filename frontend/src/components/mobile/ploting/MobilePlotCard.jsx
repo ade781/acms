@@ -17,7 +17,7 @@ export default function MobilePlotCard({
   const isServ = readiness === 'serviceable';
   const isBelumDicek = readiness === 'belum_dilaporkan';
 
-  // Styling kontainer dan status berdasarkan kelaikan fisik operasional
+  // Styling kontainer dan status berdasarkan kesiapan fisik armada operasional
   let cardBorderBg = 'bg-white border-slate-200';
   let badgeColor = 'bg-amber-50 text-amber-800 border-amber-300';
   let badgeText = 'Belum Dicek';
@@ -40,9 +40,10 @@ export default function MobilePlotCard({
   const picPerson = picSlot.personnel_id
     ? (personnelMap[picSlot.personnel_id] || (picSlot.personnel_name ? { full_name: picSlot.personnel_name } : null))
     : null;
+  const assignedCount = slots.filter((s) => Boolean(s.personnel_id)).length;
 
   return (
-    <div className={`rounded-xl border ${cardBorderBg} px-2.5 py-2 shadow-xs space-y-1 transition-colors duration-100`}>
+    <div className={`rounded-xl border ${cardBorderBg} px-2.5 py-2 shadow-xs space-y-1 transition-colors duration-100 font-sans`}>
       {/* Header Unit & Status Kesiapan */}
       <div className="flex items-start justify-between gap-1.5 border-b border-slate-100 pb-1.5">
         <div className="min-w-0 flex-1">
@@ -50,24 +51,29 @@ export default function MobilePlotCard({
             <h4 className="text-xs font-bold text-slate-900 leading-tight">
               {unit.vehicle_name || unit.name || unit.code_name}
             </h4>
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 text-xs font-medium">
+              <span className="font-mono tabular-nums mr-1">{assignedCount}</span> Kru
+            </span>
             {isServ && (
-              <span className="inline-flex items-center gap-0.5 text-[8.5px] font-bold text-emerald-700 bg-emerald-100/70 border border-emerald-300 px-1 py-0.2 rounded">
-                <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+              <span className="inline-flex items-center gap-0.5 text-xs font-bold text-emerald-700 bg-emerald-100/70 border border-emerald-300 px-1.5 py-0.5 rounded">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                 Terverifikasi Fisik
               </span>
             )}
             {isBelumDicek && (
-              <span className="inline-flex items-center gap-0.5 text-[8.5px] font-bold text-amber-700 bg-amber-100/70 border border-amber-300 px-1 py-0.2 rounded">
-                <HelpCircle className="w-2.5 h-2.5 text-amber-600" />
+              <span className="inline-flex items-center gap-0.5 text-xs font-bold text-amber-700 bg-amber-100/70 border border-amber-300 px-1.5 py-0.5 rounded">
+                <HelpCircle className="w-3 h-3 text-amber-600" />
                 Menunggu PIC
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1 text-[9px] text-slate-500 mt-0.5">
-            <span>{unit.license_plate || (unit.category === 'posko' ? 'Posko Komunikasi' : 'Armada')}</span>
+          <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
+            <span className={unit.license_plate ? 'font-mono tabular-nums' : 'font-sans'}>
+              {unit.license_plate || (unit.category === 'posko' ? 'Posko Komunikasi' : 'Armada')}
+            </span>
             {unit.photo_webp_url && (
               <span className="text-slate-600 font-medium inline-flex items-center gap-0.5 ml-1">
-                <Camera className="w-2.5 h-2.5 text-slate-400" />
+                <Camera className="w-3 h-3 text-slate-400" />
                 Foto Ada
               </span>
             )}
@@ -80,7 +86,7 @@ export default function MobilePlotCard({
             <button
               type="button"
               onClick={() => onInspect(unit)}
-              className={`text-[9.5px] font-bold px-2 py-1 rounded-md transition-colors duration-100 flex items-center gap-1 cursor-pointer min-h-[26px] ${
+              className={`text-xs font-bold px-2 py-1 rounded-md transition-colors duration-100 flex items-center gap-1 cursor-pointer min-h-[26px] ${
                 isBelumDicek
                   ? 'bg-amber-600 text-white hover:bg-amber-700 shadow-2xs font-extrabold'
                   : isServ
@@ -111,7 +117,7 @@ export default function MobilePlotCard({
           <button
             type="button"
             onClick={() => isUnserv && onOpenDetailKendala && onOpenDetailKendala(unit)}
-            className={`text-[9px] font-semibold px-2 py-0.8 rounded-full border ${badgeColor} leading-none flex items-center gap-1 transition-colors duration-100 min-h-[24px] ${
+            className={`text-xs font-semibold px-2 py-1 rounded-full border ${badgeColor} leading-none flex items-center gap-1 transition-colors duration-100 min-h-[24px] ${
               isUnserv ? 'cursor-pointer hover:bg-red-100' : ''
             }`}
           >
@@ -123,7 +129,7 @@ export default function MobilePlotCard({
 
       {/* Cuplikan kendala jika unserviceable */}
       {isUnserv && unit.justification && (
-        <div className="p-1.5 rounded bg-red-50 border border-red-200 text-[10px] text-red-800 flex items-start gap-1 leading-snug">
+        <div className="p-1.5 rounded bg-red-50 border border-red-200 text-xs text-red-800 flex items-start gap-1 leading-snug">
           <AlertTriangle className="w-3 h-3 text-red-600 shrink-0 mt-0.5" />
           <span className="line-clamp-2">
             <strong className="font-semibold">Kendala:</strong> {unit.justification}
@@ -132,14 +138,14 @@ export default function MobilePlotCard({
       )}
 
       {/* Flat Divided Rows: Slot 0 (PIC) + Slot Kru */}
-      <div className="divide-y divide-slate-100 text-[11px] pt-0.5">
+      <div className="divide-y divide-slate-100 text-xs pt-0.5">
         {/* Slot 0: PIC (Paling Atas - Terkunci Permanen) */}
         <div className="flex items-center justify-between py-1 px-0.5">
           <div className="flex items-center gap-1.5 truncate">
-            <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold text-[8.5px] shrink-0">
+            <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold text-xs shrink-0">
               PIC
             </span>
-            <span className="font-medium text-slate-900 truncate text-[11px]">
+            <span className="font-medium text-slate-900 truncate text-xs">
               {picPerson ? (
                 picPerson.full_name || picPerson.name
               ) : (
@@ -151,7 +157,7 @@ export default function MobilePlotCard({
             <button
               type="button"
               onClick={() => onOpenPicker(0, true)}
-              className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 shrink-0 px-2 py-1 tap-target"
+              className="text-xs font-semibold text-blue-600 hover:text-blue-800 shrink-0 px-2 py-1 tap-target"
             >
               {picPerson ? 'Ganti' : 'Pilih'}
             </button>
@@ -167,10 +173,10 @@ export default function MobilePlotCard({
           return (
             <div key={slotIdx} className="flex items-center justify-between py-1 px-0.5">
               <div className="flex items-center gap-1.5 truncate">
-                <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium text-[8.5px] shrink-0">
-                  Kru {idx + 1}
+                <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium text-xs shrink-0">
+                  Kru <span className="font-mono tabular-nums">{idx + 1}</span>
                 </span>
-                <span className="font-medium text-slate-800 truncate text-[11px]">
+                <span className="font-medium text-slate-800 truncate text-xs">
                   {crewPerson ? (
                     crewPerson.full_name || crewPerson.name
                   ) : (
@@ -182,7 +188,7 @@ export default function MobilePlotCard({
                 <button
                   type="button"
                   onClick={() => onOpenPicker(slotIdx, false)}
-                  className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 shrink-0 px-2 py-1 tap-target"
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 shrink-0 px-2 py-1 tap-target"
                 >
                   {crewPerson ? 'Ganti' : 'Pilih'}
                 </button>
@@ -192,13 +198,13 @@ export default function MobilePlotCard({
         })}
       </div>
 
-      {/* Tombol Tambah Kru (Maksimal total 4 orang per unit) */}
+      {/* Tombol Tambah Kru */}
       {canEdit && onAddCrew && slots.length < 4 && (
         <div className="pt-0.5 flex justify-end">
           <button
             type="button"
             onClick={onAddCrew}
-            className="text-[9.5px] font-semibold text-slate-500 hover:text-red-600 flex items-center gap-0.5 py-0.5 transition-colors duration-100 cursor-pointer"
+            className="text-xs font-semibold text-slate-500 hover:text-red-600 flex items-center gap-0.5 py-0.5 transition-colors duration-100 cursor-pointer"
           >
             <Plus className="w-3 h-3 text-slate-400" />
             <span>Tambah Kru</span>

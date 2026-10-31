@@ -1,10 +1,24 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle2, HelpCircle, Plus, Trash2, X, AlertCircle, FileBarChart2 } from 'lucide-react';
+import {
+  CheckCircle2,
+  HelpCircle,
+  Plus,
+  Trash2,
+  X,
+  AlertCircle,
+  FileBarChart2,
+  AlertTriangle,
+  Edit2,
+  Edit3,
+  ShieldAlert,
+  ShieldCheck,
+  Clock,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam } from '../utils/shiftHelper';
+import { getVehicleIcon } from '../utils/vehicleHelper';
 import api from '../services/api';
-import VehicleMetricCard from '../components/dashboard/VehicleMetricCard';
 import VehicleReadinessModal from '../components/forms/VehicleReadinessModal';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
@@ -28,7 +42,6 @@ export default function VehicleReadinessPage() {
   const [error, setError] = useState(null);
   const [vehicles, setVehicles] = useState([]);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
-  const [statusFilter, setStatusFilter] = useState('ALL');
 
   // Vehicle Management Modal State (Admin only)
   const [vehicleModalOpen, setVehicleModalOpen] = useState(false);
@@ -172,132 +185,110 @@ export default function VehicleReadinessPage() {
     }
   };
 
-  const getVehicleStatusKey = (v) => {
+  const getVehicleStatusKey = useCallback((v) => {
     const raw = v.status || v.current_log?.status || 'belum_dilaporkan';
     if (raw === 'serviceable' || raw === 'unserviceable') return raw;
     return 'belum_dilaporkan';
-  };
+  }, []);
 
-  const unserviceableCount = vehicles.filter((v) => getVehicleStatusKey(v) === 'unserviceable').length;
-  const serviceableCount = vehicles.filter((v) => getVehicleStatusKey(v) === 'serviceable').length;
-  const belumDicekCount = vehicles.filter((v) => getVehicleStatusKey(v) === 'belum_dilaporkan').length;
+  const getVehicleCategoryKey = useCallback((v) => {
+    if (v.category === 'posko' || v.code_name === 'WATCHROOM') return 'posko';
+    if (v.category === 'pendukung') return 'pendukung';
+    return 'utama';
+  }, []);
 
-  const filteredVehicles =
-    statusFilter === 'ALL'
-      ? vehicles
-      : vehicles.filter((v) => getVehicleStatusKey(v) === statusFilter);
+  const statusSummary = useMemo(() => {
+    let serviceableCount = 0;
+    let unserviceableCount = 0;
+    let belumDicekCount = 0;
+
+    vehicles.forEach((v) => {
+      const st = getVehicleStatusKey(v);
+      if (st === 'serviceable') serviceableCount++;
+      else if (st === 'unserviceable') unserviceableCount++;
+      else belumDicekCount++;
+    });
+
+    return { serviceableCount, unserviceableCount, belumDicekCount, total: vehicles.length };
+  }, [vehicles, getVehicleStatusKey]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 font-sans">
       {/* Toast Feedback */}
+      {/* Floating Viewport Toast Notifikasi (Identik dengan DeploymentPage) */}
       {toastMsg && (
         <div
-          className={`p-3 rounded-xl border flex items-center justify-between text-xs font-semibold shadow-sm transition-colors duration-100 ${
-            toastMsg.type === 'error'
-              ? 'bg-red-50 border-red-200 text-red-800'
-              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-white shadow-xl text-xs font-semibold font-sans animate-in fade-in slide-in-from-top-2 duration-150 ${
+            toastMsg.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'
           }`}
         >
-          <div className="flex items-center gap-2">
-            {toastMsg.type === 'error' ? (
-              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-            ) : (
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            )}
-            <span>{typeof toastMsg?.text === 'string' ? toastMsg.text : (toastMsg?.text?.message || 'Pemberitahuan')}</span>
-          </div>
+          {toastMsg.type === 'error' ? (
+            <AlertCircle className="w-4 h-4 flex-shrink-0 text-white" />
+          ) : (
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-white" />
+          )}
+          <span>{typeof toastMsg?.text === 'string' ? toastMsg.text : (toastMsg?.text?.message || 'Pemberitahuan')}</span>
           <button
             type="button"
             onClick={() => setToastMsg(null)}
-            className="p-1 rounded hover:bg-black/5 text-current cursor-pointer"
+            className="ml-2 hover:bg-black/20 p-0.5 rounded text-white cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
 
-      {/* Single-Row Interactive Fleet Header & Quick Status Filter Bar */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 bg-white rounded-xl border border-slate-200 px-4 py-3 shadow-2xs">
-        <div>
-          <h2 className="text-lg font-bold tracking-tight text-slate-900">
-            Kesiapan Armada & Posko
-          </h2>
-        </div>
-
-        {/* Interactive Status Filter Pills + Actions */}
-        <div className="flex items-center justify-between xl:justify-end gap-2.5 flex-wrap">
-          <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-slate-100 border border-slate-200 text-xs flex-wrap">
-            <button
-              type="button"
-              onClick={() => setStatusFilter('ALL')}
-              className={`px-2.5 py-1 rounded-md font-bold transition-colors duration-100 cursor-pointer ${
-                statusFilter === 'ALL'
-                  ? 'bg-white text-slate-900 shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Semua ({vehicles.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setStatusFilter('serviceable')}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-bold transition-colors duration-100 cursor-pointer ${
-                statusFilter === 'serviceable'
-                  ? 'bg-emerald-600 text-white shadow-2xs'
-                  : 'text-emerald-800 hover:bg-emerald-50'
-              }`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${statusFilter === 'serviceable' ? 'bg-white' : 'bg-emerald-500'}`} />
-              <span>{serviceableCount} Serviceable</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setStatusFilter('unserviceable')}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-bold transition-colors duration-100 cursor-pointer ${
-                statusFilter === 'unserviceable'
-                  ? 'bg-red-600 text-white shadow-2xs'
-                  : 'text-red-800 hover:bg-red-50'
-              }`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${statusFilter === 'unserviceable' ? 'bg-white' : 'bg-red-500'}`} />
-              <span>{unserviceableCount} Unserviceable</span>
-            </button>
-            {belumDicekCount > 0 && (
-              <button
-                type="button"
-                onClick={() => setStatusFilter('belum_dilaporkan')}
-                title="Status kesiapan armada belum diperiksa/dilaporkan oleh PIC armada pada shift ini."
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-semibold transition-colors duration-100 cursor-pointer ${
-                  statusFilter === 'belum_dilaporkan'
-                    ? 'bg-slate-800 text-white shadow-2xs'
-                    : 'text-slate-600 hover:bg-slate-200/70'
-                }`}
-              >
-                <span>{belumDicekCount} Belum Dicek</span>
-                <HelpCircle className="w-3.5 h-3.5 opacity-70" />
-              </button>
-            )}
+      {/* Header & Status Summary (Identik dengan DeploymentPage) */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-lg font-bold tracking-tight text-slate-900">
+                Kesiapan Armada & Posko
+              </h2>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              icon={FileBarChart2}
-              onClick={() => navigate('/vehicles/reports')}
-            >
-              Laporan Kesiapan
-            </Button>
-            {isAdmin && (
+          <div className="flex items-center justify-between xl:justify-end gap-3 flex-wrap">
+            {/* Ringkasan Kelaikan Unit (Murni 3 Kondisi: Belum Dicek, Serviceable, Unserviceable) */}
+            <div className="inline-flex items-center divide-x divide-slate-200 rounded-lg bg-slate-50 border border-slate-200 text-xs overflow-hidden">
+              <div className="px-2.5 py-1.5 flex items-center gap-1.5" title="Unit belum diperiksa PIC pada shift ini">
+                <span className="w-2 h-2 rounded-full bg-slate-400" />
+                <span className="text-slate-500 font-medium">Belum Dicek:</span>
+                <span className="font-bold text-slate-900 font-mono tabular-nums">{statusSummary.belumDicekCount}</span>
+              </div>
+              <div className="px-2.5 py-1.5 flex items-center gap-1.5" title="Unit berstatus serviceable (laik)">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="text-slate-500 font-medium">Serviceable:</span>
+                <span className="font-bold text-slate-900 font-mono tabular-nums">{statusSummary.serviceableCount}</span>
+              </div>
+              <div className="px-2.5 py-1.5 flex items-center gap-1.5" title="Unit berstatus unserviceable (kendala/rusak)">
+                <span className="w-2 h-2 rounded-full bg-red-500" />
+                <span className="text-slate-500 font-medium">Unserviceable:</span>
+                <span className="font-bold text-slate-900 font-mono tabular-nums">{statusSummary.unserviceableCount}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
               <Button
-                variant="primary"
+                variant="outline"
                 size="sm"
-                icon={Plus}
-                onClick={handleOpenAddVehicle}
+                icon={FileBarChart2}
+                onClick={() => navigate('/vehicles/reports')}
               >
-                Tambah Armada
+                Laporan Kesiapan
               </Button>
-            )}
+              {isAdmin && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={Plus}
+                  onClick={handleOpenAddVehicle}
+                >
+                  Tambah Armada
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -305,30 +296,184 @@ export default function VehicleReadinessPage() {
       <StateView
         loading={loading}
         error={error}
-        isEmpty={filteredVehicles.length === 0}
-        emptyTitle={vehicles.length === 0 ? 'Belum Ada Unit Operasional' : 'Tidak Ada Unit pada Filter Ini'}
-        emptyDescription={
-          vehicles.length === 0
-            ? 'Daftarkan armada operasional terlebih dahulu menggunakan tombol Tambah Armada di atas.'
-            : 'Tidak ada kendaraan atau posko yang memiliki status terpilih pada shift ini.'
-        }
+        isEmpty={vehicles.length === 0}
+        emptyTitle="Belum Ada Unit Operasional"
+        emptyDescription="Daftarkan armada operasional terlebih dahulu menggunakan tombol Tambah Armada di atas."
         onRetry={fetchVehicles}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredVehicles.map((v) => {
-            const isPic = user?.personnel_id && v.pic_personnel_id === user.personnel_id;
-            const canInspect = isPic || isSupervisor || isAdmin;
+          {vehicles.map((v) => {
+            const isPic = Boolean(user?.personnel_id && Number(v.pic_personnel_id) === Number(user.personnel_id));
+            const canInspect = Boolean(isPic || isSupervisor || isAdmin);
+            const CardIcon = getVehicleIcon(v);
+            const isPosko = v.category === 'posko' || v.code_name === 'WATCHROOM';
+            const log = v.current_log || v;
+            const status = getVehicleStatusKey(v);
+            const justification = v.justification || log?.justification;
+            const notes = v.notes || log?.notes;
+            const isCarriedOver = Boolean(v.is_carried_over);
+            const lastInspected = v.logged_at || log?.logged_at || v.updated_at || log?.updated_at;
+
+            let formattedTimestamp = null;
+            if (lastInspected) {
+              try {
+                const d = new Date(lastInspected);
+                if (!isNaN(d.getTime())) {
+                  formattedTimestamp = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
+                }
+              } catch {
+                formattedTimestamp = null;
+              }
+            }
+
+            const statusConfig = {
+              serviceable: {
+                label: 'Serviceable',
+                icon: CheckCircle2,
+                badgeCls: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+                cardBorder: 'border-emerald-200',
+                iconBg: 'bg-emerald-100 text-emerald-800',
+              },
+              unserviceable: {
+                label: 'Tidak Laik',
+                icon: AlertTriangle,
+                badgeCls: 'bg-red-50 text-red-800 border-red-200',
+                cardBorder: 'border-red-300',
+                iconBg: 'bg-red-100 text-red-800',
+              },
+              belum_dilaporkan: {
+                label: 'Belum Dicek',
+                icon: HelpCircle,
+                badgeCls: 'bg-slate-100 text-slate-700 border-slate-200',
+                cardBorder: 'border-slate-200',
+                iconBg: 'bg-slate-100 text-slate-700',
+              },
+            };
+
+            const cfg = statusConfig[status] || statusConfig.belum_dilaporkan;
+            const StatusIcon = cfg.icon;
 
             return (
-              <VehicleMetricCard
+              <div
                 key={v.id || v.vehicle_id}
-                vehicle={v}
-                isPicForVehicle={isPic}
-                canInspect={canInspect}
-                onInspect={(veh) => setSelectedVehicle(veh)}
-                isAdmin={isAdmin}
-                onEdit={(veh) => handleOpenEditVehicle(veh)}
-              />
+                className={`bg-white rounded-xl border ${
+                  isPic ? 'border-emerald-500' : cfg.cardBorder
+                } shadow-sm p-4 sm:p-5 flex flex-col justify-between transition-colors duration-100 hover:border-slate-300`}
+              >
+                <div>
+                  {/* Top Header (Identik dengan DeploymentSlotCard) */}
+                  <div className="flex items-start justify-between gap-2 pb-3 border-b border-slate-200">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`w-11 h-11 rounded-lg ${
+                          isPic ? 'bg-emerald-100 text-emerald-800' : cfg.iconBg
+                        } flex items-center justify-center flex-shrink-0`}
+                      >
+                        <CardIcon className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4 className="text-base font-bold text-slate-900 leading-tight font-sans truncate">
+                            {v.code_name || v.vehicle_name}
+                          </h4>
+                          {isPic && (
+                            <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 font-sans">
+                              PIC Anda
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 font-mono tabular-nums mt-0.5 truncate">
+                          {isPosko ? 'Posko Komunikasi' : (v.license_plate || v.category || 'Armada Utama')}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end flex-shrink-0">
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditVehicle(v)}
+                          title="Ubah Spesifikasi Armada"
+                          className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors duration-100 cursor-pointer"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                      )}
+                      {isCarriedOver && (
+                        <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 font-sans">
+                          Carry-Over
+                        </span>
+                      )}
+                      <span
+                        className={`text-xs font-bold px-2.5 py-1 rounded-md border inline-flex items-center gap-1.5 font-sans ${cfg.badgeCls}`}
+                      >
+                        <StatusIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span>{cfg.label}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Assigned PIC indicator */}
+                  <div className="mt-3 p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between text-xs font-sans">
+                    <span className="text-slate-500 font-medium">Penanggung Jawab (PIC):</span>
+                    {v.pic_name ? (
+                      <span className="font-bold text-slate-900 flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
+                        <span>{v.pic_name}</span>
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 italic">Belum Ditentukan</span>
+                    )}
+                  </div>
+
+                  {/* Justification snippet if unserviceable */}
+                  {status === 'unserviceable' && justification && (
+                    <div className="mt-3 p-2.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-900 font-sans">
+                      <div className="flex items-center gap-1 font-bold mb-1">
+                        <ShieldAlert className="w-3.5 h-3.5 text-red-600" />
+                        <span>Kendala / Kerusakan:</span>
+                      </div>
+                      <p className="line-clamp-2">{justification}</p>
+                    </div>
+                  )}
+
+                  {/* Notes if serviceable */}
+                  {status === 'serviceable' && notes && (
+                    <div className="mt-3 text-xs text-slate-500 line-clamp-1 italic font-sans">
+                      Catatan: {notes}
+                    </div>
+                  )}
+                </div>
+
+                {/* Action Area */}
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 font-sans">
+                  {canInspect ? (
+                    <Button
+                      variant={status === 'unserviceable' ? 'danger' : 'outline'}
+                      size="sm"
+                      icon={Edit3}
+                      onClick={() => setSelectedVehicle(v)}
+                      className="w-full"
+                    >
+                      Input Pemeriksaan / Ubah Kondisi
+                    </Button>
+                  ) : (
+                    <div className="w-full flex items-center justify-between text-xs text-slate-500 py-1">
+                      <span className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                        <span className="font-mono tabular-nums">
+                          {formattedTimestamp
+                            ? `Inspeksi: ${formattedTimestamp}`
+                            : status === 'belum_dilaporkan'
+                            ? 'Menunggu inspeksi PIC'
+                            : 'Terverifikasi shift aktif'}
+                        </span>
+                      </span>
+                      <span className="text-xs text-slate-400 font-medium font-sans">Mode Pantau</span>
+                    </div>
+                  )}
+                </div>
+              </div>
             );
           })}
         </div>
@@ -410,8 +555,8 @@ export default function VehicleReadinessPage() {
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 options={[
-                  { value: 'utama', label: 'Kendaraan Utama (Foam/Rapid)' },
-                  { value: 'pendukung', label: 'Kendaraan Pendukung (Nurse/Commob)' },
+                  { value: 'utama', label: 'Armada Utama' },
+                  { value: 'pendukung', label: 'Pendukung' },
                   { value: 'posko', label: 'Posko Watchroom' },
                 ]}
                 required
@@ -429,7 +574,7 @@ export default function VehicleReadinessPage() {
               label="Keterangan / Spesifikasi Mesin"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Kapasitas air, busa, dry chemical, atau catatan operasional lainnya..."
+              placeholder="Catatan spesifikasi atau perlengkapan unit operasional..."
               rows={3}
             />
           </form>

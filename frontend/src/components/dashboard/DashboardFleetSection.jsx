@@ -19,18 +19,18 @@ export default function DashboardFleetSection({
   const safeVehicles = Array.isArray(vehicles) ? vehicles : [];
 
   return (
-    <div className="lg:col-span-6 h-[564px] bg-white rounded-xl border border-slate-200 flex flex-col overflow-hidden">
-      <div className="px-4 py-3.5 border-b border-slate-200 flex items-center justify-between gap-3 bg-slate-50/50 shrink-0">
+    <div className="lg:col-span-6 h-[564px] bg-white rounded-xl border border-slate-200 flex flex-col overflow-hidden font-sans">
+      <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3 bg-slate-50/50 shrink-0">
         <div>
           <h2 className="text-sm font-bold text-slate-900 tracking-tight">
             Kesiapan Armada & Posko Operasional
           </h2>
-          <p className="text-[11px] text-slate-500 mt-0.5">
-            Status kelaikan fisik dan penanggung jawab unit (PIC) shift berjalan
-          </p>
         </div>
-        <span className="text-xs font-mono tabular-nums font-bold text-slate-800 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shrink-0">
-          {fleetMetrics?.serviceable ?? 0}/{fleetMetrics?.total ?? 0} Siap Operasi
+        <span className="text-xs font-semibold text-slate-800 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shrink-0">
+          <span className="font-mono tabular-nums font-bold">
+            {fleetMetrics?.serviceable ?? 0}/{fleetMetrics?.total ?? 0}
+          </span>{' '}
+          Serviceable
         </span>
       </div>
 
@@ -89,10 +89,10 @@ export default function DashboardFleetSection({
                     )}
                   </div>
                   <div className="min-w-0">
-                    <div className="font-semibold text-slate-900 truncate leading-tight">
+                    <div className="text-sm font-semibold text-slate-900 truncate leading-tight">
                       {vehicle.vehicle_name || vehicle.code_name}
                     </div>
-                    <div className="text-[11px] text-slate-500 truncate mt-0.5">
+                    <div className="text-xs text-slate-500 truncate mt-0.5">
                       PIC: <span className="text-slate-700 font-medium">{typeof picName === 'string' ? picName : (picName?.name || 'Belum Ditunjuk')}</span>
                     </div>
                   </div>
@@ -101,19 +101,19 @@ export default function DashboardFleetSection({
                 {/* Sisi Kanan: Exception-Based Status Indicator */}
                 <div className="shrink-0 flex items-center">
                   {isUnserviceable ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-800 border border-red-200">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-50 text-red-800 border border-red-200">
                       <AlertTriangle className="w-3 h-3 text-red-600" />
                       <span>Unserviceable</span>
                     </span>
                   ) : !isServiceable ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
                       <HelpCircle className="w-3 h-3 text-slate-500" />
                       <span>Belum Dicek</span>
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-medium text-emerald-700 bg-emerald-50/50 rounded border border-emerald-100">
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium text-emerald-700 bg-emerald-50/50 rounded border border-emerald-100">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                      <span>Siap Operasi</span>
+                      <span>Serviceable</span>
                     </span>
                   )}
                 </div>
