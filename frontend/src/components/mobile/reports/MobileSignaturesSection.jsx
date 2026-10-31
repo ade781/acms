@@ -13,12 +13,14 @@ export default function MobileSignaturesSection({
   shiftDate,
   teamGroup,
   isSheet = false,
+  isClosed = false,
 }) {
   const { token } = useAuth();
   const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arff_token') : '') || '';
 
   const getAuthorizedUrl = (url) => {
     if (!url) return '';
+    if (url.startsWith('data:') || url.startsWith('blob:')) return url;
     if (!authToken || url.includes('token=')) return url;
     const separator = url.includes('?') ? '&' : '?';
     return `${url}${separator}token=${encodeURIComponent(authToken)}`;
@@ -30,72 +32,78 @@ export default function MobileSignaturesSection({
   // Style untuk lembar cetak dokumen A4 (sheet preview)
   if (isSheet) {
     return (
-      <div className="pt-3 border-t border-slate-300 mt-3 text-[8.5px] text-center text-slate-800">
-        <div className="grid grid-cols-2 gap-2 items-end">
+      <div className="pt-3 sm:pt-4 border-t-2 border-slate-300 mt-4 text-xs sm:text-sm text-center text-slate-800 font-sans relative z-10">
+        <div className="grid grid-cols-2 gap-4 items-end">
           {/* Section Head / Dept Head */}
-          <div className="p-1 flex flex-col items-center">
+          <div className="p-1 sm:p-2 flex flex-col items-center">
             <p className="text-slate-600 font-medium leading-tight">Mengetahui,</p>
             <p className="font-bold text-slate-900 leading-tight">Section Head ARFF</p>
             
-            <div className="h-12 w-full flex items-center justify-center my-1">
-              {deptHead?.signature_url ? (
+            <div className="h-14 sm:h-20 w-full flex items-center justify-center my-1.5">
+              {isClosed && deptHead?.signature_url ? (
                 <img
                   src={getAuthorizedUrl(deptHead.signature_url)}
                   alt={`Tanda Tangan ${deptHead.name || 'Section Head'}`}
-                  className="max-h-11 max-w-[120px] object-contain"
+                  className="max-h-12 sm:max-h-18 max-w-[130px] sm:max-w-[180px] object-contain"
                   loading="lazy"
                 />
+              ) : !isClosed ? (
+                <div className="border border-dashed border-red-300 bg-red-50/70 rounded px-2.5 py-1 text-center max-w-[200px]">
+                  <span className="text-xs font-semibold text-red-700 block">
+                    [ DRAFT • BELUM DISAHKAN ]
+                  </span>
+                </div>
               ) : (
-                <span className="text-[7.5px] font-mono text-slate-500 font-medium italic">
+                <span className="text-xs font-sans text-slate-500 font-medium italic">
                   [ Tanda Tangan Digital ]
                 </span>
               )}
             </div>
 
-            <p className="font-bold text-slate-900 underline leading-tight">
+            <p className="font-bold text-slate-900 underline leading-tight text-xs sm:text-sm">
               {deptHead?.name || 'Section Head ARFF'}
             </p>
             {deptHead?.nip && deptHead.nip !== '-' && (
-              <p className="text-[7.5px] text-slate-500 font-mono mt-0.5">
+              <p className="text-xs text-slate-500 font-mono tabular-nums mt-0.5">
                 NIP. {deptHead.nip}
               </p>
             )}
-            <p className="text-[7px] text-slate-500 leading-tight">
+            <p className="text-xs text-slate-500 leading-tight mt-0.5">
               Airport Rescue & Fire Fighting Section Head
             </p>
           </div>
 
           {/* Ketua Regu Dinas */}
-          <div className="p-1 flex flex-col items-center">
+          <div className="p-1 sm:p-2 flex flex-col items-center">
             <p className="text-slate-600 font-medium leading-tight">Kulon Progo, {formattedDate}</p>
             <p className="font-bold text-slate-900 leading-tight">
               Ketua Regu Dinas ({teamClean})
             </p>
             
-            <div className="h-12 w-full flex items-center justify-center my-1">
+            <div className="h-14 sm:h-20 w-full flex items-center justify-center my-1.5">
               {supervisor?.signature_url ? (
                 <img
                   src={getAuthorizedUrl(supervisor.signature_url)}
                   alt={`Tanda Tangan ${supervisor.name || 'Ketua Regu'}`}
-                  className="max-h-11 max-w-[120px] object-contain"
+                  className="max-h-12 sm:max-h-18 max-w-[130px] sm:max-w-[180px] object-contain"
                   loading="lazy"
                 />
               ) : (
-                <span className="text-[7.5px] font-mono text-slate-500 font-medium italic">
+                <span className="text-xs font-sans text-slate-500 font-medium italic">
                   [ Tanda Tangan Digital ]
                 </span>
               )}
             </div>
 
-            <p className="font-bold text-slate-900 underline leading-tight">
+            <p className="font-bold text-slate-900 underline leading-tight text-xs sm:text-sm">
               {supervisor?.name || `Chief ${formatTeam(teamClean)}`}
             </p>
             {supervisor?.nip && supervisor.nip !== '-' && (
-              <p className="text-[7.5px] text-slate-500 font-mono mt-0.5">
+              <p className="text-xs text-slate-500 font-mono tabular-nums mt-0.5">
                 NIP. {supervisor.nip}
               </p>
             )}
-            <p className="text-[7px] text-slate-500 leading-tight">
+            <p className="text-xs text-slate-500 leading-tight mt-0.5">
               Airport Rescue & Fire Fighting Shift Supervisor
             </p>
           </div>
@@ -104,59 +112,60 @@ export default function MobileSignaturesSection({
     );
   }
 
-  // Style untuk tampilan mobile card reguler
+  // Style untuk tampilan card reguler
   return (
-    <div className="bg-white rounded-lg border border-slate-200 p-2.5 shadow-xs space-y-2">
-      <div className="border-b border-slate-100 pb-1">
-        <h4 className="text-xs font-bold text-slate-900 uppercase">
+    <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-xs space-y-3 font-sans">
+      <div className="border-b border-slate-100 pb-2">
+        <h4 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-wide">
           Pejabat Penandatangan Dinas
         </h4>
-        <p className="text-[9px] text-slate-500">
-          Tervalidasi dinamis sesuai pejabat pimpinan shift operasional
-        </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 text-xs">
+      <div className="grid grid-cols-2 gap-3 text-xs">
         {/* Dept Head */}
-        <div className="p-2 rounded-lg bg-slate-50 border border-slate-200/80 flex flex-col items-center text-center">
-          <span className="text-[9px] text-slate-500 font-semibold uppercase block">
+        <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 flex flex-col items-center text-center">
+          <span className="text-xs text-slate-500 font-semibold uppercase block">
             Section Head ARFF
           </span>
 
-          <div className="h-14 w-full flex items-center justify-center my-1 bg-white/70 rounded border border-slate-100">
-            {deptHead?.signature_url ? (
+          <div className="h-14 w-full flex items-center justify-center my-1.5 bg-white/70 rounded border border-slate-100">
+            {isClosed && deptHead?.signature_url ? (
               <img
                 src={getAuthorizedUrl(deptHead.signature_url)}
                 alt="Tanda Tangan Section Head"
                 className="max-h-12 max-w-[110px] object-contain"
                 loading="lazy"
               />
+            ) : !isClosed ? (
+              <span className="text-xs font-sans text-amber-700 font-medium italic text-center px-1">
+                Menunggu Pengesahan
+              </span>
             ) : (
-              <span className="text-[8px] font-mono text-slate-500 font-medium italic">
+              <span className="text-xs font-sans text-slate-500 font-medium italic">
                 Tanda tangan digital
               </span>
             )}
           </div>
 
-          <p className="font-bold text-slate-900 text-[11px] underline truncate max-w-full">
+          <p className="font-bold text-slate-900 text-xs underline truncate max-w-full">
             {deptHead?.name || 'Section Head ARFF'}
           </p>
           {deptHead?.nip && deptHead.nip !== '-' ? (
-            <p className="text-[8.5px] text-slate-500 font-mono truncate max-w-full">
+            <p className="text-xs text-slate-500 font-mono tabular-nums truncate max-w-full">
               NIP. {deptHead.nip}
             </p>
           ) : (
-            <p className="text-[8.5px] text-slate-500 font-medium">-</p>
+            <p className="text-xs text-slate-500 font-medium">-</p>
           )}
         </div>
 
         {/* Supervisor / Ketua Regu */}
-        <div className="p-2 rounded-lg bg-slate-50 border border-slate-200/80 flex flex-col items-center text-center">
-          <span className="text-[9px] text-slate-500 font-semibold uppercase block">
+        <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 flex flex-col items-center text-center">
+          <span className="text-xs text-slate-500 font-semibold uppercase block">
             Ketua Regu ({teamClean})
           </span>
 
-          <div className="h-14 w-full flex items-center justify-center my-1 bg-white/70 rounded border border-slate-100">
+          <div className="h-14 w-full flex items-center justify-center my-1.5 bg-white/70 rounded border border-slate-100">
             {supervisor?.signature_url ? (
               <img
                 src={getAuthorizedUrl(supervisor.signature_url)}
@@ -165,21 +174,21 @@ export default function MobileSignaturesSection({
                 loading="lazy"
               />
             ) : (
-              <span className="text-[8px] font-mono text-slate-500 font-medium italic">
+              <span className="text-xs font-sans text-slate-500 font-medium italic">
                 Tanda tangan digital
               </span>
             )}
           </div>
 
-          <p className="font-bold text-slate-900 text-[11px] underline truncate max-w-full">
+          <p className="font-bold text-slate-900 text-xs underline truncate max-w-full">
             {supervisor?.name || `Chief ${formatTeam(teamClean)}`}
           </p>
           {supervisor?.nip && supervisor.nip !== '-' ? (
-            <p className="text-[8.5px] text-slate-500 font-mono truncate max-w-full">
+            <p className="text-xs text-slate-500 font-mono tabular-nums truncate max-w-full">
               NIP. {supervisor.nip}
             </p>
           ) : (
-            <p className="text-[8.5px] text-slate-500 font-medium">-</p>
+            <p className="text-xs text-slate-500 font-medium">-</p>
           )}
         </div>
       </div>

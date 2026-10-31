@@ -326,3 +326,45 @@ export function mapRankPositionToRole(rank) {
   }
   return 'junior_firefighter';
 }
+
+/**
+ * Membersihkan judul pengumuman dari tag urgensi dan teks placeholder/filler
+ * @param {string} title
+ * @returns {string}
+ */
+export function cleanAnnouncementTitle(title) {
+  if (typeof title !== 'string') return '';
+  const text = title.replace(/^\[MENDESAK\]\s*/i, '').trim();
+  const pureFiller = /^(?:harus\s+segera|dummy|placeholder|lorem\s+ipsum|keterangan\s+filler|belum\s+ada\s+pengumuman)$/i;
+  if (pureFiller.test(text)) return '';
+  return text;
+}
+
+/**
+ * Membersihkan kalimat filler pengumuman seperti 'harus segera dibaca dan dilaksanakan'
+ * Menjamin tidak ada teks placeholder / dummy yang dirender pada scorecard maupun modal.
+ * @param {string} desc
+ * @returns {string} Teks deskripsi bersih, atau string kosong jika hanya berisi teks filler
+ */
+export function cleanAnnouncementDescription(desc) {
+  if (typeof desc !== 'string') return '';
+  let text = desc.trim();
+  if (!text) return '';
+
+  const pureFiller = /^(?:harus\s+segera|dummy|placeholder|lorem\s+ipsum|keterangan\s+filler|belum\s+ada\s+keterangan)$/i;
+  if (pureFiller.test(text.toLowerCase())) return '';
+
+  // Pola filler kalimat klise/placeholder instruksi pengumuman
+  const fillerRegex = /[\s.,\-—–]*\b(?:(?:harus|wajib|harap|mohon)\s+)?(?:segera\s+)?dibaca(?:\s+dan\s+dilaksanakan)?\b[\s.,\-—–]*/gi;
+  const fillerRegex2 = /[\s.,\-—–]*\b(?:harus|wajib|harap|mohon)\s+segera\s+dilaksanakan\b[\s.,\-—–]*/gi;
+
+  text = text.replace(fillerRegex, ' ').replace(fillerRegex2, ' ');
+  text = text.replace(/\s+/g, ' ').trim();
+
+  // Jika setelah dibersihkan hanya menyisakan tanda baca atau spasi kosong
+  if (/^[.,\-—–:;!?\s]*$/.test(text)) {
+    return '';
+  }
+
+  return text;
+}

@@ -197,7 +197,7 @@ export default function Sidebar({ isOpen, onClose }) {
           {/* Fixed-height section header (h-7) prevents vertical layout jump when toggling */}
           <div className="relative h-7 flex items-center overflow-hidden">
             <span
-              className={`px-3 text-[11px] font-bold tracking-wider uppercase text-slate-400 whitespace-nowrap transition-opacity duration-150 ease-out ${
+              className={`px-3 text-xs font-bold tracking-wider uppercase text-slate-400 whitespace-nowrap transition-opacity duration-150 ease-out ${
                 isCollapsed ? 'md:opacity-0 md:pointer-events-none' : 'opacity-100'
               }`}
             >
@@ -260,7 +260,7 @@ export default function Sidebar({ isOpen, onClose }) {
                   {item.badge !== null && item.badge !== undefined && (
                     <div className="flex-shrink-0 ml-2">
                       {item.isAlertBadge ? (
-                        <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-red-600 text-white shadow-xs">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-extrabold font-mono tabular-nums bg-red-600 text-white shadow-xs">
                           {typeof item.badge === 'object' ? JSON.stringify(item.badge) : String(item.badge)}
                         </span>
                       ) : (

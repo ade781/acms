@@ -149,15 +149,15 @@ export default function ShiftReportsPage() {
   return (
     <div className="space-y-4">
       {/* Executive Document Control Card + Integrated Horizontal Metric Ledger */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
         {/* Top Row: Title & Document Export Actions */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-4 py-3 border-b border-slate-100">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
           <div>
-            <h2 className="text-lg font-bold tracking-tight text-slate-900">
+            <h2 className="text-lg font-bold tracking-tight text-slate-900 font-sans">
               Laporan Operasional Dinas
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Ketua Regu: <span className="font-semibold text-slate-700">{typeof shiftData?.supervisor_name === 'string' ? shiftData.supervisor_name : '-'}</span> • Rekapitulasi dinas shift resmi & arsip cetak A4
+            <p className="text-xs text-slate-500 mt-0.5 font-sans">
+              Ketua Regu: <span className="font-semibold text-slate-700">{typeof shiftData?.supervisor_name === 'string' ? shiftData.supervisor_name : '-'}</span>
             </p>
           </div>
 
@@ -195,7 +195,7 @@ export default function ShiftReportsPage() {
         </div>
 
         {/* Bottom Row: Compact 4-Column Tabular Ledger Strip */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 bg-slate-50/60 text-xs">
+        <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 bg-slate-50/60 text-xs font-sans">
           {/* 1. Kesiapan Armada */}
           <div className="px-4 py-2.5 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-slate-600">
@@ -203,14 +203,14 @@ export default function ShiftReportsPage() {
               <span className="font-semibold">Kesiapan Armada</span>
             </div>
             <div className="text-right">
-              <span className="font-black text-slate-900 tabular-nums">{serviceableCount}/{totalUnits || 8}</span>
-              <span className="ml-1.5 text-[11px] font-bold">
+              <span className="font-black text-slate-900 font-mono tabular-nums">{serviceableCount}/{totalUnits || 8}</span>
+              <span className="ml-1.5 text-xs font-bold">
                 {unserviceableCount > 0 ? (
-                  <span className="text-red-600">({unserviceableCount} Rusak)</span>
+                  <span className="text-red-600">(<span className="font-mono tabular-nums">{unserviceableCount}</span> Rusak)</span>
                 ) : unverifiedCount > 0 ? (
-                  <span className="text-amber-700">({unverifiedCount} Belum Cek)</span>
+                  <span className="text-amber-700">(<span className="font-mono tabular-nums">{unverifiedCount}</span> Belum Dicek)</span>
                 ) : (
-                  <span className="text-emerald-700">(Siap)</span>
+                  <span className="text-emerald-700">(Serviceable)</span>
                 )}
               </span>
             </div>
@@ -223,12 +223,13 @@ export default function ShiftReportsPage() {
               <span className="font-semibold">Personel Dinas</span>
             </div>
             <div className="text-right">
-              <span className="font-black text-slate-900 tabular-nums">{presentDeployments.length} Hadir</span>
-              <span className="ml-1.5 text-[11px] font-bold">
+              <span className="font-black text-slate-900 font-mono tabular-nums">{presentDeployments.length}</span>{' '}
+              <span className="font-bold text-slate-900">Hadir</span>
+              <span className="ml-1.5 text-xs font-bold">
                 {absents.length > 0 ? (
-                  <span className="text-amber-700">({absents.length} Cuti)</span>
+                  <span className="text-amber-700">(<span className="font-mono tabular-nums">{absents.length}</span> Cuti)</span>
                 ) : (
-                  <span className="text-emerald-700">(Lengkap)</span>
+                  <span className="text-emerald-700">(Nihil Cuti)</span>
                 )}
               </span>
             </div>
@@ -241,7 +242,7 @@ export default function ShiftReportsPage() {
               <span className="font-semibold">Watch Room</span>
             </div>
             <span
-              className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+              className={`px-2 py-0.5 rounded text-xs font-bold ${
                 watchroomData?.status === 'serviceable'
                   ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                   : watchroomData?.status === 'unserviceable'
@@ -250,9 +251,9 @@ export default function ShiftReportsPage() {
               }`}
             >
               {watchroomData?.status === 'serviceable'
-                ? 'Normal Siap'
+                ? 'Serviceable'
                 : watchroomData?.status === 'unserviceable'
-                ? 'Kendala'
+                ? 'Unserviceable'
                 : 'Belum Dicek'}
             </span>
           </div>
@@ -263,11 +264,11 @@ export default function ShiftReportsPage() {
               <FileText className="w-4 h-4 text-slate-400 shrink-0" />
               <span className="font-semibold">Logbook & Insiden</span>
             </div>
-            <div className="text-right font-bold tabular-nums">
-              <span className="text-slate-900">{activities.length} Giat</span>
+            <div className="text-right font-bold">
+              <span className="text-slate-900"><span className="font-mono tabular-nums">{activities.length}</span> Giat</span>
               <span className="text-slate-300 mx-1.5">•</span>
               <span className={incidents.length > 0 ? 'text-red-600' : 'text-emerald-700'}>
-                {incidents.length} Insiden
+                <span className="font-mono tabular-nums">{incidents.length}</span> Insiden
               </span>
             </div>
           </div>
@@ -330,23 +331,23 @@ export default function ShiftReportsPage() {
         </div>
       )}
 
-      {/* Grid Utama Laporan Dinas Format Modular (Inspirasi Mobile yang Lega & Terstruktur) */}
+      {/* Grid Utama Laporan Dinas Format Modular */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* KOLOM KIRI: Kesiapan 8 Unit Operasional & Presensi Kru */}
+        {/* KOLOM KIRI: Kesiapan Unit Operasional & Posko */}
         <div className="lg:col-span-7 space-y-6">
           {/* 1. Kesiapan Fasilitas & Unit Armada Operasional */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4 font-sans">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
                   Kesiapan Unit Operasional & Posko
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Klik status armada untuk melihat riwayat audit kendala dan pemulihan lintas shift
+                  Pilih unit untuk melihat riwayat audit kendala lintas shift
                 </p>
               </div>
-              <span className="text-xs font-mono font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded">
-                {serviceableCount}/{totalUnits || 8} Siap
+              <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded">
+                <span className="font-mono tabular-nums">{serviceableCount}/{totalUnits || 8}</span> Serviceable
               </span>
             </div>
 
@@ -364,9 +365,9 @@ export default function ShiftReportsPage() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-slate-900 text-sm truncate">
-                          {v.code_name} - {v.vehicle_name}
+                          <span className="font-mono tabular-nums">{v.code_name}</span> - {v.vehicle_name}
                         </span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono uppercase">
+                        <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold font-sans uppercase">
                           {v.category === 'utama' ? 'Utama' : 'Pendukung'}
                         </span>
                       </div>
@@ -419,16 +420,22 @@ export default function ShiftReportsPage() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-slate-900 text-sm truncate">
-                      WATCHROOM - Posko ARFF
+                      <span className="font-mono tabular-nums">WATCHROOM</span> - Posko ARFF
                     </span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-mono uppercase">
+                    <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-semibold font-sans uppercase">
                       Posko Komunikasi
                     </span>
                   </div>
-                  <div className="text-xs text-slate-500 mt-1">
-                    PIC: <strong className="text-slate-700">{watchroomData?.pic_name || 'Petugas Jaga Watchroom'}</strong>
-                    {' • '}
-                    <span>{watchroomData?.notes || 'Komunikasi darurat sisi udara normal & siap'}</span>
+                  <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                    <span>
+                      PIC: <strong className="text-slate-700">{watchroomData?.pic_name || 'Belum Ditunjuk'}</strong>
+                    </span>
+                    {watchroomData?.notes && (
+                      <>
+                        <span className="text-slate-300">•</span>
+                        <span className="truncate max-w-xs">{watchroomData.notes}</span>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -440,7 +447,7 @@ export default function ShiftReportsPage() {
                       code_name: 'WATCHROOM',
                       vehicle_name: 'Posko ARFF',
                       category: 'posko',
-                      status: watchroomData?.status || 'serviceable',
+                      status: watchroomData?.status || 'belum_dilaporkan',
                       justification: watchroomData?.notes || '',
                     });
                     setIsAuditModalOpen(true);
@@ -475,104 +482,18 @@ export default function ShiftReportsPage() {
               </div>
             </div>
           </div>
-
-          {/* 2. Presensi & Distribusi Penempatan Personel */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
-                  Presensi & Distribusi Kru Bertugas
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Alokasi kru pada armada utama, kendaraan pendukung, dan posko komunikasi
-                </p>
-              </div>
-              <span className="text-xs font-mono font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded">
-                {presentDeployments.length} Hadir • {absents.length} Izin
-              </span>
-            </div>
-
-            {/* Banner Info Personel Izin / Cuti */}
-            {absents.length > 0 ? (
-              <div className="p-3 rounded-lg bg-amber-50/70 border border-amber-200 text-xs space-y-1">
-                <p className="font-bold text-amber-900">Personel Berhalangan / Cuti Dinas:</p>
-                {absents.map((ab, idx) => (
-                  <p key={ab.id || `ab-${ab.personnel_id || idx}`} className="text-amber-800">
-                    • <strong>{ab.full_name || ab.name}</strong> ({ab.leave_type || ab.notes || 'Cuti'})
-                  </p>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-emerald-700 bg-emerald-50/60 p-3 rounded-lg border border-emerald-200">
-                ✓ Seluruh anggota regu terdata hadir dinas dan teralokasikan pada unit tugas operasional.
-              </p>
-            )}
-
-            {/* Tabel Penugasan Kru yang Hadir */}
-            {presentDeployments.length > 0 && (
-              <div className="overflow-x-auto border border-slate-200 rounded-lg">
-                <table className="w-full text-left text-xs divide-y divide-slate-200">
-                  <thead className="bg-slate-50 font-bold text-slate-700">
-                    <tr>
-                      <th className="py-2.5 px-3">Nama Personel</th>
-                      <th className="py-2.5 px-3">NIP</th>
-                      <th className="py-2.5 px-3">Penugasan Unit</th>
-                      <th className="py-2.5 px-3 text-center">Peran</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
-                    {presentDeployments.map((d) => (
-                      <tr key={d.id || `dep-${d.personnel_id || d.name}`} className="hover:bg-slate-50/70">
-                        <td className="py-2 px-3 font-bold text-slate-900">
-                          {d.full_name || d.name}
-                        </td>
-                        <td className="py-2 px-3 font-mono text-slate-500">
-                          {d.nip && d.nip !== '-' ? d.nip : '-'}
-                        </td>
-                        <td className="py-2 px-3 text-slate-700">
-                          {d.vehicle_name || d.vehicle_code ? (
-                            <span>{d.vehicle_code} - {d.vehicle_name}</span>
-                          ) : d.deployment_type === 'watchroom' ? (
-                            'Watch Room Posko ARFF'
-                          ) : (
-                            'Petugas Pendukung'
-                          )}
-                        </td>
-                        <td className="py-2 px-3 text-center">
-                          {d.is_pic === 1 ? (
-                            <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 font-bold text-[10px]">
-                              PIC Unit
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px]">
-                              Anggota Kru
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* KOLOM KANAN: Logbook Kegiatan, Insiden, & Pengesahan */}
         <div className="lg:col-span-5 space-y-6">
-          {/* 3. Rangkaian Kegiatan Shift (Logbook) */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
+          {/* 2. Rangkaian Kegiatan Shift (Logbook) */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4 font-sans">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
-                  Rangkaian Kegiatan Shift
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Catatan aktivitas rutin dan latihan harian
-                </p>
-              </div>
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
+                Rangkaian Kegiatan Shift
+              </h3>
               <span className="text-xs font-semibold text-slate-500">
-                {activities.length} Kegiatan
+                <span className="font-mono tabular-nums">{activities.length}</span> Kegiatan
               </span>
             </div>
 
@@ -591,7 +512,7 @@ export default function ShiftReportsPage() {
                       <span className="font-bold text-slate-900 text-sm">
                         {act.title}
                       </span>
-                      <span className="font-mono text-red-600 text-xs font-bold shrink-0">
+                      <span className="font-mono tabular-nums text-red-600 text-xs font-bold shrink-0">
                         {act.activity_time ? act.activity_time.substring(0, 5) : '-'} WIB
                       </span>
                     </div>
@@ -616,17 +537,12 @@ export default function ShiftReportsPage() {
             )}
           </div>
 
-          {/* 4. Rekapitulasi Insiden & Kejadian Airside */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
+          {/* 3. Rekapitulasi Insiden & Kejadian Airside */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4 font-sans">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
-                  Rekapitulasi Kejadian & Insiden
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Laporan kejadian darurat sisi udara (airside)
-                </p>
-              </div>
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
+                Rekapitulasi Kejadian & Insiden
+              </h3>
               <span
                 className={`text-xs font-bold px-2 py-0.5 rounded ${
                   incidents.length > 0
@@ -634,13 +550,19 @@ export default function ShiftReportsPage() {
                     : 'bg-emerald-100 text-emerald-800'
                 }`}
               >
-                {incidents.length > 0 ? `${incidents.length} Kejadian` : 'Nihil Kejadian'}
+                {incidents.length > 0 ? (
+                  <>
+                    <span className="font-mono tabular-nums">{incidents.length}</span> Kejadian
+                  </>
+                ) : (
+                  'Nihil Kejadian'
+                )}
               </span>
             </div>
 
             {incidents.length === 0 ? (
               <p className="text-xs text-emerald-700 bg-emerald-50/60 p-3 rounded-lg border border-emerald-200">
-                ✓ Nihil kejadian darurat maupun insiden luar biasa. Operasional sisi udara (airside) normal dan aman.
+                ✓ Nihil kejadian darurat maupun insiden luar biasa pada shift ini.
               </p>
             ) : (
               <div className="space-y-2.5 text-xs">
@@ -653,7 +575,7 @@ export default function ShiftReportsPage() {
                       <span className="font-bold text-slate-900 text-sm">
                         {inc.title}
                       </span>
-                      <span className="px-2 py-0.5 rounded bg-red-100 text-red-800 font-bold text-[10px] uppercase">
+                      <span className="px-2 py-0.5 rounded bg-red-100 text-red-800 font-bold text-xs uppercase">
                         {inc.priority || 'Siaga'}
                       </span>
                     </div>
@@ -663,7 +585,9 @@ export default function ShiftReportsPage() {
                         {inc.location || 'Airside'}
                       </span>
                       <span>•</span>
-                      <span>Waktu: {inc.incident_time || '-'} WIB</span>
+                      <span>
+                        Waktu: <span className="font-mono tabular-nums">{inc.incident_time || '-'}</span> WIB
+                      </span>
                     </div>
                     {inc.action_taken && (
                       <p className="text-xs text-slate-700 leading-relaxed bg-white/90 p-2 rounded border border-slate-200">
@@ -676,7 +600,7 @@ export default function ShiftReportsPage() {
             )}
           </div>
 
-          {/* 5. Pengesahan Pejabat Dinas Dinamis */}
+          {/* 4. Pengesahan Pejabat Dinas Dinamis */}
           <MobileSignaturesSection
             deptHead={deptHeadData}
             supervisor={{
@@ -688,6 +612,7 @@ export default function ShiftReportsPage() {
             shiftDate={activeDate}
             teamGroup={currentTeam}
             isSheet={false}
+            isClosed={(shiftData?.status || '').toLowerCase() === 'closed'}
           />
         </div>
       </div>

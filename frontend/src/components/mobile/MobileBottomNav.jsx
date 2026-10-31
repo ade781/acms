@@ -10,8 +10,8 @@ export default function MobileBottomNav({ activeTab = 'dashboard', onTabChange, 
   if (!isManagerialRole) {
     // Nav Kru: Tepat 3 Menu Baku (Dashboard, Kegiatan, Laporan)
     return (
-      <nav className="fixed bottom-0 z-40 w-full max-w-[412px] bg-white border-t border-slate-200 px-2 py-1 shadow-lg safe-pb">
-        <div id="nav-kru-container" className="grid grid-cols-3 gap-1 text-[11px]">
+      <nav className="fixed bottom-0 z-40 w-full max-w-[412px] bg-white border-t border-slate-200 px-2 py-1 shadow-lg safe-pb font-sans">
+        <div id="nav-kru-container" className="grid grid-cols-3 gap-1 text-xs">
           <button
             type="button"
             id="nav-btn-dashboard-kru"
@@ -60,8 +60,8 @@ export default function MobileBottomNav({ activeTab = 'dashboard', onTabChange, 
 
   // Nav Chief / Admin: Tepat 5 Menu Baku (Dashboard, Ploting, Kegiatan, Insiden, Laporan)
   return (
-    <nav className="fixed bottom-0 z-40 w-full max-w-[412px] bg-white border-t border-slate-200 px-1 py-1 shadow-lg safe-pb">
-      <div id="nav-chief-container" className="grid grid-cols-5 gap-0.5 text-[10px]">
+    <nav className="fixed bottom-0 z-40 w-full max-w-[412px] bg-white border-t border-slate-200 px-1 py-1 shadow-lg safe-pb font-sans">
+      <div id="nav-chief-container" className="grid grid-cols-5 gap-0.5 text-xs">
         <button
           type="button"
           id="nav-btn-dashboard-chief"

@@ -92,7 +92,7 @@ export default function MobileLayout({ children }) {
   };
 
   return (
-    <div className="bg-slate-900 text-slate-800 flex justify-center min-h-screen">
+    <div className="bg-slate-900 text-slate-800 flex justify-center min-h-screen font-sans">
       {/* Mobile Viewport Container (Rasio Modern 20:9 / max 412px) */}
       <div className="w-full max-w-[412px] min-h-screen flex flex-col shadow-2xl relative border-x border-slate-700/20 overflow-x-hidden bg-transparent">
         {/* Fixed Viewport Background Atmosphere Layer (Terkunci di layar pandang/viewport saat digulir) */}

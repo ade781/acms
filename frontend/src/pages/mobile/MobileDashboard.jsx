@@ -200,9 +200,9 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
   };
 
   return (
-    <div className="space-y-2 pb-6">
+    <div className="space-y-2 pb-6 font-sans">
       {errorMsg && (
-        <div className="p-2 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[10px] flex items-center gap-1.5">
+        <div className="p-2 rounded bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-1.5">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
           <span>{typeof errorMsg === 'string' ? errorMsg : (errorMsg?.message || 'Gagal memuat data operasional terbaru.')}</span>
         </div>

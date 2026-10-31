@@ -176,7 +176,7 @@ export default function MobilePicReadinessForm({
 
   return (
     <div
-      className={`rounded-xl border p-3 shadow-xs space-y-2.5 transition-colors duration-100 ${
+      className={`rounded-xl border p-3 shadow-xs space-y-2.5 transition-colors duration-100 font-sans ${
         hasShiftLog && !isEditing
           ? isCurrentlyServiceable
             ? 'bg-emerald-50/15 border-emerald-300 shadow-2xs'
@@ -186,23 +186,25 @@ export default function MobilePicReadinessForm({
           : 'bg-white border-amber-200'
       }`}
     >
-      {/* Header Formulir PIC (Badge dihapus karena sudah ada di Kartu Tugas Dinas) */}
+      {/* Header Formulir PIC */}
       <div className="flex items-center justify-between border-b border-slate-100 pb-2">
         <div>
           <h3 className="text-xs font-bold text-slate-900 uppercase leading-none">
             Lapor Kesiapan Unit (PIC)
           </h3>
-          <p className="text-[9.5px] text-slate-500 mt-1">
-            {hasShiftLog
-              ? vehicleReadiness?.logged_at
-                ? `Pemeriksaan fisik shift ini telah selesai tercatat (${new Date(
-                    vehicleReadiness.logged_at
-                  ).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':')} WIB)`
-                : 'Pemeriksaan fisik telah berhasil dilaporkan pada shift berjalan.'
-              : 'Pemeriksaan fisik wajib dilaporkan oleh Penanggung Jawab unit.'}
-          </p>
+          {hasShiftLog && vehicleReadiness?.logged_at && (
+            <p className="text-xs text-slate-500 mt-1">
+              Tercatat pukul{' '}
+              <span className="font-mono tabular-nums">
+                {new Date(vehicleReadiness.logged_at)
+                  .toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+                  .replace('.', ':')}
+              </span>{' '}
+              WIB
+            </p>
+          )}
         </div>
-        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
+        <span className="text-xs font-mono tabular-nums font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
           {vehicleCode}
         </span>
       </div>
@@ -229,12 +231,12 @@ export default function MobilePicReadinessForm({
               <div className="min-w-0">
                 <p className="text-xs font-bold leading-tight truncate">
                   {isCurrentlyServiceable
-                    ? 'Kondisi Prima: Serviceable'
-                    : 'Dilaporkan: Unserviceable'}
+                    ? 'Status: Serviceable'
+                    : 'Status: Unserviceable'}
                 </p>
-                <p className="text-[10px] opacity-80 mt-0.5 truncate">
+                <p className="text-xs opacity-80 mt-0.5 truncate">
                   {isCurrentlyServiceable
-                    ? vehicleReadiness?.notes || 'Seluruh fungsi armada telah diuji dan siap siaga.'
+                    ? vehicleReadiness?.notes || 'Unit terverifikasi fisik.'
                     : vehicleReadiness?.justification || 'Terdapat kendala teknis pada unit.'}
                 </p>
               </div>
@@ -249,7 +251,7 @@ export default function MobilePicReadinessForm({
           {/* Banner Status Bawaan (Carried-over dari shift/regu sebelumnya) jika ada */}
           {isCarriedOver && (
             <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-xs space-y-0.5">
-              <div className="flex items-center justify-between text-red-800 font-bold text-[10px]">
+              <div className="flex items-center justify-between text-red-800 font-bold text-xs">
                 <span className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-red-600"></span>
                   <span>Status Estafet: UNSERVICEABLE</span>
@@ -258,13 +260,13 @@ export default function MobilePicReadinessForm({
                   <button
                     type="button"
                     onClick={() => onOpenAuditModal(vehicleId)}
-                    className="text-[9px] text-red-700 underline font-semibold"
+                    className="text-xs text-red-700 underline font-semibold"
                   >
                     Riwayat
                   </button>
                 )}
               </div>
-              <p className="text-[9.5px] text-red-700 leading-snug">
+              <p className="text-xs text-red-700 leading-snug">
                 Unit berstatus kendala estafet
                 {vehicleReadiness?.carried_from?.shift_date
                   ? ` sejak ${vehicleReadiness.carried_from.shift_date} (Regu ${vehicleReadiness.carried_from.team_group || ''})`
@@ -275,7 +277,7 @@ export default function MobilePicReadinessForm({
           )}
 
           {successMsg && (
-            <div className="p-2 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] flex items-center gap-1.5">
+            <div className="p-2 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-1.5">
               <Check className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
               <span>{typeof successMsg === 'string' ? successMsg : (successMsg?.message || 'Berhasil')}</span>
             </div>
@@ -302,25 +304,24 @@ export default function MobilePicReadinessForm({
           {!hasShiftLog && (
             <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-              <div className="text-[10.5px] leading-snug">
-                <strong className="font-bold block">Status: Belum Dilaporkan</strong>
-                Silakan pilih status kelaikan fisik di bawah dan ambil foto bukti untuk menyelesaikan serah terima unit.
+              <div className="text-xs leading-snug">
+                <strong className="font-bold block">Status: Belum Dicek</strong>
+                Pilih status kelaikan fisik dan lampirkan foto bukti pemeriksaan unit.
               </div>
             </div>
           )}
 
           {/* Banner Mode Edit jika sedang memperbarui */}
           {hasShiftLog && isEditing && (
-            <div className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-[10px] text-slate-600">
-              <span className="font-bold text-slate-800">Mode Perbarui Laporan:</span>
-              <span>Foto bukti lama tetap tersimpan jika tidak diubah</span>
+            <div className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-xs text-slate-600">
+              <span className="font-bold text-slate-800">Mode Perbarui Laporan</span>
             </div>
           )}
 
           {/* Banner Status Bawaan jika ada */}
           {isCarriedOver && (
             <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-xs space-y-0.5">
-              <div className="flex items-center justify-between text-red-800 font-bold text-[10px]">
+              <div className="flex items-center justify-between text-red-800 font-bold text-xs">
                 <span className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-red-600"></span>
                   <span>Status Estafet: UNSERVICEABLE</span>
@@ -329,13 +330,13 @@ export default function MobilePicReadinessForm({
                   <button
                     type="button"
                     onClick={() => onOpenAuditModal(vehicleId)}
-                    className="text-[9px] text-red-700 underline font-semibold"
+                    className="text-xs text-red-700 underline font-semibold"
                   >
                     Riwayat
                   </button>
                 )}
               </div>
-              <p className="text-[9.5px] text-red-700 leading-snug">
+              <p className="text-xs text-red-700 leading-snug">
                 Unit berstatus kendala estafet
                 {vehicleReadiness?.carried_from?.shift_date
                   ? ` sejak ${vehicleReadiness.carried_from.shift_date} (Regu ${vehicleReadiness.carried_from.team_group || ''})`
@@ -346,7 +347,7 @@ export default function MobilePicReadinessForm({
           )}
 
           {errorMsg && (
-            <div className="p-2 rounded bg-red-50 border border-red-200 text-red-700 text-[10px] flex items-start gap-1.5">
+            <div className="p-2 rounded bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-1.5">
               <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-red-600" />
               <span>{typeof errorMsg === 'string' ? errorMsg : (errorMsg?.message || 'Terjadi kesalahan')}</span>
             </div>
@@ -384,7 +385,7 @@ export default function MobilePicReadinessForm({
             {/* Input Justifikasi Kerusakan jika Unserviceable */}
             {status === 'unserviceable' && (
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-700 block">
+                <label className="text-xs font-bold text-slate-700 block">
                   Keterangan Kerusakan & Kendala * <span className="text-red-600 font-bold">(Wajib)</span>
                 </label>
                 <textarea
@@ -400,7 +401,7 @@ export default function MobilePicReadinessForm({
             {/* Catatan Tindak Lanjut jika memulihkan unit dari unserviceable ke serviceable */}
             {status === 'serviceable' && wasInitiallyUnserviceable && (
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-700 block">
+                <label className="text-xs font-bold text-slate-700 block">
                   Catatan Tindak Lanjut Pemulihan * <span className="text-emerald-600 font-bold">(Wajib)</span>
                 </label>
                 <textarea
@@ -416,7 +417,7 @@ export default function MobilePicReadinessForm({
             {/* Catatan Opsional jika serviceable biasa */}
             {status === 'serviceable' && !wasInitiallyUnserviceable && (
               <div className="space-y-1">
-                <label className="text-[10px] font-semibold text-slate-600 block">
+                <label className="text-xs font-semibold text-slate-600 block">
                   Catatan Tambahan (Opsional)
                 </label>
                 <textarea
@@ -431,13 +432,13 @@ export default function MobilePicReadinessForm({
 
             {/* Upload Foto Fisik Armada */}
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-700 block">
+              <label className="text-xs font-bold text-slate-700 block">
                 Foto Fisik Armada / Posko * <span className="text-red-600 font-bold">(Wajib)</span>
               </label>
               <div className="flex items-center gap-2">
                 <label className="flex-1 cursor-pointer flex items-center justify-center gap-1.5 p-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-semibold transition-colors duration-100">
                   <Camera className="w-4 h-4 text-slate-500" />
-                  <span className="truncate text-[11px]">
+                  <span className="truncate text-xs">
                     {compressing
                       ? 'Mengompres WebP...'
                       : (photoFile ? `WebP: ${photoFile.name}` : (photoPreview ? 'Ganti Foto Bukti' : 'Ambil / Unggah Foto Bukti'))}

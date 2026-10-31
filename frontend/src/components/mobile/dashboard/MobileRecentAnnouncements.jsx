@@ -60,7 +60,7 @@ export default function MobileRecentAnnouncements({
   };
 
   return (
-    <div className="bg-white rounded-lg border border-slate-200 p-2.5 shadow-xs space-y-1.5">
+    <div className="bg-white rounded-lg border border-slate-200 p-2.5 shadow-xs space-y-1.5 font-sans">
       {/* Header Pengumuman Dinas */}
       <div className="flex items-center justify-between border-b border-slate-100 pb-1">
         <div className="flex items-center gap-1.5">
@@ -72,17 +72,17 @@ export default function MobileRecentAnnouncements({
         <button
           type="button"
           onClick={handleOpenAll}
-          className="text-[10px] font-bold text-red-600 hover:text-red-700 hover:underline transition-colors duration-100 cursor-pointer flex items-center gap-0.5"
+          className="text-xs font-bold text-red-600 hover:text-red-700 hover:underline transition-colors duration-100 cursor-pointer flex items-center gap-0.5"
         >
           <span>Lihat Semua</span>
-          <ChevronRight className="w-3 h-3" />
+          <ChevronRight className="w-3.5 h-3.5" />
         </button>
       </div>
 
       {/* Konten Pengumuman dengan Fitur Swipeable Card */}
       {top3.length === 0 ? (
         <div className="p-3 text-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
-          <p className="text-[10px]">Belum ada edaran atau pengumuman dinas baru.</p>
+          <p className="text-xs">Belum ada pengumuman dinas.</p>
         </div>
       ) : (
         <div className="space-y-1.5">

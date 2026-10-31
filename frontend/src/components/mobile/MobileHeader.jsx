@@ -11,7 +11,7 @@ function getInitials(name) {
 }
 
 export default function MobileHeader({ onOpenAnnouncements, onOpenProfile, isProfileActive = false, unreadCount: propUnreadCount }) {
-  const { user, activeTeam, activeShiftNumber, isAdmin, isDeptHead } = useAuth();
+  const { user, activeTeam, activeShiftNumber } = useAuth();
   const [unreadCount, setUnreadCount] = useState(propUnreadCount || 0);
 
   useEffect(() => {
@@ -56,7 +56,7 @@ export default function MobileHeader({ onOpenAnnouncements, onOpenProfile, isPro
   const initials = getInitials(userName);
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-slate-200/80 px-3 py-1 flex items-center justify-between shadow-xs">
+    <header className="sticky top-0 z-40 bg-white border-b border-slate-200/80 px-3 py-1 flex items-center justify-between shadow-xs font-sans">
       {/* Sisi Kiri: Identitas Dinas ARFF YIA */}
       <div className="flex items-center gap-2">
         <div>
@@ -69,8 +69,8 @@ export default function MobileHeader({ onOpenAnnouncements, onOpenProfile, isPro
               title="Operasional Aktif"
             ></span>
           </div>
-          <p className="text-[10px] font-medium text-slate-500 leading-tight mt-0.5">
-            {activeTeam || 'Alpha'} • Shift {activeShiftNumber || 1}
+          <p className="text-xs font-medium text-slate-500 leading-tight mt-0.5">
+            {activeTeam || 'Alpha'} • Shift <span className="font-mono tabular-nums">{activeShiftNumber || 1}</span>
           </p>
         </div>
       </div>
@@ -102,7 +102,7 @@ export default function MobileHeader({ onOpenAnnouncements, onOpenProfile, isPro
           title={`Profil: ${userName}`}
         >
           <span
-            className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[11px] transition-colors duration-100 shadow-2xs ${
+            className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs transition-colors duration-100 shadow-2xs ${
               isProfileActive
                 ? 'bg-red-600 text-white ring-2 ring-red-400'
                 : 'bg-slate-800 text-white ring-1 ring-slate-300 hover:ring-red-500'

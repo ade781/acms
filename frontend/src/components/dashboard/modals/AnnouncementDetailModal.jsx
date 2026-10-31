@@ -2,7 +2,7 @@ import React from 'react';
 import { ExternalLink } from 'lucide-react';
 import Modal from '../../common/Modal';
 import Button from '../../common/Button';
-import { formatIndoDate } from '../../../utils/shiftHelper';
+import { formatIndoDate, cleanAnnouncementDescription, cleanAnnouncementTitle } from '../../../utils/shiftHelper';
 
 export default function AnnouncementDetailModal({
   isOpen,
@@ -18,9 +18,7 @@ export default function AnnouncementDetailModal({
       isOpen={isOpen}
       onClose={onClose}
       title={
-        typeof announcement?.title === 'string'
-          ? announcement.title.replace(/^\[MENDESAK\]\s*/i, '').trim()
-          : 'Pengumuman Operasional'
+        cleanAnnouncementTitle(announcement?.title) || 'Pengumuman Operasional'
       }
       subtitle={
         announcement
@@ -35,17 +33,15 @@ export default function AnnouncementDetailModal({
       }
     >
       {!announcement ? (
-        <div className="py-8 text-center text-xs text-slate-500">
+        <div className="py-8 text-center text-xs font-sans text-slate-500">
           Belum ada pengumuman atau surat edaran operasional yang diterbitkan.
         </div>
       ) : (
-        <div className="space-y-4 text-xs">
+        <div className="space-y-4 text-xs font-sans">
           <div className="p-4 rounded-lg border border-slate-200 bg-slate-50/60 space-y-2">
-            <div className="text-[11px] font-semibold text-slate-500">Ringkasan / Isi Pengumuman</div>
+            <div className="text-xs font-semibold text-slate-500">Ringkasan / Isi Pengumuman</div>
             <p className="text-slate-800 leading-relaxed whitespace-pre-line">
-              {typeof announcement.description === 'string'
-                ? announcement.description
-                : 'Tidak ada ringkasan teks tambahan.'}
+              {cleanAnnouncementDescription(announcement?.description) || 'Tidak ada ringkasan teks tambahan.'}
             </p>
           </div>
 
@@ -55,7 +51,7 @@ export default function AnnouncementDetailModal({
                 <div className="font-semibold text-slate-900">
                   {announcement.file_name || 'Lampiran Surat Edaran Resmi (PDF)'}
                 </div>
-                <div className="text-[11px] text-slate-500">
+                <div className="text-xs text-slate-500">
                   Diterbitkan oleh: {announcement.creator_name || 'Manajemen ARFF'}
                 </div>
               </div>
@@ -73,8 +69,8 @@ export default function AnnouncementDetailModal({
 
           {announcements.length > 1 && (
             <div className="pt-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <span className="text-[11px] text-slate-500">
-                Tersedia {announcements.length} surat edaran resmi di papan pengumuman ARFF.
+              <span className="text-xs text-slate-500">
+                Tersedia <span className="font-mono tabular-nums font-semibold">{announcements.length}</span> surat edaran resmi di papan pengumuman ARFF.
               </span>
               <a
                 href="/announcements"
