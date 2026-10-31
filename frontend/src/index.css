@@ -18,6 +18,12 @@
   }
 }
 
+@layer utilities {
+  .safe-pb {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0.5rem));
+  }
+}
+
 /* Custom scrollbar clean */
 ::-webkit-scrollbar {
   width: 6px;

@@ -85,8 +85,8 @@ export default function PersonnelPdfPreviewModal({ isOpen, onClose, selectedTeam
               <h3 className="text-sm font-bold text-slate-900">
                 Buku Induk Personel ARFF YIA
               </h3>
-              <p className="text-[11px] text-slate-500">
-                Dokumen Resmi Kedinasan Unit PKP-PK • Bandara Internasional Yogyakarta
+              <p className="text-xs text-slate-500">
+                Dokumen Resmi Kedinasan Unit PKP-PK
               </p>
             </div>
           </div>
@@ -133,9 +133,6 @@ export default function PersonnelPdfPreviewModal({ isOpen, onClose, selectedTeam
               <p className="text-xs font-semibold text-slate-700">
                 Memproses dan merender dokumen Buku Induk Personel...
               </p>
-              <span className="text-[11px] text-slate-400">
-                Menyusun rekapitulasi data 92 personel unit ARFF YIA
-              </span>
             </div>
           )}
 

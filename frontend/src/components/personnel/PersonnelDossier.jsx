@@ -96,13 +96,14 @@ export default function PersonnelDossier({
                 </h2>
                 <Badge
                   variant={personnel.is_active ? 'success' : 'neutral'}
-                  className="text-[10px] uppercase font-semibold"
+                  size="sm"
+                  className="uppercase font-semibold"
                 >
                   {personnel.is_active ? 'Aktif Dinas' : 'Non-Aktif'}
                 </Badge>
               </div>
               <div className="flex items-center gap-2 text-xs text-slate-500 mt-1 flex-wrap">
-                <span className="font-mono text-slate-700">NIP: {personnel.nip || '-'}</span>
+                <span className="font-mono tabular-nums text-slate-700">NIP: {personnel.nip || '-'}</span>
                 <span>•</span>
                 <span className="text-slate-800 font-medium">{formatRoleName(personnel.rank_position)}</span>
                 <span>•</span>
@@ -110,7 +111,7 @@ export default function PersonnelDossier({
                   {personnel.team_group === 'Non-Shift' ? 'Administrasi (Non-Shift)' : formatTeam(personnel.team_group)}
                 </span>
                 <span>•</span>
-                <span className="inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded text-[10px] bg-slate-100 text-slate-800 border border-slate-200">
+                <span className="inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-800 border border-slate-200">
                   Role: {formatRoleName(personnel.user_role || (personnel.team_group === 'Non-Shift' ? 'admin' : 'junior_firefighter'))}
                 </span>
               </div>
@@ -132,26 +133,26 @@ export default function PersonnelDossier({
         {/* Quick KPI Strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-4 border-t border-slate-100 bg-slate-50/70 p-3 rounded-lg text-xs">
           <div>
-            <span className="text-slate-500 block text-[11px]">Kualifikasi STKP</span>
+            <span className="text-slate-500 block text-xs">Kualifikasi STKP</span>
             <span className="font-bold text-slate-900 text-sm mt-0.5 block">
               {personnel.cert_level ? `Level ${personnel.cert_level}` : '-'}
             </span>
           </div>
           <div>
-            <span className="text-slate-500 block text-[11px]">Usia Personel</span>
-            <span className="font-bold text-slate-900 text-sm mt-0.5 block">
+            <span className="text-slate-500 block text-xs">Usia Personel</span>
+            <span className="font-bold text-slate-900 font-mono tabular-nums text-sm mt-0.5 block">
               {calculateAge(personnel.birth_date)}
             </span>
           </div>
           <div>
-            <span className="text-slate-500 block text-[11px]">Status Kepegawaian</span>
+            <span className="text-slate-500 block text-xs">Status Kepegawaian</span>
             <span className="font-bold text-slate-900 text-sm mt-0.5 block capitalize">
               {personnel.employment_status || 'Organik'}
             </span>
           </div>
           <div>
-            <span className="text-slate-500 block text-[11px]">Masa Kerja (TMT)</span>
-            <span className="font-bold text-slate-900 text-sm mt-0.5 block">
+            <span className="text-slate-500 block text-xs">Masa Kerja (TMT)</span>
+            <span className="font-bold text-slate-900 font-mono tabular-nums text-sm mt-0.5 block">
               {calculateTenure(personnel.tmt_date)}
             </span>
           </div>
@@ -212,24 +213,24 @@ export default function PersonnelDossier({
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-[11px]">Nama Lengkap</span>
+                  <span className="text-slate-400 block text-xs">Nama Lengkap</span>
                   <span className="font-semibold text-slate-900 mt-1 block">{personnel.full_name || '-'}</span>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-[11px]">NIP</span>
-                  <span className="font-mono font-semibold text-slate-900 mt-1 block">{personnel.nip || '-'}</span>
+                  <span className="text-slate-400 block text-xs">NIP</span>
+                  <span className="font-mono tabular-nums font-semibold text-slate-900 mt-1 block">{personnel.nip || '-'}</span>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-[11px]">Tempat Lahir</span>
+                  <span className="text-slate-400 block text-xs">Tempat Lahir</span>
                   <span className="font-semibold text-slate-900 mt-1 block">{personnel.birth_place || '-'}</span>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-[11px]">Tanggal Lahir</span>
-                  <span className="font-semibold text-slate-900 mt-1 block">{formatIndoDate(personnel.birth_date, { shortMonth: true })}</span>
+                  <span className="text-slate-400 block text-xs">Tanggal Lahir</span>
+                  <span className="font-mono tabular-nums font-semibold text-slate-900 mt-1 block">{formatIndoDate(personnel.birth_date, { shortMonth: true })}</span>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-[11px]">Usia Sekarang</span>
-                  <span className="font-bold text-amber-700 mt-1 block">{calculateAge(personnel.birth_date)}</span>
+                  <span className="text-slate-400 block text-xs">Usia Sekarang</span>
+                  <span className="font-mono tabular-nums font-bold text-amber-700 mt-1 block">{calculateAge(personnel.birth_date)}</span>
                 </div>
               </div>
             </div>
@@ -241,29 +242,29 @@ export default function PersonnelDossier({
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-[11px]">Status Kepegawaian</span>
+                  <span className="text-slate-400 block text-xs">Status Kepegawaian</span>
                   <span className="font-semibold text-slate-900 mt-1 block uppercase">
                     {personnel.employment_status || 'Organik'}
                   </span>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-[11px]">TMT Karyawan</span>
-                  <span className="font-semibold text-slate-900 mt-1 block">{formatIndoDate(personnel.tmt_date, { shortMonth: true })}</span>
+                  <span className="text-slate-400 block text-xs">TMT Karyawan</span>
+                  <span className="font-mono tabular-nums font-semibold text-slate-900 mt-1 block">{formatIndoDate(personnel.tmt_date, { shortMonth: true })}</span>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-[11px]">Masa Kerja Efektif</span>
-                  <span className="font-bold text-slate-900 mt-1 block">{calculateTenure(personnel.tmt_date)}</span>
+                  <span className="text-slate-400 block text-xs">Masa Kerja Efektif</span>
+                  <span className="font-mono tabular-nums font-bold text-slate-900 mt-1 block">{calculateTenure(personnel.tmt_date)}</span>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-[11px]">Pendidikan Dimiliki</span>
+                  <span className="text-slate-400 block text-xs">Pendidikan Dimiliki</span>
                   <span className="font-semibold text-slate-900 mt-1 block">{personnel.formal_education || '-'}</span>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-[11px]">Pendidikan Diakui</span>
+                  <span className="text-slate-400 block text-xs">Pendidikan Diakui</span>
                   <span className="font-semibold text-slate-900 mt-1 block">{personnel.recognized_education || '-'}</span>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-[11px]">Regu Penugasan</span>
+                  <span className="text-slate-400 block text-xs">Regu Penugasan</span>
                   <span className="font-semibold text-slate-900 mt-1 block">{formatTeam(personnel.team_group)}</span>
                 </div>
               </div>
@@ -282,7 +283,7 @@ export default function PersonnelDossier({
                     <Shield className="w-5 h-5" />
                   </div>
                   <div>
-                    <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wide">
+                    <span className="text-xs font-bold text-amber-900 uppercase tracking-wide">
                       Lisensi STKP Utama (Aktif)
                     </span>
                     <h4 className="text-sm font-bold text-slate-900">
@@ -290,21 +291,21 @@ export default function PersonnelDossier({
                     </h4>
                   </div>
                 </div>
-                <Badge variant={personnel.cert_number ? 'success' : 'neutral'} className="text-[10px]">
+                <Badge variant={personnel.cert_number ? 'success' : 'neutral'} size="sm">
                   {personnel.cert_number ? 'Terdaftar Resmi' : 'Belum Lisensi'}
                 </Badge>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 pt-3 border-t border-amber-200/60 text-xs">
                 <div>
-                  <span className="text-slate-500 block text-[11px]">Nomor Lisensi STKP</span>
-                  <span className="font-mono font-bold text-slate-900 mt-0.5 block">
+                  <span className="text-slate-500 block text-xs">Nomor Lisensi STKP</span>
+                  <span className="font-mono tabular-nums font-bold text-slate-900 mt-0.5 block">
                     {personnel.cert_number || '-'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[11px]">Masa Berlaku Lisensi</span>
-                  <span className="font-semibold text-slate-900 mt-0.5 block">
+                  <span className="text-slate-500 block text-xs">Masa Berlaku Lisensi</span>
+                  <span className="font-mono tabular-nums font-semibold text-slate-900 mt-0.5 block">
                     {formatIndoDate(personnel.cert_expiry_date, { shortMonth: true })}
                   </span>
                 </div>
@@ -322,18 +323,18 @@ export default function PersonnelDossier({
                 <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg">
                   <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                     <span className="font-bold text-slate-800">Kompetensi Basic</span>
-                    <Badge variant={personnel.basic_cert_number ? 'success' : 'neutral'} className="text-[9px]">
+                    <Badge variant={personnel.basic_cert_number ? 'success' : 'neutral'} size="sm">
                       {personnel.basic_cert_number ? 'Lulus' : 'Belum'}
                     </Badge>
                   </div>
                   <div className="mt-2.5 space-y-1.5">
                     <div>
-                      <span className="text-slate-400 text-[10px] block">Lembaga Pendidikan (Lemdik)</span>
+                      <span className="text-slate-400 text-xs block">Lembaga Pendidikan (Lemdik)</span>
                       <span className="font-semibold text-slate-800">{personnel.basic_lemdik || '-'}</span>
                     </div>
                     <div>
-                      <span className="text-slate-400 text-[10px] block">Nomor Sertifikat</span>
-                      <span className="font-mono text-slate-700 text-[11px] block break-all">
+                      <span className="text-slate-400 text-xs block">Nomor Sertifikat</span>
+                      <span className="font-mono tabular-nums text-slate-700 text-xs block break-all">
                         {personnel.basic_cert_number || '-'}
                       </span>
                     </div>
@@ -344,18 +345,18 @@ export default function PersonnelDossier({
                 <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg">
                   <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                     <span className="font-bold text-slate-800">Kompetensi Junior</span>
-                    <Badge variant={personnel.junior_cert_number ? 'success' : 'neutral'} className="text-[9px]">
+                    <Badge variant={personnel.junior_cert_number ? 'success' : 'neutral'} size="sm">
                       {personnel.junior_cert_number ? 'Lulus' : 'Belum'}
                     </Badge>
                   </div>
                   <div className="mt-2.5 space-y-1.5">
                     <div>
-                      <span className="text-slate-400 text-[10px] block">Lembaga Pendidikan (Lemdik)</span>
+                      <span className="text-slate-400 text-xs block">Lembaga Pendidikan (Lemdik)</span>
                       <span className="font-semibold text-slate-800">{personnel.junior_lemdik || '-'}</span>
                     </div>
                     <div>
-                      <span className="text-slate-400 text-[10px] block">Nomor Sertifikat</span>
-                      <span className="font-mono text-slate-700 text-[11px] block break-all">
+                      <span className="text-slate-400 text-xs block">Nomor Sertifikat</span>
+                      <span className="font-mono tabular-nums text-slate-700 text-xs block break-all">
                         {personnel.junior_cert_number || '-'}
                       </span>
                     </div>
@@ -366,18 +367,18 @@ export default function PersonnelDossier({
                 <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg">
                   <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                     <span className="font-bold text-slate-800">Kompetensi Senior</span>
-                    <Badge variant={personnel.senior_cert_number ? 'success' : 'neutral'} className="text-[9px]">
+                    <Badge variant={personnel.senior_cert_number ? 'success' : 'neutral'} size="sm">
                       {personnel.senior_cert_number ? 'Lulus' : 'Belum'}
                     </Badge>
                   </div>
                   <div className="mt-2.5 space-y-1.5">
                     <div>
-                      <span className="text-slate-400 text-[10px] block">Lembaga Pendidikan (Lemdik)</span>
+                      <span className="text-slate-400 text-xs block">Lembaga Pendidikan (Lemdik)</span>
                       <span className="font-semibold text-slate-800">{personnel.senior_lemdik || '-'}</span>
                     </div>
                     <div>
-                      <span className="text-slate-400 text-[10px] block">Nomor Sertifikat</span>
-                      <span className="font-mono text-slate-700 text-[11px] block break-all">
+                      <span className="text-slate-400 text-xs block">Nomor Sertifikat</span>
+                      <span className="font-mono tabular-nums text-slate-700 text-xs block break-all">
                         {personnel.senior_cert_number || '-'}
                       </span>
                     </div>
@@ -397,32 +398,32 @@ export default function PersonnelDossier({
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
                   <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                     <span className="font-bold text-slate-900">Salvage Lisensi & Refreshing</span>
-                    <Badge variant={personnel.salvage_license_number ? 'success' : 'neutral'} className="text-[9px]">
+                    <Badge variant={personnel.salvage_license_number ? 'success' : 'neutral'} size="sm">
                       {personnel.salvage_license_number ? 'Memiliki' : 'Tidak Ada'}
                     </Badge>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                     <div>
-                      <span className="text-slate-400 text-[10px] block">Nomor Lisensi Salvage</span>
-                      <span className="font-mono text-slate-800 font-semibold block break-all">
+                      <span className="text-slate-400 text-xs block">Nomor Lisensi Salvage</span>
+                      <span className="font-mono tabular-nums text-slate-800 font-semibold block break-all">
                         {personnel.salvage_license_number || '-'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-slate-400 text-[10px] block">Masa Berlaku Salvage</span>
-                      <span className="text-slate-800 font-medium block">
+                      <span className="text-slate-400 text-xs block">Masa Berlaku Salvage</span>
+                      <span className="font-mono tabular-nums text-slate-800 font-medium block">
                         {formatIndoDate(personnel.salvage_expiry_date, { shortMonth: true })}
                       </span>
                     </div>
                     <div>
-                      <span className="text-slate-400 text-[10px] block">No. Sertifikat Refreshing Salvage</span>
-                      <span className="font-mono text-slate-700 text-[11px] block break-all">
+                      <span className="text-slate-400 text-xs block">No. Sertifikat Refreshing Salvage</span>
+                      <span className="font-mono tabular-nums text-slate-700 text-xs block break-all">
                         {personnel.salvage_refreshing_cert_number || '-'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-slate-400 text-[10px] block">Tanggal Refreshing Salvage</span>
-                      <span className="text-slate-800 font-medium block">
+                      <span className="text-slate-400 text-xs block">Tanggal Refreshing Salvage</span>
+                      <span className="font-mono tabular-nums text-slate-800 font-medium block">
                         {formatIndoDate(personnel.salvage_refreshing_date, { shortMonth: true })}
                       </span>
                     </div>
@@ -433,20 +434,20 @@ export default function PersonnelDossier({
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
                   <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                     <span className="font-bold text-slate-900">General Refreshing STKP</span>
-                    <Badge variant={personnel.refreshing_cert_number ? 'success' : 'neutral'} className="text-[9px]">
+                    <Badge variant={personnel.refreshing_cert_number ? 'success' : 'neutral'} size="sm">
                       {personnel.refreshing_cert_number ? 'Telah Refreshing' : 'Belum'}
                     </Badge>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                     <div>
-                      <span className="text-slate-400 text-[10px] block">Nomor Sertifikat Refreshing</span>
-                      <span className="font-mono text-slate-800 font-semibold block break-all">
+                      <span className="text-slate-400 text-xs block">Nomor Sertifikat Refreshing</span>
+                      <span className="font-mono tabular-nums text-slate-800 font-semibold block break-all">
                         {personnel.refreshing_cert_number || '-'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-slate-400 text-[10px] block">Tanggal / Tahun Refreshing</span>
-                      <span className="text-slate-800 font-medium block">
+                      <span className="text-slate-400 text-xs block">Tanggal / Tahun Refreshing</span>
+                      <span className="font-mono tabular-nums text-slate-800 font-medium block">
                         {formatIndoDate(personnel.refreshing_date, { shortMonth: true })}
                       </span>
                     </div>
@@ -465,12 +466,9 @@ export default function PersonnelDossier({
                 <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                   Matriks 11 Kompetensi Tambahan ARFF
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Keahlian khusus penunjang operasional, kualifikasi safety, investigasi, dan instruktur.
-                </p>
               </div>
               <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
-                {competencies.length} / {ALL_ADDITIONAL_COMPETENCIES.length} Dimiliki
+                <span className="font-mono tabular-nums">{competencies.length} / {ALL_ADDITIONAL_COMPETENCIES.length}</span> Dimiliki
               </span>
             </div>
 
@@ -499,7 +497,7 @@ export default function PersonnelDossier({
                     {isOwned ? (
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                     ) : (
-                      <span className="text-[10px] text-slate-400 shrink-0 font-medium">-</span>
+                      <span className="text-xs text-slate-400 shrink-0 font-medium">-</span>
                     )}
                   </div>
                 );

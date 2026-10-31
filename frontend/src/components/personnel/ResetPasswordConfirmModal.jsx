@@ -43,8 +43,8 @@ export default function ResetPasswordConfirmModal({
         <p>
           Apakah Anda yakin ingin mereset kata sandi akun untuk <strong>{personnel?.full_name}</strong>?
         </p>
-        <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] space-y-1">
-          <span className="font-bold block">• Kata sandi baru akan diatur ke: <strong>123456</strong></span>
+        <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1">
+          <span className="font-bold block">• Kata sandi baru akan diatur ke: <strong className="font-mono tabular-nums">123456</strong></span>
           <span className="block">• Pengguna akan diwajibkan mengganti kata sandi secara mandiri pada saat login pertama kali.</span>
         </div>
       </div>

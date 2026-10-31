@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   Shield,
   FileUp,
-  Info,
   Key,
   CheckCircle2,
   PenTool,
@@ -359,26 +358,26 @@ export default function PersonnelDetailPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-[11px]">Username Login</span>
+                  <span className="text-slate-400 block text-xs">Username Login</span>
                   <span className="font-mono font-bold text-slate-900 mt-1 block">
                     {personnel.username || '-'}
                   </span>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-[11px]">Role Sistem (Akses)</span>
+                  <span className="text-slate-400 block text-xs">Role Sistem (Akses)</span>
                   <span className="font-bold text-slate-900 mt-1 block">
                     {formatRoleName(personnel.user_role || (personnel.team_group === 'Non-Shift' ? 'admin' : targetRole))}
                   </span>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-[11px]">Penempatan Regu</span>
+                  <span className="text-slate-400 block text-xs">Penempatan Regu</span>
                   <span className="font-bold text-slate-900 mt-1 block">
                     {personnel.team_group === 'Non-Shift' ? 'Non-Shift (Administrasi)' : formatTeam(personnel.team_group)}
                   </span>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between">
                   <div>
-                    <span className="text-slate-400 block text-[11px]">Kata Sandi</span>
+                    <span className="text-slate-400 block text-xs">Kata Sandi</span>
                     <span className="text-slate-500 font-mono mt-1 block">••••••••</span>
                   </div>
                   {isAdmin && (
@@ -404,9 +403,6 @@ export default function PersonnelDetailPage() {
                     <PenTool className="w-5 h-5 text-arff-primary" />
                     <div>
                       <h3 className="text-sm font-bold text-slate-900">Spesimen Tanda Tangan Digital Resmi</h3>
-                      <p className="text-[11px] text-slate-500">
-                        Otorisasi penandatanganan laporan serah terima shift & verifikasi dokumen berkala
-                      </p>
                     </div>
                   </div>
 
@@ -492,7 +488,7 @@ export default function PersonnelDetailPage() {
                       </div>
                     )}
 
-                    <span className="text-[11px] text-slate-400 block">
+                    <span className="text-xs text-slate-400 block">
                       Format didukung: PNG (latar transparan disarankan), WebP, atau JPEG (Maks. 5 MB).
                     </span>
                   </div>
@@ -537,7 +533,7 @@ export default function PersonnelDetailPage() {
                   <FileText className="w-5 h-5 text-arff-primary" />
                   <div>
                     <h3 className="text-sm font-bold text-slate-900">Berkas & Dokumen Personel</h3>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-xs text-slate-500">
                       Lisensi STKP, sertifikat diklat teknis, medical check-up (MCU), dan surat tugas resmi
                     </p>
                   </div>
@@ -582,7 +578,7 @@ export default function PersonnelDetailPage() {
                                 <Badge variant="info" size="sm">
                                   {typeof doc.document_type === 'string' ? (DOCUMENT_TYPE_LABELS[doc.document_type] || doc.document_type) : 'Dokumen'}
                                 </Badge>
-                                <span className="text-[11px] font-mono text-slate-500">
+                                <span className="text-xs font-mono tabular-nums text-slate-500">
                                   {formatBytes(doc.file_size)}
                                 </span>
                               </div>
@@ -590,9 +586,9 @@ export default function PersonnelDetailPage() {
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between pt-2 border-t border-slate-200/70 text-[11px] text-slate-500 flex-wrap gap-2">
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-200/70 text-xs text-slate-500 flex-wrap gap-2">
                           <span title={doc.created_at ? new Date(doc.created_at).toLocaleString('id-ID') : ''}>
-                            {doc.created_at ? new Date(doc.created_at).toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'}
+                            <span className="font-mono tabular-nums">{doc.created_at ? new Date(doc.created_at).toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'}</span>
                             {doc.uploader_name && ` • Oleh ${doc.uploader_name}`}
                           </span>
 
@@ -601,7 +597,7 @@ export default function PersonnelDetailPage() {
                               href={buildAuthenticatedFileUrl(doc.view_url || `/api/documents/${doc.id}/view`)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 transition-colors duration-100"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 transition-colors duration-100"
                             >
                               <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
                               <span>Lihat / Unduh</span>
@@ -629,7 +625,7 @@ export default function PersonnelDetailPage() {
                   <p className="text-xs font-semibold text-slate-700">
                     Belum ada berkas atau dokumen yang diunggah untuk personel ini.
                   </p>
-                  <p className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
+                  <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
                     Unggah salinan lisensi STKP, sertifikat kompetensi, atau hasil medical check-up (MCU) dalam format PDF/gambar.
                   </p>
                   {canUploadDoc && (
@@ -649,16 +645,6 @@ export default function PersonnelDetailPage() {
                   )}
                 </div>
               )}
-            </div>
-
-            {/* Info Pengisian Mandiri */}
-            <div className="bg-slate-50 rounded-xl border border-slate-200 p-5 text-xs text-slate-600 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <Info className="w-5 h-5 text-sky-600 flex-shrink-0" />
-                <span>
-                  Personel dapat melengkapi data profil masing-masing (NIP, Jabatan, Nomor Lisensi, Tanggal Lahir, dan Pendidikan Terakhir) secara mandiri dengan menekan tombol <strong>"Edit Kualifikasi & Data"</strong> pada kartu Dossier Personel di atas.
-                </span>
-              </div>
             </div>
           </div>
         )}

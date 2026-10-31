@@ -307,7 +307,7 @@ export default function PersonnelDossierEditModal({
                 <span className="font-bold text-amber-900 block mb-2">Lisensi STKP Utama</span>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-slate-600 text-[11px] mb-1">Rating STKP</label>
+                    <label className="block text-slate-600 text-xs mb-1">Rating STKP</label>
                     <select
                       name="cert_level"
                       value={formData.cert_level}
@@ -320,7 +320,7 @@ export default function PersonnelDossierEditModal({
                     </select>
                   </div>
                   <div>
-                    <label className="block text-slate-600 text-[11px] mb-1">Nomor Lisensi STKP</label>
+                    <label className="block text-slate-600 text-xs mb-1">Nomor Lisensi STKP</label>
                     <input
                       type="text"
                       name="cert_number"
@@ -330,7 +330,7 @@ export default function PersonnelDossierEditModal({
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-600 text-[11px] mb-1">Masa Berlaku STKP</label>
+                    <label className="block text-slate-600 text-xs mb-1">Masa Berlaku STKP</label>
                     <input
                       type="date"
                       name="cert_expiry_date"
@@ -347,69 +347,69 @@ export default function PersonnelDossierEditModal({
                 <span className="font-bold text-slate-800 block">Riwayat Jenjang Kualifikasi STKP</span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
                   <div>
-                    <label className="block text-slate-600 text-[11px] mb-1">Lemdik Basic</label>
+                    <label className="block text-slate-600 text-xs mb-1">Lemdik Basic</label>
                     <input
                       type="text"
                       name="basic_lemdik"
                       value={formData.basic_lemdik}
                       onChange={handleChange}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white"
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white transition-colors duration-100"
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-600 text-[11px] mb-1">No. Sertifikat Basic</label>
+                    <label className="block text-slate-600 text-xs mb-1">No. Sertifikat Basic</label>
                     <input
                       type="text"
                       name="basic_cert_number"
                       value={formData.basic_cert_number}
                       onChange={handleChange}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono"
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono transition-colors duration-100"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
                   <div>
-                    <label className="block text-slate-600 text-[11px] mb-1">Lemdik Junior</label>
+                    <label className="block text-slate-600 text-xs mb-1">Lemdik Junior</label>
                     <input
                       type="text"
                       name="junior_lemdik"
                       value={formData.junior_lemdik}
                       onChange={handleChange}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white"
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white transition-colors duration-100"
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-600 text-[11px] mb-1">No. Sertifikat Junior</label>
+                    <label className="block text-slate-600 text-xs mb-1">No. Sertifikat Junior</label>
                     <input
                       type="text"
                       name="junior_cert_number"
                       value={formData.junior_cert_number}
                       onChange={handleChange}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono"
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono transition-colors duration-100"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
                   <div>
-                    <label className="block text-slate-600 text-[11px] mb-1">Lemdik Senior</label>
+                    <label className="block text-slate-600 text-xs mb-1">Lemdik Senior</label>
                     <input
                       type="text"
                       name="senior_lemdik"
                       value={formData.senior_lemdik}
                       onChange={handleChange}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white"
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white transition-colors duration-100"
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-600 text-[11px] mb-1">No. Sertifikat Senior</label>
+                    <label className="block text-slate-600 text-xs mb-1">No. Sertifikat Senior</label>
                     <input
                       type="text"
                       name="senior_cert_number"
                       value={formData.senior_cert_number}
                       onChange={handleChange}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono"
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono transition-colors duration-100"
                     />
                   </div>
                 </div>
@@ -420,66 +420,66 @@ export default function PersonnelDossierEditModal({
                 <span className="font-bold text-slate-800 block">Salvage & General Refreshing</span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
                   <div>
-                    <label className="block text-slate-600 text-[11px] mb-1">Nomor Lisensi Salvage</label>
+                    <label className="block text-slate-600 text-xs mb-1">Nomor Lisensi Salvage</label>
                     <input
                       type="text"
                       name="salvage_license_number"
                       value={formData.salvage_license_number}
                       onChange={handleChange}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono"
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono transition-colors duration-100"
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-600 text-[11px] mb-1">Masa Berlaku Salvage</label>
+                    <label className="block text-slate-600 text-xs mb-1">Masa Berlaku Salvage</label>
                     <input
                       type="date"
                       name="salvage_expiry_date"
                       value={formData.salvage_expiry_date}
                       onChange={handleChange}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white"
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white transition-colors duration-100"
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-600 text-[11px] mb-1">No. Sertifikat Refreshing Salvage</label>
+                    <label className="block text-slate-600 text-xs mb-1">No. Sertifikat Refreshing Salvage</label>
                     <input
                       type="text"
                       name="salvage_refreshing_cert_number"
                       value={formData.salvage_refreshing_cert_number}
                       onChange={handleChange}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono"
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono transition-colors duration-100"
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-600 text-[11px] mb-1">Tanggal Refreshing Salvage</label>
+                    <label className="block text-slate-600 text-xs mb-1">Tanggal Refreshing Salvage</label>
                     <input
                       type="date"
                       name="salvage_refreshing_date"
                       value={formData.salvage_refreshing_date}
                       onChange={handleChange}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white"
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white transition-colors duration-100"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
                   <div>
-                    <label className="block text-slate-600 text-[11px] mb-1">No. Sertifikat Refreshing STKP</label>
+                    <label className="block text-slate-600 text-xs mb-1">No. Sertifikat Refreshing STKP</label>
                     <input
                       type="text"
                       name="refreshing_cert_number"
                       value={formData.refreshing_cert_number}
                       onChange={handleChange}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono"
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono transition-colors duration-100"
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-600 text-[11px] mb-1">Tanggal / Tahun Refreshing</label>
+                    <label className="block text-slate-600 text-xs mb-1">Tanggal / Tahun Refreshing</label>
                     <input
                       type="date"
                       name="refreshing_date"
                       value={formData.refreshing_date}
                       onChange={handleChange}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white"
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white transition-colors duration-100"
                     />
                   </div>
                 </div>
@@ -494,8 +494,8 @@ export default function PersonnelDossierEditModal({
                 <span className="font-semibold text-slate-800 block text-xs">
                   Sentuh / Klik chip untuk memilih kompetensi yang dimiliki (1-Tap Toggle)
                 </span>
-                <span className="text-[11px] text-slate-500 block mt-0.5">
-                  Dipilih: {formData.additional_competencies.length} dari {ALL_ADDITIONAL_COMPETENCIES.length} kompetensi
+                <span className="text-xs text-slate-500 block mt-0.5">
+                  Dipilih: <span className="font-mono tabular-nums font-bold">{formData.additional_competencies.length}</span> dari <span className="font-mono tabular-nums font-bold">{ALL_ADDITIONAL_COMPETENCIES.length}</span> kompetensi
                 </span>
               </div>
 
@@ -515,7 +515,7 @@ export default function PersonnelDossierEditModal({
                     >
                       <div className="flex items-center gap-2">
                         <div
-                          className={`w-4 h-4 rounded flex items-center justify-center border text-[10px] ${
+                          className={`w-4 h-4 rounded flex items-center justify-center border text-xs ${
                             isChecked
                               ? 'bg-emerald-600 border-emerald-600 text-white'
                               : 'border-slate-300 bg-slate-100'
@@ -527,7 +527,7 @@ export default function PersonnelDossierEditModal({
                           {comp}
                         </span>
                       </div>
-                      <span className={`text-[10px] font-semibold ${isChecked ? 'text-emerald-700' : 'text-slate-400'}`}>
+                      <span className={`text-xs font-semibold ${isChecked ? 'text-emerald-700' : 'text-slate-400'}`}>
                         {isChecked ? 'Dimiliki' : 'Belum'}
                       </span>
                     </button>

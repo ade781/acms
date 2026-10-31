@@ -183,7 +183,7 @@ export default function UploadDocumentModal({
               <span className="text-xs font-semibold text-arff-primary hover:underline">
                 {docFile ? docFile.name : 'Pilih berkas dari perangkat'}
               </span>
-              <span className="text-[11px] text-slate-400">
+              <span className="text-xs text-slate-400">
                 Format didukung: PDF, WebP, PNG, atau JPEG (Maks. 10 MB)
               </span>
             </label>
