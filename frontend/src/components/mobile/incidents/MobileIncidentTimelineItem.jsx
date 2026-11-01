@@ -59,86 +59,106 @@ export const INCIDENT_STATUSES = {
   },
 };
 
-export default function MobileIncidentTimelineItem({ incident, onClick }) {
-  const priorityKey = (incident.priority_level || 'rendah').toLowerCase();
-  const priorityMeta = INCIDENT_PRIORITIES[priorityKey] || INCIDENT_PRIORITIES.rendah;
+  function formatShortDate(dateStr) {
+    if (!dateStr) return '';
+    try {
+      const raw = String(dateStr).split('T')[0];
+      const [y, m, d] = raw.split('-').map(Number);
+      const date = new Date(y, m - 1, d);
+      return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+    } catch {
+      return dateStr;
+    }
+  }
 
-  const statusKey = (incident.status || 'dalam_proses').toLowerCase();
-  const statusMeta = INCIDENT_STATUSES[statusKey] || INCIDENT_STATUSES.dalam_proses;
+  export default function MobileIncidentTimelineItem({ incident, onClick, showDate = false }) {
+    const priorityKey = (incident.priority_level || 'rendah').toLowerCase();
+    const priorityMeta = INCIDENT_PRIORITIES[priorityKey] || INCIDENT_PRIORITIES.rendah;
 
-  const timeFormatted = incident.incident_time
-    ? (incident.incident_time.length > 5 ? incident.incident_time.slice(0, 5) : incident.incident_time)
-    : '--:--';
+    const statusKey = (incident.status || 'dalam_proses').toLowerCase();
+    const statusMeta = INCIDENT_STATUSES[statusKey] || INCIDENT_STATUSES.dalam_proses;
 
-  const attachmentCount = incident.attachment_count || (incident.attachments?.length || 0);
+    const timeFormatted = incident.incident_time
+      ? (incident.incident_time.length > 5 ? incident.incident_time.slice(0, 5) : incident.incident_time)
+      : '--:--';
 
-  return (
-    <div
-      onClick={onClick}
-      className="bg-white rounded-lg border border-slate-200 hover:border-slate-300 p-2.5 shadow-xs space-y-1.5 cursor-pointer transition-colors duration-100"
-    >
-      {/* Top line: Report number, time, and priority badge */}
-      <div className="flex items-center justify-between border-b border-slate-100 pb-1">
-        <div className="flex items-center gap-1.5">
-          <span className="font-mono tabular-nums text-slate-800 text-xs font-bold">
-            {incident.report_number || `INC-${incident.id}`}
-          </span>
-          <span className="text-xs text-slate-400">•</span>
-          <span className="font-mono tabular-nums text-red-600 text-xs font-bold flex items-center gap-0.5">
-            <Clock className="w-3 h-3 text-red-500" />
-            {timeFormatted} WIB
-          </span>
+    const attachmentCount = incident.attachment_count || (incident.attachments?.length || 0);
+
+    return (
+      <div
+        onClick={onClick}
+        className="bg-white rounded-lg border border-slate-200 hover:border-slate-300 p-2.5 shadow-xs space-y-1.5 cursor-pointer transition-colors duration-100"
+      >
+        {/* Top line: Report number, time, and priority badge */}
+        <div className="flex items-center justify-between border-b border-slate-100 pb-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-mono tabular-nums text-slate-800 text-xs font-bold">
+                {incident.report_number || `INC-${incident.id}`}
+              </span>
+              <span className="text-xs text-slate-400">•</span>
+              {showDate && (incident.incident_date || incident.shift_date) && (
+                <>
+                  <span className="text-xs font-semibold text-slate-700">
+                    {formatShortDate(incident.incident_date || incident.shift_date)}
+                  </span>
+                  <span className="text-xs text-slate-400">•</span>
+                </>
+              )}
+              <span className="font-mono tabular-nums text-red-600 text-xs font-bold flex items-center gap-0.5">
+                <Clock className="w-3 h-3 text-red-500" />
+                {timeFormatted} WIB
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <span className={`px-1.5 py-0.5 rounded text-xs font-bold border flex items-center gap-1 ${priorityMeta.badge}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${priorityMeta.dot}`}></span>
+                {priorityMeta.label}
+              </span>
+            </div>
+          </div>
+
+          {/* Incident Title */}
+          <div className="flex items-start justify-between gap-1">
+            <h4 className="font-bold text-slate-900 text-xs leading-snug">
+              {incident.title}
+            </h4>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+          </div>
+
+          {/* Chronology snippet */}
+          <p className="text-xs text-slate-600 line-clamp-2 leading-snug">
+            {incident.chronology}
+          </p>
+
+          {/* Footer: Location, aircraft info, status, photo count */}
+          <div className="flex items-center justify-between text-xs text-slate-500 pt-0.5 border-t border-slate-100">
+            <div className="flex items-center gap-2 truncate">
+              <span className="flex items-center gap-0.5 font-medium text-slate-700 truncate">
+                <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                <span className="truncate">{incident.location || 'Airside'}</span>
+              </span>
+
+              {incident.aircraft_info && (
+                <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-xs truncate">
+                  {incident.aircraft_info}
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              {attachmentCount > 0 && (
+                <span className="flex items-center gap-0.5 text-slate-500 font-semibold font-mono tabular-nums text-xs">
+                  <Paperclip className="w-3 h-3" />
+                  {attachmentCount}
+                </span>
+              )}
+
+              <span className={`px-1.5 py-0.5 rounded text-xs font-bold border ${statusMeta.badge}`}>
+                {statusMeta.label}
+              </span>
+            </div>
+          </div>
         </div>
-
-        <div className="flex items-center gap-1">
-          <span className={`px-1.5 py-0.5 rounded text-xs font-bold border flex items-center gap-1 ${priorityMeta.badge}`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${priorityMeta.dot}`}></span>
-            {priorityMeta.label}
-          </span>
-        </div>
-      </div>
-
-      {/* Incident Title */}
-      <div className="flex items-start justify-between gap-1">
-        <h4 className="font-bold text-slate-900 text-xs leading-snug">
-          {incident.title}
-        </h4>
-        <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-      </div>
-
-      {/* Chronology snippet */}
-      <p className="text-xs text-slate-600 line-clamp-2 leading-snug">
-        {incident.chronology}
-      </p>
-
-      {/* Footer: Location, aircraft info, status, photo count */}
-      <div className="flex items-center justify-between text-xs text-slate-500 pt-0.5 border-t border-slate-100">
-        <div className="flex items-center gap-2 truncate">
-          <span className="flex items-center gap-0.5 font-medium text-slate-700 truncate">
-            <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-            <span className="truncate">{incident.location || 'Airside'}</span>
-          </span>
-
-          {incident.aircraft_info && (
-            <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-xs truncate">
-              {incident.aircraft_info}
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1.5 shrink-0">
-          {attachmentCount > 0 && (
-            <span className="flex items-center gap-0.5 text-slate-500 font-semibold font-mono tabular-nums text-xs">
-              <Paperclip className="w-3 h-3" />
-              {attachmentCount}
-            </span>
-          )}
-
-          <span className={`px-1.5 py-0.5 rounded text-xs font-bold border ${statusMeta.badge}`}>
-            {statusMeta.label}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
+        );
 }

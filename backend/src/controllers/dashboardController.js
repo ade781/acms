@@ -47,6 +47,7 @@ export const getDashboardSummary = async (req, res) => {
       LEFT JOIN personnel p_log
         ON p_log.id = vrl.pic_personnel_id
       WHERE v.is_active = 1
+      ORDER BY CASE v.category WHEN 'utama' THEN 1 WHEN 'pendukung' THEN 2 WHEN 'posko' THEN 3 ELSE 4 END, v.id ASC
     `;
     const vehiclesParams = [shiftDate, shiftNumber, cleanTeamGroup, shiftDate, shiftNumber, cleanTeamGroup];
 
@@ -199,10 +200,11 @@ export const getDashboardSummary = async (req, res) => {
     };
 
     // Watchroom
+    const poskoUnit = vehicles.find(v => v.category === 'posko' || v.code_name === 'WATCHROOM');
     const watchroomSummary = watchrooms.length > 0 ? watchrooms[0] : {
-      status: 'belum_dilaporkan',
-      notes: 'Belum ada laporan checklist watchroom',
-      inspector_name: null
+      status: poskoUnit?.status || 'belum_dilaporkan',
+      notes: poskoUnit?.justification || 'Belum ada laporan checklist watchroom',
+      inspector_name: poskoUnit?.pic_name || null
     };
 
     // Kekuatan Personel
@@ -245,7 +247,7 @@ export const getDashboardSummary = async (req, res) => {
       shift: activeShift,
       fleet: fleetSummary,
       vehicles: vehicles,
-      watchroom: watchroomSummary,
+      watchroom: poskoUnit || watchroomSummary,
       personnel: personnelSummary,
       deployments: deployments,
       duty_count: personnelSummary.duty_count,

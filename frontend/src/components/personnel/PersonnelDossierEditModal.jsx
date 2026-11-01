@@ -9,6 +9,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { ALL_ADDITIONAL_COMPETENCIES } from './PersonnelDossier';
+import { OPERATIONAL_ROLES } from '../../utils/shiftHelper';
 import { getErrorMessage } from '../../utils/errorHelper';
 
 export default function PersonnelDossierEditModal({
@@ -29,6 +30,8 @@ export default function PersonnelDossierEditModal({
     birth_date: '',
     tmt_date: '',
     employment_status: 'organik',
+    team_group: 'Alpha',
+    rank_position: '',
     formal_education: '',
     recognized_education: '',
     cert_level: 'Junior',
@@ -75,6 +78,8 @@ export default function PersonnelDossierEditModal({
         birth_date: formatDateForInput(personnel.birth_date),
         tmt_date: formatDateForInput(personnel.tmt_date),
         employment_status: personnel.employment_status || 'organik',
+        team_group: personnel.team_group || 'Alpha',
+        rank_position: personnel.rank_position || '',
         formal_education: personnel.formal_education || '',
         recognized_education: personnel.recognized_education || '',
         cert_level: personnel.cert_level || 'Junior',
@@ -273,6 +278,70 @@ export default function PersonnelDossierEditModal({
                       <option value="kontrak">Kontrak</option>
                     </select>
                   </div>
+                )}
+
+                {/* Penempatan Regu Dinas Operasional & Jabatan/Role Kedinasan */}
+                {isStaffAdmin ? (
+                  <>
+                    <div>
+                      <label className="block font-medium text-slate-700 mb-1">
+                        Regu Dinas Operasional
+                      </label>
+                      <select
+                        name="team_group"
+                        value={formData.team_group}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500 transition-colors duration-100 font-semibold"
+                      >
+                        <option value="Alpha">Regu Alpha</option>
+                        <option value="Bravo">Regu Bravo</option>
+                        <option value="Charlie">Regu Charlie</option>
+                        <option value="Delta">Regu Delta</option>
+                        <option value="Non-Shift">Non-Shift (Administrasi)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-medium text-slate-700 mb-1">
+                        Jabatan Operasional / Role
+                      </label>
+                      <select
+                        name="rank_position"
+                        value={formData.rank_position}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500 transition-colors duration-100 font-semibold"
+                      >
+                        {OPERATIONAL_ROLES.map((r) => (
+                          <option key={r.rank_position} value={r.rank_position}>
+                            {r.label}
+                          </option>
+                        ))}
+                        {formData.rank_position && !OPERATIONAL_ROLES.some((r) => r.rank_position === formData.rank_position) && (
+                          <option value={formData.rank_position}>{formData.rank_position}</option>
+                        )}
+                      </select>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block font-medium text-slate-500 mb-1">
+                        Regu Dinas Operasional
+                      </label>
+                      <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-medium select-none">
+                        {formData.team_group === 'Non-Shift' ? 'Non-Shift (Administrasi)' : `Regu ${formData.team_group}`}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-medium text-slate-500 mb-1">
+                        Jabatan Operasional / Role
+                      </label>
+                      <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-medium select-none">
+                        {formData.rank_position || '-'}
+                      </div>
+                    </div>
+                  </>
                 )}
                 <div>
                   <label className="block font-medium text-slate-700 mb-1">Pendidikan Dimiliki</label>

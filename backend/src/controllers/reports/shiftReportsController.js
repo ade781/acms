@@ -99,7 +99,7 @@ export const getShiftReportPdf = async (req, res) => {
     // Ambil data pejabat Section Head / Dept Head secara dinamis dari database
     const deptHeadData = await getOfficialSignatory(pool);
 
-    // Ambil data kesiapan kendaraan & PIC ploting resmi shift (7 armada pemadam murni)
+    // Ambil data kesiapan kendaraan & PIC ploting resmi shift (seluruh armada & posko)
     const [vehicles] = await pool.query(
       `SELECT v.code_name, v.vehicle_name, v.category, vrl.status, vrl.justification,
               COALESCE(deploy_pic.full_name, p.full_name) as pic_name
@@ -114,7 +114,8 @@ export const getShiftReportPdf = async (req, res) => {
          WHERE ps.shift_date = ? AND ps.shift_number = ? AND ps.team_group = ? AND pd.is_pic = 1
        ) deploy_pic ON deploy_pic.vehicle_id = v.id
        LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
-       WHERE v.is_active = 1 AND v.category != 'posko' AND v.code_name != 'WATCHROOM'`,
+       WHERE v.is_active = 1
+       ORDER BY CASE v.category WHEN 'utama' THEN 1 WHEN 'pendukung' THEN 2 WHEN 'posko' THEN 3 ELSE 4 END, v.id ASC`,
       [shiftDate, shiftNumber, teamGroup, shiftDate, shiftNumber, teamGroup]
     );
 
@@ -295,7 +296,7 @@ export const getShiftSummaryReport = async (req, res) => {
          ) deploy_pic ON deploy_pic.vehicle_id = v.id
          LEFT JOIN personnel p_log ON p_log.id = vrl.pic_personnel_id
          WHERE v.is_active = 1
-         ORDER BY v.category ASC, v.code_name ASC`,
+         ORDER BY CASE v.category WHEN 'utama' THEN 1 WHEN 'pendukung' THEN 2 WHEN 'posko' THEN 3 ELSE 4 END, v.id ASC`,
         [shiftDate, shiftNumber, teamGroup, shiftDate, shiftNumber, teamGroup]
       ),
       pool.query(
@@ -358,7 +359,7 @@ export const getShiftSummaryReport = async (req, res) => {
       }
     }
 
-    const vehicles = allVehicles.filter((v) => v.category !== 'posko' && v.code_name !== 'WATCHROOM');
+    const vehicles = allVehicles;
     const watchroomUnit = allVehicles.find((v) => v.category === 'posko' || v.code_name === 'WATCHROOM');
     const watchroom = watchroomUnit
       ? {

@@ -16,7 +16,7 @@ export default function MobileActivities() {
   const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState(null);
-  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('ALL');
+  // Filter kategori dihapus untuk kesederhanaan mobile
   const [toastMsg, setToastMsg] = useState(null);
 
   // In-app Delete Modal state
@@ -87,10 +87,7 @@ export default function MobileActivities() {
     }
   };
 
-  const filteredActivities = activities.filter((act) => {
-    if (selectedCategoryFilter === 'ALL') return true;
-    return act.activity_type === selectedCategoryFilter;
-  });
+  const filteredActivities = activities;
 
   return (
     <div className="space-y-2 pb-6">
@@ -150,38 +147,7 @@ export default function MobileActivities() {
       </div>
 
 
-      {/* Filter Kategori Chips */}
-      {activities.length > 0 && (
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 text-xs">
-          <button
-            type="button"
-            onClick={() => setSelectedCategoryFilter('ALL')}
-            className={`px-2.5 py-1 rounded-full border whitespace-nowrap font-semibold transition-colors duration-100 ${selectedCategoryFilter === 'ALL'
-                ? 'bg-red-600 text-white border-red-600 shadow-2xs'
-                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-              }`}
-          >
-            Semua (<span className="font-mono tabular-nums">{activities.length}</span>)
-          </button>
-          {Object.entries(ACTIVITY_CATEGORIES).map(([key, cat]) => {
-            const count = activities.filter((a) => a.activity_type === key).length;
-            if (count === 0) return null;
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setSelectedCategoryFilter(key)}
-                className={`px-2.5 py-1 rounded-full border whitespace-nowrap font-semibold transition-colors duration-100 ${selectedCategoryFilter === key
-                    ? 'bg-red-600 text-white border-red-600'
-                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                  }`}
-              >
-                {cat.label} (<span className="font-mono tabular-nums">{count}</span>)
-              </button>
-            );
-          })}
-        </div>
-      )}
+
 
       {/* Error state */}
       {error && (

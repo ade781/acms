@@ -135,16 +135,13 @@ export default function ShiftReportsPage() {
 
 
   const presentDeployments = deployments.filter((d) => d.deployment_type !== 'absent');
-  const serviceableCount =
-    vehicles.filter((v) => v.status === 'serviceable').length +
-    (watchroomData?.status === 'serviceable' ? 1 : 0);
-  const unserviceableCount =
-    vehicles.filter((v) => v.status === 'unserviceable').length +
-    (watchroomData?.status === 'unserviceable' ? 1 : 0);
-  const unverifiedCount =
-    vehicles.filter((v) => !v.status || v.status === 'belum_dilaporkan').length +
-    (!watchroomData?.status || watchroomData?.status === 'belum_dilaporkan' ? 1 : 0);
-  const totalUnits = vehicles.length + (watchroomData?.status ? 1 : 0);
+  const serviceableCount = vehicles.filter((v) => v.status === 'serviceable').length;
+  const unserviceableCount = vehicles.filter((v) => v.status === 'unserviceable').length;
+  const unverifiedCount = vehicles.filter((v) => !v.status || v.status === 'belum_dilaporkan').length;
+  const totalUnits = vehicles.length;
+
+  const watchroomUnit = vehicles.find((v) => v.category === 'posko' || v.code_name === 'WATCHROOM');
+  const watchroomStatus = watchroomUnit?.status || watchroomData?.status || 'belum_dilaporkan';
 
   return (
     <div className="space-y-4">
@@ -243,16 +240,16 @@ export default function ShiftReportsPage() {
             </div>
             <span
               className={`px-2 py-0.5 rounded text-xs font-bold ${
-                watchroomData?.status === 'serviceable'
+                watchroomStatus === 'serviceable'
                   ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                  : watchroomData?.status === 'unserviceable'
+                  : watchroomStatus === 'unserviceable'
                   ? 'bg-red-50 text-red-700 border border-red-200'
                   : 'bg-slate-100 text-slate-600 border border-slate-200'
               }`}
             >
-              {watchroomData?.status === 'serviceable'
+              {watchroomStatus === 'serviceable'
                 ? 'Serviceable'
-                : watchroomData?.status === 'unserviceable'
+                : watchroomStatus === 'unserviceable'
                 ? 'Unserviceable'
                 : 'Belum Dicek'}
             </span>
@@ -356,6 +353,7 @@ export default function ShiftReportsPage() {
               {vehicles.map((v) => {
                 const isServ = v.status === 'serviceable';
                 const isUnserv = v.status === 'unserviceable';
+                const isPosko = v.category === 'posko' || v.code_name === 'WATCHROOM';
 
                 return (
                   <div
@@ -364,22 +362,29 @@ export default function ShiftReportsPage() {
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
+                        {isPosko && (
+                          <Radio className="w-4 h-4 text-blue-600 shrink-0" />
+                        )}
                         <span className="font-bold text-slate-900 text-sm truncate">
                           <span className="font-mono tabular-nums">{v.code_name}</span> - {v.vehicle_name}
                         </span>
-                        <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold font-sans uppercase">
-                          {v.category === 'utama' ? 'Utama' : 'Pendukung'}
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded font-semibold font-sans uppercase ${
+                            isPosko ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {isPosko ? 'Posko Komunikasi' : v.category === 'utama' ? 'Utama' : 'Pendukung'}
                         </span>
                       </div>
                       <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
                         <span>
                           PIC: <strong className="text-slate-700">{v.pic_name || 'Belum Ditunjuk'}</strong>
                         </span>
-                        {v.justification && (
+                        {(v.justification || v.notes) && (
                           <>
                             <span className="text-slate-300">•</span>
                             <span className="text-red-700 font-medium truncate max-w-xs">
-                              {v.justification}
+                              {v.justification || v.notes}
                             </span>
                           </>
                         )}
@@ -414,72 +419,6 @@ export default function ShiftReportsPage() {
                   </div>
                 );
               })}
-
-              {/* Baris Posko Watch Room */}
-              <div className="py-3 flex items-center justify-between gap-3 text-xs">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-900 text-sm truncate">
-                      <span className="font-mono tabular-nums">WATCHROOM</span> - Posko ARFF
-                    </span>
-                    <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-semibold font-sans uppercase">
-                      Posko Komunikasi
-                    </span>
-                  </div>
-                  <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
-                    <span>
-                      PIC: <strong className="text-slate-700">{watchroomData?.pic_name || 'Belum Ditunjuk'}</strong>
-                    </span>
-                    {watchroomData?.notes && (
-                      <>
-                        <span className="text-slate-300">•</span>
-                        <span className="truncate max-w-xs">{watchroomData.notes}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedAuditUnit({
-                      id: 'WATCHROOM',
-                      code_name: 'WATCHROOM',
-                      vehicle_name: 'Posko ARFF',
-                      category: 'posko',
-                      status: watchroomData?.status || 'belum_dilaporkan',
-                      justification: watchroomData?.notes || '',
-                    });
-                    setIsAuditModalOpen(true);
-                  }}
-                  className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors duration-100 flex items-center gap-1.5 shrink-0 ${
-                    watchroomData?.status === 'unserviceable'
-                      ? 'bg-red-50 text-red-800 border-red-300 hover:bg-red-100'
-                      : watchroomData?.status === 'serviceable'
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
-                      : 'bg-slate-50 text-slate-600 border-slate-300 hover:bg-slate-100'
-                  }`}
-                  title="Klik untuk membuka audit trail watch room"
-                >
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      watchroomData?.status === 'unserviceable'
-                        ? 'bg-red-600'
-                        : watchroomData?.status === 'serviceable'
-                        ? 'bg-emerald-600'
-                        : 'bg-slate-400'
-                    }`}
-                  />
-                  <span>
-                    {watchroomData?.status === 'unserviceable'
-                      ? 'Unserviceable'
-                      : watchroomData?.status === 'serviceable'
-                      ? 'Serviceable'
-                      : 'Belum Dicek'}
-                  </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                </button>
-              </div>
             </div>
           </div>
         </div>

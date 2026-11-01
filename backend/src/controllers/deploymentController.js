@@ -34,12 +34,12 @@ export const getCurrentDeployment = async (req, res) => {
     const [teamCountRows] = await pool.query('SELECT COUNT(*) as total_team_members FROM personnel WHERE team_group = ? AND is_active = 1', [targetTeam]);
     const totalTeamMembers = Number(teamCountRows[0]?.total_team_members || 0);
 
-    // Ambil seluruh master armada operasional aktif (7 armada fisik)
+    // Ambil seluruh master armada operasional & posko aktif
     const [masterVehicles] = await pool.query(
       `SELECT id, code_name as vehicle_code, vehicle_name, category
        FROM vehicles
-       WHERE is_active = 1 AND category != 'posko' AND code_name != 'WATCHROOM'
-       ORDER BY category ASC, id ASC`
+       WHERE is_active = 1
+       ORDER BY CASE category WHEN 'utama' THEN 1 WHEN 'pendukung' THEN 2 WHEN 'posko' THEN 3 ELSE 4 END, id ASC`
     );
 
     const defaultVehiclesList = masterVehicles.map((v) => ({
@@ -145,23 +145,33 @@ export const getCurrentDeployment = async (req, res) => {
     const absentDeployments = [];
 
     deployments.forEach(item => {
-      if (item.deployment_type === 'vehicle_utama' || item.deployment_type === 'vehicle_pendukung') {
-        const vId = item.vehicle_id;
-        if (!vehicleDeploymentsMap[vId]) {
-          vehicleDeploymentsMap[vId] = {
-            vehicle_id: vId,
-            vehicle_code: item.vehicle_code,
-            vehicle_name: item.vehicle_name,
-            category: item.vehicle_category,
-            pic: null,
-            crew: []
-          };
+      if (
+        item.deployment_type === 'vehicle_utama' ||
+        item.deployment_type === 'vehicle_pendukung' ||
+        item.deployment_type === 'watchroom' ||
+        item.deployment_type === 'posko' ||
+        item.vehicle_id
+      ) {
+        const vId = item.vehicle_id || masterVehicles.find(v => v.category === 'posko' || v.vehicle_code === 'WATCHROOM')?.id;
+        if (vId) {
+          if (!vehicleDeploymentsMap[vId]) {
+            vehicleDeploymentsMap[vId] = {
+              vehicle_id: vId,
+              vehicle_code: item.vehicle_code,
+              vehicle_name: item.vehicle_name,
+              category: item.vehicle_category || 'posko',
+              pic: null,
+              crew: []
+            };
+          }
+          if (item.is_pic === 1) {
+            vehicleDeploymentsMap[vId].pic = item;
+          }
+          vehicleDeploymentsMap[vId].crew.push(item);
         }
-        if (item.is_pic === 1) {
-          vehicleDeploymentsMap[vId].pic = item;
-        }
-        vehicleDeploymentsMap[vId].crew.push(item);
-      } else if (item.deployment_type === 'watchroom') {
+      }
+
+      if (item.deployment_type === 'watchroom') {
         watchroomDeployments.push(item);
       } else if (item.deployment_type === 'absent') {
         absentDeployments.push(item);

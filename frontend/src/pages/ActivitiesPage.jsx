@@ -7,7 +7,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { cleanTeam } from '../utils/shiftHelper';
+import { cleanTeam, getDailyRoster } from '../utils/shiftHelper';
 import api from '../services/api';
 import { downloadActivityReportPdf, fetchActivityReportPdfBlob } from '../services/reportService';
 import Button from '../components/common/Button';
@@ -17,7 +17,7 @@ import { compressImageToWebP } from '../utils/imageCompressor';
 import {
   OFFICIAL_ACTIVITY_CATEGORIES,
 } from '../utils/activityCategories';
-import ActivityTimelineList from '../components/activities/ActivityTimelineList';
+import DailyShiftActivityView from '../components/activities/DailyShiftActivityView';
 import ActivityFormModal from '../components/activities/ActivityFormModal';
 import ActivityDeleteModal from '../components/activities/ActivityDeleteModal';
 import ActivityExportModal from '../components/activities/ActivityExportModal';
@@ -34,6 +34,34 @@ export default function ActivitiesPage() {
   const [error, setError] = useState(null);
   const [activities, setActivities] = useState([]);
   const [toastMsg, setToastMsg] = useState(null);
+
+  // Tanggal & Shift Terpilih untuk Ide 1 (Daily Date Strip + 3-Shift Selector)
+  const [selectedDate, setSelectedDate] = useState(
+    activeDate || new Date().toISOString().split('T')[0]
+  );
+  const [selectedShift, setSelectedShift] = useState(
+    Number(activeShiftNumber) || 1
+  );
+
+  useEffect(() => {
+    if (activeDate) {
+      setSelectedDate(activeDate);
+    }
+  }, [activeDate]);
+
+  useEffect(() => {
+    if (activeShiftNumber) {
+      setSelectedShift(Number(activeShiftNumber) || 1);
+    }
+  }, [activeShiftNumber]);
+
+  // Roster dinas untuk tanggal yang sedang dipilih
+  const rosterForDate = useMemo(() => getDailyRoster(selectedDate), [selectedDate]);
+  const currentShiftTeam = useMemo(() => {
+    if (selectedShift === 1) return cleanTeam(rosterForDate.shift1 || 'Alpha');
+    if (selectedShift === 2) return cleanTeam(rosterForDate.shift2 || 'Bravo');
+    return cleanTeam(rosterForDate.shift3 || 'Charlie');
+  }, [selectedShift, rosterForDate]);
 
   // Filter & Pagination
   const [selectedFilterCategory, setSelectedFilterCategory] = useState('ALL');
@@ -65,7 +93,7 @@ export default function ActivitiesPage() {
 
   // Mode Tampilan: 'shift' (Shift Ini) | 'range' (Rentang Periode / Riwayat)
   const [viewMode, setViewMode] = useState('shift');
-  const [rangePeriod, setRangePeriod] = useState('1month');
+  const [rangePeriod, setRangePeriod] = useState('1week');
 
   // State Modal Konfigurasi Ekspor PDF Logbook Kegiatan
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -97,7 +125,7 @@ export default function ActivitiesPage() {
     try {
       let endpoint = '';
       if (viewMode === 'shift') {
-        endpoint = `/activities?date=${activeDate}&shift=${activeShiftNumber}&team_group=${cleanTeam(activeTeam)}`;
+        endpoint = `/activities?date=${selectedDate}`;
       } else {
         endpoint = `/activities?period=${rangePeriod || '1month'}`;
       }
@@ -113,7 +141,7 @@ export default function ActivitiesPage() {
     } finally {
       setLoading(false);
     }
-  }, [viewMode, activeDate, activeShiftNumber, activeTeam, rangePeriod]);
+  }, [viewMode, selectedDate, rangePeriod]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -253,9 +281,9 @@ export default function ActivitiesPage() {
     setSubmitting(true);
     try {
       const formData = new FormData();
-      formData.append('shift_date', activeDate);
-      formData.append('shift_number', String(activeShiftNumber));
-      formData.append('team_group', cleanTeam(activeTeam));
+      formData.append('shift_date', selectedDate || activeDate);
+      formData.append('shift_number', String(selectedShift || activeShiftNumber || 1));
+      formData.append('team_group', currentShiftTeam || cleanTeam(activeTeam));
       formData.append('activity_type', activityType);
       formData.append('activity_time', activityTime);
       formData.append('title', title.trim());
@@ -404,6 +432,7 @@ export default function ActivitiesPage() {
               type="button"
               onClick={() => {
                 setViewMode('range');
+                setRangePeriod('1week');
                 setCurrentPage(1);
               }}
               className={`px-3 py-1.5 rounded-md transition-colors duration-100 cursor-pointer ${
@@ -441,7 +470,7 @@ export default function ActivitiesPage() {
           </div>
         </div>
 
-        {/* Kontrol Periode jika dalam mode Riwayat & Arsip (Hanya 7 Hari, 30 Hari, Triwulan) */}
+        {/* Kontrol Periode jika dalam mode Riwayat & Arsip (7 Hari, 30 Hari, Triwulan) */}
         {viewMode === 'range' && (
           <div className="flex items-center gap-2 flex-wrap">
             <div className="inline-flex items-center gap-1 p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs flex-wrap">
@@ -490,21 +519,26 @@ export default function ActivitiesPage() {
       )}
 
       {/* Row 3: Immediate Timeline & Daftar Kegiatan Content */}
-      <ActivityTimelineList
+      <DailyShiftActivityView
         activities={filteredActivities}
-        paginatedActivities={paginatedActivities}
+        selectedDate={selectedDate}
+        onDateChange={(d) => {
+          setSelectedDate(d);
+          setCurrentPage(1);
+        }}
+        selectedShift={selectedShift}
+        onShiftChange={(s) => setSelectedShift(s)}
         canManageActivity={canManageActivity}
-        activeTeam={activeTeam}
-        loading={loading}
-        error={error}
-        onRetry={fetchActivities}
+        onOpenCreateModal={handleOpenCreateModal}
         onOpenEditModal={handleOpenEditModal}
         onOpenDeleteModal={handleOpenDeleteModal}
         onPreviewPhoto={(url) => setPreviewImageUrl(url)}
-        currentPage={currentPage}
-        totalPages={totalPages}
-        pageSize={pageSize}
-        onPageChange={(p) => setCurrentPage(p)}
+        viewMode={viewMode}
+        onViewModeChange={(mode) => setViewMode(mode)}
+        rangePeriod={rangePeriod}
+        loading={loading}
+        error={error}
+        onRetry={fetchActivities}
       />
 
       {/* Modal Tambah / Edit Kegiatan */}
@@ -512,9 +546,9 @@ export default function ActivitiesPage() {
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         editingId={editingId}
-        activeShiftNumber={activeShiftNumber}
-        activeTeam={activeTeam}
-        activeDate={activeDate}
+        activeShiftNumber={selectedShift}
+        activeTeam={currentShiftTeam}
+        activeDate={selectedDate}
         activityTime={activityTime}
         setActivityTime={setActivityTime}
         activityType={activityType}

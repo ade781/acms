@@ -80,80 +80,75 @@ export default function MobileActivityTimelineItem({
           </div>
         </div>
 
-        {/* Title */}
-        <h4 className="font-bold text-slate-900 text-xs leading-snug">
-          {activity.title}
-        </h4>
+        {/* Title, Description & Right-Side Photo */}
+        <div className="flex items-start justify-between gap-2.5">
+          <div className="flex-1 min-w-0 space-y-1">
+            <h4 className="font-bold text-slate-900 text-xs leading-snug">
+              {activity.title}
+            </h4>
 
-        {/* Description */}
-        <p className={`text-xs text-slate-600 leading-snug ${expanded ? '' : 'line-clamp-2'}`}>
-          {activity.description}
-        </p>
+            <p className={`text-xs text-slate-600 leading-snug ${expanded ? '' : 'line-clamp-2'}`}>
+              {activity.description}
+            </p>
 
-        {activity.description && activity.description.length > 90 && (
-          <button
-            type="button"
-            onClick={() => setExpanded(!expanded)}
-            className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-0.5"
-          >
-            {expanded ? (
-              <>
-                <span>Ringkas</span>
-                <ChevronUp className="w-2.5 h-2.5" />
-              </>
-            ) : (
-              <>
-                <span>Selengkapnya</span>
-                <ChevronDown className="w-2.5 h-2.5" />
-              </>
+            {activity.description && activity.description.length > 90 && (
+              <button
+                type="button"
+                onClick={() => setExpanded(!expanded)}
+                className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-0.5"
+              >
+                {expanded ? (
+                  <>
+                    <span>Ringkas</span>
+                    <ChevronUp className="w-2.5 h-2.5" />
+                  </>
+                ) : (
+                  <>
+                    <span>Selengkapnya</span>
+                    <ChevronDown className="w-2.5 h-2.5" />
+                  </>
+                )}
+              </button>
             )}
-          </button>
-        )}
 
-        {/* Result Notes if available */}
-        {activity.result_notes && (
-          <div className="p-1.5 rounded bg-slate-50 border border-slate-200/80 text-xs text-slate-700 space-y-0.5">
-            <span className="font-bold text-slate-800 block text-xs uppercase tracking-wide">
-              Hasil / Catatan Khusus:
-            </span>
-            <p className="leading-snug">{activity.result_notes}</p>
+            {/* Result Notes if available */}
+            {activity.result_notes && (
+              <div className="p-1.5 rounded bg-slate-50 border border-slate-200/80 text-xs text-slate-700 space-y-0.5">
+                <span className="font-bold text-slate-800 block text-[10px] uppercase tracking-wide">
+                  Hasil / Catatan Khusus:
+                </span>
+                <p className="leading-snug">{activity.result_notes}</p>
+              </div>
+            )}
+
+            {/* Personel Pelaksana if any */}
+            {actors.length > 0 && (
+              <div className="flex items-center gap-1 text-xs text-slate-500 pt-0.5">
+                <User className="w-3 h-3 text-slate-400 shrink-0" />
+                <span className="truncate">
+                  Pelaksana: <strong className="text-slate-700">{actors.join(', ')}</strong>
+                </span>
+              </div>
+            )}
           </div>
-        )}
 
-        {/* Personel Pelaksana if any */}
-        {actors.length > 0 && (
-          <div className="flex items-center gap-1 text-xs text-slate-500 pt-0.5">
-            <User className="w-3 h-3 text-slate-400 shrink-0" />
-            <span className="truncate">
-              Pelaksana: <strong className="text-slate-700">{actors.join(', ')}</strong>
-            </span>
-          </div>
-        )}
-
-        {/* Attached Photo Thumbnail */}
-        {photoUrl && (
-          <div className="pt-1 border-t border-slate-100 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => setShowPhotoModal(true)}
-              className="flex items-center gap-1.5 p-1 rounded-md bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs text-slate-700 transition-colors duration-100"
-            >
+          {/* Foto di Sisi Kanan (Kompak 64x64px & Dapat Diklik Langsung) */}
+          {photoUrl && (
+            <div className="w-16 h-16 shrink-0 self-start overflow-hidden rounded-lg border border-slate-200 bg-slate-50 shadow-2xs">
               <img
                 src={photoUrl}
-                alt="Dokumentasi Kegiatan"
-                className="w-7 h-7 rounded object-cover border border-slate-300 shrink-0"
+                alt={activity.title}
+                onClick={() => setShowPhotoModal(true)}
+                className="w-full h-full object-cover cursor-pointer active:scale-95 transition-transform duration-100"
+                title="Ketuk untuk melihat foto"
                 onError={(e) => {
                   e.target.onerror = null;
                   e.target.style.display = 'none';
                 }}
               />
-              <span className="font-semibold text-slate-800 flex items-center gap-1">
-                <Camera className="w-3 h-3 text-red-500" />
-                Lihat Foto Dokumentasi
-              </span>
-            </button>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Instant Light Photo Preview Modal */}

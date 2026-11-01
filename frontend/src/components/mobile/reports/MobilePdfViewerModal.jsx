@@ -55,10 +55,14 @@ export default function MobilePdfViewerModal({
   const presentDeployments = deployments.filter((d) => d.deployment_type !== 'absent');
 
   // Helper hitung unit serviceable
+  const hasPoskoInVehicles = vehicles.some((v) => v.category === 'posko' || v.code_name === 'WATCHROOM');
   const serviceableCount =
     vehicles.filter((v) => v.status === 'serviceable').length +
-    (watchroomData?.status === 'serviceable' ? 1 : 0);
-  const totalUnits = Math.max(vehicles.length + (watchroomData?.status ? 1 : 0), 8);
+    (!hasPoskoInVehicles && watchroomData?.status === 'serviceable' ? 1 : 0);
+  const totalUnits = Math.max(
+    vehicles.length + (!hasPoskoInVehicles && watchroomData?.status ? 1 : 0),
+    8
+  );
 
   // Buat URL endpoint PDF resmi ber-token
   const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arff_token') : '') || '';
@@ -413,6 +417,7 @@ export default function MobilePdfViewerModal({
                       {vehicles.map((v) => {
                         const isServ = v.status === 'serviceable';
                         const isUnserv = v.status === 'unserviceable';
+                        const isPosko = v.category === 'posko' || v.code_name === 'WATCHROOM';
                         return (
                           <div
                             key={v.id ?? v.code_name ?? `veh-${v.vehicle_name}`}
@@ -421,6 +426,11 @@ export default function MobilePdfViewerModal({
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-slate-900 font-mono tabular-nums">{v.code_name}</span>
                               <span className="text-slate-600">— {v.vehicle_name}</span>
+                              {isPosko && (
+                                <span className="text-xs px-1.5 py-0.2 bg-blue-50 text-blue-700 font-semibold rounded uppercase">
+                                  Posko Komunikasi
+                                </span>
+                              )}
                               <span className="text-slate-400 text-xs">
                                 ({v.pic_name ? `PIC: ${v.pic_name}` : 'PIC Belum Ditunjuk'})
                               </span>
@@ -440,7 +450,7 @@ export default function MobilePdfViewerModal({
                         );
                       })}
 
-                      {watchroomData && (
+                      {!hasPoskoInVehicles && watchroomData && (watchroomData.status || watchroomData.vehicle_name) && (
                         <div className="flex justify-between items-center px-3 py-1.5 text-xs sm:text-sm bg-slate-50/50">
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-slate-900 font-mono tabular-nums">POSKO WATCHROOM</span>

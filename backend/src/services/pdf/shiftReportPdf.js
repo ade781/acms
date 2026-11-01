@@ -99,28 +99,36 @@ export const generateShiftReportPdf = async (reportData) => {
 
   doc.y = 145;
 
-  // 1. Kesiapan Fasilitas Posko Watch Room
-  checkPageBreak(doc, 40);
-  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('1. KESIAPAN FASILITAS WATCH ROOM & KOMUNIKASI');
-  doc.moveDown(0.3);
+  const hasPoskoInVehicles = (vehicles || []).some(
+    (v) => v.category === 'posko' || v.code_name === 'WATCHROOM'
+  );
 
-  const wrStatus = (watchroom.status || 'BELUM DILAPORKAN').toUpperCase();
-  const wrColor = wrStatus === 'SERVICEABLE' ? '#15803d' : wrStatus === 'UNSERVICEABLE' ? '#b91c1c' : '#64748b';
+  let secNum = 1;
 
-  doc.rect(startX, doc.y, contentWidth, 22).fillAndStroke('#f1f5f9', '#e2e8f0');
-  const wrBoxY = doc.y + 6;
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0f172a').text('Kondisi Operasional:', startX + 10, wrBoxY);
-  doc.font('Helvetica-Bold').fillColor(wrColor).text(wrStatus, startX + 110, wrBoxY);
-  doc.font('Helvetica-Bold').fillColor('#0f172a').text('Pemeriksa:', startX + 220, wrBoxY);
-  doc.font('Helvetica').text(watchroom.inspector_name || 'Operator Watchroom', startX + 270, wrBoxY);
-  doc.font('Helvetica-Bold').text('Catatan:', startX + 390, wrBoxY);
-  doc.font('Helvetica').text(watchroom.notes || 'Nihil', startX + 430, wrBoxY, { width: 115, ellipsis: true });
+  // 1. Kesiapan Fasilitas Posko Watch Room (Hanya dicetak terpisah jika posko belum masuk ke dalam array vehicles)
+  if (!hasPoskoInVehicles && watchroom && (watchroom.status || watchroom.notes || watchroom.inspector_name)) {
+    checkPageBreak(doc, 40);
+    doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text(`${secNum++}. KESIAPAN FASILITAS WATCH ROOM & KOMUNIKASI`);
+    doc.moveDown(0.3);
 
-  doc.y += 28;
+    const wrStatus = (watchroom.status || 'BELUM DILAPORKAN').toUpperCase();
+    const wrColor = wrStatus === 'SERVICEABLE' ? '#15803d' : wrStatus === 'UNSERVICEABLE' ? '#b91c1c' : '#64748b';
 
-  // 2. Kesiapan Armada Utama & Pendukung
+    doc.rect(startX, doc.y, contentWidth, 22).fillAndStroke('#f1f5f9', '#e2e8f0');
+    const wrBoxY = doc.y + 6;
+    doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0f172a').text('Kondisi Operasional:', startX + 10, wrBoxY);
+    doc.font('Helvetica-Bold').fillColor(wrColor).text(wrStatus, startX + 110, wrBoxY);
+    doc.font('Helvetica-Bold').fillColor('#0f172a').text('Pemeriksa:', startX + 220, wrBoxY);
+    doc.font('Helvetica').text(watchroom.inspector_name || 'Operator Watchroom', startX + 270, wrBoxY);
+    doc.font('Helvetica-Bold').text('Catatan:', startX + 390, wrBoxY);
+    doc.font('Helvetica').text(watchroom.notes || 'Nihil', startX + 430, wrBoxY, { width: 115, ellipsis: true });
+
+    doc.y += 28;
+  }
+
+  // Kesiapan Armada & Posko Operasional
   checkPageBreak(doc, 50);
-  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('2. KESIAPAN ARMADA PEMADAM & KENDARAAN OPERASIONAL');
+  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text(`${secNum++}. KESIAPAN ARMADA PEMADAM & POSKO OPERASIONAL`);
   doc.moveDown(0.3);
 
   // Table Armada
@@ -128,7 +136,7 @@ export const generateShiftReportPdf = async (reportData) => {
     doc.rect(startX, headY, contentWidth, 18).fill('#1e293b');
     doc.fontSize(8).font('Helvetica-Bold').fillColor('#ffffff');
     doc.text('No', startX + 4, headY + 5, { width: 25, align: 'center' });
-    doc.text('Nama Unit Armada', startX + 32, headY + 5, { width: 140 });
+    doc.text('Nama Unit / Fasilitas', startX + 32, headY + 5, { width: 140 });
     doc.text('Kategori', startX + 175, headY + 5, { width: 70 });
     doc.text('Penanggung Jawab (PIC)', startX + 250, headY + 5, { width: 125 });
     doc.text('Kondisi Fisik', startX + 380, headY + 5, { width: 65, align: 'center' });
@@ -139,15 +147,13 @@ export const generateShiftReportPdf = async (reportData) => {
   drawArmadaHeader(vHeadY);
 
   let curY = vHeadY + 18;
-  const pureVehicles = (vehicles || []).filter(
-    (v) => v.category !== 'posko' && v.code_name !== 'WATCHROOM'
-  );
-  if (pureVehicles.length === 0) {
+  const allUnits = vehicles || [];
+  if (allUnits.length === 0) {
     doc.rect(startX, curY, contentWidth, 18).fillAndStroke('#ffffff', '#e2e8f0');
-    doc.fontSize(8).font('Helvetica').fillColor('#64748b').text('Belum ada kendaraan yang diperiksa shift ini.', startX + 10, curY + 5);
+    doc.fontSize(8).font('Helvetica').fillColor('#64748b').text('Belum ada armada/posko yang diperiksa shift ini.', startX + 10, curY + 5);
     curY += 18;
   } else {
-    pureVehicles.forEach((v, idx) => {
+    allUnits.forEach((v, idx) => {
       if (curY + 18 > 740) {
         doc.addPage();
         drawArmadaHeader(35);
@@ -158,10 +164,19 @@ export const generateShiftReportPdf = async (reportData) => {
       const isServ = vStat === 'SERVICEABLE';
       const isUnserv = vStat === 'UNSERVICEABLE';
 
+      const rawCat = (v.category || '').toLowerCase();
+      const catLabel = rawCat === 'posko' || v.code_name === 'WATCHROOM'
+        ? 'Posko'
+        : rawCat === 'utama'
+        ? 'Utama'
+        : rawCat === 'pendukung'
+        ? 'Pendukung'
+        : (v.category || 'Armada');
+
       doc.rect(startX, curY, contentWidth, 18).fillAndStroke(idx % 2 === 1 ? '#f8fafc' : '#ffffff', '#e2e8f0');
       doc.fontSize(7.5).font('Helvetica').fillColor('#64748b').text(String(idx + 1), startX + 4, curY + 5, { width: 25, align: 'center' });
       doc.font('Helvetica-Bold').fillColor('#0f172a').text(v.vehicle_name || v.code_name || 'Unit', startX + 32, curY + 5, { width: 140, ellipsis: true });
-      doc.font('Helvetica').fillColor('#475569').text(v.category || 'Armada', startX + 175, curY + 5, { width: 70 });
+      doc.font('Helvetica').fillColor('#475569').text(catLabel, startX + 175, curY + 5, { width: 70 });
       doc.font('Helvetica-Bold').fillColor('#0f172a').text(v.pic_name || '-', startX + 250, curY + 5, { width: 125, ellipsis: true });
       doc.font('Helvetica-Bold').fillColor(isServ ? '#15803d' : isUnserv ? '#b91c1c' : '#64748b').text(
         isServ ? 'SIAP' : isUnserv ? 'RUSAK' : 'BELUM CEK',
@@ -184,7 +199,7 @@ export const generateShiftReportPdf = async (reportData) => {
 
   // 3. Ploting Kekuatan Personel
   checkPageBreak(doc, 45);
-  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('3. KEKUATAN & DISTRIBUSI PERSONEL DINAS');
+  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text(`${secNum++}. KEKUATAN & DISTRIBUSI PERSONEL DINAS`);
   doc.moveDown(0.3);
 
   const present = deployments.filter(d => d.deployment_type !== 'absent');
@@ -202,7 +217,7 @@ export const generateShiftReportPdf = async (reportData) => {
 
   // 4. Rekapitulasi Insiden & Kejadian
   checkPageBreak(doc, 40);
-  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('4. REKAPITULASI KEJADIAN & INSIDEN OPERASIONAL');
+  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text(`${secNum++}. REKAPITULASI KEJADIAN & INSIDEN OPERASIONAL`);
   doc.moveDown(0.3);
 
   if (incidents.length === 0) {
@@ -249,7 +264,7 @@ export const generateShiftReportPdf = async (reportData) => {
 
   // 5. Logbook Kegiatan Shift
   checkPageBreak(doc, 40);
-  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('5. JURNAL KEGIATAN RUTIN SHIFT OPERASIONAL');
+  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text(`${secNum++}. JURNAL KEGIATAN RUTIN SHIFT OPERASIONAL`);
   doc.moveDown(0.3);
 
   if (activities.length === 0) {

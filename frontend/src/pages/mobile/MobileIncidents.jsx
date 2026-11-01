@@ -28,10 +28,10 @@ export default function MobileIncidents() {
     try {
       const params = filterScope === 'shift'
         ? {
-            date: activeDate,
-            shift: activeShiftNumber,
-            team_group: cleanTeam(activeTeam),
-          }
+          date: activeDate,
+          shift: activeShiftNumber,
+          team_group: cleanTeam(activeTeam),
+        }
         : {};
       const res = await api.get('/incidents', { params, signal });
       const raw = res.data?.data ?? res.data?.incidents ?? res.data;
@@ -85,17 +85,28 @@ export default function MobileIncidents() {
     return l === filterPriority.toLowerCase();
   });
 
+  // Paginasi Kompak Mobile (6 insiden per halaman)
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 6;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterScope, filterPriority]);
+
+  const totalPages = Math.ceil(filteredIncidents.length / pageSize) || 1;
+  const paginatedIncidents = filteredIncidents.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
   return (
     <div className="space-y-2 pb-6">
       {/* Top Header Card */}
       <div className="bg-white rounded-lg border border-slate-200 p-2.5 shadow-xs flex items-center justify-between">
         <div>
           <h3 className="text-xs font-bold text-slate-900 leading-tight">
-            Pemantauan & Laporan Insiden
+            Laporan Insiden
           </h3>
-          <p className="text-xs text-slate-500 font-medium">
-            Shift <span className="font-mono tabular-nums">{activeShiftNumber}</span> • Regu {activeTeam}
-          </p>
         </div>
 
         <div className="flex items-center gap-1.5">
@@ -123,97 +134,84 @@ export default function MobileIncidents() {
               className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors duration-100"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Lapor Insiden</span>
+              <span>Laporan</span>
             </button>
           )}
         </div>
       </div>
 
 
-      {/* Toggle Filter Scope: Shift Ini vs Semua Riwayat */}
+      {/* Toggle Filter Scope: Shift Ini vs Riwayat */}
       <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-100 text-xs font-semibold">
         <button
           type="button"
           onClick={() => setFilterScope('shift')}
-          className={`flex-1 py-1 rounded-md text-center transition-colors duration-100 ${
-            filterScope === 'shift'
-              ? 'bg-white text-slate-900 shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
+          className={`flex-1 py-1 rounded-md text-center transition-colors duration-100 ${filterScope === 'shift'
+            ? 'bg-white text-slate-900 shadow-xs font-bold'
+            : 'text-slate-600 hover:text-slate-900'
+            }`}
         >
-          Shift Ini ({activeTeam})
+          Shift Ini
         </button>
         <button
           type="button"
           onClick={() => setFilterScope('all')}
-          className={`flex-1 py-1 rounded-md text-center transition-colors duration-100 ${
-            filterScope === 'all'
-              ? 'bg-white text-slate-900 shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
+          className={`flex-1 py-1 rounded-md text-center transition-colors duration-100 ${filterScope === 'all'
+            ? 'bg-white text-slate-900 shadow-xs font-bold'
+            : 'text-slate-600 hover:text-slate-900'
+            }`}
         >
-          Semua Riwayat
+          Riwayat
         </button>
       </div>
 
-      {/* Ringkasan Situasi Insiden Card */}
+      {/* Ringkasan Situasi Insiden Card (Kompak Tanpa Teks Filler) */}
       <div className="grid grid-cols-3 gap-1.5 text-xs">
-        <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-xs space-y-0.5">
-          <span className="text-xs font-bold text-slate-500 uppercase block">Total Kejadian</span>
-          <span className="text-base font-black font-mono tabular-nums text-slate-900 block leading-tight">
+        <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-xs space-y-1">
+          <span className="text-[11px] font-bold text-slate-500 uppercase block">Total Kejadian</span>
+          <span className="text-lg font-black font-mono tabular-nums text-slate-900 block leading-none">
             {totalIncidents}
           </span>
-          <span className="text-xs text-slate-500 font-medium block">
-            {filterScope === 'shift' ? 'Shift Ini' : 'Semua'}
-          </span>
         </div>
 
-        <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-xs space-y-0.5">
-          <span className="text-xs font-bold text-slate-500 uppercase block">Prioritas Siaga</span>
-          <span className={`text-base font-black font-mono tabular-nums block leading-tight ${criticalCount > 0 ? 'text-red-600' : 'text-slate-800'}`}>
+        <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-xs space-y-1">
+          <span className="text-[11px] font-bold text-slate-500 uppercase block">Prioritas Siaga</span>
+          <span className={`text-lg font-black font-mono tabular-nums block leading-none ${criticalCount > 0 ? 'text-red-600' : 'text-slate-800'}`}>
             {criticalCount}
           </span>
-          <span className="text-xs text-slate-500 font-medium block">Siaga I & II</span>
         </div>
 
-        <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-xs space-y-0.5">
-          <span className="text-xs font-bold text-slate-500 uppercase block">Status Aktif</span>
-          <span className={`text-base font-black font-mono tabular-nums block leading-tight ${inProgressCount > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+        <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-xs space-y-1">
+          <span className="text-[11px] font-bold text-slate-500 uppercase block">Status Aktif</span>
+          <span className={`text-lg font-black font-mono tabular-nums block leading-none ${inProgressCount > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
             {inProgressCount}
           </span>
-          <span className="text-xs text-slate-500 font-medium block">Dalam Proses</span>
         </div>
       </div>
 
       {/* Filter Prioritas Chips if incidents exist */}
       {incidents.length > 0 && (
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 text-xs">
-          <button
-            type="button"
-            onClick={() => setFilterPriority('ALL')}
-            className={`px-2.5 py-1 rounded-full border whitespace-nowrap font-semibold transition-colors duration-100 ${
-              filterPriority === 'ALL'
-                ? 'bg-red-600 text-white border-red-600 shadow-2xs'
-                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            Semua (<span className="font-mono tabular-nums">{incidents.length}</span>)
-          </button>
-          {['kritis', 'tinggi', 'sedang', 'rendah'].map((p) => {
-            const count = incidents.filter((i) => (i.priority_level || '').toLowerCase() === p).length;
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 text-xs">
+          {[
+            { key: 'kritis', label: 'Kritis', match: (l) => l === 'kritis' || l === 'critical' },
+            { key: 'tinggi', label: 'Tinggi', match: (l) => l === 'tinggi' || l === 'high' },
+            { key: 'sedang', label: 'Sedang', match: (l) => l === 'sedang' || l === 'medium' },
+            { key: 'rendah', label: 'Rendah', match: (l) => l === 'rendah' || l === 'low' },
+          ].map(({ key, label, match }) => {
+            const count = incidents.filter((i) => match((i.priority_level || '').toLowerCase())).length;
             if (count === 0) return null;
+            const isActive = filterPriority === key;
             return (
               <button
-                key={p}
+                key={key}
                 type="button"
-                onClick={() => setFilterPriority(p)}
-                className={`px-2.5 py-1 rounded-full border whitespace-nowrap font-semibold uppercase transition-colors duration-100 ${
-                  filterPriority === p
-                    ? 'bg-red-600 text-white border-red-600'
-                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                }`}
+                onClick={() => setFilterPriority(isActive ? 'ALL' : key)}
+                className={`px-2.5 py-1 rounded-full border whitespace-nowrap text-xs font-semibold transition-colors duration-100 ${isActive
+                  ? 'bg-red-600 text-white border-red-600 shadow-2xs'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  }`}
               >
-                {p} (<span className="font-mono tabular-nums">{count}</span>)
+                {label} (<span className="font-mono tabular-nums">{count}</span>)
               </button>
             );
           })}
@@ -267,13 +265,44 @@ export default function MobileIncidents() {
       {/* Incident List */}
       {!loading && filteredIncidents.length > 0 && (
         <div className="space-y-1.5">
-          {filteredIncidents.map((inc, incIdx) => (
-            <MobileIncidentTimelineItem
-              key={inc.id ?? `inc-${inc.incident_time || incIdx}`}
-              incident={inc}
-              onClick={() => handleOpenDetail(inc)}
-            />
-          ))}
+          {
+            paginatedIncidents.map((inc, incIdx) => (
+              <MobileIncidentTimelineItem
+                key={inc.id ?? `inc-${inc.incident_time || incIdx}`}
+                incident={inc}
+                onClick={() => handleOpenDetail(inc)}
+                showDate={filterScope === 'all'}
+              />
+            ))
+          }
+
+          {/* Paginasi Kompak Mobile */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between bg-white rounded-lg border border-slate-200 px-3 py-2 text-xs shadow-2xs mt-2">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-2.5 py-1 rounded-md border border-slate-200 text-slate-700 font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 cursor-pointer transition-colors duration-100"
+              >
+                Sebelumnya
+              </button>
+
+              <span className="text-slate-600 font-medium">
+                Halaman <strong className="font-mono text-slate-900">{currentPage}</strong> dari{' '}
+                <strong className="font-mono text-slate-900">{totalPages}</strong>
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="px-2.5 py-1 rounded-md border border-slate-200 text-slate-700 font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 cursor-pointer transition-colors duration-100"
+              >
+                Selanjutnya
+              </button>
+            </div>
+          )}
         </div>
       )}
 

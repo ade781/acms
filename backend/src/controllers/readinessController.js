@@ -40,7 +40,7 @@ export const getVehicleReadiness = async (req, res) => {
        LEFT JOIN personnel p_log
          ON p_log.id = vrl.pic_personnel_id
        WHERE v.is_active = 1
-       ORDER BY v.category ASC, v.code_name ASC`,
+       ORDER BY CASE v.category WHEN 'utama' THEN 1 WHEN 'pendukung' THEN 2 WHEN 'posko' THEN 3 ELSE 4 END, v.id ASC`,
       [currentTeam, shiftDate, shiftNumber, currentTeam, shiftDate, shiftNumber, currentTeam]
     );
 
@@ -191,6 +191,10 @@ export const submitVehicleReadiness = async (req, res) => {
     try {
       await connection.beginTransaction();
 
+      // Cek kategori kendaraan (apakah posko / watchroom)
+      const [vRows] = await connection.query('SELECT id, category, code_name FROM vehicles WHERE id = ?', [vehicle_id]);
+      const isPosko = vRows.length > 0 && (vRows[0].category === 'posko' || vRows[0].code_name === 'WATCHROOM');
+
       // 1. Cek izin akses: Apakah user adalah Admin, Supervisor, Chief, Chief Assistant, Dept Head, atau PIC kendaraan di shift tersebut?
       const isSuper = ['admin', 'supervisor', 'chief', 'chief_assistant', 'operation_chief', 'dept_head'].includes(req.user.role);
 
@@ -203,15 +207,17 @@ export const submitVehicleReadiness = async (req, res) => {
          FROM personnel_deployments pd
          JOIN personnel_shifts ps ON ps.id = pd.shift_id
          JOIN personnel p ON p.id = pd.personnel_id
-         WHERE pd.vehicle_id = ? AND ps.shift_date = ? AND ps.shift_number = ? AND ps.team_group = ? AND pd.is_pic = 1`,
-        [vehicle_id, shift_date, shift_number, targetTeam]
+         WHERE (pd.vehicle_id = ? OR (pd.deployment_type = 'watchroom' AND ? = 1))
+           AND ps.shift_date = ? AND ps.shift_number = ? AND ps.team_group = ?
+           AND (pd.is_pic = 1 OR ? = 1)`,
+        [vehicle_id, isPosko ? 1 : 0, shift_date, shift_number, targetTeam, isPosko ? 1 : 0]
       );
 
       if (deployRows.length > 0) {
         picPersonnelId = deployRows[0].personnel_id;
         if (
-          (req.user.personnel_id && req.user.personnel_id === deployRows[0].personnel_id) ||
-          (deployRows[0].user_id && deployRows[0].user_id === req.user.id)
+          (req.user.personnel_id && deployRows.some(d => d.personnel_id === req.user.personnel_id)) ||
+          (req.user.id && deployRows.some(d => d.user_id === req.user.id))
         ) {
           isAuthorizedPic = true;
         }
@@ -235,7 +241,7 @@ export const submitVehicleReadiness = async (req, res) => {
         connection.release();
         return errorResponse(
           res,
-          'Akses ditolak: Hanya Penanggung Jawab (PIC) yang ditunjuk pada shift aktif yang berhak melaporkan kesiapan armada ini',
+          `Akses ditolak: Hanya Penanggung Jawab (PIC) yang ditunjuk pada shift aktif yang berhak melaporkan kesiapan ${isPosko ? 'posko' : 'armada'} ini`,
           403
         );
       }
@@ -258,7 +264,7 @@ export const submitVehicleReadiness = async (req, res) => {
       );
 
       const finalPhoto = photoWebpUrl || (existing.length > 0 ? existing[0].photo_webp_url : null);
-      if (!finalPhoto) {
+      if (!finalPhoto && !isPosko) {
         await connection.rollback();
         connection.release();
         return errorResponse(
@@ -266,6 +272,13 @@ export const submitVehicleReadiness = async (req, res) => {
           'Foto bukti fisik kelaikan armada wajib disertakan untuk verifikasi kondisi lapangan',
           400
         );
+      }
+
+      const effectiveJustification = justification || notes || null;
+      if (status === 'unserviceable' && (!effectiveJustification || effectiveJustification.trim().length === 0)) {
+        await connection.rollback();
+        connection.release();
+        return errorResponse(res, `Justifikasi kendala wajib diisi jika kondisi ${isPosko ? 'posko' : 'armada'} unserviceable`, 400);
       }
 
       const resolvedAt = status === 'serviceable' && follow_up_status === 'resolved' ? new Date() : null;
@@ -284,11 +297,11 @@ export const submitVehicleReadiness = async (req, res) => {
           [
             picPersonnelId || null,
             status,
-            status === 'unserviceable' ? justification : null,
+            status === 'unserviceable' ? effectiveJustification : null,
             finalPhoto,
             follow_up_status,
             resolvedAt,
-            notes || null,
+            notes || effectiveJustification || null,
             existing[0].id
           ]
         );
@@ -306,11 +319,11 @@ export const submitVehicleReadiness = async (req, res) => {
             targetTeam,
             picPersonnelId,
             status,
-            status === 'unserviceable' ? justification : null,
+            status === 'unserviceable' ? effectiveJustification : null,
             finalPhoto,
             follow_up_status,
             resolvedAt,
-            notes || null
+            notes || effectiveJustification || null
           ]
         );
       }

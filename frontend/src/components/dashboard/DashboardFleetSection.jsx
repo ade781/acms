@@ -55,6 +55,7 @@ export default function DashboardFleetSection({
 
             const picName = vehicle.pic_name ||
               vehicleDeploymentDetails?.picMap?.[isPosko ? 'watchroom' : vId] ||
+              vehicleDeploymentDetails?.picMap?.[vId] ||
               (isPosko && watchroomLog?.inspector_name) ||
               'Belum Ditunjuk';
 

@@ -28,10 +28,23 @@ export async function fetchShiftReportData({ date, shift, team, signal }) {
   const deptHeadData = sData.dept_head || sData.official || null;
   const deployments = Array.isArray(sData.deployments) ? sData.deployments : [];
   const absents = Array.isArray(sData.absents) ? sData.absents : [];
-  const vehicles = Array.isArray(sData.vehicles)
-    ? sData.vehicles.filter((v) => v.category !== 'posko' && v.code_name !== 'WATCHROOM')
-    : [];
+  let vehicles = Array.isArray(sData.vehicles) ? [...sData.vehicles] : [];
   const watchroomData = sData.watchroom || {};
+
+  // Unifikasi Posko Komunikasi ke dalam vehicles jika belum ada
+  const hasPosko = vehicles.some((v) => v.category === 'posko' || v.code_name === 'WATCHROOM');
+  if (!hasPosko && (watchroomData.status || watchroomData.vehicle_name || watchroomData.code_name)) {
+    vehicles.push({
+      id: watchroomData.id || 'WATCHROOM',
+      code_name: watchroomData.code_name || 'WATCHROOM',
+      vehicle_name: watchroomData.vehicle_name || 'Posko Komunikasi ARFF',
+      category: 'posko',
+      status: watchroomData.status || 'belum_dilaporkan',
+      justification: watchroomData.notes || watchroomData.justification || '',
+      pic_name: watchroomData.pic_name || watchroomData.inspector_name || 'Belum Ditunjuk',
+      ...watchroomData,
+    });
+  }
   const vehicleIssues = sData.vehicle_issues || {
     current_issues: [],
     backlog_issues: [],
