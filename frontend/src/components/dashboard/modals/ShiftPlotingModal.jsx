@@ -36,7 +36,7 @@ export default function ShiftPlotingModal({
       <div className="space-y-4 text-xs font-sans">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-            <div className="text-slate-500 text-xs font-medium">Ketua Regu (Chief)</div>
+            <div className="text-slate-500 text-xs font-medium">Ketua Regu</div>
             <div className="font-bold text-slate-900 text-sm mt-0.5">{supervisorName || '-'}</div>
           </div>
           <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">

@@ -26,12 +26,6 @@ export default function DashboardFleetSection({
             Kesiapan Armada & Posko Operasional
           </h2>
         </div>
-        <span className="text-xs font-semibold text-slate-800 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shrink-0">
-          <span className="font-mono tabular-nums font-bold">
-            {fleetMetrics?.serviceable ?? 0}/{fleetMetrics?.total ?? 0}
-          </span>{' '}
-          Serviceable
-        </span>
       </div>
 
       {/* Daftar Baris Kompak Armada (Volume Tetap flex-1 overflow-y-auto) */}

@@ -221,13 +221,11 @@ export default function SwipeableAnnouncementCard({
           </p>
         )}
 
-        <div className="flex items-center justify-between text-xs text-slate-400 pt-0.5">
-          <span>{item.creator_name ? `Oleh: ${item.creator_name}` : ''}</span>
-          <span className="text-slate-400 font-medium flex items-center gap-0.5">
-            <span>←</span>
-            <span>Geser untuk arsipkan</span>
-          </span>
-        </div>
+        {item.creator_name && (
+          <div className="text-xs text-slate-400 pt-0.5">
+            <span>Oleh: {item.creator_name}</span>
+          </div>
+        )}
       </div>
     </div>
   );

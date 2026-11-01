@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Save, Check, AlertCircle, RefreshCw, X, CalendarOff, ShieldAlert } from 'lucide-react';
+import { Save, Check, AlertCircle, RefreshCw, X, CalendarOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { cleanTeam, getScheduledTeam, formatTeam, formatIndoDate } from '../../utils/shiftHelper';
 import api from '../../services/api';
 import MobilePlotCard from '../../components/mobile/ploting/MobilePlotCard';
 import MobileCrewPickerSheet from '../../components/mobile/ploting/MobileCrewPickerSheet';
-import VehicleReadinessModal from '../../components/forms/VehicleReadinessModal';
 
 export default function MobileDeployment({ onOpenAuditModal }) {
   const { user, isAdmin, isDeptHead, isSupervisor, isChief, activeDate, activeShiftNumber, activeTeam } = useAuth();
@@ -50,10 +49,6 @@ export default function MobileDeployment({ onOpenAuditModal }) {
     slotIndex: 0,
     isPic: false,
   });
-
-  // Inspection Modal State (Dukungan Posko Watchroom & Armada Bermotor)
-  const [inspectionModalOpen, setInspectionModalOpen] = useState(false);
-  const [selectedUnitForInspection, setSelectedUnitForInspection] = useState(null);
 
   // Status perubahan yang belum disimpan (Dirty state tracking)
   const hasUnsavedChanges = useMemo(() => {
@@ -119,27 +114,6 @@ export default function MobileDeployment({ onOpenAuditModal }) {
     });
     return map;
   }, [vehicleSlots, vehicles]);
-
-  // Ringkasan status pemeriksaan kesiapan armada untuk indikator visual header
-  const readinessSummary = useMemo(() => {
-    let serviceable = 0;
-    let unserviceable = 0;
-    let belumDicek = 0;
-
-    vehicles.forEach((v) => {
-      const st = v.readiness || v.status;
-      if (st === 'serviceable') serviceable++;
-      else if (st === 'unserviceable') unserviceable++;
-      else belumDicek++;
-    });
-
-    return {
-      serviceable,
-      unserviceable,
-      belumDicek,
-      total: vehicles.length,
-    };
-  }, [vehicles]);
 
   // Fetch all initial data (Hanya dieksekusi jika berhak berdinas di shift ini demi menghemat beban request server)
   const loadPlotingData = useCallback(async (signal) => {
@@ -297,7 +271,7 @@ export default function MobileDeployment({ onOpenAuditModal }) {
   };
 
   // Select personnel into a slot or clear slot
-  const handleSelectPersonnel = (selectedPersonnelId) => {
+  const handleSelectPersonnel = (selectedPersonnelId, selectedPersonObj = null) => {
     if (!canEditPlot) return;
     const { unitId, slotIndex, isPic } = pickerContext;
     if (!unitId) return;
@@ -331,7 +305,7 @@ export default function MobileDeployment({ onOpenAuditModal }) {
           }
         }
       } else {
-        const person = personnelMap[selectedPersonnelId];
+        const person = selectedPersonObj || personnelMap[selectedPersonnelId];
         unitList[slotIndex] = {
           ...unitList[slotIndex],
           personnel_id: selectedPersonnelId,
@@ -423,6 +397,7 @@ export default function MobileDeployment({ onOpenAuditModal }) {
 
       setToastMsg('Ploting penugasan armada berhasil disimpan.');
       setInitialSnapshot(JSON.stringify(vehicleSlots));
+      window.dispatchEvent(new CustomEvent('arff:deployments-updated'));
     } catch (err) {
       console.error('Error saving deployments:', err);
       const msg = typeof err.response?.data?.message === 'string'
@@ -438,7 +413,7 @@ export default function MobileDeployment({ onOpenAuditModal }) {
   if (!isAuthorizedShift) {
     return (
       <div className="space-y-3 pb-20 font-sans">
-        <div className="bg-white rounded-xl border border-slate-200 p-5 text-center space-y-3 shadow-xs">
+        <div className="bg-white rounded-xl border border-slate-200 p-5 text-center space-y-2.5 shadow-xs">
           <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto">
             <CalendarOff className="w-6 h-6" />
           </div>
@@ -450,18 +425,8 @@ export default function MobileDeployment({ onOpenAuditModal }) {
             <h3 className="text-sm font-bold text-slate-900 pt-1">
               Operasional Regu {scheduledTeam}
             </h3>
-            <p className="text-xs text-slate-600 max-w-xs mx-auto leading-relaxed">
+            <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
               Anda terdaftar pada <span className="font-semibold text-slate-800">{formatTeam(userTeam) || 'Regu Lain'}</span>. Wewenang penyusunan ploting armada dan kru untuk <span className="font-semibold text-slate-800">Shift <span className="font-mono tabular-nums">{activeShiftNumber}</span></span> ({formatIndoDate(activeDate)}) dikelola oleh Chief / Pengawas Regu yang bertugas aktif saat ini.
-            </p>
-          </div>
-
-          <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 text-xs text-slate-500 text-left space-y-1">
-            <div className="flex items-center gap-1.5 font-semibold text-slate-700">
-              <ShieldAlert className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-              <span>Informasi Akses Operasional</span>
-            </div>
-            <p className="text-xs leading-snug">
-              Untuk memantau kesiapan armada dan logbook shift berjalan tanpa mengubah susunan kru, silakan akses tab <span className="font-semibold text-slate-700">Laporan</span> atau kembali ke layar <span className="font-semibold text-slate-700">Dashboard</span>.
             </p>
           </div>
         </div>
@@ -509,29 +474,12 @@ export default function MobileDeployment({ onOpenAuditModal }) {
         </div>
       )}
 
-      {/* Header Ploting Bar: Judul, Status Kesiapan Armada, & Tombol Simpan */}
+      {/* Header Ploting Bar: Judul & Tombol Simpan */}
       <div className="flex items-center justify-between bg-white px-2.5 py-2 rounded-xl border border-slate-200 shadow-xs">
         <div>
           <h3 className="text-xs font-bold text-slate-900 leading-tight">
             Ploting & Kesiapan Armada
           </h3>
-          <div className="flex items-center gap-1.5 text-xs mt-0.5 flex-wrap">
-            <span className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-              <span className="font-mono tabular-nums">{readinessSummary.serviceable}/{readinessSummary.total}</span> Serviceable
-            </span>
-            {readinessSummary.unserviceable > 0 && (
-              <span className="text-red-700 font-bold bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
-                <span className="font-mono tabular-nums">{readinessSummary.unserviceable}</span> Kendala
-              </span>
-            )}
-            {readinessSummary.belumDicek > 0 ? (
-              <span className="text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                <span className="font-mono tabular-nums">{readinessSummary.belumDicek}</span> Belum Dicek
-              </span>
-            ) : (
-              <span className="text-slate-500 font-medium"><span className="font-mono tabular-nums">100%</span> Selesai</span>
-            )}
-          </div>
         </div>
         <div className="flex items-center gap-2">
           {hasUnsavedChanges && (
@@ -585,14 +533,11 @@ export default function MobileDeployment({ onOpenAuditModal }) {
               unit={unit}
               slots={vehicleSlots[unit.id] || []}
               personnelMap={personnelMap}
+              currentPersonnelId={user?.personnel_id}
+              currentUserName={user?.name || user?.full_name}
               onOpenPicker={canEditPlot ? (slotIdx, isPic) => handleOpenPicker(unit.id, slotIdx, isPic) : null}
               onAddCrew={canEditPlot ? () => handleAddCrew(unit.id) : null}
               canEdit={canEditPlot}
-              onOpenDetailKendala={onOpenAuditModal}
-              onInspect={(targetUnit) => {
-                setSelectedUnitForInspection(targetUnit);
-                setInspectionModalOpen(true);
-              }}
             />
           ))}
         </div>
@@ -610,29 +555,6 @@ export default function MobileDeployment({ onOpenAuditModal }) {
         absentSet={absentSet}
         onSelect={handleSelectPersonnel}
       />
-
-      {/* Modal Pemeriksaan Kesiapan Fisik Armada & Posko Watchroom Mobile */}
-      {inspectionModalOpen && selectedUnitForInspection && (
-        <VehicleReadinessModal
-          isOpen={inspectionModalOpen}
-          onClose={() => {
-            setInspectionModalOpen(false);
-            setSelectedUnitForInspection(null);
-          }}
-          vehicle={selectedUnitForInspection}
-          activeDate={activeDate}
-          activeShiftNumber={activeShiftNumber}
-          activeTeam={activeTeam}
-          onSuccess={(customMsg) => {
-            loadPlotingData();
-            setToastMsg(
-              customMsg ||
-              `Kesiapan ${selectedUnitForInspection.code_name || selectedUnitForInspection.vehicle_name || 'Unit'
-              } berhasil diperbarui.`
-            );
-          }}
-        />
-      )}
     </div>
   );
 }

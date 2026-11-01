@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ShieldCheck, Bell, UserX, Activity } from 'lucide-react';
 import { cleanAnnouncementDescription, cleanAnnouncementTitle } from '../../utils/shiftHelper';
 
@@ -30,6 +30,26 @@ export default function DashboardScorecards({
   const absentCount = personnelComposition?.totalAllAbsentCount ?? personnelComposition?.absentCount ?? 0;
   const onDutyCount = personnelComposition?.onDutyCount ?? 0;
 
+  // Dapatkan kegiatan yang paling baru dilakukan pada shift berjalan (jam pelaksanaan terbaru atau id terbesar)
+  const latestActivity = useMemo(() => {
+    if (!safeActivities.length) return null;
+    return [...safeActivities].sort((a, b) => {
+      const timeA = a.activity_time || '';
+      const timeB = b.activity_time || '';
+      if (timeA !== timeB) return timeB.localeCompare(timeA);
+      return (b.id || 0) - (a.id || 0);
+    })[0];
+  }, [safeActivities]);
+
+  const latestActivityTitle = useMemo(() => {
+    if (!latestActivity) return '';
+    return typeof latestActivity.title === 'string'
+      ? latestActivity.title
+      : typeof latestActivity.activity_name === 'string'
+        ? latestActivity.activity_name
+        : 'Kegiatan Operasional';
+  }, [latestActivity]);
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 font-sans">
       {/* Scorecard 1: Pimpinan Shift & Kesiapan Kekuatan Dinas */}
@@ -59,13 +79,12 @@ export default function DashboardScorecards({
           )}
         </div>
 
-        <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-xs">
-          <span className="text-slate-500 font-medium">Regu {String(currentTeam || '')}</span>
+        <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
           {loading ? (
-            <div className="h-4 w-24 bg-slate-100 rounded animate-pulse" />
+            <div className="h-3.5 w-28 bg-slate-100 rounded animate-pulse" />
           ) : (
-            <span className="font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-              <span className="font-mono tabular-nums font-bold">{onDutyCount}</span> Personel Hadir
+            <span className="truncate">
+              Kekuatan Dinas: <span className="font-mono tabular-nums font-semibold text-slate-700">{onDutyCount}</span> Personel Hadir
             </span>
           )}
         </div>
@@ -220,8 +239,8 @@ export default function DashboardScorecards({
             <div className="h-3.5 w-32 bg-slate-100 rounded animate-pulse" />
           ) : (
             <span className="truncate">
-              {safeActivities.length > 0
-                ? `Terbaru: ${typeof safeActivities[0]?.title === 'string' ? safeActivities[0].title : (typeof safeActivities[0]?.activity_name === 'string' ? safeActivities[0].activity_name : 'Kegiatan Operasional')}`
+              {latestActivity
+                ? `Terbaru: ${latestActivityTitle}`
                 : 'Belum ada kegiatan tercatat'}
             </span>
           )}

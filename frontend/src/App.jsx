@@ -226,8 +226,8 @@ export default function App() {
               <Route path="/personnel/officials" element={<OfficialsManagementPage />} />
               <Route path="/personnel/:id" element={<PersonnelDetailPage />} />
               <Route path="/incidents" element={<IncidentsPage />} />
-              <Route path="/incidents/:id" element={<IncidentDetailPage />} />
               <Route path="/incidents/reports" element={<IncidentReportsPage />} />
+              <Route path="/incidents/:id" element={<IncidentDetailPage />} />
               <Route path="/insiden/laporan" element={<Navigate to="/incidents/reports" replace />} />
               <Route path="/leave" element={<LeaveManagementPage />} />
               <Route path="/activities" element={<ActivitiesPage />} />

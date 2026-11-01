@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Download,
-  Eye,
   AlertCircle,
   MapPin,
   CheckCircle2,
@@ -16,7 +15,6 @@ import {
 import { fetchShiftReportData, downloadShiftReportPdf } from '../../services/reportService';
 import MobileReportSummaryCard from '../../components/mobile/reports/MobileReportSummaryCard';
 import MobileUnitAuditModal from '../../components/mobile/reports/MobileUnitAuditModal';
-import MobilePdfViewerModal from '../../components/mobile/reports/MobilePdfViewerModal';
 import MobileSignaturesSection from '../../components/mobile/reports/MobileSignaturesSection';
 
 /**
@@ -50,7 +48,6 @@ export default function MobileReports() {
   // Modal State
   const [selectedAuditUnit, setSelectedAuditUnit] = useState(null);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
-  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
   const currentShiftNum = Number(activeShiftNumber || 1);
   const currentTeam = cleanTeam(activeTeam || 'Alpha');
@@ -148,12 +145,6 @@ export default function MobileReports() {
 
         {/* Info Grid Shift Terpadu */}
         <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 space-y-1.5 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-slate-500">Regu & Shift:</span>
-            <span className="font-bold text-slate-800">
-              {formatTeam(currentTeam)} • {shiftDef.name}
-            </span>
-          </div>
           <div className="flex items-center justify-between">
             <span className="text-slate-500">Tanggal Dinas:</span>
             <span className="font-semibold text-slate-700">
@@ -326,24 +317,13 @@ export default function MobileReports() {
         isClosed={(shiftData?.status || '').toLowerCase() === 'closed'}
       />
 
-      {/* 6. DUAL-ACTION TOMBOL AKSI UTAMA DOKUMEN PDF */}
-      <div className="pt-1 grid grid-cols-2 gap-2">
-        {/* Tombol Pratinjau Lembar Surat A4 */}
-        <button
-          type="button"
-          onClick={() => setIsPdfModalOpen(true)}
-          className="min-h-[44px] py-2.5 px-3 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs tracking-wide flex items-center justify-center gap-1.5 shadow-xs transition-colors duration-100 active:scale-[0.99]"
-        >
-          <Eye className="w-4 h-4 text-slate-600" />
-          <span>Pratinjau Surat (A4)</span>
-        </button>
-
-        {/* Tombol Unduh PDF Resmi */}
+      {/* 6. TOMBOL AKSI UTAMA DOKUMEN PDF */}
+      <div className="pt-1">
         <button
           type="button"
           onClick={handleDownloadPdf}
           disabled={downloading}
-          className="min-h-[44px] py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs tracking-wide flex items-center justify-center gap-1.5 shadow-xs transition-colors duration-100 disabled:opacity-50 active:scale-[0.99]"
+          className="w-full min-h-[44px] py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs tracking-wide flex items-center justify-center gap-1.5 shadow-xs transition-colors duration-100 disabled:opacity-50 active:scale-[0.99] cursor-pointer"
         >
           <Download className="w-4 h-4" />
           <span>{downloading ? 'Membuat PDF...' : 'Unduh PDF Resmi'}</span>
@@ -359,24 +339,6 @@ export default function MobileReports() {
         }}
         unit={selectedAuditUnit}
         vehicleIssues={vehicleIssues}
-      />
-
-      {/* MODAL PRATINJAU DOKUMEN RESMI A4 */}
-      <MobilePdfViewerModal
-        isOpen={isPdfModalOpen}
-        onClose={() => setIsPdfModalOpen(false)}
-        shiftData={shiftData}
-        deptHeadData={deptHeadData}
-        vehicles={vehicles}
-        watchroomData={watchroomData}
-        deployments={deployments}
-        absents={absents}
-        activities={activities}
-        incidents={incidents}
-        vehicleIssues={vehicleIssues}
-        shiftDate={activeDate}
-        shiftNumber={activeShiftNumber}
-        teamGroup={activeTeam}
       />
     </div>
   );

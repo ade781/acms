@@ -3,7 +3,7 @@ import { Plus, ClipboardList, RefreshCw, AlertCircle, Check, X, Trash2 } from 'l
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { cleanTeam } from '../../utils/shiftHelper';
-import MobileActivityTimelineItem, { ACTIVITY_CATEGORIES } from '../../components/mobile/activities/MobileActivityTimelineItem';
+import MobileActivityTimelineItem from '../../components/mobile/activities/MobileActivityTimelineItem';
 import MobileActivityModal from '../../components/mobile/activities/MobileActivityModal';
 
 export default function MobileActivities() {
@@ -87,8 +87,6 @@ export default function MobileActivities() {
     }
   };
 
-  const filteredActivities = activities;
-
   return (
     <div className="space-y-2 pb-6">
       {/* Toast Feedback */}
@@ -124,9 +122,6 @@ export default function MobileActivities() {
           <h3 className="text-xs font-bold text-slate-900 leading-tight">
             Logbook Kegiatan Rutin
           </h3>
-          <p className="text-xs text-slate-500 font-medium">
-            Shift <span className="font-mono tabular-nums">{activeShiftNumber}</span> • Regu {activeTeam}
-          </p>
         </div>
 
         <div className="flex items-center gap-1.5">
@@ -182,21 +177,16 @@ export default function MobileActivities() {
           <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
             <ClipboardList className="w-4 h-4" />
           </div>
-          <div>
-            <h4 className="text-xs font-bold text-slate-800">
-              Belum ada kegiatan rutin
-            </h4>
-            <p className="text-xs text-slate-500 max-w-[260px] mx-auto mt-0.5 leading-snug">
-              Belum ada kegiatan operasional yang dicatat pada shift ini.
-            </p>
-          </div>
+          <p className="text-xs font-semibold text-slate-600">
+            Belum ada kegiatan operasional yang dicatat pada shift ini.
+          </p>
         </div>
       )}
 
       {/* Timeline Stream */}
-      {!loading && filteredActivities.length > 0 && (
+      {!loading && activities.length > 0 && (
         <div className="space-y-1.5">
-          {filteredActivities.map((act, actIdx) => (
+          {activities.map((act, actIdx) => (
             <MobileActivityTimelineItem
               key={act.id ?? `act-${act.activity_time || actIdx}`}
               activity={act}

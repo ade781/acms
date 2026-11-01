@@ -70,7 +70,7 @@ function DeploymentSlotCard({
       iconBg: 'bg-emerald-100 text-emerald-800',
     },
     unserviceable: {
-      label: 'Tidak Laik',
+      label: 'Unserviceable',
       icon: AlertTriangle,
       badgeCls: 'bg-red-50 text-red-800 border-red-200',
       iconBg: 'bg-red-100 text-red-800',
@@ -149,17 +149,6 @@ function DeploymentSlotCard({
             </span>
           </div>
         </div>
-
-        {/* Peringatan Fisik jika Unserviceable */}
-        {isUnserviceable && (
-          <div className="mt-3 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-800 font-semibold flex items-center justify-between font-sans">
-            <span className="inline-flex items-center gap-1.5">
-              <AlertTriangle className="w-3.5 h-3.5 text-red-600 flex-shrink-0" />
-              <span>Armada Tidak Laik / Dalam Perbaikan</span>
-            </span>
-            <span className="text-xs font-normal text-red-600">Periksa PIC</span>
-          </div>
-        )}
 
         {/* Slot List */}
         <div className="mt-3 space-y-2.5">

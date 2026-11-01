@@ -11,7 +11,6 @@ export default function MobileDutyCard({
   vehicleReadiness,
 }) {
   const userName = user?.name || user?.full_name || 'Personel ARFF';
-  const userNip = user?.nip || user?.username || '-';
   const rawRank = user?.rank_position && !/ketua regu\s*\(chief\)\s*operasional/i.test(user.rank_position)
     ? user.rank_position
     : '';
@@ -30,7 +29,6 @@ export default function MobileDutyCard({
           <h2 className="text-sm font-bold text-slate-900 leading-snug">
             {userName}
           </h2>
-          <p className="text-xs text-slate-400">NIP: <span className="font-mono tabular-nums">{userNip}</span></p>
         </div>
         <div className="text-right flex flex-col items-end gap-1">
           <span className="px-1.5 py-0.5 rounded text-xs font-mono tabular-nums font-semibold bg-blue-50 text-blue-700 border border-blue-200">
@@ -80,55 +78,54 @@ export default function MobileDutyCard({
 
       {/* Kondisi 3: Dinas Aktif */}
       {!isOffDuty && !isOnLeave && (
-        <div className="grid grid-cols-2 gap-1.5 text-xs">
-          <div className="bg-slate-50 p-1.5 rounded border border-slate-100 flex flex-col justify-between">
-            <div className="flex items-center justify-between gap-1">
-              <span className="text-xs text-slate-500 block leading-tight">Unit Armada / Pos</span>
-              {vehicleReadiness && (
-                <span
-                  className={`text-xs font-bold px-1.5 py-0.5 rounded border inline-flex items-center gap-1 ${vehicleReadiness.status === 'serviceable'
-                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                      : vehicleReadiness.status === 'unserviceable'
-                        ? 'bg-red-100 text-red-800 border-red-300'
-                        : 'bg-amber-100 text-amber-800 border-amber-300'
-                    }`}
-                >
-                  {vehicleReadiness.status === 'serviceable' ? (
-                    <>
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                      <span>Serviceable</span>
-                    </>
-                  ) : vehicleReadiness.status === 'unserviceable' ? (
-                    <>
-                      <AlertTriangle className="w-3 h-3 text-red-600 shrink-0" />
-                      <span>Kendala</span>
-                    </>
-                  ) : (
-                    <>
-                      <Clock className="w-3 h-3 text-amber-600 shrink-0" />
-                      <span>Belum Dicek</span>
-                    </>
-                  )}
-                </span>
-              )}
-            </div>
-            <span className="font-bold text-slate-900 text-xs block truncate mt-0.5">
-              {dutyInfo?.vehicle_name || dutyInfo?.vehicle_code || 'Belum Diploting'}
-            </span>
-          </div>
-          <div className="bg-slate-50 p-1.5 rounded border border-slate-100">
-            <span className="text-xs text-slate-500 block leading-tight">Peran Dinas</span>
-            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-              {dutyInfo?.is_pic ? (
-                <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-xs font-bold">
-                  PIC
-                </span>
-              ) : null}
-              <span className="font-bold text-slate-900 text-xs truncate">
-                {dutyInfo?.role_name || (dutyInfo?.is_pic ? 'Operator Utama' : 'Kru Lapangan')}
+        <div className="space-y-1.5 text-xs">
+          <div className="grid grid-cols-2 gap-1.5">
+            <div className="bg-slate-50 p-1.5 rounded border border-slate-100 flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-xs text-slate-500 block leading-tight">Unit Armada / Pos</span>
+              </div>
+              <span
+                className="font-bold text-slate-900 text-xs block truncate mt-0.5"
+                title={dutyInfo?.vehicle_name || dutyInfo?.vehicle_code}
+              >
+                {dutyInfo?.vehicle_code
+                  ? (dutyInfo?.vehicle_name && dutyInfo.vehicle_name !== dutyInfo.vehicle_code
+                    ? `${dutyInfo.vehicle_code} • ${dutyInfo.vehicle_name}`
+                    : dutyInfo.vehicle_code)
+                  : (dutyInfo?.vehicle_name || 'Belum Diploting')}
               </span>
             </div>
+            <div className="bg-slate-50 p-1.5 rounded border border-slate-100">
+              <span className="text-xs text-slate-500 block leading-tight">Peran Dinas</span>
+              <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                {dutyInfo?.is_pic ? (
+                  <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-xs font-bold shrink-0">
+                    PIC
+                  </span>
+                ) : (
+                  <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-xs font-bold shrink-0">
+                    Kru
+                  </span>
+                )}
+                <span className="font-bold text-slate-900 text-xs truncate">
+                  {dutyInfo?.role_name || (dutyInfo?.is_pic ? 'Operator Utama' : 'Kru Lapangan')}
+                </span>
+              </div>
+            </div>
           </div>
+
+          {/* Banner Konfirmasi Siaga Dinas untuk Kru */}
+          {!dutyInfo?.is_pic && dutyInfo?.vehicle_code && (
+            <div className="p-1.5 rounded-lg bg-blue-50/70 border border-blue-200 text-blue-900 text-xs flex items-center justify-between">
+              <span className="font-semibold text-xs flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0"></span>
+                <span>Terploting Aktif: {dutyInfo.vehicle_code}</span>
+              </span>
+              <span className="font-bold text-blue-700 text-xs font-sans">
+                Siaga Operasional
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>

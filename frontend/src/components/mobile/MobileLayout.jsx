@@ -113,46 +113,46 @@ export default function MobileLayout({ children }) {
         />
 
         {/* Main Scrollable Canvas */}
-        <main className="flex-1 px-3 py-2 pb-24 overflow-y-auto no-scrollbar space-y-2 relative z-10">
-          {isProfileOpen ? (
-            <MobileProfileView
-              onClose={() => setIsProfileOpen(false)}
-              onOpenLeaveModal={handleOpenLeaveModal}
+          <main className="flex-1 px-3 py-2 pb-24 overflow-y-auto no-scrollbar space-y-2 relative">
+            {isProfileOpen ? (
+              <MobileProfileView
+                onClose={() => setIsProfileOpen(false)}
+                onOpenLeaveModal={handleOpenLeaveModal}
+              />
+            ) : (
+              children || <Outlet />
+            )}
+          </main>
+
+          {/* Fixed Bottom Navigation Bar (Hidden while Profile sub-view is open) */}
+          {!isProfileOpen && (
+            <MobileBottomNav
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+              isChief={isChiefRole}
             />
-          ) : (
-            children || <Outlet />
           )}
-        </main>
 
-        {/* Fixed Bottom Navigation Bar (Hidden while Profile sub-view is open) */}
-        {!isProfileOpen && (
-          <MobileBottomNav
-            activeTab={activeTab}
-            onTabChange={handleTabChange}
-            isChief={isChiefRole}
+          {/* Announcements Modal */}
+          <MobileAnnouncementsModal
+            isOpen={isAnnounceOpen}
+            onClose={() => setIsAnnounceOpen(false)}
           />
-        )}
 
-        {/* Announcements Modal */}
-        <MobileAnnouncementsModal
-          isOpen={isAnnounceOpen}
-          onClose={() => setIsAnnounceOpen(false)}
-        />
+          {/* Global Mobile Leave Modal */}
+          <LeaveModal
+            isOpen={isLeaveModalOpen}
+            onClose={() => setIsLeaveModalOpen(false)}
+            user={user}
+            activeDate={activeDate}
+            onSuccess={() => {
+              setIsLeaveModalOpen(false);
+              window.dispatchEvent(new CustomEvent('arff:leave-updated'));
+            }}
+          />
 
-        {/* Global Mobile Leave Modal */}
-        <LeaveModal
-          isOpen={isLeaveModalOpen}
-          onClose={() => setIsLeaveModalOpen(false)}
-          user={user}
-          activeDate={activeDate}
-          onSuccess={() => {
-            setIsLeaveModalOpen(false);
-            window.dispatchEvent(new CustomEvent('arff:leave-updated'));
-          }}
-        />
-
-        {/* Mandatory Password Change Modal for new accounts */}
-        <MandatoryPasswordChangeModal isOpen={mustChangePassword} />
+          {/* Mandatory Password Change Modal for new accounts */}
+          <MandatoryPasswordChangeModal isOpen={mustChangePassword} />
       </div>
     </div>
   );

@@ -113,26 +113,6 @@ export default function DeploymentPage() {
     return 'utama';
   }, []);
 
-  // Ringkasan Kesiapan Fisik Armada (Murni 3 status: Belum Dicek, Serviceable, Unserviceable)
-  const statusSummary = useMemo(() => {
-    let serviceableCount = 0;
-    let unserviceableCount = 0;
-    let belumDicekCount = 0;
-
-    vehicles.forEach((v) => {
-      const st = getVehicleStatusKey(v);
-      if (st === 'serviceable') {
-        serviceableCount++;
-      } else if (st === 'unserviceable') {
-        unserviceableCount++;
-      } else {
-        belumDicekCount++;
-      }
-    });
-
-    return { serviceableCount, unserviceableCount, belumDicekCount, total: vehicles.length };
-  }, [vehicles, getVehicleStatusKey]);
-
   // Fetch current deployment & master data concurrently
   const fetchDeploymentData = useCallback(async (options = {}) => {
     if (!canAccessPlot) {
@@ -359,6 +339,7 @@ export default function DeploymentPage() {
 
       setSuccessMsg('Ploting penugasan kru berhasil disimpan!');
       setInitialSnapshot(JSON.stringify(vehicleSlots));
+      window.dispatchEvent(new CustomEvent('arff:deployments-updated'));
       fetchDeploymentData({ keepSuccessMsg: true });
     } catch (err) {
       const rawMsg = err.response?.data?.message || err.response?.data?.error || err.message;
@@ -409,20 +390,14 @@ export default function DeploymentPage() {
           <h3 className="text-lg font-bold text-slate-900 mb-1.5">
             Bukan Shift Dinas Anda
           </h3>
-          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mb-5">
+          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
             Regu <strong>{cleanTeam(user?.team_group || activeTeam)}</strong> sedang tidak bertugas aktif (libur/off) pada tanggal <strong className="font-mono tabular-nums">{activeDate}</strong> Shift <strong className="font-mono tabular-nums">{activeShiftNumber}</strong>.
             Operasional dan ploting penugasan shift ini dipimpin oleh <strong>Regu {cleanTeam(scheduledTeam)}</strong>.
           </p>
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 inline-block text-left space-y-1">
-            <div className="font-semibold text-slate-800 mb-1">Status Roster Operasional:</div>
-            <div>• Shift Berjalan: <strong className="font-mono tabular-nums">Shift {activeShiftNumber}</strong></div>
-            <div>• Regu Terjadwal Aktif: <strong className="text-emerald-700">Regu {cleanTeam(scheduledTeam)}</strong></div>
-            <div>• Status Regu Anda ({cleanTeam(user?.team_group || activeTeam)}): <span className="text-amber-700 font-semibold">Siaga Cadangan / Libur</span></div>
-          </div>
         </div>
       ) : (
         <>
-          {/* Header & Status Summary (Identik dengan VehicleReadinessPage) */}
+          {/* Header */}
           <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs font-sans">
             <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
               <div className="min-w-0">
@@ -443,25 +418,6 @@ export default function DeploymentPage() {
               </div>
 
               <div className="flex items-center justify-between xl:justify-end gap-3 flex-wrap">
-                {/* Ringkasan Kelaikan Fisik Armada (Murni 3 Kondisi: Belum Dicek, Serviceable, Unserviceable) */}
-                <div className="inline-flex items-center divide-x divide-slate-200 rounded-lg bg-slate-50 border border-slate-200 text-xs overflow-hidden">
-                  <div className="px-2.5 py-1.5 flex items-center gap-1.5" title="Unit belum diperiksa PIC pada shift ini">
-                    <span className="w-2 h-2 rounded-full bg-slate-400" />
-                    <span className="text-slate-500 font-medium">Belum Dicek:</span>
-                    <span className="font-bold text-slate-900 font-mono tabular-nums">{statusSummary.belumDicekCount}</span>
-                  </div>
-                  <div className="px-2.5 py-1.5 flex items-center gap-1.5" title="Unit berstatus serviceable (laik)">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <span className="text-slate-500 font-medium">Serviceable:</span>
-                    <span className="font-bold text-slate-900 font-mono tabular-nums">{statusSummary.serviceableCount}</span>
-                  </div>
-                  <div className="px-2.5 py-1.5 flex items-center gap-1.5" title="Unit berstatus unserviceable (kendala/rusak)">
-                    <span className="w-2 h-2 rounded-full bg-red-500" />
-                    <span className="text-slate-500 font-medium">Unserviceable:</span>
-                    <span className="font-bold text-slate-900 font-mono tabular-nums">{statusSummary.unserviceableCount}</span>
-                  </div>
-                </div>
-
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"

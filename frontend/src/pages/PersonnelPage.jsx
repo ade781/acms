@@ -429,11 +429,6 @@ export default function PersonnelPage() {
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
                               {getStkpBadge(person)}
-                              {isChief && (
-                                <span className={`text-xs ${theme.chiefBadge} font-bold px-1.5 py-0.5 rounded border uppercase tracking-tight`}>
-                                  Ketua
-                                </span>
-                              )}
                               {isAssistant && !isChief && (
                                 <span className="text-xs bg-amber-100 text-amber-800 border border-amber-300 font-semibold px-1.5 py-0.5 rounded uppercase tracking-tight">
                                   Asisten

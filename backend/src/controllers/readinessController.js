@@ -10,6 +10,16 @@ export const getVehicleReadiness = async (req, res) => {
 
     const currentTeam = team_group || 'Alpha';
 
+    // Deteksi regu operasional riil yang tersimpan di personnel_shifts agar data PIC tidak meleset
+    let effectiveTeam = currentTeam;
+    const [activeShiftRows] = await pool.query(
+      'SELECT team_group FROM personnel_shifts WHERE shift_date = ? AND shift_number = ? ORDER BY id DESC LIMIT 1',
+      [shiftDate, shiftNumber]
+    );
+    if (activeShiftRows.length > 0 && activeShiftRows[0].team_group) {
+      effectiveTeam = activeShiftRows[0].team_group;
+    }
+
     // Ambil semua armada aktif beserta status kesiapannya pada tanggal, shift, dan regu yang dipilih
     const [rows] = await pool.query(
       `SELECT v.id, v.id as vehicle_id, v.code_name, v.vehicle_name, v.category, v.license_plate, v.description,
@@ -41,7 +51,7 @@ export const getVehicleReadiness = async (req, res) => {
          ON p_log.id = vrl.pic_personnel_id
        WHERE v.is_active = 1
        ORDER BY CASE v.category WHEN 'utama' THEN 1 WHEN 'pendukung' THEN 2 WHEN 'posko' THEN 3 ELSE 4 END, v.id ASC`,
-      [currentTeam, shiftDate, shiftNumber, currentTeam, shiftDate, shiftNumber, currentTeam]
+      [effectiveTeam, shiftDate, shiftNumber, effectiveTeam, shiftDate, shiftNumber, effectiveTeam]
     );
 
     const currentUserId = req.user.id;

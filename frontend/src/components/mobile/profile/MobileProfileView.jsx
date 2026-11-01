@@ -216,7 +216,6 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
             <h2 className="text-xs font-bold text-slate-900 uppercase tracking-tight leading-none">
               Profil Mandiri
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">Identitas & Arsip Kepegawaian</p>
           </div>
         </div>
 
@@ -288,7 +287,6 @@ export default function MobileProfileView({ onClose, onOpenLeaveModal }) {
             <h3 className="text-xs font-bold text-slate-900 uppercase tracking-tight">
               Dokumen & Sertifikat Saya
             </h3>
-            <p className="text-xs text-slate-500">Arsip digital lisensi, diklat, dan MCU</p>
           </div>
           <button
             type="button"

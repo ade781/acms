@@ -428,10 +428,7 @@ export default function OfficialsManagementPage() {
                   </div>
 
                   {chief && (
-                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
-                      <span className="text-xs text-slate-400">
-                        Status: <strong className="text-emerald-600">Aktif</strong>
-                      </span>
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-1">
                       <Button
                         variant="ghost"
                         size="xs"
@@ -473,10 +470,7 @@ export default function OfficialsManagementPage() {
                   className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs flex flex-col justify-between hover:border-slate-300 transition-colors duration-100"
                 >
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
-                        Administrasi
-                      </span>
+                    <div className="flex items-center justify-end">
                       <span className="text-xs font-mono text-slate-400">
                         @{staff.username || 'admin'}
                       </span>
@@ -488,14 +482,11 @@ export default function OfficialsManagementPage() {
                       NIP: {staff.nip || '-'}
                     </p>
                     <p className="text-xs text-slate-600 font-medium">
-                      {staff.rank_position || 'Staf Administrasi'}
+                      {staff.rank_position || 'Staf Tata Usaha'}
                     </p>
                   </div>
 
-                  <div className="pt-3 mt-2 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                      Role: Administrasi
-                    </span>
+                  <div className="pt-3 mt-2 border-t border-slate-100 flex items-center justify-end">
                     <Button
                       variant="outline"
                       size="xs"
@@ -521,7 +512,7 @@ export default function OfficialsManagementPage() {
           isOpen={dhModalOpen}
           onClose={() => setDhModalOpen(false)}
           title="Pengaturan Airport Technology & ARFF Dept. Head"
-          subtitle="Input data mandiri pejabat struktural pimpinan unit (bukan memilih dari anggota regu operasional)"
+          subtitle="Input data mandiri pejabat struktural pimpinan unit"
           footer={
             <>
               <Button variant="outline" onClick={() => setDhModalOpen(false)} disabled={savingDh}>
@@ -641,7 +632,7 @@ export default function OfficialsManagementPage() {
 
 
 
-      {/* Modal 2: Ganti Ketua Regu (Opsi C) */}
+      {/* Modal 2: Ganti Ketua Regu */}
       {chiefModalOpen && (
         <Modal
           isOpen={chiefModalOpen}
@@ -703,7 +694,7 @@ export default function OfficialsManagementPage() {
 
             {currentOldChief && (
               <SelectField
-                label="Posisi / Jabatan Baru untuk Ketua Regu Lama (Opsi C)"
+                label="Jabatan Penugasan Baru untuk Pejabat Sebelumnya"
                 value={oldChiefTargetRole}
                 onChange={(e) => setOldChiefTargetRole(e.target.value)}
                 options={[

@@ -24,47 +24,71 @@ import ActivityExportModal from '../components/activities/ActivityExportModal';
 import ActivityPhotoModal from '../components/activities/ActivityPhotoModal';
 import ActivityPdfPreviewModal from '../components/activities/ActivityPdfPreviewModal';
 
+// Skema warna filter regu (selaras dengan border panji regu di Halaman Personel: Alpha Merah, Bravo Biru, Charlie Hijau, Delta Ungu)
+const TEAM_FILTER_THEMES = {
+  ALL: {
+    select: 'border-slate-300 bg-white text-slate-800 focus:ring-slate-400 focus:border-slate-400',
+    chevron: 'text-slate-500',
+    dot: null,
+  },
+  Alpha: {
+    select: 'border-red-500 bg-red-50/70 text-red-700 font-bold focus:ring-red-400 focus:border-red-500',
+    chevron: 'text-red-600',
+    dot: 'bg-red-500',
+  },
+  Bravo: {
+    select: 'border-blue-500 bg-blue-50/70 text-blue-700 font-bold focus:ring-blue-400 focus:border-blue-500',
+    chevron: 'text-blue-600',
+    dot: 'bg-blue-500',
+  },
+  Charlie: {
+    select: 'border-emerald-500 bg-emerald-50/70 text-emerald-700 font-bold focus:ring-emerald-400 focus:border-emerald-500',
+    chevron: 'text-emerald-600',
+    dot: 'bg-emerald-500',
+  },
+  Delta: {
+    select: 'border-purple-500 bg-purple-50/70 text-purple-700 font-bold focus:ring-purple-400 focus:border-purple-500',
+    chevron: 'text-purple-600',
+    dot: 'bg-purple-500',
+  },
+};
+
 
 export default function ActivitiesPage() {
-  const { user, isAdmin, isSupervisor, activeDate, activeShiftNumber, activeTeam } = useAuth();
+  const {
+    user,
+    isAdmin,
+    isSupervisor,
+    activeDate,
+    activeShiftNumber,
+    activeTeam,
+    setActiveDate,
+    setActiveShiftNumber,
+  } = useAuth();
   const canManageActivity =
     isAdmin || isSupervisor || ['admin', 'chief', 'chief_assistant', 'supervisor', 'dept_head'].includes(user?.role);
+
+  // Tanggal & Shift Aman Terhubung Langsung dengan Navbar
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const safeDate = activeDate || todayStr;
+  const safeShift = Number(activeShiftNumber) || 1;
+
+  // Roster Dinas Shift Berjalan
+  const currentDailyRoster = useMemo(() => getDailyRoster(safeDate), [safeDate]);
+  const currentShiftTeam = useMemo(() => {
+    if (safeShift === 2) return cleanTeam(currentDailyRoster.shift2 || 'Bravo');
+    if (safeShift === 3) return cleanTeam(currentDailyRoster.shift3 || 'Charlie');
+    return cleanTeam(currentDailyRoster.shift1 || 'Alpha');
+  }, [safeShift, currentDailyRoster]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activities, setActivities] = useState([]);
   const [toastMsg, setToastMsg] = useState(null);
 
-  // Tanggal & Shift Terpilih untuk Ide 1 (Daily Date Strip + 3-Shift Selector)
-  const [selectedDate, setSelectedDate] = useState(
-    activeDate || new Date().toISOString().split('T')[0]
-  );
-  const [selectedShift, setSelectedShift] = useState(
-    Number(activeShiftNumber) || 1
-  );
-
-  useEffect(() => {
-    if (activeDate) {
-      setSelectedDate(activeDate);
-    }
-  }, [activeDate]);
-
-  useEffect(() => {
-    if (activeShiftNumber) {
-      setSelectedShift(Number(activeShiftNumber) || 1);
-    }
-  }, [activeShiftNumber]);
-
-  // Roster dinas untuk tanggal yang sedang dipilih
-  const rosterForDate = useMemo(() => getDailyRoster(selectedDate), [selectedDate]);
-  const currentShiftTeam = useMemo(() => {
-    if (selectedShift === 1) return cleanTeam(rosterForDate.shift1 || 'Alpha');
-    if (selectedShift === 2) return cleanTeam(rosterForDate.shift2 || 'Bravo');
-    return cleanTeam(rosterForDate.shift3 || 'Charlie');
-  }, [selectedShift, rosterForDate]);
-
-  // Filter & Pagination
+  // Filter Kategori & Regu
   const [selectedFilterCategory, setSelectedFilterCategory] = useState('ALL');
+  const [selectedFilterTeam, setSelectedFilterTeam] = useState('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 8;
 
@@ -125,7 +149,7 @@ export default function ActivitiesPage() {
     try {
       let endpoint = '';
       if (viewMode === 'shift') {
-        endpoint = `/activities?date=${selectedDate}`;
+        endpoint = `/activities?date=${safeDate}`;
       } else {
         endpoint = `/activities?period=${rangePeriod || '1month'}`;
       }
@@ -141,7 +165,7 @@ export default function ActivitiesPage() {
     } finally {
       setLoading(false);
     }
-  }, [viewMode, selectedDate, rangePeriod]);
+  }, [viewMode, safeDate, rangePeriod]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -281,9 +305,9 @@ export default function ActivitiesPage() {
     setSubmitting(true);
     try {
       const formData = new FormData();
-      formData.append('shift_date', selectedDate || activeDate);
-      formData.append('shift_number', String(selectedShift || activeShiftNumber || 1));
-      formData.append('team_group', currentShiftTeam || cleanTeam(activeTeam));
+      formData.append('shift_date', safeDate);
+      formData.append('shift_number', String(safeShift));
+      formData.append('team_group', currentShiftTeam || cleanTeam(activeTeam || 'Alpha'));
       formData.append('activity_type', activityType);
       formData.append('activity_time', activityTime);
       formData.append('title', title.trim());
@@ -369,11 +393,15 @@ export default function ActivitiesPage() {
     return counts;
   }, [activities]);
 
-  // Filtered & Paginated
-  const filteredActivities = activities.filter((act) => {
-    if (selectedFilterCategory === 'ALL') return true;
-    return act.activity_type === selectedFilterCategory;
-  });
+  // Filtered & Paginated (Kategori & Regu)
+  const filteredActivities = useMemo(() => {
+    return activities.filter((act) => {
+      const matchCat = selectedFilterCategory === 'ALL' || act.activity_type === selectedFilterCategory;
+      const actTeam = cleanTeam(act.team_group || act.personnel_team || '').toLowerCase();
+      const matchTeam = selectedFilterTeam === 'ALL' || actTeam === selectedFilterTeam.toLowerCase();
+      return matchCat && matchTeam;
+    });
+  }, [activities, selectedFilterCategory, selectedFilterTeam]);
 
   const totalPages = Math.ceil(filteredActivities.length / pageSize) || 1;
   const paginatedActivities = filteredActivities.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -418,13 +446,13 @@ export default function ActivitiesPage() {
               type="button"
               onClick={() => {
                 setViewMode('shift');
+                setActiveDate(todayStr);
                 setCurrentPage(1);
               }}
-              className={`px-3 py-1.5 rounded-md transition-colors duration-100 cursor-pointer ${
-                viewMode === 'shift'
-                  ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
+              className={`px-3 py-1.5 rounded-md transition-colors duration-100 cursor-pointer ${viewMode === 'shift'
+                ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                : 'text-slate-600 hover:text-slate-900'
+                }`}
             >
               Shift Berjalan
             </button>
@@ -432,14 +460,14 @@ export default function ActivitiesPage() {
               type="button"
               onClick={() => {
                 setViewMode('range');
+                setActiveDate(todayStr);
                 setRangePeriod('1week');
                 setCurrentPage(1);
               }}
-              className={`px-3 py-1.5 rounded-md transition-colors duration-100 cursor-pointer ${
-                viewMode === 'range'
-                  ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
+              className={`px-3 py-1.5 rounded-md transition-colors duration-100 cursor-pointer ${viewMode === 'range'
+                ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                : 'text-slate-600 hover:text-slate-900'
+                }`}
             >
               Riwayat & Arsip Periode
             </button>
@@ -468,6 +496,35 @@ export default function ActivitiesPage() {
             </select>
             <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2.5 pointer-events-none" />
           </div>
+
+          {/* Dropdown Filter Regu di samping Dropdown Kategori (Berwarna sesuai border regu di Personel) */}
+          <div className="relative inline-flex items-center">
+            {TEAM_FILTER_THEMES[selectedFilterTeam]?.dot && (
+              <span
+                className={`w-2 h-2 rounded-full absolute left-2.5 pointer-events-none ${TEAM_FILTER_THEMES[selectedFilterTeam].dot}`}
+              />
+            )}
+            <select
+              value={selectedFilterTeam}
+              onChange={(e) => {
+                setSelectedFilterTeam(e.target.value);
+                setCurrentPage(1);
+              }}
+              className={`${selectedFilterTeam !== 'ALL' ? 'pl-6' : 'pl-2.5'} pr-8 py-1.5 rounded-lg text-xs font-semibold shadow-2xs hover:bg-slate-50/80 focus:outline-none focus:ring-1 transition-colors duration-100 cursor-pointer appearance-none border ${
+                TEAM_FILTER_THEMES[selectedFilterTeam]?.select || TEAM_FILTER_THEMES.ALL.select
+              }`}
+              aria-label="Filter Regu Kegiatan"
+            >
+              <option value="ALL" className="text-slate-800 bg-white font-medium">Semua Regu</option>
+              <option value="Alpha" className="text-red-700 bg-white font-bold">Regu Alpha</option>
+              <option value="Bravo" className="text-blue-700 bg-white font-bold">Regu Bravo</option>
+              <option value="Charlie" className="text-emerald-700 bg-white font-bold">Regu Charlie</option>
+              <option value="Delta" className="text-purple-700 bg-white font-bold">Regu Delta</option>
+            </select>
+            <ChevronDown className={`w-3.5 h-3.5 absolute right-2.5 pointer-events-none ${
+              TEAM_FILTER_THEMES[selectedFilterTeam]?.chevron || TEAM_FILTER_THEMES.ALL.chevron
+            }`} />
+          </div>
         </div>
 
         {/* Kontrol Periode jika dalam mode Riwayat & Arsip (7 Hari, 30 Hari, Triwulan) */}
@@ -486,11 +543,10 @@ export default function ActivitiesPage() {
                     setRangePeriod(p.id);
                     setCurrentPage(1);
                   }}
-                  className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors duration-100 cursor-pointer ${
-                    rangePeriod === p.id
-                      ? 'bg-white text-slate-900 shadow-2xs font-bold border border-slate-200/80'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors duration-100 cursor-pointer ${rangePeriod === p.id
+                    ? 'bg-white text-slate-900 shadow-2xs font-bold border border-slate-200/80'
+                    : 'text-slate-600 hover:text-slate-900'
+                    }`}
                 >
                   {p.label}
                 </button>
@@ -521,13 +577,16 @@ export default function ActivitiesPage() {
       {/* Row 3: Immediate Timeline & Daftar Kegiatan Content */}
       <DailyShiftActivityView
         activities={filteredActivities}
-        selectedDate={selectedDate}
+        selectedDate={safeDate}
         onDateChange={(d) => {
-          setSelectedDate(d);
+          setActiveDate(d);
           setCurrentPage(1);
         }}
-        selectedShift={selectedShift}
-        onShiftChange={(s) => setSelectedShift(s)}
+        selectedShift={safeShift}
+        onShiftChange={(s) => {
+          setActiveShiftNumber(Number(s));
+          setCurrentPage(1);
+        }}
         canManageActivity={canManageActivity}
         onOpenCreateModal={handleOpenCreateModal}
         onOpenEditModal={handleOpenEditModal}
@@ -546,9 +605,9 @@ export default function ActivitiesPage() {
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         editingId={editingId}
-        activeShiftNumber={selectedShift}
+        activeShiftNumber={safeShift}
         activeTeam={currentShiftTeam}
-        activeDate={selectedDate}
+        activeDate={safeDate}
         activityTime={activityTime}
         setActivityTime={setActivityTime}
         activityType={activityType}

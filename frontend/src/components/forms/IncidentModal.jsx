@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AlertCircle, Camera, CheckCircle2, Check, Plus, X } from 'lucide-react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
@@ -22,16 +22,6 @@ export const OFFICIAL_INCIDENT_CLASSIFICATIONS = [
   'Temuan Gangguan Fasilitas',
   'Latihan atau Kegiatan Operasional',
   'Kejadian Lainnya',
-];
-
-export const ARFF_FLEET_OPTIONS = [
-  'Foam Tender 1',
-  'Foam Tender 2',
-  'Foam Tender 3',
-  'Rapid Intervention Vehicle (RIV)',
-  'Nurse Tender',
-  'Ambulance',
-  'Command Car',
 ];
 
 export default function IncidentModal({
@@ -59,7 +49,32 @@ export default function IncidentModal({
   const [chronology, setChronology] = useState('');
   const [actionTaken, setActionTaken] = useState('');
   const [deployedVehicles, setDeployedVehicles] = useState([]);
+  const [fleetOptions, setFleetOptions] = useState([]);
   const [lastCondition, setLastCondition] = useState('');
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchFleet = async () => {
+      try {
+        const res = await api.get('/readiness/vehicles');
+        const list = res.data?.data || res.data || [];
+        if (Array.isArray(list) && isMounted) {
+          const names = list
+            .filter((v) => v.category !== 'posko' && v.code_name !== 'WATCHROOM')
+            .map((v) => v.code_name || v.vehicle_name);
+          if (names.length > 0) setFleetOptions(names);
+        }
+      } catch {
+        // Fallback or ignore
+      }
+    };
+    if (isOpen) {
+      fetchFleet();
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
   const [photoFiles, setPhotoFiles] = useState([]);
   const [photoPreviews, setPhotoPreviews] = useState([]);
   const [compressing, setCompressing] = useState(false);
@@ -328,32 +343,38 @@ export default function IncidentModal({
             Klik armada yang meluncur ke lokasi kejadian untuk dicatat otomatis ke riwayat penanganan:
           </p>
           <div className="flex flex-wrap gap-1.5 pt-1">
-            {ARFF_FLEET_OPTIONS.map((veh) => {
-              const isSelected = deployedVehicles.includes(veh);
-              return (
-                <button
-                  key={veh}
-                  type="button"
-                  onClick={() => {
-                    setDeployedVehicles((prev) =>
-                      prev.includes(veh) ? prev.filter((v) => v !== veh) : [...prev, veh]
-                    );
-                  }}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors duration-100 flex items-center gap-1.5 ${
-                    isSelected
-                      ? 'bg-red-600 text-white border-red-700 shadow-xs'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  {isSelected ? (
-                    <Check className="w-3.5 h-3.5 shrink-0" />
-                  ) : (
-                    <Plus className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                  )}
-                  <span>{veh}</span>
-                </button>
-              );
-            })}
+            {fleetOptions.length > 0 ? (
+              fleetOptions.map((veh) => {
+                const isSelected = deployedVehicles.includes(veh);
+                return (
+                  <button
+                    key={veh}
+                    type="button"
+                    onClick={() => {
+                      setDeployedVehicles((prev) =>
+                        prev.includes(veh) ? prev.filter((v) => v !== veh) : [...prev, veh]
+                      );
+                    }}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors duration-100 flex items-center gap-1.5 cursor-pointer ${
+                      isSelected
+                        ? 'bg-red-600 text-white border-red-700 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {isSelected ? (
+                      <Check className="w-3.5 h-3.5 shrink-0" />
+                    ) : (
+                      <Plus className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                    )}
+                    <span>{veh}</span>
+                  </button>
+                );
+              })
+            ) : (
+              <span className="text-xs text-slate-400 italic">
+                Memuat daftar armada operasional...
+              </span>
+            )}
           </div>
         </div>
 

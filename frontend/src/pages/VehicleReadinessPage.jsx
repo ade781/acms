@@ -298,7 +298,7 @@ export default function VehicleReadinessPage() {
         error={error}
         isEmpty={vehicles.length === 0}
         emptyTitle="Belum Ada Unit Operasional"
-        emptyDescription="Daftarkan armada operasional terlebih dahulu menggunakan tombol Tambah Armada di atas."
+        emptyDescription="Belum ada data armada operasional yang terdaftar."
         onRetry={fetchVehicles}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -335,7 +335,7 @@ export default function VehicleReadinessPage() {
                 iconBg: 'bg-emerald-100 text-emerald-800',
               },
               unserviceable: {
-                label: 'Tidak Laik',
+                label: 'Unserviceable',
                 icon: AlertTriangle,
                 badgeCls: 'bg-red-50 text-red-800 border-red-200',
                 cardBorder: 'border-red-300',
@@ -357,7 +357,7 @@ export default function VehicleReadinessPage() {
               <div
                 key={v.id || v.vehicle_id}
                 className={`bg-white rounded-xl border ${
-                  isPic ? 'border-emerald-500' : cfg.cardBorder
+                  isPic ? 'border-emerald-400 ring-1 ring-emerald-300/40' : cfg.cardBorder
                 } shadow-sm p-4 sm:p-5 flex flex-col justify-between transition-colors duration-100 hover:border-slate-300`}
               >
                 <div>
@@ -365,9 +365,7 @@ export default function VehicleReadinessPage() {
                   <div className="flex items-start justify-between gap-2 pb-3 border-b border-slate-200">
                     <div className="flex items-center gap-3 min-w-0">
                       <div
-                        className={`w-11 h-11 rounded-lg ${
-                          isPic ? 'bg-emerald-100 text-emerald-800' : cfg.iconBg
-                        } flex items-center justify-center flex-shrink-0`}
+                        className={`w-11 h-11 rounded-lg ${cfg.iconBg} flex items-center justify-center flex-shrink-0`}
                       >
                         <CardIcon className="w-5 h-5" />
                       </div>

@@ -356,23 +356,11 @@ export default function PersonnelDetailPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
                   <span className="text-slate-400 block text-xs">Username Login</span>
                   <span className="font-mono font-bold text-slate-900 mt-1 block">
                     {personnel.username || '-'}
-                  </span>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-xs">Role Sistem (Akses)</span>
-                  <span className="font-bold text-slate-900 mt-1 block">
-                    {formatRoleName(personnel.user_role || (personnel.team_group === 'Non-Shift' ? 'admin' : targetRole))}
-                  </span>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-xs">Penempatan Regu</span>
-                  <span className="font-bold text-slate-900 mt-1 block">
-                    {personnel.team_group === 'Non-Shift' ? 'Non-Shift (Administrasi)' : formatTeam(personnel.team_group)}
                   </span>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between">
@@ -446,10 +434,6 @@ export default function PersonnelDetailPage() {
 
                   {/* Kontrol Aksi & Petunjuk */}
                   <div className="flex-1 space-y-3">
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      Tanda tangan digital ini digunakan pada formulir serah terima shift dinas, validasi ploting armada, serta lembar pengesahan laporan berkala ARFF YIA.
-                    </p>
-
                     {canUploadSignature ? (
                       <div className="flex items-center gap-3 flex-wrap">
                         <input
@@ -487,10 +471,6 @@ export default function PersonnelDetailPage() {
                         Hanya pimpinan bersangkutan atau Administrator yang dapat mengubah spesimen ini.
                       </div>
                     )}
-
-                    <span className="text-xs text-slate-400 block">
-                      Format didukung: PNG (latar transparan disarankan), WebP, atau JPEG (Maks. 5 MB).
-                    </span>
                   </div>
                 </div>
               </div>
@@ -533,9 +513,6 @@ export default function PersonnelDetailPage() {
                   <FileText className="w-5 h-5 text-arff-primary" />
                   <div>
                     <h3 className="text-sm font-bold text-slate-900">Berkas & Dokumen Personel</h3>
-                    <p className="text-xs text-slate-500">
-                      Lisensi STKP, sertifikat diklat teknis, medical check-up (MCU), dan surat tugas resmi
-                    </p>
                   </div>
                 </div>
 

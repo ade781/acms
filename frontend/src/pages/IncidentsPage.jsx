@@ -286,7 +286,7 @@ export default function IncidentsPage() {
                 <tr className="border-b border-slate-200 bg-slate-50 text-xs font-bold text-slate-600 uppercase tracking-wider">
                   <th className="py-3 px-4">No. Laporan</th>
                   <th className="py-3 px-4">Waktu Kejadian</th>
-                  <th className="py-3 px-4">Regu / Shift</th>
+                  {filterScope !== 'shift' && <th className="py-3 px-4">Regu / Shift</th>}
                   <th className="py-3 px-4">Judul Kejadian</th>
                   <th className="py-3 px-4">Lokasi Area</th>
                   <th className="py-3 px-4">Prioritas</th>
@@ -309,10 +309,12 @@ export default function IncidentsPage() {
                         {typeof inc.incident_time === 'string' ? inc.incident_time.slice(0, 5) : ''} WIB
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-slate-600 font-medium">
-                      <div>Regu {typeof inc.team_group === 'string' ? inc.team_group : 'Alpha'}</div>
-                      <div className="text-xs text-slate-400">Shift <span className="font-mono tabular-nums">#{inc.shift_number || 1}</span></div>
-                    </td>
+                    {filterScope !== 'shift' && (
+                      <td className="py-3 px-4 text-slate-600 font-medium">
+                        <div>Regu {typeof inc.team_group === 'string' ? inc.team_group : 'Alpha'}</div>
+                        <div className="text-xs text-slate-400">Shift <span className="font-mono tabular-nums">#{inc.shift_number || 1}</span></div>
+                      </td>
+                    )}
                     <td className="py-3 px-4 text-slate-900 font-semibold max-w-xs">
                       <div className="truncate">{typeof inc.title === 'string' ? inc.title : '-'}</div>
                       <div className="text-xs text-slate-400 font-normal">

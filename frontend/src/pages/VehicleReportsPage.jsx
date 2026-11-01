@@ -15,7 +15,6 @@ import {
   ExternalLink,
   HelpCircle,
   AlertCircle,
-  Search,
 } from 'lucide-react';
 import api from '../services/api';
 import { downloadVehicleReportPdf } from '../services/reportService';
@@ -27,12 +26,11 @@ import Modal from '../components/common/Modal';
 export default function VehicleReportsPage() {
   const navigate = useNavigate();
 
-  // State Filter Periode & Pencarian
+  // State Filter Periode
   const [selectedPeriod, setSelectedPeriod] = useState('1month');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isCustomMode, setIsCustomMode] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('ALL');
 
   // State Feedback Notifikasi Visual (Toast)
@@ -237,15 +235,11 @@ export default function VehicleReportsPage() {
     ) {
       return false;
     }
-
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      (v.code_name || '').toLowerCase().includes(q) ||
-      (v.vehicle_name || '').toLowerCase().includes(q) ||
-      (v.license_plate || '').toLowerCase().includes(q) ||
-      (v.category || '').toLowerCase().includes(q)
-    );
+    if (filterStatus === 'kendala') {
+      const periodCount = Number(v.period_count ?? v.transition_count ?? (v.transitions?.length || 0));
+      if (periodCount === 0 && rawStatus !== 'unserviceable') return false;
+    }
+    return true;
   });
 
   return (
@@ -346,9 +340,17 @@ export default function VehicleReportsPage() {
           </div>
         </div>
 
-        {/* Bottom Row: Compact 4-Column Tabular Ledger Strip */}
+        {/* Bottom Row: Interactive 4-Column Tabular Ledger Strip */}
         <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 bg-slate-50/60 text-xs font-sans">
-          <div className="px-4 py-2.5 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => setFilterStatus('ALL')}
+            className={`px-4 py-2.5 flex items-center justify-between gap-2 text-left cursor-pointer transition-colors duration-100 ${
+              filterStatus === 'ALL'
+                ? 'bg-white shadow-2xs font-bold ring-1 ring-slate-200'
+                : 'hover:bg-slate-100/60'
+            }`}
+          >
             <div className="flex items-center gap-2 text-slate-600">
               <Truck className="w-4 h-4 text-slate-400 shrink-0" />
               <span className="font-semibold">Total Unit Armada</span>
@@ -356,9 +358,17 @@ export default function VehicleReportsPage() {
             <span className="font-black text-slate-900 font-mono tabular-nums">
               {summary.total_vehicles} Unit
             </span>
-          </div>
+          </button>
 
-          <div className="px-4 py-2.5 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => setFilterStatus(filterStatus === 'kendala' ? 'ALL' : 'kendala')}
+            className={`px-4 py-2.5 flex items-center justify-between gap-2 text-left cursor-pointer transition-colors duration-100 ${
+              filterStatus === 'kendala'
+                ? 'bg-white shadow-2xs font-bold ring-1 ring-amber-300'
+                : 'hover:bg-slate-100/60'
+            }`}
+          >
             <div className="flex items-center gap-2 text-slate-600">
               <RefreshCw className="w-4 h-4 text-amber-500 shrink-0" />
               <span className="font-semibold">Periode Kendala</span>
@@ -366,9 +376,17 @@ export default function VehicleReportsPage() {
             <span className="font-black text-amber-600 font-mono tabular-nums">
               {summary.total_transitions} Siklus
             </span>
-          </div>
+          </button>
 
-          <div className="px-4 py-2.5 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => setFilterStatus(filterStatus === 'serviceable' ? 'ALL' : 'serviceable')}
+            className={`px-4 py-2.5 flex items-center justify-between gap-2 text-left cursor-pointer transition-colors duration-100 ${
+              filterStatus === 'serviceable'
+                ? 'bg-white shadow-2xs font-bold ring-1 ring-emerald-300'
+                : 'hover:bg-slate-100/60'
+            }`}
+          >
             <div className="flex items-center gap-2 text-slate-600">
               <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
               <span className="font-semibold">Serviceable</span>
@@ -376,9 +394,20 @@ export default function VehicleReportsPage() {
             <span className="font-black text-emerald-700 font-mono tabular-nums">
               {summary.currently_serviceable} Unit
             </span>
-          </div>
+          </button>
 
-          <div className="px-4 py-2.5 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              const target = summary.currently_unserviceable > 0 ? 'unserviceable' : 'belum_dilaporkan';
+              setFilterStatus(filterStatus === target ? 'ALL' : target);
+            }}
+            className={`px-4 py-2.5 flex items-center justify-between gap-2 text-left cursor-pointer transition-colors duration-100 ${
+              filterStatus === 'unserviceable' || filterStatus === 'belum_dilaporkan'
+                ? 'bg-white shadow-2xs font-bold ring-1 ring-red-300'
+                : 'hover:bg-slate-100/60'
+            }`}
+          >
             <div className="flex items-center gap-2 text-slate-600">
               {summary.currently_unserviceable > 0 ? (
                 <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
@@ -404,11 +433,11 @@ export default function VehicleReportsPage() {
                 ? `${currentlyUnreported} Unit`
                 : '0 Unit'}
             </span>
-          </div>
+          </button>
         </div>
       </div>
 
-      {/* Uniform Filter Bar: Preset Periode, Pencarian, & Filter Status */}
+      {/* Uniform Filter Bar: Preset Periode */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3 print:hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Preset Buttons */}
@@ -464,18 +493,6 @@ export default function VehicleReportsPage() {
               </button>
             </div>
           </div>
-
-          {/* Search Box */}
-          <div className="relative w-full md:w-64">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Cari kode unit atau nama armada..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-red-500 transition-colors duration-100"
-            />
-          </div>
         </div>
 
         {/* Input Rentang Tanggal Kustom */}
@@ -511,60 +528,6 @@ export default function VehicleReportsPage() {
             </Button>
           </form>
         )}
-
-        {/* Segmented Status Filter Pills */}
-        <div className="pt-2.5 border-t border-slate-100 flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">
-            Status:
-          </span>
-          {[
-            { id: 'ALL', label: 'Semua Unit', count: vehicles.length },
-            {
-              id: 'serviceable',
-              label: 'Serviceable',
-              count: summary.currently_serviceable,
-              dot: 'bg-emerald-500',
-            },
-            {
-              id: 'unserviceable',
-              label: 'Unserviceable',
-              count: summary.currently_unserviceable,
-              dot: 'bg-red-600',
-            },
-            {
-              id: 'belum_dilaporkan',
-              label: 'Belum Dicek',
-              count: currentlyUnreported,
-              dot: 'bg-slate-400',
-            },
-          ].map((pill) => {
-            const isActive = filterStatus === pill.id;
-            return (
-              <button
-                key={pill.id}
-                type="button"
-                onClick={() => setFilterStatus(pill.id)}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-100 cursor-pointer ${
-                  isActive
-                    ? 'bg-white text-slate-900 border border-slate-300 font-bold shadow-2xs ring-1 ring-slate-300/50'
-                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
-                }`}
-              >
-                {pill.dot && <span className={`w-2 h-2 rounded-full ${pill.dot}`} />}
-                <span>{pill.label}</span>
-                <span
-                  className={`text-xs px-1.5 py-0.5 rounded-full font-bold font-mono tabular-nums ${
-                    isActive
-                      ? 'bg-slate-100 text-slate-900 border border-slate-200'
-                      : 'bg-slate-200/80 text-slate-700'
-                  }`}
-                >
-                  {pill.count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       {/* Tabel Data Rekapitulasi Armada */}
@@ -573,9 +536,6 @@ export default function VehicleReportsPage() {
           <h3 className="text-sm font-bold text-slate-900">
             Daftar Rekapitulasi Kesiapan Armada
           </h3>
-          <span className="text-xs font-semibold text-slate-500">
-            Menampilkan <span className="font-mono tabular-nums">{filteredVehicles.length}</span> unit
-          </span>
         </div>
 
         <StateView
@@ -939,26 +899,15 @@ export default function VehicleReportsPage() {
 
               <div className="flex items-center gap-2">
                 {previewPdfUrl && (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      icon={ExternalLink}
-                      onClick={() => window.open(previewPdfUrl, '_blank')}
-                      title="Buka PDF di tab baru browser"
-                    >
-                      Buka Tab Baru
-                    </Button>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      icon={Download}
-                      onClick={handlePrint}
-                      loading={isExporting}
-                    >
-                      Unduh PDF
-                    </Button>
-                  </>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={ExternalLink}
+                    onClick={() => window.open(previewPdfUrl, '_blank')}
+                    title="Buka PDF di tab baru browser"
+                  >
+                    Buka Tab Baru
+                  </Button>
                 )}
                 <button
                   type="button"

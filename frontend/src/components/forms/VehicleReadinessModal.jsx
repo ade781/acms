@@ -346,7 +346,7 @@ export default function VehicleReadinessModal({
                 {vehicle.status === 'serviceable'
                   ? 'Serviceable'
                   : vehicle.status === 'unserviceable'
-                  ? 'Tidak Laik / Rusak'
+                  ? 'Unserviceable'
                   : 'Belum Dicek'}
               </span>
             </div>
@@ -477,7 +477,7 @@ export default function VehicleReadinessModal({
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wide">
-                    Tidak Laik / Rusak
+                    Unserviceable
                   </span>
                   {effectiveStatus === 'unserviceable' && (
                     <span className="text-xs font-bold text-red-700 bg-red-100 px-1.5 py-0.5 rounded">

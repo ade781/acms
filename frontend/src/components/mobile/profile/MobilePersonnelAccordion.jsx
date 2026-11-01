@@ -228,30 +228,15 @@ export default function MobilePersonnelAccordion({
 
             <div className="grid grid-cols-2 gap-2">
               <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg">
-                <span className="text-xs text-slate-500 block">Usia Personel</span>
-                <span className="font-mono tabular-nums font-bold text-slate-900 text-xs mt-0.5 block">
-                  {calculateAge(personnel.birth_date)}
-                </span>
-              </div>
-              <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg">
                 <span className="text-xs text-slate-500 block">Status Karyawan</span>
                 <span className="font-semibold text-slate-900 text-xs mt-0.5 block">
                   {personnel.employment_status || 'Karyawan Organik'}
                 </span>
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
               <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg">
                 <span className="text-xs text-slate-500 block">TMT Karyawan</span>
                 <span className="font-semibold text-slate-900 text-xs mt-0.5 block font-mono tabular-nums">
                   {formatIndoDate(personnel.tmt_date, { shortMonth: true })}
-                </span>
-              </div>
-              <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg">
-                <span className="text-xs text-slate-500 block">Masa Kerja</span>
-                <span className="font-mono tabular-nums font-bold text-slate-900 text-xs mt-0.5 block">
-                  {calculateTenure(personnel.tmt_date)}
                 </span>
               </div>
             </div>

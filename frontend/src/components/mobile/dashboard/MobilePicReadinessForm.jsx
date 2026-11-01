@@ -23,14 +23,14 @@ export default function MobilePicReadinessForm({
   const vehicleCode = dutyInfo.vehicle_code || 'UNIT';
 
   // Periksa apakah unit ini sudah dilaporkan pada shift berjalan
+  // Unit HANYA dianggap sudah dilaporkan jika statusnya bukan 'belum_dilaporkan' dan bukan unserviceable estafet
   const hasShiftLog = Boolean(
     vehicleReadiness?.has_shift_log ||
-    vehicleReadiness?.logged_at ||
     (vehicleReadiness?.status && vehicleReadiness.status !== 'belum_dilaporkan' && !vehicleReadiness?.is_carried_over)
   );
 
   const isCurrentlyServiceable = vehicleReadiness?.status === 'serviceable';
-  const isCurrentlyUnserviceable = vehicleReadiness?.status === 'unserviceable';
+  const isCurrentlyUnserviceable = vehicleReadiness?.status === 'unserviceable' && !vehicleReadiness?.is_carried_over;
 
   // State mode edit jika laporan sudah ada
   const [isEditing, setIsEditing] = useState(false);
@@ -176,15 +176,14 @@ export default function MobilePicReadinessForm({
 
   return (
     <div
-      className={`rounded-xl border p-3 shadow-xs space-y-2.5 transition-colors duration-100 font-sans ${
-        hasShiftLog && !isEditing
+      className={`rounded-xl border p-3 shadow-xs space-y-2.5 transition-colors duration-100 font-sans ${hasShiftLog && !isEditing
           ? isCurrentlyServiceable
             ? 'bg-emerald-50/15 border-emerald-300 shadow-2xs'
             : 'bg-red-50/20 border-red-300 shadow-2xs'
           : hasShiftLog && isEditing
-          ? 'bg-white border-slate-300'
-          : 'bg-white border-amber-200'
-      }`}
+            ? 'bg-white border-slate-300'
+            : 'bg-white border-amber-200'
+        }`}
     >
       {/* Header Formulir PIC */}
       <div className="flex items-center justify-between border-b border-slate-100 pb-2">
@@ -214,17 +213,15 @@ export default function MobilePicReadinessForm({
         <div className="space-y-2.5">
           {/* Banner Status Konfirmasi Verifikasi */}
           <div
-            className={`p-2.5 rounded-xl border flex items-center justify-between gap-2.5 ${
-              isCurrentlyServiceable
+            className={`p-2.5 rounded-xl border flex items-center justify-between gap-2.5 ${isCurrentlyServiceable
                 ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
                 : 'bg-red-50 border-red-200 text-red-900'
-            }`}
+              }`}
           >
             <div className="flex items-center gap-2 min-w-0">
               <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
-                  isCurrentlyServiceable ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
-                }`}
+                className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${isCurrentlyServiceable ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
+                  }`}
               >
                 {isCurrentlyServiceable ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
               </div>
@@ -232,12 +229,16 @@ export default function MobilePicReadinessForm({
                 <p className="text-xs font-bold leading-tight truncate">
                   {isCurrentlyServiceable
                     ? 'Status: Serviceable'
-                    : 'Status: Unserviceable'}
+                  : isCurrentlyUnserviceable
+                  ? 'Status: Unserviceable'
+                    : 'Status: Belum Dicek'}
                 </p>
                 <p className="text-xs opacity-80 mt-0.5 truncate">
                   {isCurrentlyServiceable
                     ? vehicleReadiness?.notes || 'Unit terverifikasi fisik.'
-                    : vehicleReadiness?.justification || 'Terdapat kendala teknis pada unit.'}
+                  : isCurrentlyUnserviceable
+                  ? vehicleReadiness?.justification || 'Terdapat kendala teknis pada unit.'
+                    : 'Pemeriksaan fisik unit belum dilaporkan.'}
                 </p>
               </div>
             </div>
@@ -359,11 +360,10 @@ export default function MobilePicReadinessForm({
               <button
                 type="button"
                 onClick={() => setStatus('serviceable')}
-                className={`p-2 rounded-lg font-bold text-xs flex flex-col items-center justify-center gap-0.5 transition-colors duration-100 cursor-pointer ${
-                  status === 'serviceable'
+                className={`p-2 rounded-lg font-bold text-xs flex flex-col items-center justify-center gap-0.5 transition-colors duration-100 cursor-pointer ${status === 'serviceable'
                     ? 'border-2 border-emerald-600 bg-emerald-50/50 text-emerald-800 shadow-2xs'
                     : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                }`}
+                  }`}
               >
                 <Check className="w-4 h-4 text-emerald-600" />
                 <span>Serviceable</span>
@@ -371,11 +371,10 @@ export default function MobilePicReadinessForm({
               <button
                 type="button"
                 onClick={() => setStatus('unserviceable')}
-                className={`p-2 rounded-lg font-bold text-xs flex flex-col items-center justify-center gap-0.5 transition-colors duration-100 cursor-pointer ${
-                  status === 'unserviceable'
+                className={`p-2 rounded-lg font-bold text-xs flex flex-col items-center justify-center gap-0.5 transition-colors duration-100 cursor-pointer ${status === 'unserviceable'
                     ? 'border-2 border-red-600 bg-red-50/50 text-red-800 shadow-2xs'
                     : 'border border-slate-200 bg-white text-slate-600 hover:border-red-300'
-                }`}
+                  }`}
               >
                 <X className="w-4 h-4 text-red-500" />
                 <span>Unserviceable</span>
@@ -478,7 +477,7 @@ export default function MobilePicReadinessForm({
                 <button
                   type="submit"
                   disabled={submitting || compressing}
-                  className="w-full py-2 rounded-xl font-bold text-xs bg-slate-800 hover:bg-slate-900 text-white shadow-xs flex items-center justify-center gap-1.5 transition-colors duration-100 cursor-pointer disabled:bg-slate-400"
+                  className="w-full py-2 rounded-xl font-bold text-xs bg-amber-600 hover:bg-amber-700 text-white shadow-xs flex items-center justify-center gap-1.5 transition-colors duration-100 cursor-pointer disabled:bg-slate-400"
                 >
                   {submitting || compressing ? (
                     <>

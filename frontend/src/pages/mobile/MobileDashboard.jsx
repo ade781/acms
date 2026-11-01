@@ -74,14 +74,35 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
   useEffect(() => {
     const controller = new AbortController();
     fetchDashboardData(false, controller.signal);
-    const handleLeaveUpdated = () => fetchDashboardData(true);
-    const handleAnnUpdated = () => fetchDashboardData(true);
-    window.addEventListener('arff:leave-updated', handleLeaveUpdated);
-    window.addEventListener('arff:announcements-updated', handleAnnUpdated);
+
+    const handleDataUpdated = () => fetchDashboardData(true);
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        fetchDashboardData(true);
+      }
+    };
+
+    window.addEventListener('arff:leave-updated', handleDataUpdated);
+    window.addEventListener('arff:announcements-updated', handleDataUpdated);
+    window.addEventListener('arff:deployments-updated', handleDataUpdated);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+    // Polling berkala 30 detik agar perubahan penugasan dari Chief langsung tampil seketika
+    const pollTimer = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchDashboardData(true);
+      }
+    }, 30000);
+
     return () => {
       controller.abort();
-      window.removeEventListener('arff:leave-updated', handleLeaveUpdated);
-      window.removeEventListener('arff:announcements-updated', handleAnnUpdated);
+      clearInterval(pollTimer);
+      window.removeEventListener('arff:leave-updated', handleDataUpdated);
+      window.removeEventListener('arff:announcements-updated', handleDataUpdated);
+      window.removeEventListener('arff:deployments-updated', handleDataUpdated);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
     };
   }, [fetchDashboardData]);
 
@@ -89,10 +110,12 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
   const allDeployments = deploymentsData?.deployments || [];
   const currentPersonnelId = user?.personnel_id ? Number(user.personnel_id) : null;
   const currentUserId = user?.id ? Number(user.id) : null;
+  const currentUserName = (user?.name || user?.full_name || '').trim().toLowerCase();
 
   const userDeployment = allDeployments.find((d) => {
     if (currentPersonnelId && Number(d.personnel_id) === currentPersonnelId) return true;
     if (currentUserId && Number(d.user_id) === currentUserId) return true;
+    if (currentUserName && (d.full_name || '').trim().toLowerCase() === currentUserName) return true;
     return false;
   });
 
@@ -111,12 +134,22 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
   // Deteksi penugasan kendaraan & status PIC
   let dutyInfo = null;
   if (userDeployment && !isOnLeave) {
+    const matchedVehicle = vehiclesList.find(
+      (v) => Number(v.id || v.vehicle_id) === Number(userDeployment.vehicle_id)
+    );
+    const isWatchroom =
+      userDeployment.deployment_type === 'watchroom' ||
+      userDeployment.vehicle_code === 'WATCHROOM' ||
+      matchedVehicle?.category === 'posko';
+
     dutyInfo = {
-      vehicle_id: userDeployment.vehicle_id,
-      vehicle_code: userDeployment.vehicle_code,
-      vehicle_name: userDeployment.vehicle_name,
+      vehicle_id: userDeployment.vehicle_id || matchedVehicle?.id,
+      vehicle_code: userDeployment.vehicle_code || matchedVehicle?.code_name || (isWatchroom ? 'WATCHROOM' : ''),
+      vehicle_name: userDeployment.vehicle_name || matchedVehicle?.vehicle_name || (isWatchroom ? 'Posko Komunikasi (Watchroom)' : ''),
       is_pic: Boolean(userDeployment.is_pic === 1 || userDeployment.is_pic === true),
-      role_name: userDeployment.is_pic ? 'Operator Utama (PIC)' : (userDeployment.role_name || 'Kru Lapangan')
+      role_name: userDeployment.is_pic
+        ? (isWatchroom ? 'PIC Watchroom' : 'Operator Utama (PIC)')
+        : (userDeployment.notes || userDeployment.role_name || (isWatchroom ? 'Operator Komunikasi' : 'Kru Lapangan'))
     };
   } else if (!isOffDuty && !isOnLeave) {
     // Cek apakah user tercatat sebagai PIC di daftar kesiapan kendaraan
@@ -128,12 +161,13 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
     );
 
     if (picVehicle) {
+      const isWatchroom = picVehicle.category === 'posko' || picVehicle.code_name === 'WATCHROOM';
       dutyInfo = {
         vehicle_id: picVehicle.id || picVehicle.vehicle_id,
         vehicle_code: picVehicle.code_name,
-        vehicle_name: picVehicle.vehicle_name,
+        vehicle_name: picVehicle.vehicle_name || (isWatchroom ? 'Posko Komunikasi (Watchroom)' : ''),
         is_pic: true,
-        role_name: 'Operator Utama (PIC)'
+        role_name: isWatchroom ? 'PIC Watchroom' : 'Operator Utama (PIC)'
       };
     }
   }

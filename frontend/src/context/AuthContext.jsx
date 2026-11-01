@@ -112,7 +112,10 @@ export function AuthProvider({ children }) {
     localStorage.setItem('arff_token', receivedToken);
     localStorage.setItem('arff_user', JSON.stringify(receivedUser));
 
-    if (receivedUser?.team_group) {
+    const currentOpShift = getCurrentOperationalShift();
+    if (currentOpShift?.scheduledTeam) {
+      setActiveTeam(cleanTeam(currentOpShift.scheduledTeam));
+    } else if (receivedUser?.team_group) {
       setActiveTeam(cleanTeam(receivedUser.team_group));
     }
 

@@ -8,15 +8,11 @@ import { Truck, Radio, Users, ChevronRight } from 'lucide-react';
  */
 export default function MobileReportSummaryCard({
   vehicles = [],
-  watchroomData = {},
   deployments = [],
-  absents = [],
   onOpenUnitAudit,
 }) {
   const totalUnits = vehicles.length;
   const serviceableCount = vehicles.filter((v) => v.status === 'serviceable').length;
-  const unserviceableCount = vehicles.filter((v) => v.status === 'unserviceable').length;
-  const belumDicekCount = vehicles.filter((v) => !v.status || v.status === 'belum_dilaporkan').length;
 
   const presentDeployments = deployments.filter((d) => d.deployment_type !== 'absent');
 
@@ -63,15 +59,10 @@ export default function MobileReportSummaryCard({
 
       {/* Daftar Kesiapan Unit Operasional (Compact Flat Rows) */}
       <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs space-y-2">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-          <div>
-            <h4 className="text-xs font-bold text-slate-900 uppercase">
-              Kesiapan Unit Operasional
-            </h4>
-          </div>
-          <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
-            <span className="font-mono tabular-nums">{serviceableCount}/{totalUnits}</span> Serviceable
-          </span>
+        <div className="border-b border-slate-100 pb-2">
+          <h4 className="text-xs font-bold text-slate-900 uppercase">
+            Kesiapan Unit Operasional
+          </h4>
         </div>
 
         <div className="divide-y divide-slate-100 text-xs">

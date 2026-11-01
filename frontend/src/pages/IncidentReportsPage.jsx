@@ -318,9 +318,20 @@ export default function IncidentReportsPage() {
           </div>
         </div>
 
-        {/* Bottom Row: Compact 4-Column Tabular Ledger Strip */}
+        {/* Bottom Row: Interactive 4-Column Tabular Ledger Strip */}
         <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 bg-slate-50/60 text-xs font-sans">
-          <div className="px-4 py-2.5 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setFilterTriage('ALL');
+              setCurrentPage(1);
+            }}
+            className={`px-4 py-2.5 flex items-center justify-between gap-2 text-left cursor-pointer transition-colors duration-100 ${
+              filterTriage === 'ALL'
+                ? 'bg-white shadow-2xs font-bold ring-1 ring-slate-200'
+                : 'hover:bg-slate-100/60'
+            }`}
+          >
             <div className="flex items-center gap-2 text-slate-600">
               <FileText className="w-4 h-4 text-slate-400 shrink-0" />
               <span className="font-semibold">Total Insiden</span>
@@ -328,9 +339,20 @@ export default function IncidentReportsPage() {
             <span className="font-black text-slate-900 font-mono tabular-nums">
               {triageStats.total} Kejadian
             </span>
-          </div>
+          </button>
 
-          <div className="px-4 py-2.5 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setFilterTriage(filterTriage === 'kritis' ? 'ALL' : 'kritis');
+              setCurrentPage(1);
+            }}
+            className={`px-4 py-2.5 flex items-center justify-between gap-2 text-left cursor-pointer transition-colors duration-100 ${
+              filterTriage === 'kritis'
+                ? 'bg-white shadow-2xs font-bold ring-1 ring-red-300'
+                : 'hover:bg-slate-100/60'
+            }`}
+          >
             <div className="flex items-center gap-2 text-slate-600">
               <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
               <span className="font-semibold">Siaga I / Kritis</span>
@@ -338,9 +360,20 @@ export default function IncidentReportsPage() {
             <span className="font-black text-red-600 font-mono tabular-nums">
               {triageStats.kritis} Kejadian
             </span>
-          </div>
+          </button>
 
-          <div className="px-4 py-2.5 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setFilterTriage(filterTriage === 'proses' ? 'ALL' : 'proses');
+              setCurrentPage(1);
+            }}
+            className={`px-4 py-2.5 flex items-center justify-between gap-2 text-left cursor-pointer transition-colors duration-100 ${
+              filterTriage === 'proses'
+                ? 'bg-white shadow-2xs font-bold ring-1 ring-amber-300'
+                : 'hover:bg-slate-100/60'
+            }`}
+          >
             <div className="flex items-center gap-2 text-slate-600">
               <Clock className="w-4 h-4 text-amber-500 shrink-0" />
               <span className="font-semibold">Dalam Penanganan</span>
@@ -348,9 +381,20 @@ export default function IncidentReportsPage() {
             <span className="font-black text-amber-700 font-mono tabular-nums">
               {triageStats.proses} Kejadian
             </span>
-          </div>
+          </button>
 
-          <div className="px-4 py-2.5 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setFilterTriage(filterTriage === 'selesai' ? 'ALL' : 'selesai');
+              setCurrentPage(1);
+            }}
+            className={`px-4 py-2.5 flex items-center justify-between gap-2 text-left cursor-pointer transition-colors duration-100 ${
+              filterTriage === 'selesai'
+                ? 'bg-white shadow-2xs font-bold ring-1 ring-emerald-300'
+                : 'hover:bg-slate-100/60'
+            }`}
+          >
             <div className="flex items-center gap-2 text-slate-600">
               <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
               <span className="font-semibold">Selesai Ditangani</span>
@@ -358,7 +402,7 @@ export default function IncidentReportsPage() {
             <span className="font-black text-emerald-700 font-mono tabular-nums">
               {triageStats.selesai} Kejadian
             </span>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -447,47 +491,6 @@ export default function IncidentReportsPage() {
           </div>
         )}
 
-        {/* Segmented Interactive Triage Filter Pills */}
-        <div className="pt-2.5 border-t border-slate-100 flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">
-            Triage:
-          </span>
-          {[
-            { id: 'ALL', label: 'Semua Insiden', count: triageStats.total },
-            { id: 'kritis', label: 'Siaga I / Kritis', count: triageStats.kritis, dot: 'bg-red-600' },
-            { id: 'proses', label: 'Dalam Penanganan', count: triageStats.proses, dot: 'bg-amber-500' },
-            { id: 'selesai', label: 'Selesai Terkendali', count: triageStats.selesai, dot: 'bg-emerald-500' },
-          ].map((pill) => {
-            const isActive = filterTriage === pill.id;
-            return (
-              <button
-                key={pill.id}
-                type="button"
-                onClick={() => {
-                  setFilterTriage(pill.id);
-                  setCurrentPage(1);
-                }}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-100 cursor-pointer ${
-                  isActive
-                    ? 'bg-white text-slate-900 border border-slate-300 font-bold shadow-2xs ring-1 ring-slate-300/50'
-                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
-                }`}
-              >
-                {pill.dot && <span className={`w-2 h-2 rounded-full ${pill.dot}`} />}
-                <span>{pill.label}</span>
-                <span
-                  className={`text-xs px-1.5 py-0.5 rounded-full font-bold font-mono tabular-nums ${
-                    isActive
-                      ? 'bg-slate-100 text-slate-900 border border-slate-200'
-                      : 'bg-slate-200/80 text-slate-700'
-                  }`}
-                >
-                  {pill.count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       {/* LAYER 1: TABEL DAFTAR RINGKASAN KEJADIAN */}
@@ -496,9 +499,6 @@ export default function IncidentReportsPage() {
           <h3 className="text-sm font-bold text-slate-900">
             Daftar Rekapitulasi Kejadian
           </h3>
-          <span className="text-xs font-semibold text-slate-500">
-            Menampilkan <span className="font-mono tabular-nums">{filteredList.length}</span> kejadian
-          </span>
         </div>
 
         <StateView

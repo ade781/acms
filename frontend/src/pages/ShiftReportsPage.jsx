@@ -153,9 +153,6 @@ export default function ShiftReportsPage() {
             <h2 className="text-lg font-bold tracking-tight text-slate-900 font-sans">
               Laporan Operasional Dinas
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5 font-sans">
-              Ketua Regu: <span className="font-semibold text-slate-700">{typeof shiftData?.supervisor_name === 'string' ? shiftData.supervisor_name : '-'}</span>
-            </p>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -339,13 +336,7 @@ export default function ShiftReportsPage() {
                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
                   Kesiapan Unit Operasional & Posko
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Pilih unit untuk melihat riwayat audit kendala lintas shift
-                </p>
               </div>
-              <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded">
-                <span className="font-mono tabular-nums">{serviceableCount}/{totalUnits || 8}</span> Serviceable
-              </span>
             </div>
 
             {/* List Flat Rows Armada & Posko */}
@@ -427,13 +418,10 @@ export default function ShiftReportsPage() {
         <div className="lg:col-span-5 space-y-6">
           {/* 2. Rangkaian Kegiatan Shift (Logbook) */}
           <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4 font-sans">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="border-b border-slate-100 pb-3">
               <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
                 Rangkaian Kegiatan Shift
               </h3>
-              <span className="text-xs font-semibold text-slate-500">
-                <span className="font-mono tabular-nums">{activities.length}</span> Kegiatan
-              </span>
             </div>
 
             {activities.length === 0 ? (
@@ -478,25 +466,10 @@ export default function ShiftReportsPage() {
 
           {/* 3. Rekapitulasi Insiden & Kejadian Airside */}
           <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4 font-sans">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="border-b border-slate-100 pb-3">
               <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
                 Rekapitulasi Kejadian & Insiden
               </h3>
-              <span
-                className={`text-xs font-bold px-2 py-0.5 rounded ${
-                  incidents.length > 0
-                    ? 'bg-amber-100 text-amber-800'
-                    : 'bg-emerald-100 text-emerald-800'
-                }`}
-              >
-                {incidents.length > 0 ? (
-                  <>
-                    <span className="font-mono tabular-nums">{incidents.length}</span> Kejadian
-                  </>
-                ) : (
-                  'Nihil Kejadian'
-                )}
-              </span>
             </div>
 
             {incidents.length === 0 ? (

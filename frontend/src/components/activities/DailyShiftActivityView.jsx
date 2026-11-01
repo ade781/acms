@@ -8,9 +8,8 @@ import {
   Eye,
   FileText,
   ArrowRight,
-  RotateCcw,
 } from 'lucide-react';
-import { getDailyRoster, cleanTeam } from '../../utils/shiftHelper';
+import { getDailyRoster, cleanTeam, SHIFT_DEFINITIONS } from '../../utils/shiftHelper';
 import { getActivityCategoryMeta } from '../../utils/activityCategories';
 import Button from '../common/Button';
 import StateView from '../common/StateView';
@@ -32,6 +31,85 @@ function formatDateIndo(dateStr) {
   }
 }
 
+// Skema warna regu selaras dengan panji personel (Alpha Merah, Bravo Biru, Charlie Hijau, Delta Ungu)
+function getTeamTheme(team, isActive = false, count = 0) {
+  const t = cleanTeam(team).toLowerCase();
+  if (t === 'alpha') {
+    return {
+      dot: 'bg-red-500',
+      badge: 'bg-red-100 text-red-800 border-red-200 font-bold',
+      card: isActive
+        ? 'bg-red-50/80 border-red-500 ring-1 ring-red-400 text-red-950 shadow-xs'
+        : 'bg-white border-red-200/90 hover:bg-red-50/30 hover:border-red-300 text-slate-800',
+      countBadge: count > 0
+        ? isActive
+          ? 'bg-red-600 text-white font-bold'
+          : 'bg-red-100 text-red-800 border border-red-200 font-bold'
+        : 'bg-slate-100 text-slate-400',
+      title: isActive ? 'text-red-900' : 'text-slate-800',
+      borderLeft: 'border-l-4 border-l-red-500',
+    };
+  }
+  if (t === 'bravo') {
+    return {
+      dot: 'bg-blue-500',
+      badge: 'bg-blue-100 text-blue-800 border-blue-200 font-bold',
+      card: isActive
+        ? 'bg-blue-50/80 border-blue-500 ring-1 ring-blue-400 text-blue-950 shadow-xs'
+        : 'bg-white border-blue-200/90 hover:bg-blue-50/30 hover:border-blue-300 text-slate-800',
+      countBadge: count > 0
+        ? isActive
+          ? 'bg-blue-600 text-white font-bold'
+          : 'bg-blue-100 text-blue-800 border border-blue-200 font-bold'
+        : 'bg-slate-100 text-slate-400',
+      title: isActive ? 'text-blue-900' : 'text-slate-800',
+      borderLeft: 'border-l-4 border-l-blue-500',
+    };
+  }
+  if (t === 'charlie') {
+    return {
+      dot: 'bg-emerald-500',
+      badge: 'bg-emerald-100 text-emerald-800 border-emerald-200 font-bold',
+      card: isActive
+        ? 'bg-emerald-50/80 border-emerald-500 ring-1 ring-emerald-400 text-emerald-950 shadow-xs'
+        : 'bg-white border-emerald-200/90 hover:bg-emerald-50/30 hover:border-emerald-300 text-slate-800',
+      countBadge: count > 0
+        ? isActive
+          ? 'bg-emerald-600 text-white font-bold'
+          : 'bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold'
+        : 'bg-slate-100 text-slate-400',
+      title: isActive ? 'text-emerald-900' : 'text-slate-800',
+      borderLeft: 'border-l-4 border-l-emerald-500',
+    };
+  }
+  if (t === 'delta') {
+    return {
+      dot: 'bg-purple-500',
+      badge: 'bg-purple-100 text-purple-800 border-purple-200 font-bold',
+      card: isActive
+        ? 'bg-purple-50/80 border-purple-500 ring-1 ring-purple-400 text-purple-950 shadow-xs'
+        : 'bg-white border-purple-200/90 hover:bg-purple-50/30 hover:border-purple-300 text-slate-800',
+      countBadge: count > 0
+        ? isActive
+          ? 'bg-purple-600 text-white font-bold'
+          : 'bg-purple-100 text-purple-800 border border-purple-200 font-bold'
+        : 'bg-slate-100 text-slate-400',
+      title: isActive ? 'text-purple-900' : 'text-slate-800',
+      borderLeft: 'border-l-4 border-l-purple-500',
+    };
+  }
+  return {
+    dot: 'bg-slate-500',
+    badge: 'bg-slate-100 text-slate-700 border-slate-300 font-semibold',
+    card: isActive
+      ? 'bg-slate-100 border-slate-400 text-slate-900'
+      : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-800',
+    countBadge: count > 0 ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-400',
+    title: 'text-slate-800',
+    borderLeft: 'border-l-4 border-l-slate-400',
+  };
+}
+
 export default function DailyShiftActivityView({
   activities = [],
   selectedDate,
@@ -50,12 +128,6 @@ export default function DailyShiftActivityView({
   error = null,
   onRetry,
 }) {
-  const todayStr = useMemo(() => {
-    return new Date().toISOString().split('T')[0];
-  }, []);
-
-  const isLookingAtPastDate = selectedDate && selectedDate !== todayStr;
-
   // Jadwal dinas 3 regu untuk tanggal yang dipilih
   const dailyRoster = useMemo(() => {
     return getDailyRoster(selectedDate);
@@ -100,6 +172,8 @@ export default function DailyShiftActivityView({
   const activeShiftActivities = shiftGroups[selectedShift] || [];
 
   // Pengelompokan kegiatan per tanggal untuk mode Riwayat
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+
   const rangeDateGroups = useMemo(() => {
     if (viewMode !== 'range') return [];
     const map = new Map();
@@ -138,248 +212,198 @@ export default function DailyShiftActivityView({
     >
       <div className="space-y-3 font-sans">
         {/* =========================================================================
-            KONDISI A: TAB SHIFT BERJALAN (FOKUS OPERASIONAL TANPA FILLER STRIP TANGGAL)
+            KONDISI A: TAB SHIFT BERJALAN (FOKUS OPERASIONAL SINKRON DENGAN SHIFT AKTIF)
         ========================================================================= */}
         {viewMode === 'shift' && (
-          <>
-            {/* Penanda jika user sedang membuka logbook tanggal lampau dari Riwayat */}
-            {isLookingAtPastDate && (
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 px-4 flex items-center justify-between gap-3 flex-wrap shadow-2xs">
+          <div className="space-y-3">
+            {/* Banner Tanggal Lampau jika sedang meninjau tanggal lain */}
+            {selectedDate !== todayStr && (
+              <div className="bg-amber-50/90 border border-amber-200/90 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs text-amber-900 shadow-2xs">
                 <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
-                  <span className="text-xs text-blue-950 font-semibold">
-                    Menampilkan Logbook Tanggal: <strong>{formatDateIndo(selectedDate)}</strong>
+                  <Calendar className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>
+                    Menampilkan logbook untuk tanggal <strong>{formatDateIndo(selectedDate)}</strong>.
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => onDateChange(todayStr)}
-                  className="text-xs font-bold text-blue-700 hover:text-blue-900 hover:underline flex items-center gap-1.5 cursor-pointer bg-white border border-blue-200 px-2.5 py-1 rounded-lg shadow-2xs transition-colors duration-100"
+                  className="font-bold text-amber-900 hover:text-amber-950 underline cursor-pointer text-xs shrink-0 ml-2"
                 >
-                  <RotateCcw className="w-3 h-3" />
-                  <span>Kembali ke Hari Ini</span>
+                  Kembali ke Hari Ini
                 </button>
               </div>
             )}
 
-            {/* LEVEL 1: PENEKANAN SHIFT (3-SHIFT SELECTOR: PAGI, SIANG, MALAM) */}
-            {/* Sesuai instruksi: 'cukup Shift pagi (alpha) tidak perlu ada keterangan jam juga' */}
-            <div className="bg-slate-100/90 p-1 rounded-xl border border-slate-200/90 shadow-2xs">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
-                {/* Shift 1: Pagi */}
-                <button
-                  type="button"
-                  onClick={() => onShiftChange(1)}
-                  className={`p-2.5 rounded-lg text-xs font-semibold transition-colors duration-100 cursor-pointer flex items-center justify-between gap-2 ${
-                    selectedShift === 1
-                      ? 'bg-white text-slate-900 shadow-xs border border-slate-200/90 font-bold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                    <span>Shift Pagi ({shiftTeams[1]})</span>
-                  </div>
-                  <span
-                    className={`px-2 py-0.5 rounded-md font-mono text-[11px] font-bold ${
-                      selectedShift === 1
-                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                        : 'bg-slate-200/70 text-slate-600'
-                    }`}
-                  >
-                    {shiftGroups[1].length} Kegiatan
-                  </span>
-                </button>
+            {/* Selektor Shift Operasional (Background Card & Border Berwarna Regu) */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              {SHIFT_DEFINITIONS.map((s) => {
+                const sNum = s.number;
+                const count = shiftGroups[sNum]?.length || 0;
+                const isActive = Number(selectedShift) === sNum;
+                const teamName = shiftTeams[sNum] || 'Alpha';
+                const theme = getTeamTheme(teamName, isActive, count);
 
-                {/* Shift 2: Siang */}
-                <button
-                  type="button"
-                  onClick={() => onShiftChange(2)}
-                  className={`p-2.5 rounded-lg text-xs font-semibold transition-colors duration-100 cursor-pointer flex items-center justify-between gap-2 ${
-                    selectedShift === 2
-                      ? 'bg-white text-slate-900 shadow-xs border border-slate-200/90 font-bold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-                    <span>Shift Siang ({shiftTeams[2]})</span>
-                  </div>
-                  <span
-                    className={`px-2 py-0.5 rounded-md font-mono text-[11px] font-bold ${
-                      selectedShift === 2
-                        ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                        : 'bg-slate-200/70 text-slate-600'
-                    }`}
+                return (
+                  <button
+                    key={sNum}
+                    type="button"
+                    onClick={() => onShiftChange(sNum)}
+                    className={`p-3 rounded-xl border text-left transition-colors duration-100 cursor-pointer flex items-center justify-between shadow-2xs ${theme.card}`}
                   >
-                    {shiftGroups[2].length} Kegiatan
-                  </span>
-                </button>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`text-xs font-bold ${theme.title}`}>
+                        {s.name}
+                      </span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded border shadow-2xs ${theme.badge}`}>
+                        Regu {teamName}
+                      </span>
+                    </div>
 
-                {/* Shift 3: Malam */}
-                <button
-                  type="button"
-                  onClick={() => onShiftChange(3)}
-                  className={`p-2.5 rounded-lg text-xs font-semibold transition-colors duration-100 cursor-pointer flex items-center justify-between gap-2 ${
-                    selectedShift === 3
-                      ? 'bg-white text-slate-900 shadow-xs border border-slate-200/90 font-bold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
-                    <span>Shift Malam ({shiftTeams[3]})</span>
-                  </div>
-                  <span
-                    className={`px-2 py-0.5 rounded-md font-mono text-[11px] font-bold ${
-                      selectedShift === 3
-                        ? 'bg-indigo-50 text-indigo-800 border border-indigo-200'
-                        : 'bg-slate-200/70 text-slate-600'
-                    }`}
-                  >
-                    {shiftGroups[3].length} Kegiatan
-                  </span>
-                </button>
-              </div>
+                    <div className={`px-2 py-0.5 rounded-full text-xs font-mono tabular-nums shrink-0 ml-2 ${theme.countBadge}`}>
+                      {count} Kegiatan
+                    </div>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* LEVEL 2: DAFTAR KRONOLOGIS LOGBOOK PADA SHIFT TERPILIH */}
-            <div className="space-y-3">
-              {activeShiftActivities.length === 0 ? (
-                /* Empty State Shift Terpilih */
-                <div className="bg-white rounded-xl border border-slate-200 p-8 text-center shadow-2xs space-y-3">
-                  <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
-                    <FileText className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-800">
-                      Belum Ada Catatan Kegiatan
-                    </h4>
-                    <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-                      Tidak ada entri logbook pada{' '}
-                      <strong>
-                        {selectedShift === 1
-                          ? 'Shift Pagi'
-                          : selectedShift === 2
+            {activeShiftActivities.length === 0 ? (
+              /* Empty State Shift Terpilih */
+              <div className="bg-white rounded-xl border border-slate-200 p-8 text-center shadow-2xs space-y-3">
+                <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                  <FileText className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800">
+                    Belum Ada Catatan Kegiatan
+                  </h4>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                    Tidak ada entri logbook pada{' '}
+                    <strong>
+                      {selectedShift === 1
+                        ? 'Shift Pagi'
+                        : selectedShift === 2
                           ? 'Shift Siang'
                           : 'Shift Malam'}{' '}
-                        (Regu {shiftTeams[selectedShift]})
-                      </strong>{' '}
-                      untuk tanggal {formatDateIndo(selectedDate)}.
-                    </p>
-                  </div>
-                  {canManageActivity && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      icon={Plus}
-                      onClick={onOpenCreateModal}
-                      className="mt-2"
-                    >
-                      Tambah Kegiatan Shift Ini
-                    </Button>
-                  )}
+                      (Regu {shiftTeams[selectedShift]})
+                    </strong>{' '}
+                    untuk tanggal {formatDateIndo(selectedDate)}.
+                  </p>
                 </div>
-              ) : (
-                /* Daftar Entri Kegiatan Kronologis Rapi */
-                <div className="space-y-3">
-                  {activeShiftActivities.map((act) => {
-                    const meta = getActivityCategoryMeta(act.activity_type);
-                    const photoSource = act.attachment_url || act.photo_url;
+                {canManageActivity && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={Plus}
+                    onClick={onOpenCreateModal}
+                    className="mt-2"
+                  >
+                    Tambah Kegiatan Shift Ini
+                  </Button>
+                )}
+              </div>
+            ) : (
+              /* Daftar Entri Kegiatan Kronologis Rapi */
+              <div className="space-y-3">
+                {activeShiftActivities.map((act) => {
+                  const meta = getActivityCategoryMeta(act.activity_type);
+                  const photoSource = act.attachment_url || act.photo_url;
+                  const currentTeamName = shiftTeams[selectedShift] || 'Alpha';
+                  const currentTheme = getTeamTheme(currentTeamName);
 
-                    return (
-                      <div
-                        key={act.id}
-                        className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-2xs hover:border-slate-300 transition-colors duration-100 space-y-3"
-                      >
-                        {/* Header Baris Kegiatan: Jam, Kategori, & Tombol Aksi */}
-                        <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100 flex-wrap">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono tabular-nums text-xs font-bold text-slate-900 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md flex items-center gap-1.5">
-                              <Clock className="w-3.5 h-3.5 text-slate-500" />
-                              {act.activity_time ? act.activity_time.slice(0, 5) : '-'} WIB
-                            </span>
-                            <span
-                              className={`text-xs font-bold border px-2.5 py-0.5 rounded-md ${meta.badgeBg}`}
-                            >
-                              {meta.label}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-slate-400 font-medium hidden sm:inline">
-                              Oleh: {act.reporter_name || 'Chief Regu'}
-                            </span>
-                            {canManageActivity && (
-                              <div className="flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => onOpenEditModal(act)}
-                                  className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-100 cursor-pointer"
-                                  title="Edit Kegiatan"
-                                  aria-label="Edit Kegiatan"
-                                >
-                                  <Edit2 className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => onOpenDeleteModal(act)}
-                                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-100 cursor-pointer"
-                                  title="Hapus Kegiatan"
-                                  aria-label="Hapus Kegiatan"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            )}
-                          </div>
+                  return (
+                    <div
+                      key={act.id}
+                      className={`bg-white rounded-xl border border-slate-200 ${currentTheme.borderLeft} p-4 sm:p-5 shadow-2xs hover:border-slate-300 transition-colors duration-100 space-y-3`}
+                    >
+                      {/* Header Baris Kegiatan: Jam, Kategori, & Tombol Aksi */}
+                      <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono tabular-nums text-xs font-bold text-slate-900 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-slate-500" />
+                            {act.activity_time ? act.activity_time.slice(0, 5) : '-'} WIB
+                          </span>
+                          <span
+                            className={`text-xs font-bold border px-2.5 py-0.5 rounded-md ${meta.badgeBg}`}
+                          >
+                            {meta.label}
+                          </span>
                         </div>
 
-                        {/* Konten Kegiatan & Foto Dokumentasi Kompak di Kanan */}
-                        <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-4">
-                          <div className="flex-1 min-w-0 space-y-2">
-                            <div>
-                              <h4 className="text-sm font-bold text-slate-900 mb-1">
-                                {act.title}
-                              </h4>
-                              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line">
-                                {act.description}
-                              </p>
-                            </div>
-
-                            {/* Catatan / Hasil Uji Fungsi (Jika Ada) */}
-                            {act.result_notes && (
-                              <div className="p-2.5 rounded-lg bg-amber-50/50 border border-amber-200/70 text-xs text-slate-800 space-y-0.5">
-                                <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wider block">
-                                  Hasil & Catatan Pelaksanaan:
-                                </span>
-                                <p className="whitespace-pre-line leading-relaxed text-slate-700">
-                                  {act.result_notes}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Foto Dokumentasi di Sisi Kanan (Kompak & Dapat Diklik Langsung) */}
-                          {photoSource && (
-                            <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 self-start overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-2xs">
-                              <img
-                                src={photoSource}
-                                alt={act.title}
-                                className="w-full h-full object-cover hover:opacity-90 hover:scale-105 transition-transform duration-150 cursor-pointer"
-                                onClick={() => onPreviewPhoto(photoSource)}
-                                title="Klik untuk melihat foto dokumentasi"
-                              />
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-400 font-medium hidden sm:inline">
+                            Oleh: {act.reporter_name || 'Petugas Operasional'}
+                          </span>
+                          {canManageActivity && (
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => onOpenEditModal(act)}
+                                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-100 cursor-pointer"
+                                title="Edit Kegiatan"
+                                aria-label="Edit Kegiatan"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onOpenDeleteModal(act)}
+                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-100 cursor-pointer"
+                                title="Hapus Kegiatan"
+                                aria-label="Hapus Kegiatan"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           )}
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </>
+
+                      {/* Konten Kegiatan & Foto Dokumentasi Kompak di Kanan */}
+                      <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-4">
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <div>
+                            <h4 className="text-sm font-bold text-slate-900 mb-1">
+                              {act.title}
+                            </h4>
+                            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                              {act.description}
+                            </p>
+                          </div>
+
+                          {/* Catatan / Hasil Uji Fungsi (Jika Ada) */}
+                          {act.result_notes && (
+                            <div className="p-2.5 rounded-lg bg-amber-50/50 border border-amber-200/70 text-xs text-slate-800 space-y-0.5">
+                              <span className="text-xs font-bold text-amber-900 uppercase tracking-wider block">
+                                Hasil & Catatan Pelaksanaan:
+                              </span>
+                              <p className="whitespace-pre-line leading-relaxed text-slate-700">
+                                {act.result_notes}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Foto Dokumentasi di Sisi Kanan (Kompak & Dapat Diklik Langsung) */}
+                        {photoSource && (
+                          <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 self-start overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-2xs">
+                            <img
+                              src={photoSource}
+                              alt={act.title}
+                              className="w-full h-full object-cover hover:opacity-90 hover:scale-105 transition-transform duration-150 cursor-pointer"
+                              onClick={() => onPreviewPhoto(photoSource)}
+                              title="Klik untuk melihat foto dokumentasi"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
 
         {/* =========================================================================
@@ -424,21 +448,21 @@ export default function DailyShiftActivityView({
                           </span>
                         </div>
 
-                        {/* Rincian Ringkas Per-Shift (Pagi • Siang • Malam) */}
+                        {/* Regu yang bertugas di hari itu beserta jumlah kegiatan (Warna dot selaras panji Personel) */}
                         <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap pl-6 sm:pl-6">
                           <span className="inline-flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            Pagi: <strong className="text-slate-700 font-mono">{group.shiftCounts[1]}</strong>
+                            <span className={`w-1.5 h-1.5 rounded-full ${getTeamTheme(group.roster?.shift1).dot}`} />
+                            <span className="font-semibold text-slate-700">Regu {cleanTeam(group.roster?.shift1 || 'Alpha')}:</span> <strong className="text-slate-800 font-mono tabular-nums">{group.shiftCounts[1]}</strong>
                           </span>
                           <span>•</span>
                           <span className="inline-flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                            Siang: <strong className="text-slate-700 font-mono">{group.shiftCounts[2]}</strong>
+                            <span className={`w-1.5 h-1.5 rounded-full ${getTeamTheme(group.roster?.shift2).dot}`} />
+                            <span className="font-semibold text-slate-700">Regu {cleanTeam(group.roster?.shift2 || 'Bravo')}:</span> <strong className="text-slate-800 font-mono tabular-nums">{group.shiftCounts[2]}</strong>
                           </span>
                           <span>•</span>
                           <span className="inline-flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                            Malam: <strong className="text-slate-700 font-mono">{group.shiftCounts[3]}</strong>
+                            <span className={`w-1.5 h-1.5 rounded-full ${getTeamTheme(group.roster?.shift3).dot}`} />
+                            <span className="font-semibold text-slate-700">Regu {cleanTeam(group.roster?.shift3 || 'Charlie')}:</span> <strong className="text-slate-800 font-mono tabular-nums">{group.shiftCounts[3]}</strong>
                           </span>
                         </div>
                       </div>
