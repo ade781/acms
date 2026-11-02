@@ -24,36 +24,6 @@ import ActivityExportModal from '../components/activities/ActivityExportModal';
 import ActivityPhotoModal from '../components/activities/ActivityPhotoModal';
 import ActivityPdfPreviewModal from '../components/activities/ActivityPdfPreviewModal';
 
-// Skema warna filter regu (selaras dengan border panji regu di Halaman Personel: Alpha Merah, Bravo Biru, Charlie Hijau, Delta Ungu)
-const TEAM_FILTER_THEMES = {
-  ALL: {
-    select: 'border-slate-300 bg-white text-slate-800 focus:ring-slate-400 focus:border-slate-400',
-    chevron: 'text-slate-500',
-    dot: null,
-  },
-  Alpha: {
-    select: 'border-red-500 bg-red-50/70 text-red-700 font-bold focus:ring-red-400 focus:border-red-500',
-    chevron: 'text-red-600',
-    dot: 'bg-red-500',
-  },
-  Bravo: {
-    select: 'border-blue-500 bg-blue-50/70 text-blue-700 font-bold focus:ring-blue-400 focus:border-blue-500',
-    chevron: 'text-blue-600',
-    dot: 'bg-blue-500',
-  },
-  Charlie: {
-    select: 'border-emerald-500 bg-emerald-50/70 text-emerald-700 font-bold focus:ring-emerald-400 focus:border-emerald-500',
-    chevron: 'text-emerald-600',
-    dot: 'bg-emerald-500',
-  },
-  Delta: {
-    select: 'border-purple-500 bg-purple-50/70 text-purple-700 font-bold focus:ring-purple-400 focus:border-purple-500',
-    chevron: 'text-purple-600',
-    dot: 'bg-purple-500',
-  },
-};
-
-
 export default function ActivitiesPage() {
   const {
     user,
@@ -86,9 +56,8 @@ export default function ActivitiesPage() {
   const [activities, setActivities] = useState([]);
   const [toastMsg, setToastMsg] = useState(null);
 
-  // Filter Kategori & Regu
+  // Filter Kategori
   const [selectedFilterCategory, setSelectedFilterCategory] = useState('ALL');
-  const [selectedFilterTeam, setSelectedFilterTeam] = useState('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 8;
 
@@ -393,15 +362,12 @@ export default function ActivitiesPage() {
     return counts;
   }, [activities]);
 
-  // Filtered & Paginated (Kategori & Regu)
+  // Filtered & Paginated (Kategori)
   const filteredActivities = useMemo(() => {
     return activities.filter((act) => {
-      const matchCat = selectedFilterCategory === 'ALL' || act.activity_type === selectedFilterCategory;
-      const actTeam = cleanTeam(act.team_group || act.personnel_team || '').toLowerCase();
-      const matchTeam = selectedFilterTeam === 'ALL' || actTeam === selectedFilterTeam.toLowerCase();
-      return matchCat && matchTeam;
+      return selectedFilterCategory === 'ALL' || act.activity_type === selectedFilterCategory;
     });
-  }, [activities, selectedFilterCategory, selectedFilterTeam]);
+  }, [activities, selectedFilterCategory]);
 
   const totalPages = Math.ceil(filteredActivities.length / pageSize) || 1;
   const paginatedActivities = filteredActivities.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -495,35 +461,6 @@ export default function ActivitiesPage() {
               })}
             </select>
             <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2.5 pointer-events-none" />
-          </div>
-
-          {/* Dropdown Filter Regu di samping Dropdown Kategori (Berwarna sesuai border regu di Personel) */}
-          <div className="relative inline-flex items-center">
-            {TEAM_FILTER_THEMES[selectedFilterTeam]?.dot && (
-              <span
-                className={`w-2 h-2 rounded-full absolute left-2.5 pointer-events-none ${TEAM_FILTER_THEMES[selectedFilterTeam].dot}`}
-              />
-            )}
-            <select
-              value={selectedFilterTeam}
-              onChange={(e) => {
-                setSelectedFilterTeam(e.target.value);
-                setCurrentPage(1);
-              }}
-              className={`${selectedFilterTeam !== 'ALL' ? 'pl-6' : 'pl-2.5'} pr-8 py-1.5 rounded-lg text-xs font-semibold shadow-2xs hover:bg-slate-50/80 focus:outline-none focus:ring-1 transition-colors duration-100 cursor-pointer appearance-none border ${
-                TEAM_FILTER_THEMES[selectedFilterTeam]?.select || TEAM_FILTER_THEMES.ALL.select
-              }`}
-              aria-label="Filter Regu Kegiatan"
-            >
-              <option value="ALL" className="text-slate-800 bg-white font-medium">Semua Regu</option>
-              <option value="Alpha" className="text-red-700 bg-white font-bold">Regu Alpha</option>
-              <option value="Bravo" className="text-blue-700 bg-white font-bold">Regu Bravo</option>
-              <option value="Charlie" className="text-emerald-700 bg-white font-bold">Regu Charlie</option>
-              <option value="Delta" className="text-purple-700 bg-white font-bold">Regu Delta</option>
-            </select>
-            <ChevronDown className={`w-3.5 h-3.5 absolute right-2.5 pointer-events-none ${
-              TEAM_FILTER_THEMES[selectedFilterTeam]?.chevron || TEAM_FILTER_THEMES.ALL.chevron
-            }`} />
           </div>
         </div>
 

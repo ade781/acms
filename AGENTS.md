@@ -29,6 +29,12 @@ Bandara Internasional Yogyakarta (YIA) - PT Angkasa Pura Indonesia
    - Setelah seluruh subagent menyelesaikan pekerjaannya dan laporan terkonsolidasi, agen utama wajib segera mematikan seluruh subagent (`manage_subagents kill_all`).
    - Dilarang keras meninggalkan subagent atau proses latar belakang yang menggantung (*no zombie processes*).
 
+### D. Mandat Wajib Baca Panduan (Mandatory Reading GEMINI.md & AGENTS.md)
+1. **Instruksi Wajib Baca dalam Prompt Subagent:**
+   - Setiap kali Agent Utama menugaskan atau memanggil subagent (`invoke_subagent`), Agent Utama **WAJIB menyertakan perintah eksplisit di dalam prompt penugasan** agar subagent terlebih dahulu membaca dan mematuhi seluruh aturan di `GEMINI.md` dan `AGENTS.md`.
+2. **Kepatuhan Mutlak Subagent:**
+   - Subagent yang ditugaskan WAJIB membaca berkas `GEMINI.md` dan `AGENTS.md` sebelum mulai memodifikasi kode atau menyusun laporan guna mencegah pelanggaran aturan operasional, anti-slop, larangan metrik ICAO fiktif, standar performa form/INP/LCP, dan konsistensi arsitektur sistem ACMS.
+
 ---
 
 ## 2. ATURAN KETAT PERFORMA & FRONTEND (STRICT INP & LCP)

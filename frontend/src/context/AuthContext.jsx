@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import api from '../services/api';
 import { getCurrentOperationalShift, getScheduledTeam, TEAMS, cleanTeam } from '../utils/shiftHelper';
 
@@ -50,6 +50,15 @@ export function AuthProvider({ children }) {
   const setActiveTeamSafe = (newTeam) => {
     setActiveTeam(cleanTeam(newTeam));
   };
+
+  // Kembalikan konteks operasional ke tanggal & shift riil hari ini
+  const resetToToday = useCallback(() => {
+    const liveOp = getCurrentOperationalShift();
+    setActiveDateState(liveOp.shiftDate);
+    setActiveShiftNumberState(liveOp.shiftNumber);
+    const scheduled = getScheduledTeam(liveOp.shiftDate, liveOp.shiftNumber);
+    setActiveTeam(cleanTeam(scheduled || liveOp.scheduledTeam || TEAMS[0]));
+  }, []);
 
   // Sync token to API defaults and verify
   const isVerifyingRef = React.useRef(false);
@@ -176,6 +185,7 @@ export function AuthProvider({ children }) {
     setActiveShiftNumber,
     activeTeam,
     setActiveTeam: setActiveTeamSafe,
+    resetToToday,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

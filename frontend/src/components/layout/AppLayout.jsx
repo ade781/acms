@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import OfflineBanner from '../common/OfflineBanner';
@@ -9,7 +9,17 @@ import MandatoryPasswordChangeModal from '../forms/MandatoryPasswordChangeModal'
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, resetToToday } = useAuth();
+  const location = useLocation();
+  const prevPathRef = useRef(location.pathname);
+
+  // Otomatis kembalikan konteks tanggal & shift operasional ke hari ini saat pengguna berpindah menu/halaman
+  useEffect(() => {
+    if (prevPathRef.current !== location.pathname) {
+      prevPathRef.current = location.pathname;
+      resetToToday();
+    }
+  }, [location.pathname, resetToToday]);
 
   const mustChangePassword = Boolean(user?.must_change_password);
 

@@ -81,6 +81,65 @@ function resolveRosterForDate(targetDateStr, storedCycles, defaultAnchor = '2026
   return calculateDefaultRoster(targetDateStr, defaultAnchor, DEFAULT_ROTATION_8_DAYS);
 }
 
+/**
+ * Mengambil roster 3 shift operasional & regu libur untuk suatu tanggal spesifik
+ * Mendukung override manual dari tabel schedule_rosters dan siklus kustom/default
+ */
+export async function getRosterForDate(targetDateStr) {
+  const dateStr = typeof targetDateStr === 'string'
+    ? targetDateStr.split('T')[0]
+    : new Date().toISOString().split('T')[0];
+
+  // 1. Cek tabel schedule_rosters terlebih dahulu untuk override khusus
+  const [overrides] = await pool.query(
+    `SELECT DATE_FORMAT(roster_date, '%Y-%m-%d') as roster_date, shift_1_team, shift_2_team, shift_3_team, off_team, notes
+     FROM schedule_rosters
+     WHERE roster_date = ?`,
+    [dateStr]
+  );
+
+  if (overrides.length > 0) {
+    const o = overrides[0];
+    const duties = {
+      Alpha: 'Libur',
+      Bravo: 'Libur',
+      Charlie: 'Libur',
+      Delta: 'Libur',
+    };
+    duties[o.shift_1_team] = 'Pagi';
+    duties[o.shift_2_team] = 'Siang';
+    duties[o.shift_3_team] = 'Malam';
+
+    return {
+      shift_1: o.shift_1_team,
+      shift_2: o.shift_2_team,
+      shift_3: o.shift_3_team,
+      off_team: o.off_team,
+      team_duties: duties,
+      is_override: true,
+      notes: o.notes || '',
+    };
+  }
+
+  // 2. Fallback siklus custom / calculateDefaultRoster
+  let anchorDate = '2026-10-19';
+  const [settings] = await pool.query(
+    "SELECT setting_value FROM system_settings WHERE setting_key = 'schedule_anchor_date'"
+  );
+  if (settings.length > 0 && settings[0].setting_value) {
+    anchorDate = settings[0].setting_value;
+  }
+
+  const storedCycles = await getStoredCycles();
+  const auto = resolveRosterForDate(dateStr, storedCycles, anchorDate);
+
+  return {
+    ...auto,
+    is_override: false,
+    notes: '',
+  };
+}
+
 export const getMonthlySchedule = async (req, res) => {
   try {
     const today = new Date();

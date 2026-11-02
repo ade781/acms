@@ -229,6 +229,9 @@ Berdasarkan feedback eksplisit pengguna:
 - **Eksekusi Otomatis & Langsung (Zero-Friction Execution)**:
   - Agent utama bertindak sebagai orkestrator yang langsung mengeksekusi penugasan secara otonom menggunakan subagent tanpa melalui prosedur penugasan manual bertahap atau penulisan lembar tugas terpisah.
   - Tidak perlu meminta konfirmasi langkah-demi-langkah jika instruksi pengguna sudah jelas. Langsung pecah tugas, pekerjakan subagent, validasi hasilnya, dan laporkan.
+- **Mandat Wajib Baca GEMINI.md & AGENTS.md (Briefing Subagent)**:
+  - **Setiap kali Agent Utama menugaskan subagent (`invoke_subagent`), Agent Utama WAJIB menyertakan instruksi eksplisit di dalam prompt penugasan agar subagent membaca dan mematuhi seluruh aturan di `GEMINI.md` dan `AGENTS.md`.**
+  - Subagent WAJIB membaca kedua berkas tersebut sebelum mengeksekusi tugasnya guna menjamin pemenuhan standar ketat proyek: larangan metrik ICAO fiktif, anti-slop UI, anti-lag form/INP/LCP, proteksi cuti & dinas, integritas data operasional, dan larangan testing browser otomatis.
 - **Pembagian Peran Kondisional & Dinamis**:
   - Pembagian peran subagent bersifat **FLEKSIBEL & MENYESUAIKAN INSTRUKSI PENGGUNA**:
     - Peran subagent ditentukan secara dinamis dan kondisional sesuai kebutuhan instruksi pengguna pada sesi tersebut (misalnya: audit UI/UX per halaman, security/guard backend, database migration, refaktorisasi ponytail, dsb.).
