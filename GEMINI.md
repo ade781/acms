@@ -207,6 +207,23 @@ Berdasarkan feedback eksplisit pengguna:
     - DILARANG KERAS menggunakan istilah atau label *"Laik Operasi"* di seluruh antarmuka aplikasi (baik di Dashboard, Kesiapan Armada, Ploting Dinas, modal pemeriksaan, maupun laporan).
     - Status armada yang beroperasi normal wajib secara baku dan konsisten menggunakan istilah **"Serviceable"**.
     - Tiga status resmi kesiapan fisik armada operasional adalah: **"Belum Dicek"** (`belum_dilaporkan`), **"Serviceable"** (`serviceable`), dan **"Unserviceable"** (`unserviceable`).
+30. **Validitas Log Pemeriksaan Fisik Armada vs Timestamp Mutasi Ploting**:
+    - Kolom `updated_at` / `logged_at` pada tabel kesiapan kendaraan (`vehicle_readiness_logs`) diperbarui secara otomatis oleh sistem saat penetapan PIC pada alur Ploting Dinas.
+    - Sistem dan antarmuka (termasuk `MobilePicReadinessForm`) DILARANG mengartikan keberadaan timestamp tersebut sebagai tanda bahwa unit telah diperiksa secara fisik oleh PIC.
+    - Unit armada HANYA dianggap telah selesai diperiksa pada shift berjalan (`hasShiftLog = true`) apabila nilai `status` nyata tercatat selain `belum_dilaporkan` dan bukan kendala estafet (*carried-over*).
+    - Jika status masih `belum_dilaporkan`, antarmuka formulir wajib menyajikan form input pemeriksaan lapangan aktif (dengan indikator status *Belum Dicek*), dan dilarang mengasumsikan unit sebagai *Unserviceable* tanpa input riil dari PIC.
+31. **Isolasi Stacking Context & Posisi Modal / Sheet Mobile (React Portal Wajib)**:
+    - Seluruh komponen lembar geser (*bottom sheet*), pop up, dan modal interaktif pada tampilan mobile (seperti `MobileCrewPickerSheet`) WAJIB di-mount langsung ke `document.body` menggunakan `createPortal` dengan layer z-index aman (`z-[80]`).
+    - Dilarang menempatkan modal fixed langsung di dalam hierarki kontainer scrollable `<main>` yang memiliki batasan stacking context tersendiri, guna menjamin elemen pemilih/formulir tidak tertutup atau terpotong oleh bilah navigasi bawah (`MobileBottomNav` berposisi fixed `z-40`).
+    - Lembar modal bawah wajib memiliki padding dasar yang lapang (`pb-8 safe-pb`) agar area scroll opsi terbawah tetap nyaman diakses dan bebas dari benturan gestur navigasi ponsel.
+32. **Integritas Penugasan Mandiri Pimpinan & Keselarasan Role Operasional**:
+    - Pimpinan dinas yang memiliki wewenang menyusun formasi ploting (Ketua Regu / Chief dan Asisten Chief) memiliki hak penuh untuk menugaskan dirinya sendiri (*self-assignment*) pada slot armada maupun posko komunikasi.
+    - Hak akses penyusunan ploting di frontend dan backend wajib dievaluasi secara terpadu melalui wewenang role (`user.role`) maupun keselarasan jabatan kedinasan (`rank_position` melalui `mapRankPositionToRole`), sehingga pejabat operasional yang sah tidak mengalami hambatan otorisasi saat mengelola penugasan shiftnya.
+    - Penugasan armada operasional dijaga ketat dalam koridor regu dinas yang bertugas aktif pada shift tersebut (penugasan personel terkunci murni pada `team_group` shift berjalan).
+33. **Presisi Status Peran Dinas pada Kartu Tugas Pribadi (`MobileDutyCard`)**:
+    - Kartu Tugas Dinas Pribadi (`MobileDutyCard`) menyajikan status peran yang murni mencerminkan penugasan riil personel pada unit armada atau posko.
+    - Apabila personel berdinas aktif namun belum diploting pada unit tertentu (`dutyInfo` kosong / belum ada `vehicle_id`), status Peran Dinas dilarang menampilkan label kru semu ("Kru Kru Lapangan").
+    - Tampilkan status kesiagaan yang bersih dan faktual (misal: "Belum Ditugaskan" atau "Standby Regu") dengan indikator unit "Belum Diploting", dan sematkan atribut peran operasional (seperti PIC atau Kru Lapangan) hanya jika personel telah sah terdaftar pada salah satu armada atau posko.
 
 ## Protokol Orkestrasi & Pembagian Tugas Subagent Dinamis (Antigravity Autonomous Subagents)
 - **Eksekusi Otomatis & Langsung (Zero-Friction Execution)**:

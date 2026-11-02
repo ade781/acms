@@ -125,6 +125,10 @@ Bandara Internasional Yogyakarta (YIA) - PT Angkasa Pura Indonesia
    - Istilah *"Laik Operasi"* dihapus permanen dari seluruh antarmuka aplikasi, teks status, modal, badge, maupun dokumentasi sistem.
    - Status armada yang siap beroperasi wajib secara baku menggunakan istilah resmi **"Serviceable"**.
    - Tiga status kesiapan armada operasional yang diakui: **"Belum Dicek"** (`belum_dilaporkan`), **"Serviceable"** (`serviceable`), dan **"Unserviceable"** (`unserviceable`).
+12. **Isolasi Stacking Context & Posisi Modal Mobile (React Portal Wajib):**
+   - Seluruh lembar modal geser (*bottom sheet*), pop up, dan modal interaktif mobile (seperti `MobileCrewPickerSheet.jsx`) wajib di-mount langsung ke `document.body` menggunakan `createPortal` dengan layer z-index aman (`z-[80]`) dan padding bawah lapang (`pb-8 safe-pb`). Dilarang menempatkan modal fixed di dalam hierarki kontainer scrollable yang memicu batasan stacking context sehingga terpotong atau tertutup bilah navigasi bawah (`MobileBottomNav`).
+13. **Validitas Log Pemeriksaan Fisik vs Timestamp Ploting:**
+   - Kolom timestamp `updated_at`/`logged_at` pada log kesiapan kendaraan terisi otomatis saat mutasi penugasan PIC. Sistem dan formulir kelaikan (`MobilePicReadinessForm.jsx`) dilarang mengartikan timestamp tersebut sebagai bukti pemeriksaan fisik lapangan. Unit armada hanya berstatus telah diperiksa apabila nilai status tercatat nyata selain `belum_dilaporkan` dan bukan status kendala estafet (*carried-over*).
 
 
 
