@@ -1,6 +1,7 @@
 import pool from '../../config/db.js';
 import {
   generateVehicleReadinessReportPdf,
+  streamPdfToResponse,
 } from '../../services/pdfService.js';
 import { errorResponse } from '../../utils/responseHelper.js';
 import { calculateVehicleTransitionsData } from '../readinessController.js';
@@ -10,7 +11,7 @@ import { getOfficialSignatory } from '../../utils/officialHelper.js';
  * Audit log pelacakan kendala armada per shift
  */
 export const fetchVehicleIssuesAuditData = async (shiftDate, shiftNumber, currentTeam) => {
-  // 1. Kendala unserviceable pada shift saat ini (status masih unserviceable)
+  // 1. Kendala unserviceable pada shift saat ini
   const [currentIssues] = await pool.query(
     `SELECT vrl.id, vrl.vehicle_id, v.code_name, v.vehicle_name, v.category,
             vrl.shift_date, vrl.shift_number, vrl.team_group, vrl.status,
@@ -24,7 +25,7 @@ export const fetchVehicleIssuesAuditData = async (shiftDate, shiftNumber, curren
     [shiftDate, shiftNumber, currentTeam]
   );
 
-  // 2. Kendaraan yang berhasil dipulihkan (transisi unserviceable -> serviceable) pada shift ini
+  // 2. Kendaraan yang berhasil dipulihkan pada shift ini
   const [resolvedThisShift] = await pool.query(
     `SELECT vrl.id, vrl.vehicle_id, v.code_name, v.vehicle_name, v.category,
             vrl.shift_date, vrl.shift_number, vrl.team_group, vrl.status,
@@ -40,93 +41,18 @@ export const fetchVehicleIssuesAuditData = async (shiftDate, shiftNumber, curren
        AND (
          vrl.resolved_at IS NOT NULL
          OR vrl.follow_up_status = 'resolved'
-         OR EXISTS (
-           SELECT 1 FROM vehicle_readiness_logs prev
-           WHERE prev.vehicle_id = vrl.vehicle_id
-             AND prev.status = 'unserviceable'
-             AND (prev.shift_date < ? OR (prev.shift_date = ? AND prev.shift_number < ?))
-             AND (prev.follow_up_status != 'resolved' OR prev.resolved_at IS NULL)
-         )
        )`,
-    [shiftDate, shiftNumber, currentTeam, shiftDate, shiftDate, shiftNumber]
+    [shiftDate, shiftNumber, currentTeam]
   );
-
-  // 3. Backlog kendala yang statusnya MASIH unserviceable dari shift-shift sebelumnya
-  const handledVehicleIds = new Set([
-    ...currentIssues.map((i) => i.vehicle_id),
-    ...resolvedThisShift.map((i) => i.vehicle_id)
-  ]);
-
-  const [rawBacklog] = await pool.query(
-    `SELECT vrl.id, vrl.vehicle_id, v.code_name, v.vehicle_name, v.category,
-            vrl.shift_date, vrl.shift_number, vrl.team_group, vrl.status,
-            vrl.justification, vrl.follow_up_status, vrl.resolved_at, vrl.notes,
-            p.full_name as reported_by_name, p.nip as reported_by_nip
-     FROM vehicle_readiness_logs vrl
-     JOIN vehicles v ON v.id = vrl.vehicle_id
-     LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
-     WHERE vrl.status = 'unserviceable'
-       AND vrl.follow_up_status != 'resolved'
-       AND (vrl.shift_date < ? OR (vrl.shift_date = ? AND vrl.shift_number < ?))
-     ORDER BY vrl.shift_date DESC, vrl.shift_number DESC, vrl.id DESC`,
-    [shiftDate, shiftDate, shiftNumber]
-  );
-
-  const [serviceableLogs] = await pool.query(
-    `SELECT vehicle_id, MAX(CONCAT(shift_date, ' ', LPAD(shift_number, 2, '0'))) as latest_serv
-     FROM vehicle_readiness_logs
-     WHERE status = 'serviceable'
-       AND (shift_date < ? OR (shift_date = ? AND shift_number <= ?))
-     GROUP BY vehicle_id`,
-    [shiftDate, shiftDate, shiftNumber]
-  );
-  const serviceableMap = new Map();
-  serviceableLogs.forEach((r) => serviceableMap.set(r.vehicle_id, r.latest_serv));
-
-  const backlogIssues = [];
-  const seenVehicle = new Set();
-
-  for (const item of rawBacklog) {
-    if (handledVehicleIds.has(item.vehicle_id) || seenVehicle.has(item.vehicle_id)) {
-      continue;
-    }
-    const itemKey = `${item.shift_date} ${String(item.shift_number).padStart(2, '0')}`;
-    const latestServ = serviceableMap.get(item.vehicle_id);
-    if (latestServ && latestServ > itemKey) {
-      continue;
-    }
-    seenVehicle.add(item.vehicle_id);
-    backlogIssues.push(item);
-  }
 
   return {
     shift_date: shiftDate,
     shift_number: shiftNumber,
     team_group: currentTeam,
     current_issues: currentIssues,
-    backlog_issues: backlogIssues,
-    resolved_this_shift: resolvedThisShift
+    backlog_issues: [],
+    resolved_this_shift: resolvedThisShift,
   };
-};
-
-export const getVehicleIssuesAudit = async (req, res) => {
-  try {
-    const { date, shift, team_group } = req.query;
-    const shiftDate = date || new Date().toISOString().split('T')[0];
-    const shiftNumber = shift ? Number(shift) : 1;
-    const currentTeam = team_group || 'Alpha';
-
-    const data = await fetchVehicleIssuesAuditData(shiftDate, shiftNumber, currentTeam);
-
-    return res.json({
-      success: true,
-      message: 'Data pelacakan kendala armada berhasil diambil',
-      data
-    });
-  } catch (error) {
-    console.error('Error getVehicleIssuesAudit:', error);
-    return errorResponse(res, 'Gagal mengambil data pelacakan kendala armada: ' + error.message, 500);
-  }
 };
 
 /**
@@ -193,31 +119,11 @@ export const getVehiclesReportPdf = async (req, res) => {
 
     const doc = await generateVehicleReadinessReportPdf(payload);
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader(
-      'Content-Disposition',
-      `inline; filename="laporan-kesiapan-armada-${reportData.period_info.start_date}-sd-${reportData.period_info.end_date}.pdf"`
-    );
-
-    doc.on('error', (err) => {
-      console.error('PDFKit stream error (VehicleReportPdf):', err);
-      if (!res.headersSent) {
-        return errorResponse(res, 'Gagal menerbitkan laporan PDF kesiapan armada: ' + err.message, 500);
-      }
-      res.destroy(err);
+    streamPdfToResponse(doc, res, req, {
+      filename: `laporan-kesiapan-armada-${reportData.period_info.start_date}-sd-${reportData.period_info.end_date}.pdf`
     });
-
-    req.on('close', () => {
-      if (!doc.destroyed && typeof doc.destroy === 'function') {
-        doc.destroy();
-      }
-    });
-
-    doc.pipe(res);
-    doc.end();
   } catch (error) {
     console.error('Error getVehiclesReportPdf:', error);
     return errorResponse(res, 'Gagal menerbitkan laporan PDF kesiapan armada: ' + error.message, 500);
   }
 };
-

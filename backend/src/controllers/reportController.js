@@ -2,7 +2,7 @@
  * Controller Laporan Terpadu Operasional ARFF YIA
  * Modul dipecah berdasarkan domain spesifik:
  * - shiftReportsController: PDF Laporan Shift & Ringkasan Agregasi Shift
- * - vehicleReportsController: Pelacakan Kendala & PDF Kesiapan Armada
+ * - vehicleReportsController: PDF Kesiapan Armada
  * - activityReportsController: PDF Logbook Kegiatan
  */
 
@@ -14,8 +14,6 @@ export {
 } from './reports/shiftReportsController.js';
 
 export {
-  fetchVehicleIssuesAuditData,
-  getVehicleIssuesAudit,
   getVehiclesReportPdf
 } from './reports/vehicleReportsController.js';
 

@@ -1,5 +1,6 @@
 import pool from '../config/db.js';
 import { successResponse, errorResponse } from '../utils/responseHelper.js';
+import { clearPdfCache } from '../services/pdfService.js';
 
 export const getVehicleReadiness = async (req, res) => {
   try {
@@ -359,6 +360,7 @@ export const submitVehicleReadiness = async (req, res) => {
       );
 
       await connection.commit();
+      clearPdfCache();
       return successResponse(res, 'Status kesiapan armada berhasil disimpan', updatedRow[0]);
     } catch (error) {
       await connection.rollback();

@@ -89,8 +89,6 @@ export default function ActivitiesPage() {
   // Filter Kategori & Regu
   const [selectedFilterCategory, setSelectedFilterCategory] = useState('ALL');
   const [selectedFilterTeam, setSelectedFilterTeam] = useState('ALL');
-  const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 8;
 
   // Modal Tambah / Edit
   const [modalOpen, setModalOpen] = useState(false);
@@ -396,15 +394,13 @@ export default function ActivitiesPage() {
   // Filtered & Paginated (Kategori & Regu)
   const filteredActivities = useMemo(() => {
     return activities.filter((act) => {
-      const matchCat = selectedFilterCategory === 'ALL' || act.activity_type === selectedFilterCategory;
+      const actType = act.activity_type || 'serah_terima';
+      const matchCat = selectedFilterCategory === 'ALL' || actType === selectedFilterCategory;
       const actTeam = cleanTeam(act.team_group || act.personnel_team || '').toLowerCase();
       const matchTeam = selectedFilterTeam === 'ALL' || actTeam === selectedFilterTeam.toLowerCase();
       return matchCat && matchTeam;
     });
   }, [activities, selectedFilterCategory, selectedFilterTeam]);
-
-  const totalPages = Math.ceil(filteredActivities.length / pageSize) || 1;
-  const paginatedActivities = filteredActivities.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="space-y-4">
@@ -447,7 +443,6 @@ export default function ActivitiesPage() {
               onClick={() => {
                 setViewMode('shift');
                 setActiveDate(todayStr);
-                setCurrentPage(1);
               }}
               className={`px-3 py-1.5 rounded-md transition-colors duration-100 cursor-pointer ${viewMode === 'shift'
                 ? 'bg-white text-slate-900 shadow-2xs font-bold'
@@ -462,7 +457,6 @@ export default function ActivitiesPage() {
                 setViewMode('range');
                 setActiveDate(todayStr);
                 setRangePeriod('1week');
-                setCurrentPage(1);
               }}
               className={`px-3 py-1.5 rounded-md transition-colors duration-100 cursor-pointer ${viewMode === 'range'
                 ? 'bg-white text-slate-900 shadow-2xs font-bold'
@@ -477,10 +471,7 @@ export default function ActivitiesPage() {
           <div className="relative inline-flex items-center">
             <select
               value={selectedFilterCategory}
-              onChange={(e) => {
-                setSelectedFilterCategory(e.target.value);
-                setCurrentPage(1);
-              }}
+              onChange={(e) => setSelectedFilterCategory(e.target.value)}
               className="pl-2.5 pr-8 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 shadow-2xs hover:bg-slate-50 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400 transition-colors duration-100 cursor-pointer appearance-none"
               aria-label="Filter Kategori Kegiatan"
             >
@@ -506,10 +497,7 @@ export default function ActivitiesPage() {
             )}
             <select
               value={selectedFilterTeam}
-              onChange={(e) => {
-                setSelectedFilterTeam(e.target.value);
-                setCurrentPage(1);
-              }}
+              onChange={(e) => setSelectedFilterTeam(e.target.value)}
               className={`${selectedFilterTeam !== 'ALL' ? 'pl-6' : 'pl-2.5'} pr-8 py-1.5 rounded-lg text-xs font-semibold shadow-2xs hover:bg-slate-50/80 focus:outline-none focus:ring-1 transition-colors duration-100 cursor-pointer appearance-none border ${
                 TEAM_FILTER_THEMES[selectedFilterTeam]?.select || TEAM_FILTER_THEMES.ALL.select
               }`}
@@ -539,10 +527,7 @@ export default function ActivitiesPage() {
                 <button
                   key={p.id}
                   type="button"
-                  onClick={() => {
-                    setRangePeriod(p.id);
-                    setCurrentPage(1);
-                  }}
+                  onClick={() => setRangePeriod(p.id)}
                   className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors duration-100 cursor-pointer ${rangePeriod === p.id
                     ? 'bg-white text-slate-900 shadow-2xs font-bold border border-slate-200/80'
                     : 'text-slate-600 hover:text-slate-900'
@@ -578,15 +563,9 @@ export default function ActivitiesPage() {
       <DailyShiftActivityView
         activities={filteredActivities}
         selectedDate={safeDate}
-        onDateChange={(d) => {
-          setActiveDate(d);
-          setCurrentPage(1);
-        }}
+        onDateChange={(d) => setActiveDate(d)}
         selectedShift={safeShift}
-        onShiftChange={(s) => {
-          setActiveShiftNumber(Number(s));
-          setCurrentPage(1);
-        }}
+        onShiftChange={(s) => setActiveShiftNumber(Number(s))}
         canManageActivity={canManageActivity}
         onOpenCreateModal={handleOpenCreateModal}
         onOpenEditModal={handleOpenEditModal}

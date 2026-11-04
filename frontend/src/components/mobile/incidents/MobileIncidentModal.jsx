@@ -1,21 +1,12 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Camera, Check, AlertCircle, X } from 'lucide-react';
 import api from '../../../services/api';
 import { cleanTeam } from '../../../utils/shiftHelper';
 import { compressImageToWebP } from '../../../utils/imageCompressor';
+import { OFFICIAL_INCIDENT_CLASSIFICATIONS } from '../../../utils/incidentHelper';
 
-export const OFFICIAL_INCIDENT_CLASSIFICATIONS = [
-  'Aircraft Accident',
-  'Aircraft Incident',
-  'Kebakaran Gedung atau Terminal',
-  'Kebakaran Fasilitas atau Objek Lain di Bandara',
-  'Aircraft Go-Around',
-  'Hewan Liar atau Wildlife Hazard',
-  'Emergency atau Standby Operasional',
-  'Temuan Gangguan Fasilitas',
-  'Latihan atau Kegiatan Operasional',
-  'Kejadian Lainnya',
-];
+export { OFFICIAL_INCIDENT_CLASSIFICATIONS };
 
 export default function MobileIncidentModal({
   isOpen,
@@ -180,13 +171,13 @@ export default function MobileIncidentModal({
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-3"
+      className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-3 font-sans"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[390px] bg-white rounded-2xl border border-slate-200 p-3.5 space-y-2.5 shadow-xl max-h-[92vh] flex flex-col"
+        className="w-full max-w-[412px] bg-white rounded-t-2xl sm:rounded-2xl border-t sm:border border-slate-200 p-3.5 pb-8 safe-pb sm:pb-3.5 space-y-2.5 shadow-2xl max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Modal */}
@@ -465,6 +456,7 @@ export default function MobileIncidentModal({
           </button>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

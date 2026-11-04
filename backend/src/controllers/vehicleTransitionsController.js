@@ -30,18 +30,10 @@ const cleanPrefixes = (text) => {
   return str;
 };
 
-const cleanDuplicatePrefixes = (text) => {
-  return cleanPrefixes(text);
-};
-
-const formatCleanJustification = (category, description, fallback = '-') => {
-  const cleanDesc = cleanPrefixes(description);
-  return cleanDesc || fallback;
-};
-
 /**
  * Helper Perhitungan Laporan Transisi & Kesiapan Armada (Single Source of Truth)
  * Digunakan bersama oleh API JSON (HalamanLaporanArmada.jsx) dan generator PDF (reportController.js)
+ * Sumber utama periode kendala / pemeliharaan adalah vehicle_maintenance_records.
  */
 export const calculateVehicleTransitionsData = async ({ period = '1month', start_date, end_date } = {}) => {
   let startDate, endDate;
@@ -64,39 +56,26 @@ export const calculateVehicleTransitionsData = async ({ period = '1month', start
     startDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(d);
   }
 
+  // Ambil daftar seluruh armada aktif dengan urutan utama -> pendukung -> posko
   const [vehicles] = await pool.query(
     `SELECT id, code_name, vehicle_name, category, license_plate, description
      FROM vehicles
      WHERE is_active = 1
-     ORDER BY category ASC, code_name ASC`
+     ORDER BY 
+       CASE category 
+         WHEN 'utama' THEN 1 
+         WHEN 'pendukung' THEN 2 
+         WHEN 'posko' THEN 3 
+         ELSE 4 
+       END, 
+       code_name ASC`
   );
 
-  // Tarik status terakhir masing-masing armada sebelum startDate untuk memastikan carry-over kendala tidak hilang
-  const [priorLogs] = await pool.query(
-    `SELECT vrl.vehicle_id, vrl.status, vrl.justification, vrl.notes, vrl.photo_webp_url,
-            vrl.follow_up_status, vrl.shift_date, vrl.shift_number, vrl.team_group,
-            p.full_name as pic_name, p.nip as pic_nip
-     FROM vehicle_readiness_logs vrl
-     JOIN (
-       SELECT vehicle_id, MAX(CONCAT(shift_date, '_', LPAD(shift_number, 2, '0'))) as max_shift
-       FROM vehicle_readiness_logs
-       WHERE shift_date < ?
-       GROUP BY vehicle_id
-     ) latest ON latest.vehicle_id = vrl.vehicle_id
-             AND CONCAT(vrl.shift_date, '_', LPAD(vrl.shift_number, 2, '0')) = latest.max_shift
-     LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id`,
-    [startDate]
-  );
-
-  const priorStatusMap = new Map();
-  for (const pl of priorLogs) {
-    priorStatusMap.set(pl.vehicle_id, pl);
-  }
-
+  // Ambil log kesiapan armada dalam rentang tanggal
   const [logs] = await pool.query(
     `SELECT vrl.id, vrl.vehicle_id, vrl.shift_date, vrl.shift_number, vrl.team_group,
             vrl.status, vrl.justification, vrl.follow_up_status, vrl.notes, vrl.photo_webp_url,
-            vrl.resolved_at, vrl.created_at,
+            vrl.resolved_at, vrl.created_at, vrl.updated_at,
             p.full_name as pic_name, p.nip as pic_nip
      FROM vehicle_readiness_logs vrl
      LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
@@ -113,10 +92,10 @@ export const calculateVehicleTransitionsData = async ({ period = '1month', start
     logsByVehicle.get(log.vehicle_id).push(log);
   }
 
-  // Tarik catatan pemeliharaan & downtime armada yang relevan dengan rentang periode
+  // Ambil catatan pemeliharaan & kendala armada (Single Source of Truth untuk issue periods)
   const [maintenanceRecords] = await pool.query(
     `SELECT vmr.id, vmr.vehicle_id, vmr.start_date, vmr.start_shift_number, vmr.start_team_group,
-            vmr.reported_by_id, vmr.issue_category, vmr.issue_description, vmr.status,
+            vmr.reported_by_id, vmr.issue_description, vmr.status,
             vmr.end_date, vmr.end_shift_number, vmr.end_team_group, vmr.resolved_by_id,
             vmr.resolution_notes, vmr.technician_vendor, vmr.document_type, vmr.document_url, vmr.document_name,
             vmr.created_at, vmr.updated_at,
@@ -138,7 +117,7 @@ export const calculateVehicleTransitionsData = async ({ period = '1month', start
     maintenanceByVehicle.get(m.vehicle_id).push(m);
   }
 
-  // Deteksi apakah rentang periode mencakup hari ini / shift operasional berjalan
+  // Deteksi status shift operasional berjalan saat ini
   const isCurrentPeriod = endDate >= todayStr;
   let activeShiftDate = todayStr;
   let activeShiftNumber = 1;
@@ -193,290 +172,174 @@ export const calculateVehicleTransitionsData = async ({ period = '1month', start
   const vehiclesReport = vehicles.map(v => {
     const vLogs = logsByVehicle.get(v.id) || [];
     const vMaintenance = maintenanceByVehicle.get(v.id) || [];
-    const priorLog = priorStatusMap.get(v.id);
-    
-    const incidentLogs = [];
-    const issuePeriods = [];
-    let currentPeriod = null;
-    let lastKnownStatus = 'serviceable';
 
-    // Jika sebelum startDate armada berstatus unserviceable dan belum resolved, bawa sebagai status awal
-    if (priorLog && priorLog.status === 'unserviceable' && priorLog.follow_up_status !== 'resolved') {
-      lastKnownStatus = 'unserviceable';
-      const cleanPriorJustification = cleanDuplicatePrefixes(priorLog.justification || '-');
-      currentPeriod = {
-        period_number: 1,
-        start_date: formatDateOnly(priorLog.shift_date),
-        start_shift_number: priorLog.shift_number,
-        start_team_group: priorLog.team_group,
-        justification: cleanPriorJustification,
-        issue_description: cleanPrefixes(priorLog.justification) || null,
-        notes: priorLog.notes ? `[Carry-over dari ${formatDateOnly(priorLog.shift_date)}] ` + priorLog.notes : `[Carry-over dari ${formatDateOnly(priorLog.shift_date)}]`,
-        reported_by: priorLog.pic_name || '-',
-        reported_by_nip: priorLog.pic_nip || null,
-        photo_webp_url: priorLog.photo_webp_url || null,
+    // 1. Rekam kejadian unserviceable fisik dari log kesiapan shift
+    const incidentLogs = vLogs
+      .filter(l => l.status === 'unserviceable')
+      .map(item => ({
+        id: item.id,
+        shift_date: formatDateOnly(item.shift_date),
+        shift_number: item.shift_number,
+        team_group: item.team_group,
+        justification: cleanPrefixes(item.justification) || item.justification || '-',
+        issue_description: cleanPrefixes(item.justification) || null,
+        notes: item.notes,
+        photo_webp_url: item.photo_webp_url,
+        follow_up_status: item.follow_up_status,
+        pic_name: item.pic_name || '-',
+        pic_nip: item.pic_nip || '-',
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        resolved_at: item.resolved_at
+      }))
+      .sort((a, b) => {
+        const dateA = new Date(a.shift_date).getTime();
+        const dateB = new Date(b.shift_date).getTime();
+        if (dateB !== dateA) return dateB - dateA;
+        return (b.shift_number || 1) - (a.shift_number || 1);
+      });
+
+    // 2. Single Source of Truth: Periode kendala dari vehicle_maintenance_records
+    const maintenanceIssuePeriods = vMaintenance.map((m, idx) => {
+      const mStartDate = formatDateOnly(m.start_date);
+      const mEndDate = formatDateOnly(m.end_date);
+      const isOngoing = m.status === 'ongoing' || !m.end_date;
+      const cleanDesc = cleanPrefixes(m.issue_description) || m.issue_description || '-';
+      const durationDays = isOngoing
+        ? calculateDaysDifference(mStartDate, todayStr)
+        : calculateDaysDifference(mStartDate, mEndDate || mStartDate);
+
+      const matchingLogsCount = vLogs.filter(l => {
+        const lDate = formatDateOnly(l.shift_date);
+        const inRange = isOngoing
+          ? (lDate >= mStartDate && lDate <= todayStr)
+          : (lDate >= mStartDate && lDate <= (mEndDate || mStartDate));
+        return inRange && l.status === 'unserviceable';
+      }).length;
+
+      const matchingLog = vLogs.find(l => {
+        const lDate = formatDateOnly(l.shift_date);
+        const inRange = isOngoing
+          ? (lDate >= mStartDate && lDate <= todayStr)
+          : (lDate >= mStartDate && lDate <= (mEndDate || mStartDate));
+        return inRange && l.status === 'unserviceable' && l.justification;
+      });
+
+      return {
+        id: m.id,
+        period_number: idx + 1,
+        maintenance_id: m.id,
+        is_maintenance_record: true,
+        start_date: mStartDate,
+        start_shift_number: m.start_shift_number || 1,
+        start_team_group: m.start_team_group || '-',
+        reported_by_id: m.reported_by_id || null,
+        issue_description: cleanDesc,
+        justification: cleanDesc,
+        field_justification: matchingLog ? (cleanPrefixes(matchingLog.justification) || matchingLog.justification) : cleanDesc,
+        notes: m.resolution_notes || '',
+        resolution_notes: m.resolution_notes || null,
+        reported_by: m.reported_by_name || '-',
+        reported_by_nip: m.reported_by_nip || null,
+        photo_webp_url: null,
+        document_url: m.document_url || null,
+        document_name: m.document_name || null,
+        document_type: m.document_type || (m.document_url ? 'ba_kerusakan' : null),
+        technician_vendor: m.technician_vendor || null,
+        duration_days: durationDays,
+        unserviceable_shifts_count: Math.max(matchingLogsCount, durationDays, 1),
+        is_resolved: !isOngoing,
+        resolved_date: isOngoing ? null : (mEndDate || mStartDate),
+        resolved_shift_number: isOngoing ? null : (m.end_shift_number || 1),
+        resolved_team_group: isOngoing ? null : (m.end_team_group || '-'),
+        resolved_by_id: isOngoing ? null : (m.resolved_by_id || null),
+        resolved_by: isOngoing ? null : (m.resolved_by_name || '-'),
+        resolved_by_nip: isOngoing ? null : (m.resolved_by_nip || null),
+        status: isOngoing ? 'ongoing' : 'resolved',
+        created_at: m.created_at || null
+      };
+    });
+
+    // Sinkronkan episode log kendala (status === 'unserviceable') di vehicle_readiness_logs yang belum terdaftar di maintenance_records
+    const unrecordedLogs = incidentLogs.filter(item => {
+      const lDate = item.shift_date;
+      return !vMaintenance.some(m => {
+        const mStartDate = formatDateOnly(m.start_date);
+        const mEndDate = formatDateOnly(m.end_date);
+        const isOngoing = m.status === 'ongoing' || !m.end_date;
+        if (isOngoing) {
+          return lDate >= mStartDate && lDate <= todayStr;
+        } else {
+          return lDate >= mStartDate && lDate <= (mEndDate || mStartDate);
+        }
+      });
+    });
+
+    const synthesizedPeriods = unrecordedLogs.map(item => {
+      const lDate = item.shift_date;
+      const isResolved = item.follow_up_status === 'resolved' || Boolean(item.resolved_at);
+      const isOngoing = !isResolved;
+      const durationDays = isOngoing
+        ? calculateDaysDifference(lDate, todayStr)
+        : 1;
+
+      return {
+        id: `log-${item.id}`,
+        period_number: 0,
+        maintenance_id: null,
+        is_maintenance_record: false,
+        start_date: lDate,
+        start_shift_number: item.shift_number || 1,
+        start_team_group: item.team_group || '-',
+        reported_by_id: null,
+        issue_description: item.issue_description || cleanPrefixes(item.justification) || item.justification || '-',
+        justification: cleanPrefixes(item.justification) || item.justification || '-',
+        field_justification: item.justification || '-',
+        notes: item.notes || '',
+        resolution_notes: isResolved ? (item.notes || 'Kendala terselesaikan pada pemeriksaan operasional') : null,
+        reported_by: item.pic_name || '-',
+        reported_by_nip: item.pic_nip || null,
+        photo_webp_url: item.photo_webp_url || null,
         document_url: null,
         document_name: null,
         document_type: null,
+        technician_vendor: null,
+        duration_days: durationDays,
         unserviceable_shifts_count: 1,
-        is_resolved: false,
-        resolved_date: null,
-        resolved_shift_number: null,
-        resolved_team_group: null,
-        resolved_by: null,
-        status: 'ongoing',
-        is_carried_from_prior: true
+        is_resolved: isResolved,
+        resolved_date: isResolved ? formatDateOnly(item.resolved_at || item.shift_date) : null,
+        resolved_shift_number: isResolved ? (item.shift_number || 1) : null,
+        resolved_team_group: isResolved ? (item.team_group || '-') : null,
+        resolved_by_id: null,
+        resolved_by: isResolved ? (item.pic_name || '-') : '-',
+        resolved_by_nip: isResolved ? (item.pic_nip || null) : null,
+        status: isOngoing ? 'ongoing' : 'resolved',
+        created_at: item.created_at || null,
+        logged_at: item.updated_at || item.created_at || null
       };
-    }
+    });
 
-    for (let i = 0; i < vLogs.length; i++) {
-      const item = vLogs[i];
-      const itemDate = formatDateOnly(item.shift_date);
-      
-      if (item.status === 'unserviceable') {
-        incidentLogs.push({
-          id: item.id,
-          shift_date: itemDate,
-          shift_number: item.shift_number,
-          team_group: item.team_group,
-          justification: cleanDuplicatePrefixes(item.justification || '-'),
-          issue_description: cleanPrefixes(item.justification) || null,
-          notes: item.notes,
-          photo_webp_url: item.photo_webp_url,
-          document_url: null,
-          document_name: null,
-          document_type: null,
-          follow_up_status: item.follow_up_status,
-          pic_name: item.pic_name,
-          pic_nip: item.pic_nip
-        });
-      }
+    // Gabungkan riwayat pemeliharaan dan episode log kendala, urutkan kronologis
+    const combinedPeriods = [...maintenanceIssuePeriods, ...synthesizedPeriods].sort((a, b) => {
+      const dateA = new Date(a.start_date).getTime();
+      const dateB = new Date(b.start_date).getTime();
+      if (dateA !== dateB) return dateA - dateB;
+      return (a.start_shift_number || 1) - (b.start_shift_number || 1);
+    });
 
-      if (item.status && item.status !== 'belum_dilaporkan') {
-        if (item.status === 'unserviceable') {
-          if (!currentPeriod) {
-            // Mulai 1 periode kendala baru
-            currentPeriod = {
-              id: `log-${item.id}`,
-              period_number: issuePeriods.length + 1,
-              start_date: itemDate,
-              start_shift_number: item.shift_number,
-              start_team_group: item.team_group,
-              start_log_id: item.id,
-              is_maintenance_record: false,
-              justification: cleanDuplicatePrefixes(item.justification || '-'),
-              issue_description: cleanPrefixes(item.justification) || null,
-              notes: item.notes || '',
-              reported_by: item.pic_name || '-',
-              reported_by_nip: item.pic_nip || null,
-              photo_webp_url: item.photo_webp_url || null,
-              document_url: null,
-              document_name: null,
-              document_type: null,
-              unserviceable_shifts_count: 1,
-              is_resolved: false,
-              resolved_date: null,
-              resolved_shift_number: null,
-              resolved_team_group: null,
-              resolved_by: null,
-              resolved_by_nip: null,
-              status: 'ongoing'
-            };
-          } else {
-            currentPeriod.unserviceable_shifts_count++;
-            if (item.notes && !currentPeriod.notes.includes(item.notes)) {
-              currentPeriod.notes += (currentPeriod.notes ? ' • ' : '') + item.notes;
-            }
-          }
-          lastKnownStatus = 'unserviceable';
-        } else if (item.status === 'serviceable') {
-          if (currentPeriod) {
-            // Pulih kembali: siklus 1 periode kendala ditutup
-            currentPeriod.is_resolved = true;
-            currentPeriod.resolved_date = itemDate;
-            currentPeriod.resolved_shift_number = item.shift_number;
-            currentPeriod.resolved_team_group = item.team_group;
-            currentPeriod.resolved_by = item.pic_name || '-';
-            currentPeriod.resolved_by_nip = item.pic_nip || null;
-            currentPeriod.resolution_notes = item.notes || null;
-            currentPeriod.resolved_log_id = item.id;
-            currentPeriod.status = 'resolved';
-            issuePeriods.push(currentPeriod);
-            currentPeriod = null;
-          }
-          lastKnownStatus = 'serviceable';
-        }
-      }
-    }
-
-    // Jika ada periode kendala yang belum sembuh hingga akhir filter periode
-    if (currentPeriod) {
-      issuePeriods.push(currentPeriod);
-    }
-
-    // Integrasikan data dari vehicle_maintenance_records
-    for (const m of vMaintenance) {
-      const mStartDate = formatDateOnly(m.start_date);
-      const mEndDate = formatDateOnly(m.end_date);
-      const mIsOngoing = m.status === 'ongoing' || !m.end_date;
-      const cleanDesc = cleanPrefixes(m.issue_description) || m.issue_description || '-';
-      const cleanJustification = formatCleanJustification(m.issue_category, cleanDesc);
-
-      // Cari apakah tiket pemeliharaan cocok/beririsan dengan periode kendala yang tercatat dari log
-      // PENTING: Jangan overwrite tiket yang sudah terhubung (p.maintenance_id harus belum ada)
-      const matchedPeriod = issuePeriods.find(p => {
-        if (p.maintenance_id) return false;
-        const pStart = formatDateOnly(p.start_date);
-        const pEnd = formatDateOnly(p.resolved_date) || todayStr;
-        return mStartDate === pStart || (mStartDate >= pStart && mStartDate <= pEnd);
-      });
-
-      if (matchedPeriod) {
-        matchedPeriod.id = m.id;
-        matchedPeriod.maintenance_id = m.id;
-        matchedPeriod.is_maintenance_record = true;
-        matchedPeriod.field_justification = matchedPeriod.justification;
-        matchedPeriod.issue_description = cleanDesc;
-        matchedPeriod.justification = cleanJustification;
-        if (m.reported_by_id) matchedPeriod.reported_by_id = m.reported_by_id;
-        if (m.resolved_by_id) matchedPeriod.resolved_by_id = m.resolved_by_id;
-        if (m.document_type) matchedPeriod.document_type = m.document_type;
-        if (m.document_url) matchedPeriod.document_url = m.document_url;
-        if (m.document_name) matchedPeriod.document_name = m.document_name;
-        if (m.technician_vendor) matchedPeriod.technician_vendor = m.technician_vendor;
-        matchedPeriod.issue_category = null;
-        if (m.reported_by_name) matchedPeriod.reported_by = m.reported_by_name;
-        if (m.reported_by_nip) matchedPeriod.reported_by_nip = m.reported_by_nip;
-        if (m.resolution_notes) matchedPeriod.resolution_notes = m.resolution_notes;
-
-        if (mIsOngoing) {
-          matchedPeriod.status = 'ongoing';
-          matchedPeriod.is_resolved = false;
-          matchedPeriod.resolved_date = null;
-        } else if (m.status === 'resolved' && !matchedPeriod.is_resolved) {
-          matchedPeriod.status = 'resolved';
-          matchedPeriod.is_resolved = true;
-          matchedPeriod.resolved_date = mEndDate || matchedPeriod.resolved_date || todayStr;
-          matchedPeriod.resolved_shift_number = m.end_shift_number || matchedPeriod.resolved_shift_number || 1;
-          matchedPeriod.resolved_team_group = m.end_team_group || matchedPeriod.resolved_team_group || '-';
-          matchedPeriod.resolved_by = m.resolved_by_name || matchedPeriod.resolved_by || '-';
-          matchedPeriod.resolved_by_nip = m.resolved_by_nip || matchedPeriod.resolved_by_nip || null;
-        }
-      } else {
-        // Tiket pemeliharaan belum tercakup dalam log kesiapan, langsung daftarkan sebagai issue period
-        issuePeriods.push({
-          id: m.id,
-          period_number: 0,
-          maintenance_id: m.id,
-          is_maintenance_record: true,
-          start_date: mStartDate,
-          start_shift_number: m.start_shift_number || 1,
-          start_team_group: m.start_team_group || '-',
-          reported_by_id: m.reported_by_id || null,
-          issue_description: cleanDesc,
-          justification: cleanJustification,
-          field_justification: null,
-          resolution_notes: m.resolution_notes || null,
-          notes: m.resolution_notes || '',
-          reported_by: m.reported_by_name || '-',
-          reported_by_nip: m.reported_by_nip || null,
-          photo_webp_url: null,
-          document_url: m.document_url || null,
-          document_name: m.document_name || null,
-          document_type: m.document_type || 'dokumen',
-          issue_category: null,
-          technician_vendor: m.technician_vendor || null,
-          unserviceable_shifts_count: mIsOngoing ? calculateDaysDifference(mStartDate, todayStr) : calculateDaysDifference(mStartDate, mEndDate),
-          is_resolved: !mIsOngoing,
-          resolved_date: mEndDate,
-          resolved_shift_number: m.end_shift_number || null,
-          resolved_team_group: m.end_team_group || null,
-          resolved_by_id: m.resolved_by_id || null,
-          resolved_by: m.resolved_by_name || null,
-          resolved_by_nip: m.resolved_by_nip || null,
-          status: mIsOngoing ? 'ongoing' : 'resolved'
-        });
-      }
-
-      // Pastikan rekam insiden pemeliharaan tercatat di incidentLogs jika belum ada
-      const alreadyInIncidentLogs = incidentLogs.some(
-        log => (log.maintenance_id && log.maintenance_id === m.id) ||
-               (formatDateOnly(log.shift_date) === mStartDate && 
-                (log.justification?.includes(cleanDesc) || log.notes?.includes(cleanDesc)))
-      );
-
-      if (!alreadyInIncidentLogs) {
-        incidentLogs.push({
-          id: `m-${m.id}`,
-          maintenance_id: m.id,
-          shift_date: mStartDate,
-          shift_number: m.start_shift_number || 1,
-          team_group: m.start_team_group || '-',
-          justification: cleanJustification,
-          issue_description: cleanDesc,
-          notes: m.resolution_notes || '',
-          photo_webp_url: null,
-          document_url: m.document_url || null,
-          document_name: m.document_name || null,
-          document_type: m.document_type || 'ba_kerusakan',
-          follow_up_status: m.status === 'resolved' ? 'resolved' : 'pending',
-          pic_name: m.reported_by_name || '-',
-          pic_nip: m.reported_by_nip || '-'
-        });
-      }
-    }
-
-    // Urutkan issuePeriods kronologis, hitung durasi hari berjalan & shift, serta re-indeks period_number
-    issuePeriods.sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
-    issuePeriods.forEach((p, idx) => {
+    combinedPeriods.forEach((p, idx) => {
       p.period_number = idx + 1;
-      p.start_date = formatDateOnly(p.start_date);
-      p.resolved_date = formatDateOnly(p.resolved_date);
-      p.document_url = p.document_url || null;
-      p.document_name = p.document_name || null;
-      p.document_type = p.document_type || (p.document_url ? 'ba_kerusakan' : null);
-      const isOngoing = p.status === 'ongoing' || !p.is_resolved;
-      p.duration_days = isOngoing
-        ? calculateDaysDifference(p.start_date, todayStr)
-        : calculateDaysDifference(p.start_date, p.resolved_date || p.start_date);
-
-      // Hitung unserviceable_shifts_count yang akurat dan konsisten
-      const relevantLogs = vLogs.filter(l => {
-        const lDate = formatDateOnly(l.shift_date);
-        const inDateRange = isOngoing
-          ? (lDate >= p.start_date && lDate <= todayStr)
-          : (lDate >= p.start_date && lDate <= (p.resolved_date || p.start_date));
-        return inDateRange && l.status === 'unserviceable';
-      });
-
-      if (relevantLogs.length > 0) {
-        p.unserviceable_shifts_count = Math.max(relevantLogs.length, p.unserviceable_shifts_count || 1);
-      } else {
-        p.unserviceable_shifts_count = Math.max(1, p.unserviceable_shifts_count || p.duration_days || 1);
-      }
     });
 
-    // Urutkan incidentLogs kronologis (terbaru di paling atas / indeks 0)
-    incidentLogs.sort((a, b) => {
-      const dateA = new Date(a.shift_date).getTime();
-      const dateB = new Date(b.shift_date).getTime();
-      if (dateB !== dateA) return dateB - dateA;
-      const shiftA = Number(a.shift_number || 1);
-      const shiftB = Number(b.shift_number || 1);
-      if (shiftB !== shiftA) return shiftB - shiftA;
-      const idA = typeof a.id === 'number' ? a.id : parseInt(String(a.id).replace(/\D/g, '') || '0', 10);
-      const idB = typeof b.id === 'number' ? b.id : parseInt(String(b.id).replace(/\D/g, '') || '0', 10);
-      return idB - idA;
-    });
+    const issuePeriods = combinedPeriods;
 
     const periodCount = issuePeriods.length;
     grandTotalTransitions += periodCount;
 
+    // 3. Tentukan status armada saat ini
     let currentStatus = 'belum_dilaporkan';
 
     if (isCurrentPeriod) {
-      // Periode aktif mencakup hari ini / shift berjalan:
-      // 1. Cek apakah ada kendala/tiket pemeliharaan yang ongoing
       const hasOngoingIssue = issuePeriods.some(p => p.status === 'ongoing' || !p.is_resolved);
       if (hasOngoingIssue) {
         currentStatus = 'unserviceable';
@@ -487,12 +350,10 @@ export const calculateVehicleTransitionsData = async ({ period = '1month', start
         } else if (carryOverMap.has(v.id)) {
           currentStatus = 'unserviceable';
         } else {
-          // Belum ada pemeriksaan fisik pada shift aktif hari ini: default "belum_dilaporkan" (Belum Dicek)
           currentStatus = 'belum_dilaporkan';
         }
       }
     } else {
-      // Periode historis di masa lalu (endDate < todayStr):
       const hasOngoingIssue = issuePeriods.some(p => p.status === 'ongoing' || !p.is_resolved);
       if (hasOngoingIssue) {
         currentStatus = 'unserviceable';
@@ -500,8 +361,6 @@ export const calculateVehicleTransitionsData = async ({ period = '1month', start
         const latestLog = vLogs.length > 0 ? vLogs[vLogs.length - 1] : null;
         if (latestLog && latestLog.status && latestLog.status !== 'belum_dilaporkan') {
           currentStatus = latestLog.status;
-        } else if (priorLog && priorLog.status === 'unserviceable' && priorLog.follow_up_status !== 'resolved') {
-          currentStatus = 'unserviceable';
         } else {
           currentStatus = 'belum_dilaporkan';
         }

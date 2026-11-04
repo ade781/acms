@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X, CheckCircle, Camera } from 'lucide-react';
 import { formatIndoDate } from '../../../utils/shiftHelper';
 
@@ -16,6 +17,7 @@ export default function MobileUnitAuditModal({
   vehicleIssues = { current_issues: [], backlog_issues: [], resolved_this_shift: [] },
 }) {
   if (!isOpen || !unit) return null;
+  if (typeof document === 'undefined') return null;
 
   const unitCode = unit.code_name || unit.vehicle_code || unit.id || 'Armada';
   const unitName = unit.vehicle_name || unit.name || unitCode;
@@ -132,9 +134,9 @@ export default function MobileUnitAuditModal({
     });
   }
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 animate-in fade-in duration-100 font-sans"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-3 pb-8 safe-pb animate-in fade-in duration-100 font-sans"
       onClick={onClose}
     >
       <div
@@ -289,6 +291,7 @@ export default function MobileUnitAuditModal({
           Tutup Riwayat
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

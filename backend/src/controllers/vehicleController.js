@@ -17,7 +17,14 @@ export const getVehicles = async (req, res) => {
       params.push(Number(is_active));
     }
 
-    query += ' ORDER BY category ASC, code_name ASC';
+    query += ` ORDER BY 
+      CASE category 
+        WHEN 'utama' THEN 1 
+        WHEN 'pendukung' THEN 2 
+        WHEN 'posko' THEN 3 
+        ELSE 4 
+      END, 
+      code_name ASC`;
 
     const [rows] = await pool.query(query, params);
     return successResponse(res, 'Daftar armada berhasil diambil', rows);

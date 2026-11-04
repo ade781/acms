@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -14,6 +14,15 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam } from '../utils/shiftHelper';
+import {
+  calculateIncidentStats,
+  isEmergencyPriority,
+  isCriticalPriority,
+  isIncidentActive,
+  isIncidentResolved,
+  getPriorityMeta,
+  getStatusMeta,
+} from '../utils/incidentHelper';
 import api from '../services/api';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
@@ -74,29 +83,17 @@ export default function IncidentsPage() {
     }
   }, [toastMsg]);
 
-  const summaryStats = {
-    total: incidents.length,
-    critical: incidents.filter((i) => {
-      const p = (i.priority_level || i.priority || i.severity || '').toLowerCase();
-      return p.includes('kritis') || p.includes('critical');
-    }).length,
-    inProgress: incidents.filter((i) => {
-      const s = (i.status || '').toLowerCase();
-      return s === 'dalam_proses' || s === 'menunggu_tindak_lanjut';
-    }).length,
-    resolved: incidents.filter((i) => (i.status || '').toLowerCase() === 'selesai').length,
-  };
+  const summaryStats = useMemo(() => calculateIncidentStats(incidents), [incidents]);
 
   const filteredIncidents = incidents.filter((inc) => {
-    if (filterTriage === 'kritis') {
-      const p = (inc.priority_level || inc.priority || inc.severity || '').toLowerCase();
-      if (!p.includes('kritis') && !p.includes('critical')) return false;
+    if (filterTriage === 'emergency' || filterTriage === 'siaga') {
+      if (!isEmergencyPriority(inc)) return false;
+    } else if (filterTriage === 'kritis') {
+      if (!isCriticalPriority(inc)) return false;
     } else if (filterTriage === 'in_progress') {
-      const s = (inc.status || '').toLowerCase();
-      if (s !== 'dalam_proses' && s !== 'menunggu_tindak_lanjut') return false;
+      if (!isIncidentActive(inc)) return false;
     } else if (filterTriage === 'resolved') {
-      const s = (inc.status || '').toLowerCase();
-      if (s !== 'selesai') return false;
+      if (!isIncidentResolved(inc)) return false;
     }
 
     if (!searchQuery.trim()) return true;
@@ -113,20 +110,18 @@ export default function IncidentsPage() {
   const paginatedIncidents = filteredIncidents.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const getPriorityBadge = (lvl) => {
-    const l = (lvl || '').toLowerCase();
-    if (l === 'kritis' || l === 'critical') return <Badge variant="unserviceable" size="sm">Siaga I (Kritis)</Badge>;
-    if (l === 'tinggi' || l === 'high') return <Badge variant="pending" size="sm">Siaga II (Tinggi)</Badge>;
-    if (l === 'sedang' || l === 'medium') return <Badge variant="info" size="sm">Sedang</Badge>;
-    return <Badge variant="default" size="sm">Rendah</Badge>;
+    const meta = getPriorityMeta(lvl);
+    return <Badge variant={meta.badgeVariant} size="sm">{meta.shortLabel || meta.label}</Badge>;
   };
 
   const getStatusBadge = (st) => {
+    const meta = getStatusMeta(st);
     const s = (st || 'dalam_proses').toLowerCase();
     if (s === 'selesai') {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
           <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-          Selesai
+          {meta.label}
         </span>
       );
     }
@@ -134,14 +129,14 @@ export default function IncidentsPage() {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
           <AlertTriangle className="w-3 h-3 text-rose-600" />
-          Tindak Lanjut
+          {meta.label}
         </span>
       );
     }
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
         <Clock className="w-3 h-3 text-amber-600" />
-        Dalam Proses
+        {meta.label}
       </span>
     );
   };
@@ -241,7 +236,8 @@ export default function IncidentsPage() {
               className="pl-2.5 pr-8 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 shadow-2xs hover:bg-slate-50 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400 transition-colors duration-100 cursor-pointer appearance-none"
               aria-label="Filter Status Insiden"
             >
-              <option value="ALL">Semua Status ({summaryStats.total})</option>
+              <option value="ALL">Semua Kasus ({summaryStats.total})</option>
+              <option value="emergency">Prioritas Siaga ({summaryStats.emergency})</option>
               <option value="kritis">Siaga I / Kritis ({summaryStats.critical})</option>
               <option value="in_progress">Dalam Proses ({summaryStats.inProgress})</option>
               <option value="resolved">Selesai ({summaryStats.resolved})</option>

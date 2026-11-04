@@ -47,6 +47,131 @@ const cleanPrefixes = (text) => {
 };
 
 /**
+ * Helper terpadu untuk sinkronisasi tiket pemeliharaan ke log kesiapan armada
+ */
+const syncMaintenanceToReadinessLogs = async ({
+  vehicle_id,
+  status,
+  start_date,
+  start_shift_number,
+  start_team_group,
+  reported_by_id,
+  issue_description,
+  end_date,
+  end_shift_number,
+  end_team_group,
+  resolved_by_id,
+  resolution_notes
+}) => {
+  try {
+    const vId = Number(vehicle_id);
+    if (status === 'ongoing' && start_team_group) {
+      await pool.query(
+        `INSERT INTO vehicle_readiness_logs (
+          vehicle_id, shift_date, shift_number, team_group, pic_personnel_id,
+          status, justification, follow_up_status, notes, updated_at
+        ) VALUES (?, ?, ?, ?, ?, 'unserviceable', ?, 'in_progress', ?, NOW())
+        ON DUPLICATE KEY UPDATE
+          status = 'unserviceable',
+          justification = VALUES(justification),
+          follow_up_status = 'in_progress',
+          notes = VALUES(notes),
+          updated_at = NOW()`,
+        [
+          vId,
+          start_date,
+          start_shift_number,
+          start_team_group,
+          reported_by_id,
+          issue_description,
+          issue_description
+        ]
+      );
+    } else if (status === 'resolved') {
+      const targetEndDate = end_date || start_date;
+      const targetEndShift = end_shift_number || start_shift_number;
+      const targetEndTeam = end_team_group || start_team_group || 'Alpha';
+      await pool.query(
+        `INSERT INTO vehicle_readiness_logs (
+          vehicle_id, shift_date, shift_number, team_group, pic_personnel_id,
+          status, justification, follow_up_status, resolved_at, notes, updated_at
+        ) VALUES (?, ?, ?, ?, ?, 'serviceable', NULL, 'resolved', NOW(), ?, NOW())
+        ON DUPLICATE KEY UPDATE
+          status = 'serviceable',
+          follow_up_status = 'resolved',
+          resolved_at = NOW(),
+          notes = VALUES(notes),
+          updated_at = NOW()`,
+        [
+          vId,
+          targetEndDate,
+          targetEndShift,
+          targetEndTeam,
+          resolved_by_id,
+          resolution_notes || 'Pemeliharaan selesai'
+        ]
+      );
+      await pool.query(
+        `UPDATE vehicle_readiness_logs 
+         SET follow_up_status = 'resolved', resolved_at = NOW() 
+         WHERE vehicle_id = ? AND shift_date >= ? AND follow_up_status != 'resolved'`,
+        [vId, start_date]
+      );
+    }
+  } catch (syncErr) {
+    console.warn('Peringatan sinkronisasi vehicle_readiness_logs:', syncErr.message);
+  }
+};
+
+/**
+ * Helper mengambil data record pemeliharaan lengkap beserta join
+ */
+const fetchMaintenanceRecordById = async (id) => {
+  const [rows] = await pool.query(
+    `SELECT 
+      vmr.id,
+      vmr.vehicle_id,
+      vmr.start_date,
+      vmr.start_shift_number,
+      vmr.start_team_group,
+      vmr.reported_by_id,
+      vmr.issue_description,
+      vmr.status,
+      vmr.end_date,
+      vmr.end_shift_number,
+      vmr.end_team_group,
+      vmr.resolved_by_id,
+      vmr.resolution_notes,
+      vmr.technician_vendor,
+      vmr.document_type,
+      vmr.document_url,
+      vmr.document_name,
+      vmr.created_at,
+      vmr.updated_at,
+      v.code_name AS vehicle_code,
+      v.vehicle_name,
+      v.license_plate,
+      v.category AS vehicle_category,
+      rep.full_name AS reported_by_name,
+      rep.nip AS reported_by_nip,
+      res_p.full_name AS resolved_by_name,
+      res_p.nip AS resolved_by_nip
+    FROM vehicle_maintenance_records vmr
+    JOIN vehicles v ON v.id = vmr.vehicle_id
+    LEFT JOIN personnel rep ON rep.id = vmr.reported_by_id
+    LEFT JOIN personnel res_p ON res_p.id = vmr.resolved_by_id
+    WHERE vmr.id = ?`,
+    [id]
+  );
+  if (rows.length === 0) return null;
+  return {
+    ...rows[0],
+    start_date: formatDateOnly(rows[0]?.start_date),
+    end_date: formatDateOnly(rows[0]?.end_date),
+  };
+};
+
+/**
  * GET /api/readiness/maintenance
  * Mengambil daftar catatan pemeliharaan armada dengan dukungan filter
  */
@@ -62,7 +187,6 @@ export const getMaintenanceRecords = async (req, res) => {
         vmr.start_shift_number,
         vmr.start_team_group,
         vmr.reported_by_id,
-        vmr.issue_category,
         vmr.issue_description,
         vmr.status,
         vmr.end_date,
@@ -141,7 +265,6 @@ export const createMaintenanceRecord = async (req, res) => {
       start_shift_number,
       start_team_group,
       reported_by_id,
-      issue_category,
       issue_description,
       status = 'ongoing',
       end_date,
@@ -179,7 +302,6 @@ export const createMaintenanceRecord = async (req, res) => {
       }
     }
 
-    // Verifikasi validitas reported_by_id terhadap master tabel personnel
     let recReportedBy = null;
     const candidateReportedBy = reported_by_id ? Number(reported_by_id) : (req.user?.personnel_id || null);
     if (candidateReportedBy) {
@@ -189,13 +311,11 @@ export const createMaintenanceRecord = async (req, res) => {
       }
     }
 
-    const recCategory = null;
     const rawDesc = String(issue_description).trim();
     const recDescription = cleanPrefixes(rawDesc) || rawDesc;
     const recStatus = status === 'resolved' ? 'resolved' : 'ongoing';
 
-    // Jika armada telah memiliki tiket ongoing yang aktif, perbarui tiket tersebut secara transparan (UPSERT)
-    // agar upload berkas dan pembaruan catatan berhasil tanpa kegagalan error 400
+    // Jika armada telah memiliki tiket ongoing aktif, perbarui tiket tersebut secara transparan (UPSERT)
     if (recStatus === 'ongoing') {
       const [openTickets] = await pool.query(
         'SELECT id, document_url, document_name FROM vehicle_maintenance_records WHERE vehicle_id = ? AND status = ?',
@@ -240,7 +360,6 @@ export const createMaintenanceRecord = async (req, res) => {
     }
 
     const recDocType = req.body.document_type || 'ba_kerusakan';
-
     let recEndDate = end_date || null;
     let recEndShift = end_shift_number ? Number(end_shift_number) : null;
     let recEndTeam = end_team_group || null;
@@ -277,17 +396,16 @@ export const createMaintenanceRecord = async (req, res) => {
     const [result] = await pool.query(
       `INSERT INTO vehicle_maintenance_records (
         vehicle_id, start_date, start_shift_number, start_team_group, reported_by_id,
-        issue_category, issue_description, status, end_date, end_shift_number,
+        issue_description, status, end_date, end_shift_number,
         end_team_group, resolved_by_id, resolution_notes, technician_vendor,
         document_type, document_url, document_name
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         Number(vehicle_id),
         recStartDate,
         recStartShift,
         recStartTeam,
         recReportedBy,
-        recCategory,
         recDescription,
         recStatus,
         recEndDate,
@@ -302,91 +420,23 @@ export const createMaintenanceRecord = async (req, res) => {
       ]
     );
 
-    // Sinkronisasi dua arah ke log kesiapan armada operasional (vehicle_readiness_logs)
-    try {
-      const syncJustification = recDescription;
-      if (recStatus === 'ongoing' && recStartTeam) {
-        await pool.query(
-          `INSERT INTO vehicle_readiness_logs (
-            vehicle_id, shift_date, shift_number, team_group, pic_personnel_id,
-            status, justification, follow_up_status, notes, updated_at
-          ) VALUES (?, ?, ?, ?, ?, 'unserviceable', ?, 'in_progress', ?, NOW())
-          ON DUPLICATE KEY UPDATE
-            status = 'unserviceable',
-            justification = VALUES(justification),
-            follow_up_status = 'in_progress',
-            notes = VALUES(notes),
-            updated_at = NOW()`,
-          [
-            Number(vehicle_id),
-            recStartDate,
-            recStartShift,
-            recStartTeam,
-            recReportedBy,
-            syncJustification,
-            recDescription
-          ]
-        );
-      } else if (recStatus === 'resolved') {
-        const targetEndDate = recEndDate || recStartDate;
-        const targetEndShift = recEndShift || recStartShift;
-        const targetEndTeam = recEndTeam || recStartTeam || 'Alpha';
-        await pool.query(
-          `INSERT INTO vehicle_readiness_logs (
-            vehicle_id, shift_date, shift_number, team_group, pic_personnel_id,
-            status, justification, follow_up_status, resolved_at, notes, updated_at
-          ) VALUES (?, ?, ?, ?, ?, 'serviceable', NULL, 'resolved', NOW(), ?, NOW())
-          ON DUPLICATE KEY UPDATE
-            status = 'serviceable',
-            follow_up_status = 'resolved',
-            resolved_at = NOW(),
-            notes = VALUES(notes),
-            updated_at = NOW()`,
-          [
-            Number(vehicle_id),
-            targetEndDate,
-            targetEndShift,
-            targetEndTeam,
-            recResolvedBy,
-            recResolutionNotes || 'Pemeliharaan selesai'
-          ]
-        );
-        await pool.query(
-          `UPDATE vehicle_readiness_logs 
-           SET follow_up_status = 'resolved', resolved_at = NOW() 
-           WHERE vehicle_id = ? AND shift_date >= ? AND follow_up_status != 'resolved'`,
-          [Number(vehicle_id), recStartDate]
-        );
-      }
-    } catch (syncErr) {
-      console.warn('Peringatan sinkronisasi vehicle_readiness_logs:', syncErr.message);
-    }
+    // Sinkronisasi status ke log kesiapan armada operasional
+    await syncMaintenanceToReadinessLogs({
+      vehicle_id,
+      status: recStatus,
+      start_date: recStartDate,
+      start_shift_number: recStartShift,
+      start_team_group: recStartTeam,
+      reported_by_id: recReportedBy,
+      issue_description: recDescription,
+      end_date: recEndDate,
+      end_shift_number: recEndShift,
+      end_team_group: recEndTeam,
+      resolved_by_id: recResolvedBy,
+      resolution_notes: recResolutionNotes
+    });
 
-    const [newRows] = await pool.query(
-      `SELECT 
-        vmr.*,
-        v.code_name AS vehicle_code,
-        v.vehicle_name,
-        v.license_plate,
-        v.category AS vehicle_category,
-        rep.full_name AS reported_by_name,
-        rep.nip AS reported_by_nip,
-        res_p.full_name AS resolved_by_name,
-        res_p.nip AS resolved_by_nip
-      FROM vehicle_maintenance_records vmr
-      JOIN vehicles v ON v.id = vmr.vehicle_id
-      LEFT JOIN personnel rep ON rep.id = vmr.reported_by_id
-      LEFT JOIN personnel res_p ON res_p.id = vmr.resolved_by_id
-      WHERE vmr.id = ?`,
-      [result.insertId]
-    );
-
-    const createdRecord = {
-      ...newRows[0],
-      start_date: formatDateOnly(newRows[0]?.start_date),
-      end_date: formatDateOnly(newRows[0]?.end_date),
-    };
-
+    const createdRecord = await fetchMaintenanceRecordById(result.insertId);
     return successResponse(res, 'Catatan pemeliharaan armada berhasil disimpan', createdRecord, 201);
   } catch (error) {
     safeUnlink(req.file?.path);
@@ -409,8 +459,6 @@ export const updateMaintenanceRecord = async (req, res) => {
     );
 
     if (existingRows.length === 0) {
-      // Jika record belum ada di tabel vehicle_maintenance_records (misal berasal dari legacy shift log),
-      // lakukan fallback pembuatan record baru secara transparan (UPSERT) agar alur tidak terputus
       if (req.body.vehicle_id) {
         return createMaintenanceRecord(req, res);
       }
@@ -426,7 +474,6 @@ export const updateMaintenanceRecord = async (req, res) => {
     if (req.file) {
       document_url = `/uploads/${req.file.filename}`;
       document_name = req.file.originalname;
-      // Hapus berkas lama jika berbeda
       if (existing.document_url && existing.document_url !== document_url) {
         safeUnlink(existing.document_url);
       }
@@ -465,7 +512,6 @@ export const updateMaintenanceRecord = async (req, res) => {
       }
     }
 
-    const issueCategory = null;
     const rawIssueDescription = req.body.issue_description !== undefined 
       ? String(req.body.issue_description).trim() 
       : existing.issue_description;
@@ -530,7 +576,6 @@ export const updateMaintenanceRecord = async (req, res) => {
         start_shift_number = ?,
         start_team_group = ?,
         reported_by_id = ?,
-        issue_category = ?,
         issue_description = ?,
         status = ?,
         end_date = ?,
@@ -549,7 +594,6 @@ export const updateMaintenanceRecord = async (req, res) => {
         startShiftNumber,
         startTeamGroup,
         reportedById,
-        issueCategory,
         issueDescription,
         status,
         endDate,
@@ -565,91 +609,23 @@ export const updateMaintenanceRecord = async (req, res) => {
       ]
     );
 
-    // Sinkronisasi dua arah ke log kesiapan armada operasional
-    try {
-      const syncJustification = issueDescription;
-      if (status === 'ongoing' && startTeamGroup) {
-        await pool.query(
-          `INSERT INTO vehicle_readiness_logs (
-            vehicle_id, shift_date, shift_number, team_group, pic_personnel_id,
-            status, justification, follow_up_status, notes, updated_at
-          ) VALUES (?, ?, ?, ?, ?, 'unserviceable', ?, 'in_progress', ?, NOW())
-          ON DUPLICATE KEY UPDATE
-            status = 'unserviceable',
-            justification = VALUES(justification),
-            follow_up_status = 'in_progress',
-            notes = VALUES(notes),
-            updated_at = NOW()`,
-          [
-            vehicleId,
-            startDate,
-            startShiftNumber,
-            startTeamGroup,
-            reportedById,
-            syncJustification,
-            issueDescription
-          ]
-        );
-      } else if (status === 'resolved') {
-        const targetEndDate = endDate || startDate;
-        const targetEndShift = endShiftNumber || startShiftNumber;
-        const targetEndTeam = endTeamGroup || startTeamGroup || 'Alpha';
-        await pool.query(
-          `INSERT INTO vehicle_readiness_logs (
-            vehicle_id, shift_date, shift_number, team_group, pic_personnel_id,
-            status, justification, follow_up_status, resolved_at, notes, updated_at
-          ) VALUES (?, ?, ?, ?, ?, 'serviceable', NULL, 'resolved', NOW(), ?, NOW())
-          ON DUPLICATE KEY UPDATE
-            status = 'serviceable',
-            follow_up_status = 'resolved',
-            resolved_at = NOW(),
-            notes = VALUES(notes),
-            updated_at = NOW()`,
-          [
-            vehicleId,
-            targetEndDate,
-            targetEndShift,
-            targetEndTeam,
-            resolvedById,
-            resolutionNotes || 'Pemeliharaan selesai'
-          ]
-        );
-        await pool.query(
-          `UPDATE vehicle_readiness_logs 
-           SET follow_up_status = 'resolved', resolved_at = NOW() 
-           WHERE vehicle_id = ? AND shift_date >= ? AND follow_up_status != 'resolved'`,
-          [vehicleId, startDate]
-        );
-      }
-    } catch (syncErr) {
-      console.warn('Peringatan sinkronisasi update vehicle_readiness_logs:', syncErr.message);
-    }
+    // Sinkronisasi status ke log kesiapan armada operasional
+    await syncMaintenanceToReadinessLogs({
+      vehicle_id: vehicleId,
+      status,
+      start_date: startDate,
+      start_shift_number: startShiftNumber,
+      start_team_group: startTeamGroup,
+      reported_by_id: reportedById,
+      issue_description: issueDescription,
+      end_date: endDate,
+      end_shift_number: endShiftNumber,
+      end_team_group: endTeamGroup,
+      resolved_by_id: resolvedById,
+      resolution_notes: resolutionNotes
+    });
 
-    const [updatedRows] = await pool.query(
-      `SELECT 
-        vmr.*,
-        v.code_name AS vehicle_code,
-        v.vehicle_name,
-        v.license_plate,
-        v.category AS vehicle_category,
-        rep.full_name AS reported_by_name,
-        rep.nip AS reported_by_nip,
-        res_p.full_name AS resolved_by_name,
-        res_p.nip AS resolved_by_nip
-      FROM vehicle_maintenance_records vmr
-      JOIN vehicles v ON v.id = vmr.vehicle_id
-      LEFT JOIN personnel rep ON rep.id = vmr.reported_by_id
-      LEFT JOIN personnel res_p ON res_p.id = vmr.resolved_by_id
-      WHERE vmr.id = ?`,
-      [id]
-    );
-
-    const updatedRecord = {
-      ...updatedRows[0],
-      start_date: formatDateOnly(updatedRows[0]?.start_date),
-      end_date: formatDateOnly(updatedRows[0]?.end_date),
-    };
-
+    const updatedRecord = await fetchMaintenanceRecordById(id);
     return successResponse(res, 'Catatan pemeliharaan armada berhasil diperbarui', updatedRecord);
   } catch (error) {
     safeUnlink(req.file?.path);
@@ -660,79 +636,23 @@ export const updateMaintenanceRecord = async (req, res) => {
 
 /**
  * DELETE /api/readiness/maintenance/:id
- * Menghapus catatan pemeliharaan armada beserta berkas lampiran fisiknya secara aman
+ * Menghapus catatan pemeliharaan armada beserta berkas lampiran fisiknya secara langsung
  */
 export const deleteMaintenanceRecord = async (req, res) => {
   try {
     const { id } = req.params;
+    const recordId = Number(id);
 
-    // 1. Dukungan hapus periode kendala yang bersumber dari log kesiapan shift (id format: log-123)
-    if (typeof id === 'string' && id.startsWith('log-')) {
-      const logId = Number(id.replace('log-', ''));
-      const [logRows] = await pool.query(
-        'SELECT * FROM vehicle_readiness_logs WHERE id = ?',
-        [logId]
-      );
-
-      if (logRows.length === 0) {
-        return errorResponse(res, 'Catatan kendala log armada tidak ditemukan', 404);
-      }
-
-      const targetLog = logRows[0];
-      if (targetLog.photo_webp_url) {
-        safeUnlink(targetLog.photo_webp_url);
-      }
-
-      const targetDate = formatDateOnly(targetLog.shift_date);
-
-      // Hapus log unserviceable awal
-      await pool.query('DELETE FROM vehicle_readiness_logs WHERE id = ?', [logId]);
-
-      // Bersihkan catatan perbaikan pada log pemulihan di shift terkait agar tidak meninggalkan catatan kendala yatim
-      await pool.query(
-        `UPDATE vehicle_readiness_logs
-         SET notes = NULL
-         WHERE vehicle_id = ? AND shift_date = ? AND status = 'serviceable'`,
-        [targetLog.vehicle_id, targetDate]
-      );
-
-      // Bersihkan jika ada tiket pemeliharaan di tanggal yang sama
-      await pool.query(
-        'DELETE FROM vehicle_maintenance_records WHERE vehicle_id = ? AND start_date = ?',
-        [targetLog.vehicle_id, targetDate]
-      );
-
-      return successResponse(res, 'Catatan periode kendala armada berhasil dihapus');
+    if (!recordId) {
+      return errorResponse(res, 'ID catatan pemeliharaan tidak valid', 400);
     }
 
-    // 2. Hapus tiket pemeliharaan reguler (id berupa angka di vehicle_maintenance_records)
     const [existingRows] = await pool.query(
       'SELECT * FROM vehicle_maintenance_records WHERE id = ?',
-      [id]
+      [recordId]
     );
 
     if (existingRows.length === 0) {
-      // Fallback: Cek apakah ID merujuk ke vehicle_readiness_logs secara langsung
-      const [fallbackLogRows] = await pool.query(
-        'SELECT * FROM vehicle_readiness_logs WHERE id = ?',
-        [id]
-      );
-      if (fallbackLogRows.length > 0) {
-        const targetLog = fallbackLogRows[0];
-        if (targetLog.photo_webp_url) {
-          safeUnlink(targetLog.photo_webp_url);
-        }
-        const targetDate = formatDateOnly(targetLog.shift_date);
-        await pool.query('DELETE FROM vehicle_readiness_logs WHERE id = ?', [id]);
-        await pool.query(
-          `UPDATE vehicle_readiness_logs
-           SET notes = NULL
-           WHERE vehicle_id = ? AND shift_date = ? AND status = 'serviceable'`,
-          [targetLog.vehicle_id, targetDate]
-        );
-        return successResponse(res, 'Catatan periode kendala armada berhasil dihapus');
-      }
-
       return errorResponse(res, 'Catatan pemeliharaan tidak ditemukan', 404);
     }
 
@@ -742,59 +662,21 @@ export const deleteMaintenanceRecord = async (req, res) => {
       safeUnlink(record.document_url);
     }
 
-    await pool.query('DELETE FROM vehicle_maintenance_records WHERE id = ?', [id]);
+    await pool.query('DELETE FROM vehicle_maintenance_records WHERE id = ?', [recordId]);
 
-    // Bersihkan juga log kesiapan terkait di vehicle_readiness_logs agar tidak menjadi zombie data unserviceable
+    // Jika tidak ada tiket pemeliharaan aktif lain pada armada ini, pulihkan log kesiapan yang unserviceable
     try {
-      const recStartDate = formatDateOnly(record.start_date);
-      const cleanDesc = record.issue_description ? String(record.issue_description).trim() : '';
-
-      // Cari log kesiapan yang berkaitan dengan tiket pemeliharaan ini
-      const [associatedLogs] = await pool.query(
-        `SELECT id, photo_webp_url, status, justification, notes
-         FROM vehicle_readiness_logs
-         WHERE vehicle_id = ?
-           AND (
-             (shift_date = ? AND shift_number = ?)
-             OR justification LIKE ?
-             OR notes LIKE ?
-           )`,
-        [
-          record.vehicle_id,
-          recStartDate,
-          record.start_shift_number || 1,
-          `%${cleanDesc}%`,
-          `%${cleanDesc}%`
-        ]
-      );
-
-      for (const log of associatedLogs) {
-        // Jika log ini dibuat otomatis dari tiket pemeliharaan (tanpa bukti foto lapangan), hapus log agar bersih
-        if (!log.photo_webp_url && (log.justification?.includes(cleanDesc) || log.notes?.includes(cleanDesc) || log.status === 'unserviceable')) {
-          await pool.query('DELETE FROM vehicle_readiness_logs WHERE id = ?', [log.id]);
-        } else if (log.status === 'unserviceable') {
-          // Jika terdapat input lapangan namun tercatat unserviceable karena kendala ini, pulihkan statusnya
-          await pool.query(
-            `UPDATE vehicle_readiness_logs
-             SET status = 'serviceable', follow_up_status = 'resolved', resolved_at = NOW()
-             WHERE id = ?`,
-            [log.id]
-          );
-        }
-      }
-
-      // Pastikan jika tidak ada tiket pemeliharaan aktif lain pada armada ini, tidak ada kendala 'in_progress' yang menggantung
       const [otherOngoing] = await pool.query(
-        'SELECT id FROM vehicle_maintenance_records WHERE vehicle_id = ? AND status = ? AND id != ?',
-        [record.vehicle_id, 'ongoing', id]
+        'SELECT id FROM vehicle_maintenance_records WHERE vehicle_id = ? AND status = ?',
+        [record.vehicle_id, 'ongoing']
       );
 
       if (otherOngoing.length === 0) {
         await pool.query(
           `UPDATE vehicle_readiness_logs
-           SET follow_up_status = 'resolved', resolved_at = NOW()
-           WHERE vehicle_id = ? AND follow_up_status = 'in_progress' AND shift_date >= ?`,
-          [record.vehicle_id, recStartDate]
+           SET status = 'serviceable', follow_up_status = 'resolved', resolved_at = NOW()
+           WHERE vehicle_id = ? AND status = 'unserviceable' AND shift_date >= ?`,
+          [record.vehicle_id, formatDateOnly(record.start_date)]
         );
       }
     } catch (syncErr) {

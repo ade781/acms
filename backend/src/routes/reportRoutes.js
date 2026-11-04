@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import {
   getShiftReportPdf,
-  getVehicleIssuesAudit,
   getVehiclesReportPdf,
   getActivitiesReportPdf,
   getShiftSummaryReport,
@@ -15,7 +14,6 @@ router.use(requireAuth);
 
 router.get('/shift-summary', getShiftSummaryReport);
 router.get('/pdf', getShiftReportPdf);
-router.get('/vehicle-issues', getVehicleIssuesAudit);
 router.get('/vehicles/pdf', getVehiclesReportPdf);
 router.get('/incidents/pdf', getIncidentSummaryReportPdf);
 router.get('/activities/pdf', getActivitiesReportPdf);

@@ -22,6 +22,13 @@ export default function MobilePicReadinessForm({
   const vehicleName = dutyInfo.vehicle_name || dutyInfo.vehicle_code || 'Armada Operasional';
   const vehicleCode = dutyInfo.vehicle_code || 'UNIT';
 
+  const isPosko = Boolean(
+    dutyInfo?.category === 'posko' ||
+    dutyInfo?.vehicle_code === 'WATCHROOM' ||
+    dutyInfo?.code_name === 'WATCHROOM' ||
+    dutyInfo?.deployment_type === 'watchroom'
+  );
+
   // Periksa apakah unit ini sudah dilaporkan pada shift berjalan
   // Unit HANYA dianggap sudah dilaporkan jika statusnya bukan 'belum_dilaporkan' dan bukan unserviceable estafet
   const hasShiftLog = Boolean(
@@ -108,8 +115,15 @@ export default function MobilePicReadinessForm({
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    // Validasi Foto Fisik Wajib untuk Keduanya (Serviceable & Unserviceable)
-    if (!photoFile && !photoPreview) {
+    // Validasi Foto Fisik Wajib untuk Keduanya (Serviceable & Unserviceable), kecuali unit adalah posko komunikasi
+    const isPoskoUnit = Boolean(
+      isPosko ||
+      dutyInfo?.vehicle_code === 'WATCHROOM' ||
+      dutyInfo?.code_name === 'WATCHROOM' ||
+      dutyInfo?.category === 'posko'
+    );
+
+    if (!isPoskoUnit && !photoFile && !photoPreview) {
       setErrorMsg('Foto fisik armada wajib diunggah/diambil untuk membuktikan pemeriksaan kondisi lapangan.');
       return;
     }
@@ -160,6 +174,7 @@ export default function MobilePicReadinessForm({
       const msg = res.data?.message || 'Kesiapan armada berhasil dilaporkan.';
       setSuccessMsg(msg);
       setIsEditing(false);
+      window.dispatchEvent(new CustomEvent('arff:readiness-updated', { detail: res.data }));
       if (onSuccess) {
         onSuccess(res.data?.data || res.data);
       }
@@ -432,7 +447,7 @@ export default function MobilePicReadinessForm({
             {/* Upload Foto Fisik Armada */}
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-700 block">
-                Foto Fisik Armada / Posko * <span className="text-red-600 font-bold">(Wajib)</span>
+                Foto Fisik {isPosko ? 'Posko' : 'Armada'} {isPosko ? <span className="text-slate-400 font-normal">(Opsional)</span> : <span className="text-red-600 font-bold">* (Wajib)</span>}
               </label>
               <div className="flex items-center gap-2">
                 <label className="flex-1 cursor-pointer flex items-center justify-center gap-1.5 p-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-semibold transition-colors duration-100">

@@ -10,7 +10,7 @@ import {
   Edit3,
 } from 'lucide-react';
 import Badge from '../common/Badge';
-import { formatTeam, formatRoleName, formatIndoDate } from '../../utils/shiftHelper';
+import { formatTeam, formatRoleName, formatIndoDate, getStkpStatus } from '../../utils/shiftHelper';
 
 export const ALL_ADDITIONAL_COMPETENCIES = [
   'SAR',
@@ -75,6 +75,8 @@ export default function PersonnelDossier({
   const [activeTab, setActiveTab] = useState('identity');
 
   if (!personnel) return null;
+
+  const stkpStatus = getStkpStatus(personnel);
 
   const competencies = Array.isArray(personnel.additional_competencies)
     ? personnel.additional_competencies
@@ -276,27 +278,27 @@ export default function PersonnelDossier({
         {activeTab === 'licenses' && (
           <div className="space-y-6">
             {/* Primary STKP Active Certificate */}
-            <div className="bg-amber-50/60 border border-amber-200/80 rounded-xl p-4">
+            <div className={`border rounded-xl p-4 ${stkpStatus.isExpired ? 'bg-red-50/50 border-red-200' : (stkpStatus.isExpiringSoon ? 'bg-amber-50/70 border-amber-300' : 'bg-amber-50/60 border-amber-200/80')}`}>
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-lg bg-amber-100 text-amber-800">
+                  <div className={`p-2.5 rounded-lg ${stkpStatus.isExpired ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>
                     <Shield className="w-5 h-5" />
                   </div>
                   <div>
-                    <span className="text-xs font-bold text-amber-900 uppercase tracking-wide">
-                      Lisensi STKP Utama (Aktif)
+                    <span className={`text-xs font-bold uppercase tracking-wide ${stkpStatus.isExpired ? 'text-red-900' : 'text-amber-900'}`}>
+                      {stkpStatus.title}
                     </span>
                     <h4 className="text-sm font-bold text-slate-900">
                       {personnel.cert_level ? `Rating STKP Level ${personnel.cert_level}` : 'Belum Terdaftar'}
                     </h4>
                   </div>
                 </div>
-                <Badge variant={personnel.cert_number ? 'success' : 'neutral'} size="sm">
-                  {personnel.cert_number ? 'Terdaftar Resmi' : 'Belum Lisensi'}
+                <Badge variant={stkpStatus.badgeVariant} size="sm">
+                  {stkpStatus.label}
                 </Badge>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 pt-3 border-t border-amber-200/60 text-xs">
+              <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 pt-3 border-t text-xs ${stkpStatus.isExpired ? 'border-red-200/60' : 'border-amber-200/60'}`}>
                 <div>
                   <span className="text-slate-500 block text-xs">Nomor Lisensi STKP</span>
                   <span className="font-mono tabular-nums font-bold text-slate-900 mt-0.5 block">
@@ -305,8 +307,8 @@ export default function PersonnelDossier({
                 </div>
                 <div>
                   <span className="text-slate-500 block text-xs">Masa Berlaku Lisensi</span>
-                  <span className="font-mono tabular-nums font-semibold text-slate-900 mt-0.5 block">
-                    {formatIndoDate(personnel.cert_expiry_date, { shortMonth: true })}
+                  <span className={`font-mono tabular-nums font-semibold mt-0.5 block ${stkpStatus.isExpired ? 'text-red-700 font-bold' : 'text-slate-900'}`}>
+                    {formatIndoDate(personnel.cert_expiry_date || personnel.stkp_expiry_date, { shortMonth: true })}
                   </span>
                 </div>
               </div>

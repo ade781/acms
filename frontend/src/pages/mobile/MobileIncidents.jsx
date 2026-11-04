@@ -1,8 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { cleanTeam } from '../../utils/shiftHelper';
+import {
+  calculateIncidentStats,
+  isCriticalPriority,
+  isHighPriority,
+  isMediumPriority,
+  isLowPriority,
+} from '../../utils/incidentHelper';
 import MobileIncidentTimelineItem from '../../components/mobile/incidents/MobileIncidentTimelineItem';
 import MobileIncidentModal from '../../components/mobile/incidents/MobileIncidentModal';
 import MobileIncidentDetailModal from '../../components/mobile/incidents/MobileIncidentDetailModal';
@@ -63,24 +70,15 @@ export default function MobileIncidents() {
   };
 
   // Metrics for summary
-  const totalIncidents = incidents.length;
-  const isHighPriority = (lvl) => {
-    const l = (lvl || '').toLowerCase();
-    return l === 'kritis' || l === 'critical' || l === 'tinggi' || l === 'high';
-  };
-  const criticalCount = incidents.filter((i) => isHighPriority(i.priority_level)).length;
-  const inProgressCount = incidents.filter(
-    (i) => (i.status || '').toLowerCase() === 'dalam_proses' || (i.status || '').toLowerCase() === 'menunggu_tindak_lanjut'
-  ).length;
+  const summaryStats = useMemo(() => calculateIncidentStats(incidents), [incidents]);
 
   const filteredIncidents = incidents.filter((inc) => {
     if (filterPriority === 'ALL') return true;
-    const l = (inc.priority_level || '').toLowerCase();
-    if (filterPriority === 'kritis') return l === 'kritis' || l === 'critical';
-    if (filterPriority === 'tinggi') return l === 'tinggi' || l === 'high';
-    if (filterPriority === 'sedang') return l === 'sedang' || l === 'medium';
-    if (filterPriority === 'rendah') return l === 'rendah' || l === 'low';
-    return l === filterPriority.toLowerCase();
+    if (filterPriority === 'kritis') return isCriticalPriority(inc);
+    if (filterPriority === 'tinggi') return isHighPriority(inc);
+    if (filterPriority === 'sedang') return isMediumPriority(inc);
+    if (filterPriority === 'rendah') return isLowPriority(inc);
+    return false;
   });
 
   // Paginasi Kompak Mobile (6 insiden per halaman)
@@ -157,21 +155,21 @@ export default function MobileIncidents() {
         <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-xs space-y-1">
           <span className="text-xs font-bold text-slate-500 uppercase block">Total Kejadian</span>
           <span className="text-lg font-black font-mono tabular-nums text-slate-900 block leading-none">
-            {totalIncidents}
+            {summaryStats.total}
           </span>
         </div>
 
         <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-xs space-y-1">
           <span className="text-xs font-bold text-slate-500 uppercase block">Prioritas Siaga</span>
-          <span className={`text-lg font-black font-mono tabular-nums block leading-none ${criticalCount > 0 ? 'text-red-600' : 'text-slate-800'}`}>
-            {criticalCount}
+          <span className={`text-lg font-black font-mono tabular-nums block leading-none ${summaryStats.emergency > 0 ? 'text-red-600' : 'text-slate-800'}`}>
+            {summaryStats.emergency}
           </span>
         </div>
 
         <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-xs space-y-1">
           <span className="text-xs font-bold text-slate-500 uppercase block">Status Aktif</span>
-          <span className={`text-lg font-black font-mono tabular-nums block leading-none ${inProgressCount > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
-            {inProgressCount}
+          <span className={`text-lg font-black font-mono tabular-nums block leading-none ${summaryStats.inProgress > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+            {summaryStats.inProgress}
           </span>
         </div>
       </div>
@@ -180,12 +178,12 @@ export default function MobileIncidents() {
       {incidents.length > 0 && (
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 text-xs">
           {[
-            { key: 'kritis', label: 'Kritis', match: (l) => l === 'kritis' || l === 'critical' },
-            { key: 'tinggi', label: 'Tinggi', match: (l) => l === 'tinggi' || l === 'high' },
-            { key: 'sedang', label: 'Sedang', match: (l) => l === 'sedang' || l === 'medium' },
-            { key: 'rendah', label: 'Rendah', match: (l) => l === 'rendah' || l === 'low' },
+            { key: 'kritis', label: 'Kritis', match: isCriticalPriority },
+            { key: 'tinggi', label: 'Tinggi', match: isHighPriority },
+            { key: 'sedang', label: 'Sedang', match: isMediumPriority },
+            { key: 'rendah', label: 'Rendah', match: isLowPriority },
           ].map(({ key, label, match }) => {
-            const count = incidents.filter((i) => match((i.priority_level || '').toLowerCase())).length;
+            const count = incidents.filter((i) => match(i)).length;
             if (count === 0) return null;
             const isActive = filterPriority === key;
             return (

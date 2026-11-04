@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   ExternalLink,
@@ -43,6 +44,7 @@ export default function MobilePdfViewerModal({
   const [downloadError, setDownloadError] = useState(null);
 
   if (!isOpen) return null;
+  if (typeof document === 'undefined') return null;
 
   const currentTeam = cleanTeam(teamGroup || shiftData?.team_group || 'Alpha');
   const currentShiftNum = Number(shiftNumber || shiftData?.shift_number || 1);
@@ -109,9 +111,9 @@ export default function MobilePdfViewerModal({
     window.print();
   };
 
-  return (
+  return createPortal(
     <div
-      className="print-a4-modal-root fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 md:p-6 animate-in fade-in duration-100"
+      className="print-a4-modal-root fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 md:p-6 pb-8 safe-pb sm:pb-4 md:pb-6 animate-in fade-in duration-100"
       onClick={onClose}
     >
       {/* CSS Khusus Cetak A4 Mandiri via window.print() */}
@@ -608,6 +610,7 @@ export default function MobilePdfViewerModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

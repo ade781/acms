@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, ClipboardList, RefreshCw, AlertCircle, Check, X, Trash2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
@@ -217,13 +218,13 @@ export default function MobileActivities() {
       />
 
       {/* In-App Delete Confirmation Modal */}
-      {targetDeleteId && (
+      {targetDeleteId && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4"
+          className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 font-sans"
           onClick={() => setTargetDeleteId(null)}
         >
           <div
-            className="w-full max-w-[340px] bg-white rounded-2xl border border-slate-200 p-4 space-y-3 shadow-xl"
+            className="w-full max-w-[360px] bg-white rounded-t-2xl sm:rounded-2xl border-t sm:border border-slate-200 p-4 pb-8 safe-pb sm:pb-4 space-y-3 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2 text-red-600">
@@ -252,7 +253,8 @@ export default function MobileActivities() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

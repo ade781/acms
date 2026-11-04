@@ -84,15 +84,17 @@ export const protectPrivateUploads = async (req, res, next) => {
     let decoded;
     try {
       decoded = jwt.verify(token, secret);
-    } catch {
+    } catch (err) {
       return res.status(401).json({
         success: false,
-        message: 'Token autentikasi tidak valid atau telah kedaluwarsa'
+        message: err.name === 'TokenExpiredError'
+          ? 'Token autentikasi telah kedaluwarsa'
+          : 'Token autentikasi tidak valid atau telah kedaluwarsa'
       });
     }
 
     const [users] = await pool.query(
-      `SELECT u.id, u.username, u.role, p.id as personnel_id
+      `SELECT u.id, u.username, u.role, u.token_version, u.must_change_password, p.id as personnel_id
        FROM users u
        LEFT JOIN personnel p ON p.user_id = u.id
        WHERE u.id = ?`,
@@ -107,15 +109,60 @@ export const protectPrivateUploads = async (req, res, next) => {
     }
 
     const user = users[0];
+
+    // Verifikasi token_version (Mekanisme Revokasi Token JWT)
+    if (
+      decoded.token_version !== undefined &&
+      user.token_version !== undefined &&
+      Number(decoded.token_version) !== Number(user.token_version)
+    ) {
+      return res.status(401).json({
+        success: false,
+        message: 'Sesi telah kedaluwarsa atau kata sandi telah diubah. Silakan masuk kembali.'
+      });
+    }
+
+    // Penegakan Aktivasi Sandi Wajib (must_change_password)
+    if (Boolean(user.must_change_password)) {
+      return res.status(403).json({
+        success: false,
+        code: 'PASSWORD_CHANGE_REQUIRED',
+        message: 'Akses dibatasi: Anda wajib mengganti kata sandi awal terlebih dahulu sebelum mengakses sistem operasional.'
+      });
+    }
     const isLeadership = ['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor', 'operation_chief'].includes(user.role);
 
     if (filename.startsWith('signature-')) {
       if (!isLeadership) {
-        const [sigOwner] = await pool.query(
-          'SELECT id FROM personnel WHERE signature_url LIKE ? AND (id = ? OR user_id = ?)',
-          [`%${filename}`, user.personnel_id || 0, user.id]
+        // Izinkan jika tanda tangan milik pengguna sendiri ATAU tanda tangan resmi Section Head / Dept Head / Chief aktif
+        const [allowedSigs] = await pool.query(
+          `SELECT 1 FROM personnel p
+           LEFT JOIN users u ON u.id = p.user_id
+           WHERE (p.signature_url LIKE ? OR u.signature_url LIKE ?)
+             AND (
+               p.id = ? OR p.user_id = ? OR u.id = ?
+               OR u.role IN ('admin', 'dept_head', 'section_head', 'chief', 'supervisor', 'operation_chief')
+               OR p.rank_position LIKE '%Section%Head%'
+               OR p.rank_position LIKE '%Dept%Head%'
+               OR p.rank_position LIKE '%Chief%'
+               OR p.rank_position LIKE '%Ketua%'
+             )
+           UNION
+           SELECT 1 FROM users u
+           WHERE u.signature_url LIKE ?
+             AND (
+               u.id = ?
+               OR u.role IN ('admin', 'dept_head', 'section_head', 'chief', 'supervisor', 'operation_chief')
+             )
+           LIMIT 1`,
+          [
+            `%${filename}`, `%${filename}`,
+            user.personnel_id || 0, user.id, user.id,
+            `%${filename}`,
+            user.id
+          ]
         );
-        if (sigOwner.length === 0) {
+        if (allowedSigs.length === 0) {
           return res.status(403).json({
             success: false,
             message: 'Akses ditolak: Anda tidak memiliki wewenang untuk mengakses tanda tangan ini'

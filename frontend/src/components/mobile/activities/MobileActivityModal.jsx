@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Camera, Check, AlertCircle, X } from 'lucide-react';
 import api from '../../../services/api';
 import { OFFICIAL_ACTIVITY_CATEGORIES } from '../../../utils/activityCategories';
@@ -63,6 +64,7 @@ export default function MobileActivityModal({
   }, [isOpen, editingActivity]);
 
   if (!isOpen) return null;
+  if (typeof document === 'undefined') return null;
 
   const handlePhotoSelect = async (e) => {
     const file = e.target.files?.[0];
@@ -152,9 +154,9 @@ export default function MobileActivityModal({
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-3"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/60 p-3 pb-8 safe-pb"
       onClick={onClose}
     >
       <div
@@ -332,6 +334,7 @@ export default function MobileActivityModal({
           </button>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

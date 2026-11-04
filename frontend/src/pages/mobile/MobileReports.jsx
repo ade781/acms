@@ -133,6 +133,8 @@ export default function MobileReports() {
     setIsAuditModalOpen(true);
   };
 
+  const isClosed = Boolean(shiftData?.is_official || (shiftData?.status || '').toLowerCase() === 'closed');
+
   return (
     <div className="space-y-3 pb-6 font-sans">
       {/* 1. KOP RESMI DOKUMEN LAPORAN OPERASIONAL DINAS SHIFT */}
@@ -222,10 +224,10 @@ export default function MobileReports() {
                     {act.description}
                   </p>
                 )}
-                {act.photo_webp_url && (
+                {(act.attachment_url || act.photo_webp_url) && (
                   <div className="mt-1 flex items-center gap-2 p-1.5 rounded bg-white border border-slate-200 text-xs text-slate-700">
                     <img
-                      src={act.photo_webp_url}
+                      src={act.attachment_url || act.photo_webp_url}
                       alt="Dokumentasi"
                       className="w-8 h-8 rounded object-cover border border-slate-300 shrink-0"
                     />
@@ -314,7 +316,7 @@ export default function MobileReports() {
         shiftDate={activeDate}
         teamGroup={currentTeam}
         isSheet={false}
-        isClosed={(shiftData?.status || '').toLowerCase() === 'closed'}
+        isClosed={isClosed}
       />
 
       {/* 6. TOMBOL AKSI UTAMA DOKUMEN PDF */}

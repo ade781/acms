@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, UserCheck, Settings, FileText, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { TEAMS, cleanTeam, formatTeam, OPERATIONAL_ROLES } from '../utils/shiftHelper';
+import { TEAMS, cleanTeam, formatTeam, OPERATIONAL_ROLES, getStkpStatus } from '../utils/shiftHelper';
 import api from '../services/api';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
@@ -14,7 +14,7 @@ import PersonnelPdfPreviewModal from '../components/personnel/PersonnelPdfPrevie
 function isActualChief(p) {
   if (!p) return false;
   const rank = (p.rank_position || '').toLowerCase();
-  const role = (p.user_role || '').toLowerCase();
+  const role = (p.user_role || p.role || '').toLowerCase();
   if (role === 'chief_assistant' || rank.includes('asisten') || rank.includes('assistant') || rank.includes('wakil')) {
     return false;
   }
@@ -24,41 +24,32 @@ function isActualChief(p) {
 function isChiefAssistant(p) {
   if (!p) return false;
   const rank = (p.rank_position || '').toLowerCase();
-  const role = (p.user_role || '').toLowerCase();
+  const role = (p.user_role || p.role || '').toLowerCase();
   return role === 'chief_assistant' || rank.includes('asisten') || rank.includes('assistant') || rank.includes('wakil');
 }
 
 function getStkpBadge(person) {
-  const expiry = person?.cert_expiry_date || person?.stkp_expiry_date;
-  if (!expiry) return null;
+  const status = getStkpStatus(person);
+  if (!status || status.status === 'none' || status.status === 'registered') return null;
 
-  const expiryDate = new Date(expiry);
-  if (isNaN(expiryDate.getTime())) return null;
-
-  const now = new Date();
-  const diffDays = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  const expiryStr = typeof expiry === 'string'
-    ? expiry.split('T')[0]
-    : (expiry instanceof Date ? expiry.toISOString().split('T')[0] : String(expiry || ''));
-
-  if (diffDays <= 0) {
+  if (status.isExpired) {
     return (
       <span
         className="text-xs bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 font-bold px-1.5 py-0.5 rounded tracking-tight shrink-0"
-        title={`Lisensi STKP telah kedaluwarsa (${expiryStr})`}
+        title={status.tooltip}
       >
         Kedaluwarsa
       </span>
     );
   }
 
-  if (diffDays <= 60) {
+  if (status.isExpiringSoon) {
     return (
       <span
         className="text-xs bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold px-1.5 py-0.5 rounded tracking-tight shrink-0"
-        title={`Masa berlaku STKP tersisa ${diffDays} hari (${expiryStr})`}
+        title={status.tooltip}
       >
-        Hampir Habis (<span className="font-mono tabular-nums">{diffDays}</span> hari)
+        Hampir Habis (<span className="font-mono tabular-nums">{status.diffDays}</span> hari)
       </span>
     );
   }
@@ -66,7 +57,7 @@ function getStkpBadge(person) {
   return (
     <span
       className="text-xs bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-medium px-1.5 py-0.5 rounded tracking-tight shrink-0"
-      title={`Lisensi STKP aktif hingga ${expiryStr}`}
+      title={status.tooltip}
     >
       Aktif
     </span>
@@ -115,7 +106,7 @@ export default function PersonnelPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get('/personnel', { signal });
+      const res = await api.get('/personnel?compact=true', { signal });
       const list = Array.isArray(res.data?.data)
         ? res.data.data
         : (Array.isArray(res.data?.personnel)
@@ -184,11 +175,23 @@ export default function PersonnelPage() {
     }
   };
 
+  // Personel operasional 4 regu dinas (Alpha, Bravo, Charlie, Delta)
+  const operationalPersonnel = personnelList.filter((p) => {
+    const t = cleanTeam(p.team_group).toLowerCase();
+    return ['alpha', 'bravo', 'charlie', 'delta'].includes(t);
+  });
+
+  const displayedCount = selectedTeam === 'ALL'
+    ? operationalPersonnel.length
+    : operationalPersonnel.filter(
+        (p) => cleanTeam(p.team_group).toLowerCase() === cleanTeam(selectedTeam).toLowerCase()
+      ).length;
+
   const teamsToDisplay = selectedTeam === 'ALL'
     ? ['Alpha', 'Bravo', 'Charlie', 'Delta']
     : ['Alpha', 'Bravo', 'Charlie', 'Delta'].filter(
-      (t) => cleanTeam(t).toLowerCase() === cleanTeam(selectedTeam).toLowerCase()
-    );
+        (t) => cleanTeam(t).toLowerCase() === cleanTeam(selectedTeam).toLowerCase()
+      );
 
   return (
     <div className="space-y-4">
@@ -201,7 +204,7 @@ export default function PersonnelPage() {
               Data Personel Operasional
             </h2>
             <span className="px-2 py-1 rounded-md bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700 tabular-nums">
-              <span className="font-mono tabular-nums">{personnelList.length}</span> Personel
+              <span className="font-mono tabular-nums">{displayedCount}</span> Personel
             </span>
 
             {/* Dropdown Filter Regu */}

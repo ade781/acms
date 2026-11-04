@@ -123,6 +123,7 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
+    api.post('/auth/logout').catch(() => {});
     setToken(null);
     setUser(null);
     localStorage.removeItem('arff_token');

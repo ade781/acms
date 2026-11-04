@@ -5,6 +5,7 @@ import {
   drawOfficialHeader,
   drawSectionHeadSignature,
   checkPageBreak,
+  isShiftOfficial,
 } from './pdfHelpers.js';
 
 /**
@@ -80,10 +81,12 @@ export const generateShiftReportPdf = async (reportData) => {
   doc.text(`Supervisor / Ketua Regu: `, startX + 10, infoY2);
   doc.font('Helvetica').text(supervisor_name || `Ketua Regu ${team_group}`, startX + 125, infoY2);
 
-  const isShiftClosed = (status || '').toLowerCase() === 'closed';
+  const isOfficial = reportData.is_official !== undefined
+    ? Boolean(reportData.is_official)
+    : isShiftOfficial(shift_date, shift_number, status);
 
   doc.font('Helvetica-Bold').text(`Status Dokumen: `, startX + 320, infoY2);
-  if (isShiftClosed) {
+  if (isOfficial) {
     doc.font('Helvetica-Bold').fillColor('#15803d').text(
       'REKAPITULASI RESMI (FINAL)',
       startX + 400,
@@ -91,7 +94,7 @@ export const generateShiftReportPdf = async (reportData) => {
     );
   } else {
     doc.font('Helvetica-Bold').fillColor('#dc2626').text(
-      'DRAFT / BELUM DISAHKAN',
+      'DRAFT / SEDANG BERJALAN',
       startX + 400,
       infoY2
     );
@@ -305,7 +308,7 @@ export const generateShiftReportPdf = async (reportData) => {
     x: startX + 20,
     width: 200,
     imgFit: [100, 38],
-    isDraft: !isShiftClosed
+    isDraft: !isOfficial
   }, startX, contentWidth, signY);
 
   // 2. Pengesahan Supervisor Dinas / Ketua Regu (Kanan)
@@ -330,7 +333,7 @@ export const generateShiftReportPdf = async (reportData) => {
   }
 
   // Watermark Resmi & Penomoran Halaman Otomatis (Watermark 'DRAFT • BELUM DISAHKAN' jika belum closed)
-  const watermarkText = isShiftClosed
+  const watermarkText = isOfficial
     ? 'ARFF YIA • OFFICIAL OPS REPORT'
     : 'DRAFT • BELUM DISAHKAN';
   applyWatermarkAndPageNumbers(doc, contentWidth, startX, watermarkText);

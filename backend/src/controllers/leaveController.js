@@ -1,6 +1,6 @@
 import pool from '../config/db.js';
 import { successResponse, errorResponse } from '../utils/responseHelper.js';
-import { calculateDefaultRoster } from './scheduleController.js';
+import { calculateDefaultRoster, resolveRosterForDate } from './scheduleController.js';
 
 /**
  * Controller Khusus Pengelolaan Cuti & Izin Operasional ARFF YIA
@@ -166,18 +166,67 @@ export const requestLeaveRange = async (req, res) => {
       );
     }
 
+    // Baca anchor date & cycle dari tabel system_settings jika tersedia
+    let anchorDate = '2026-10-19';
+    try {
+      const [settings] = await connection.query(
+        "SELECT setting_value FROM system_settings WHERE setting_key = 'schedule_anchor_date'"
+      );
+      if (settings.length > 0 && settings[0].setting_value) {
+        anchorDate = settings[0].setting_value;
+      }
+    } catch {
+      // fallback default
+    }
+
+    let storedCycles = [];
+    try {
+      const [cycleRows] = await connection.query(
+        "SELECT setting_value FROM system_settings WHERE setting_key = 'schedule_custom_cycle'"
+      );
+      if (cycleRows.length > 0 && cycleRows[0].setting_value) {
+        const parsed = JSON.parse(cycleRows[0].setting_value);
+        if (Array.isArray(parsed)) storedCycles = parsed;
+        else if (parsed && parsed.start_date && parsed.pattern) storedCycles = [parsed];
+      }
+    } catch {
+      // fallback default
+    }
+
+    // Ambil override manual dari schedule_rosters untuk rentang ini jika ada
+    const overrideMap = new Map();
+    try {
+      const [overrides] = await connection.query(
+        `SELECT DATE_FORMAT(roster_date, '%Y-%m-%d') as roster_date, shift_1_team, shift_2_team, shift_3_team, off_team
+         FROM schedule_rosters
+         WHERE roster_date >= ? AND roster_date <= ?`,
+        [start_date, end_date]
+      );
+      overrides.forEach((row) => overrideMap.set(String(row.roster_date).split('T')[0], row));
+    } catch {
+      // fallback default
+    }
+
     let cur = new Date(startDateObj);
     let daysCount = 0;
 
     while (cur <= endDateObj) {
       const curDateStr = cur.toISOString().split('T')[0];
-      const roster = calculateDefaultRoster(curDateStr);
-
       let shiftNum = 1;
-      if (roster.shift_1 === teamGroup) shiftNum = 1;
-      else if (roster.shift_2 === teamGroup) shiftNum = 2;
-      else if (roster.shift_3 === teamGroup) shiftNum = 3;
-      else shiftNum = 1; // regu libur, tetap dicatat di shift 1 agar terekam
+
+      if (overrideMap.has(curDateStr)) {
+        const o = overrideMap.get(curDateStr);
+        if (o.shift_1_team === teamGroup) shiftNum = 1;
+        else if (o.shift_2_team === teamGroup) shiftNum = 2;
+        else if (o.shift_3_team === teamGroup) shiftNum = 3;
+        else shiftNum = 1;
+      } else {
+        const roster = resolveRosterForDate(curDateStr, storedCycles, anchorDate);
+        if (roster.shift_1 === teamGroup) shiftNum = 1;
+        else if (roster.shift_2 === teamGroup) shiftNum = 2;
+        else if (roster.shift_3 === teamGroup) shiftNum = 3;
+        else shiftNum = 1; // regu libur, tetap dicatat di shift 1 agar terekam
+      }
 
       // Pastikan personnel_shifts ada
       const [exShifts] = await connection.query(
@@ -257,7 +306,7 @@ export const cancelLeave = async (req, res) => {
   const connection = await pool.getConnection();
   try {
     const deploymentId = req.params.id || req.body.deployment_id;
-    const { deployment_ids, personnel_id, shift_id, shift_date, shift_number } = req.body;
+    const { deployment_ids, personnel_id, shift_id, shift_date, shift_number, start_date, end_date } = req.body;
 
     const isPrivileged = ['admin', 'supervisor', 'chief', 'chief_assistant', 'dept_head'].includes(req.user.role);
     const targetPersonnelId = (isPrivileged && personnel_id) ? Number(personnel_id) : (req.user.personnel_id ? Number(req.user.personnel_id) : null);
@@ -267,25 +316,74 @@ export const cancelLeave = async (req, res) => {
     // MULAI TRANSAKSI ATOMIK (Temuan No. 35)
     await connection.beginTransaction();
 
+    // Helper internal untuk menghapus seluruh rentang paket secara atomik
+    const deletePackageRange = async (pId, sDate, eDate) => {
+      const [resDel] = await connection.query(`
+        DELETE pd FROM personnel_deployments pd
+        JOIN personnel_shifts ps ON pd.shift_id = ps.id
+        WHERE pd.personnel_id = ?
+          AND pd.deployment_type = 'absent'
+          AND ps.shift_date >= ?
+          AND ps.shift_date <= ?
+      `, [pId, sDate, eDate]);
+      return resDel.affectedRows;
+    };
+
     // Skenario A: Diberikan array deployment_ids eksplisit (misal dari paket cuti di UI)
     if (Array.isArray(deployment_ids) && deployment_ids.length > 0) {
-      const [pIdRows] = await connection.query(
-        'SELECT DISTINCT personnel_id FROM personnel_deployments WHERE id IN (?) AND deployment_type = "absent"',
-        [deployment_ids]
-      );
-      if (pIdRows.length > 0) {
-        const pIds = pIdRows.map((r) => r.personnel_id);
-        await connection.query('SELECT id FROM personnel WHERE id IN (?) FOR UPDATE', [pIds]);
+      const [depRows] = await connection.query(`
+        SELECT pd.id, pd.personnel_id, pd.notes, pd.absent_reason, ps.shift_date
+        FROM personnel_deployments pd
+        JOIN personnel_shifts ps ON pd.shift_id = ps.id
+        WHERE pd.id IN (?) AND pd.deployment_type = 'absent'
+      `, [deployment_ids]);
+
+      if (depRows.length === 0) {
+        await connection.rollback();
+        connection.release();
+        return errorResponse(res, 'Data izin/cuti tidak ditemukan', 404);
       }
 
-      let delQuery = 'DELETE FROM personnel_deployments WHERE id IN (?) AND deployment_type = "absent"';
-      let delParams = [deployment_ids];
       if (!isPrivileged) {
-        delQuery += ' AND personnel_id = ?';
-        delParams.push(req.user.personnel_id);
+        const unauthorized = depRows.some((r) => r.personnel_id !== req.user.personnel_id);
+        if (unauthorized) {
+          await connection.rollback();
+          connection.release();
+          return errorResponse(res, 'Anda tidak berwenang membatalkan cuti personel lain', 403);
+        }
       }
-      const [resDel] = await connection.query(delQuery, delParams);
-      deletedCount = resDel.affectedRows;
+
+      const pIds = [...new Set(depRows.map((r) => r.personnel_id))];
+      await connection.query('SELECT id FROM personnel WHERE id IN (?) FOR UPDATE', [pIds]);
+
+      // Evaluasi apakah ada paket rentang tanggal pada notes atau body (pembatalan paket utuh)
+      const processedRanges = new Set();
+      for (const row of depRows) {
+        const match = (row.notes || '').match(/\((?:Rentang:\s*)?([0-9]{4}-[0-9]{2}-[0-9]{2})\s*s\/?d\s*([0-9]{4}-[0-9]{2}-[0-9]{2})\)/i);
+        const sDate = (start_date && end_date) ? start_date : (match ? match[1] : null);
+        const eDate = (start_date && end_date) ? end_date : (match ? match[2] : null);
+
+        if (sDate && eDate) {
+          const rangeKey = `${row.personnel_id}_${sDate}_${eDate}`;
+          if (!processedRanges.has(rangeKey)) {
+            processedRanges.add(rangeKey);
+            const count = await deletePackageRange(row.personnel_id, sDate, eDate);
+            deletedCount += count;
+          }
+        }
+      }
+
+      // Jika tidak ditemukan rentang paket pada notes, hapus berdasarkan ID langsung
+      if (processedRanges.size === 0) {
+        let delQuery = 'DELETE FROM personnel_deployments WHERE id IN (?) AND deployment_type = "absent"';
+        let delParams = [deployment_ids];
+        if (!isPrivileged) {
+          delQuery += ' AND personnel_id = ?';
+          delParams.push(req.user.personnel_id);
+        }
+        const [resDel] = await connection.query(delQuery, delParams);
+        deletedCount = resDel.affectedRows;
+      }
     }
     // Skenario B: Diberikan single deploymentId (bisa berupa perwakilan paket rentang tanggal)
     else if (deploymentId) {
@@ -314,18 +412,11 @@ export const cancelLeave = async (req, res) => {
 
       // Periksa apakah entri cuti ini merupakan bagian dari paket rentang tanggal
       const match = (target.notes || '').match(/\((?:Rentang:\s*)?([0-9]{4}-[0-9]{2}-[0-9]{2})\s*s\/?d\s*([0-9]{4}-[0-9]{2}-[0-9]{2})\)/i);
-      if (match) {
-        const startDate = match[1];
-        const endDate = match[2];
-        const [resDel] = await connection.query(`
-          DELETE pd FROM personnel_deployments pd
-          JOIN personnel_shifts ps ON pd.shift_id = ps.id
-          WHERE pd.personnel_id = ?
-            AND pd.deployment_type = 'absent'
-            AND ps.shift_date >= ?
-            AND ps.shift_date <= ?
-        `, [target.personnel_id, startDate, endDate]);
-        deletedCount = resDel.affectedRows;
+      const sDate = (start_date && end_date) ? start_date : (match ? match[1] : null);
+      const eDate = (start_date && end_date) ? end_date : (match ? match[2] : null);
+
+      if (sDate && eDate) {
+        deletedCount = await deletePackageRange(target.personnel_id, sDate, eDate);
       } else {
         const [resDel] = await connection.query(
           'DELETE FROM personnel_deployments WHERE id = ? AND deployment_type = "absent"',
@@ -337,37 +428,54 @@ export const cancelLeave = async (req, res) => {
     // Skenario C: Diberikan shift_id & targetPersonnelId
     else if (targetPersonnelId && shift_id) {
       await connection.query('SELECT id FROM personnel WHERE id = ? FOR UPDATE', [targetPersonnelId]);
-      const [resDel] = await connection.query(
-        'DELETE FROM personnel_deployments WHERE shift_id = ? AND personnel_id = ? AND deployment_type = "absent"',
-        [shift_id, targetPersonnelId]
-      );
-      deletedCount = resDel.affectedRows;
+      const [targetRows] = await connection.query(`
+        SELECT pd.id, pd.notes, ps.shift_date
+        FROM personnel_deployments pd
+        JOIN personnel_shifts ps ON pd.shift_id = ps.id
+        WHERE pd.shift_id = ? AND pd.personnel_id = ? AND pd.deployment_type = 'absent'
+      `, [shift_id, targetPersonnelId]);
+
+      if (targetRows.length > 0) {
+        const match = (targetRows[0].notes || '').match(/\((?:Rentang:\s*)?([0-9]{4}-[0-9]{2}-[0-9]{2})\s*s\/?d\s*([0-9]{4}-[0-9]{2}-[0-9]{2})\)/i);
+        const sDate = (start_date && end_date) ? start_date : (match ? match[1] : null);
+        const eDate = (start_date && end_date) ? end_date : (match ? match[2] : null);
+
+        if (sDate && eDate) {
+          deletedCount = await deletePackageRange(targetPersonnelId, sDate, eDate);
+        } else {
+          const [resDel] = await connection.query(
+            'DELETE FROM personnel_deployments WHERE shift_id = ? AND personnel_id = ? AND deployment_type = "absent"',
+            [shift_id, targetPersonnelId]
+          );
+          deletedCount = resDel.affectedRows;
+        }
+      }
     }
     // Skenario D: Diberikan shift_date & targetPersonnelId
     else if (targetPersonnelId && shift_date) {
       await connection.query('SELECT id FROM personnel WHERE id = ? FOR UPDATE', [targetPersonnelId]);
-      const shiftNum = shift_number ? Number(shift_number) : 1;
-      const [pRows] = await connection.query('SELECT team_group FROM personnel WHERE id = ?', [targetPersonnelId]);
-      const pTeam = pRows.length > 0 ? pRows[0].team_group : null;
+      const [targetRows] = await connection.query(`
+        SELECT pd.id, pd.notes, ps.shift_date
+        FROM personnel_deployments pd
+        JOIN personnel_shifts ps ON pd.shift_id = ps.id
+        WHERE ps.shift_date = ? AND pd.personnel_id = ? AND pd.deployment_type = 'absent'
+      `, [shift_date, targetPersonnelId]);
 
-      let shiftQuery = 'SELECT id FROM personnel_shifts WHERE shift_date = ? AND shift_number = ?';
-      let shiftParams = [shift_date, shiftNum];
-      if (pTeam) {
-        shiftQuery += ' AND team_group = ?';
-        shiftParams.push(pTeam);
-      }
+      if (targetRows.length > 0) {
+        const match = (targetRows[0].notes || '').match(/\((?:Rentang:\s*)?([0-9]{4}-[0-9]{2}-[0-9]{2})\s*s\/?d\s*([0-9]{4}-[0-9]{2}-[0-9]{2})\)/i);
+        const sDate = (start_date && end_date) ? start_date : (match ? match[1] : null);
+        const eDate = (start_date && end_date) ? end_date : (match ? match[2] : null);
 
-      const [shifts] = await connection.query(shiftQuery, shiftParams);
-      if (shifts.length === 0) {
-        await connection.rollback();
-        connection.release();
-        return errorResponse(res, 'Sesi shift tidak ditemukan', 404);
+        if (sDate && eDate) {
+          deletedCount = await deletePackageRange(targetPersonnelId, sDate, eDate);
+        } else {
+          const [resDel] = await connection.query(
+            'DELETE FROM personnel_deployments WHERE id = ? AND deployment_type = "absent"',
+            [targetRows[0].id]
+          );
+          deletedCount = resDel.affectedRows;
+        }
       }
-      const [resDel] = await connection.query(
-        'DELETE FROM personnel_deployments WHERE shift_id = ? AND personnel_id = ? AND deployment_type = "absent"',
-        [shifts[0].id, targetPersonnelId]
-      );
-      deletedCount = resDel.affectedRows;
     } else {
       await connection.rollback();
       connection.release();
@@ -441,6 +549,12 @@ export const getLeaveHistory = async (req, res) => {
       params.push(Number(personnel_id));
     }
 
+    if (status === 'berjalan' || status === 'ongoing') {
+      const todayFilterStr = new Date(Date.now() + 7 * 3600000).toISOString().split('T')[0];
+      query += ' AND ps.shift_date >= ?';
+      params.push(todayFilterStr);
+    }
+
     query += ' ORDER BY ps.shift_date DESC, pd.id DESC';
 
     const [rows] = await pool.query(query, params);
@@ -490,6 +604,14 @@ export const getLeaveHistory = async (req, res) => {
         .replace(/\((?:Rentang:\s*)?[0-9]{4}-[0-9]{2}-[0-9]{2}\s*s\/?d\s*[0-9]{4}-[0-9]{2}-[0-9]{2}\)/gi, '')
         .trim();
 
+      let totalDays = relatedRows.length;
+      if (match && startDate && endDate) {
+        const s = new Date(startDate);
+        const e = new Date(endDate);
+        const diff = Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
+        if (diff > 0) totalDays = diff;
+      }
+
       groupedPackages.push({
         id: r.id,
         deployment_ids: relatedRows.map(item => item.id),
@@ -501,7 +623,7 @@ export const getLeaveHistory = async (req, res) => {
         absent_reason: r.absent_reason,
         start_date: startDate,
         end_date: endDate,
-        days_count: relatedRows.length,
+        days_count: totalDays,
         is_ongoing: isOngoing,
         status: isOngoing ? 'berjalan' : 'selesai',
         notes: cleanNoteText || '-',
@@ -526,5 +648,3 @@ export const getLeaveHistory = async (req, res) => {
     return errorResponse(res, 'Gagal mengambil riwayat cuti: ' + error.message, 500);
   }
 };
-
-export const submitLeave = requestLeaveRange;

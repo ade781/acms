@@ -11,7 +11,9 @@ export default function Badge({
   const variants = {
     serviceable: 'bg-emerald-50 text-emerald-800 border-emerald-300',
     success: 'bg-emerald-50 text-emerald-800 border-emerald-300',
+    danger: 'bg-red-50 text-red-800 border-red-300',
     unserviceable: 'bg-red-50 text-red-800 border-red-300',
+    warning: 'bg-amber-50 text-amber-800 border-amber-300',
     pending: 'bg-amber-50 text-amber-800 border-amber-300',
     pic: 'bg-amber-100 text-amber-900 border-amber-400 font-bold shadow-sm',
     primary: 'bg-red-50 text-red-700 border-red-200',

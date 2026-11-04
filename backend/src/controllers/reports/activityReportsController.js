@@ -1,6 +1,7 @@
 import pool from '../../config/db.js';
 import {
   generateActivitiesReportPdf,
+  streamPdfToResponse,
 } from '../../services/pdfService.js';
 import { errorResponse } from '../../utils/responseHelper.js';
 import { getOfficialSignatory } from '../../utils/officialHelper.js';
@@ -80,28 +81,9 @@ export const getActivitiesReportPdf = async (req, res) => {
 
     const doc = await generateActivitiesReportPdf(payload);
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader(
-      'Content-Disposition',
-      `inline; filename="laporan-logbook-kegiatan-${calculatedStartDate}-sd-${calculatedEndDate}.pdf"`
-    );
-
-    doc.on('error', (err) => {
-      console.error('PDFKit stream error (ActivitiesReportPdf):', err);
-      if (!res.headersSent) {
-        return errorResponse(res, 'Gagal menerbitkan laporan PDF logbook kegiatan: ' + err.message, 500);
-      }
-      res.destroy(err);
+    streamPdfToResponse(doc, res, req, {
+      filename: `laporan-logbook-kegiatan-${calculatedStartDate}-sd-${calculatedEndDate}.pdf`
     });
-
-    req.on('close', () => {
-      if (!doc.destroyed && typeof doc.destroy === 'function') {
-        doc.destroy();
-      }
-    });
-
-    doc.pipe(res);
-    doc.end();
   } catch (error) {
     console.error('Error getActivitiesReportPdf:', error);
     return errorResponse(res, 'Gagal menerbitkan laporan PDF logbook kegiatan: ' + error.message, 500);

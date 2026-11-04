@@ -141,6 +141,7 @@ export default function ShiftReportsPage() {
 
   const watchroomUnit = vehicles.find((v) => v.category === 'posko' || v.code_name === 'WATCHROOM');
   const watchroomStatus = watchroomUnit?.status || watchroomData?.status || 'belum_dilaporkan';
+  const isClosed = Boolean(shiftData?.is_official || (shiftData?.status || '').toLowerCase() === 'closed');
 
   return (
     <div className="space-y-4">
@@ -437,10 +438,10 @@ export default function ShiftReportsPage() {
                         {act.description}
                       </p>
                     )}
-                    {act.photo_webp_url && (
+                    {(act.attachment_url || act.photo_webp_url) && (
                       <div className="mt-2 flex items-center gap-2 p-1.5 rounded-lg bg-white border border-slate-200 text-xs text-slate-700">
                         <img
-                          src={act.photo_webp_url}
+                          src={act.attachment_url || act.photo_webp_url}
                           alt="Dokumentasi"
                           className="w-10 h-10 rounded object-cover border border-slate-300 shrink-0"
                         />
@@ -513,7 +514,7 @@ export default function ShiftReportsPage() {
             shiftDate={activeDate}
             teamGroup={currentTeam}
             isSheet={false}
-            isClosed={(shiftData?.status || '').toLowerCase() === 'closed'}
+            isClosed={isClosed}
           />
         </div>
       </div>

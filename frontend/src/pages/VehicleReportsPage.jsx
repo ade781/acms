@@ -252,7 +252,10 @@ export default function VehicleReportsPage() {
 
   // Handler Buka Modal Edit Pemeliharaan
   const handleOpenEditMaintenance = (item) => {
-    const realId = item.maintenance_id || item.id || (item.start_log_id ? `log-${item.start_log_id}` : null);
+    const rawId = item.maintenance_id || item.id || null;
+    const realId = typeof rawId === 'string' && rawId.startsWith('log-')
+      ? rawId.replace('log-', '')
+      : rawId;
     const rawDesc = item.issue_description || item.justification || item.notes || '';
     const cleanDesc = rawDesc.replace(/^\[.*?\]\s*/, '').trim();
 
@@ -271,7 +274,6 @@ export default function VehicleReportsPage() {
       resolved_by_id: item.resolved_by_id || null,
       resolution_notes: item.resolution_notes || '',
       technician_vendor: item.technician_vendor || '',
-      document_type: item.document_type || 'ba_kerusakan',
       document_url: item.document_url || '',
       document_name: item.document_name || '',
     });
@@ -821,7 +823,7 @@ export default function VehicleReportsPage() {
                         const isOngoing = item.status === 'ongoing' || !item.is_resolved;
                         return (
                             <div
-                              key={item.id || idx}
+                              key={item.maintenance_id || item.id || idx}
                               className={`p-4 sm:p-5 rounded-2xl border bg-white space-y-3.5 shadow-xs transition-colors duration-100 ${isOngoing ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200'
                                 }`}
                             >

@@ -80,7 +80,7 @@ export default function LeaveManagementPage() {
 
     const currentTeam = cleanTeam(activeTeam);
     const results = await Promise.allSettled([
-      api.get(`/personnel?team_group=${currentTeam}&is_active=1`, { signal }),
+      api.get(`/personnel?team_group=${currentTeam}&is_active=1&compact=true`, { signal }),
       api.get(`/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`, { signal }),
       api.get('/deployments/leave-history', {
         params: {
@@ -217,17 +217,27 @@ export default function LeaveManagementPage() {
         await api.post('/deployments/leave/cancel', {
           deployment_ids: targetCancelLeave.deployment_ids,
           personnel_id: targetCancelLeave.personnel_id,
+          start_date: targetCancelLeave.start_date,
+          end_date: targetCancelLeave.end_date,
         });
       } else if (targetCancelLeave.id) {
-        await api.delete(`/deployments/leave/${targetCancelLeave.id}`);
+        await api.delete(`/deployments/leave/${targetCancelLeave.id}`, {
+          data: {
+            start_date: targetCancelLeave.start_date,
+            end_date: targetCancelLeave.end_date,
+          },
+        });
       } else {
         await api.post('/deployments/leave/cancel', {
           personnel_id: targetCancelLeave.personnel_id,
           shift_date: activeDate,
           shift_number: activeShiftNumber,
+          start_date: targetCancelLeave.start_date,
+          end_date: targetCancelLeave.end_date,
         });
       }
       setSuccessMsg(`Izin / Cuti untuk ${targetCancelLeave.personnel_name} berhasil dibatalkan. Personel dikembalikan ke status aktif berdinas.`);
+      window.dispatchEvent(new CustomEvent('arff:leave-updated'));
       setCancelModalOpen(false);
       setTargetCancelLeave(null);
       loadInitialData();
@@ -410,6 +420,7 @@ export default function LeaveManagementPage() {
         activeDate={activeDate}
         onSuccess={(customMsg) => {
           setSuccessMsg(typeof customMsg === 'string' ? customMsg : (customMsg?.message || 'Pengajuan izin/cuti dinas berhasil dicatat ke sistem.'));
+          window.dispatchEvent(new CustomEvent('arff:leave-updated'));
           loadInitialData();
           if (activeTab === 'monthly') {
             fetchMonthlyLeaves();

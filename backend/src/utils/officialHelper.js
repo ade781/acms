@@ -15,7 +15,7 @@ import pool from '../config/db.js';
 export const getOfficialSignatory = async (customPool = null) => {
   const db = customPool || pool;
 
-  // 1. Cari dari personnel yang menjabat Section Head atau Dept Head
+  // 1. Cari dari personnel yang menjabat Section Head atau Dept Head (Hanya personel aktif)
   const [officials] = await db.query(
     `SELECT COALESCE(p.full_name, u.name) as name,
             COALESCE(p.nip, '-') as nip,
@@ -23,11 +23,12 @@ export const getOfficialSignatory = async (customPool = null) => {
             COALESCE(p.signature_url, u.signature_url) as signature_url
      FROM personnel p
      LEFT JOIN users u ON u.id = p.user_id
-     WHERE p.rank_position LIKE '%Section%Head%'
+     WHERE p.is_active = 1
+       AND (p.rank_position LIKE '%Section%Head%'
         OR p.rank_position LIKE '%Seksi%'
         OR u.role = 'section_head'
         OR p.rank_position LIKE '%Dept%Head%'
-        OR u.role = 'dept_head'
+        OR u.role = 'dept_head')
      ORDER BY
        CASE
          WHEN p.rank_position LIKE '%Section%Head%' OR p.rank_position LIKE '%Seksi%' OR u.role = 'section_head' THEN 1
@@ -50,7 +51,8 @@ export const getOfficialSignatory = async (customPool = null) => {
             COALESCE(u.signature_url, p.signature_url) as signature_url
      FROM users u
      LEFT JOIN personnel p ON p.user_id = u.id
-     WHERE u.role IN ('section_head', 'dept_head', 'admin')
+     WHERE (p.id IS NULL OR p.is_active = 1)
+       AND u.role IN ('section_head', 'dept_head', 'admin')
      ORDER BY FIELD(u.role, 'section_head', 'dept_head', 'admin'), u.id ASC
      LIMIT 1`
   );

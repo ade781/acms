@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Key, AlertCircle, CheckCircle2 } from 'lucide-react';
 import api from '../../../services/api';
 
@@ -11,6 +12,7 @@ export default function MobileChangePasswordModal({ isOpen, onClose }) {
   const [success, setSuccess] = useState(false);
 
   if (!isOpen) return null;
+  if (typeof document === 'undefined') return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -72,8 +74,8 @@ export default function MobileChangePasswordModal({ isOpen, onClose }) {
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4 pb-8 safe-pb">
       <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 p-3.5 space-y-2.5 shadow-xl">
         <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
           <div className="flex items-center gap-1.5">
@@ -160,6 +162,7 @@ export default function MobileChangePasswordModal({ isOpen, onClose }) {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

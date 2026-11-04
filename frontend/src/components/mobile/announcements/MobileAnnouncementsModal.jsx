@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   FileText,
@@ -76,6 +77,7 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
   }, [isOpen, fetchAnnouncements]);
 
   if (!isOpen) return null;
+  if (typeof document === 'undefined') return null;
 
   // Filter daftar pengumuman berdasarkan tab dengan normalisasi boolean ketat
   const isItemArchived = (a) => Boolean(Number(a.is_archived) === 1 || a.is_archived === true);
@@ -159,8 +161,8 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 font-sans">
+  return createPortal(
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4 pb-8 safe-pb font-sans">
       <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 p-3.5 space-y-2.5 shadow-xl max-h-[85vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 shrink-0">
@@ -349,7 +351,7 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
 
       {/* Sub-modal Pratinjau Lembar Edaran In-App */}
       {previewDoc && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4 pb-8 safe-pb">
           <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 p-3.5 space-y-2.5 shadow-2xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
               <div className="flex items-center gap-1.5 truncate">
@@ -438,6 +440,7 @@ export default function MobileAnnouncementsModal({ isOpen, onClose }) {
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }

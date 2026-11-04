@@ -10,6 +10,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { getDailyRoster, cleanTeam, SHIFT_DEFINITIONS } from '../../utils/shiftHelper';
+import { buildAuthenticatedFileUrl } from '../../utils/fileHelper';
 import { getActivityCategoryMeta } from '../../utils/activityCategories';
 import Button from '../common/Button';
 import StateView from '../common/StateView';
@@ -389,10 +390,11 @@ export default function DailyShiftActivityView({
                         {photoSource && (
                           <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 self-start overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-2xs">
                             <img
-                              src={photoSource}
+                              src={buildAuthenticatedFileUrl(photoSource)}
                               alt={act.title}
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
                               className="w-full h-full object-cover hover:opacity-90 hover:scale-105 transition-transform duration-150 cursor-pointer"
-                              onClick={() => onPreviewPhoto(photoSource)}
+                              onClick={() => onPreviewPhoto(buildAuthenticatedFileUrl(photoSource))}
                               title="Klik untuk melihat foto dokumentasi"
                             />
                           </div>

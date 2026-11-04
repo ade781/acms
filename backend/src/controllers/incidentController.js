@@ -1,6 +1,6 @@
 import pool from '../config/db.js';
 import { successResponse, errorResponse, createdResponse } from '../utils/responseHelper.js';
-import { generateIncidentSummaryReportPdf } from '../services/pdf/incidentReportPdf.js';
+import { generateIncidentSummaryReportPdf, streamPdfToResponse } from '../services/incidentPdfService.js';
 import { getOfficialSignatory } from '../utils/officialHelper.js';
 
 // Fungsi bantuan nomor laporan berurutan: INC-0001, INC-0002, dst. dengan proteksi penguncian atomik (FOR UPDATE)
@@ -468,7 +468,7 @@ export const getIncidentSummaryReportPdf = async (req, res) => {
 
     // Hitung ringkasan statistik untuk header laporan
     const resolvedCount = incidents.filter(i => (i.status || '').toLowerCase() === 'selesai').length;
-    const inProgressCount = incidents.filter(i => (i.status || '').toLowerCase() === 'dalam_proses').length;
+    const inProgressCount = incidents.filter(i => ['dalam_proses', 'menunggu_tindak_lanjut'].includes((i.status || '').toLowerCase())).length;
 
     const catCounts = {};
     incidents.forEach(i => {
@@ -504,14 +504,9 @@ export const getIncidentSummaryReportPdf = async (req, res) => {
       dept_head_signature_url: signatory?.signature_url || null,
     });
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader(
-      'Content-Disposition',
-      `inline; filename="Laporan-Rekap-Insiden-${startDateStr}-${endDateStr}.pdf"`
-    );
-
-    doc.pipe(res);
-    doc.end();
+        streamPdfToResponse(doc, res, req, {
+      filename: `Laporan-Rekap-Insiden-${startDateStr}-${endDateStr}.pdf`
+    });
   } catch (error) {
     console.error('Error getIncidentSummaryReportPdf:', error);
     if (!res.headersSent) {

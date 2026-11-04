@@ -437,17 +437,28 @@ export const saveDeploymentBatch = async (req, res) => {
       );
     }
 
-    // 4. Sinkronisasikan baris vehicle_readiness_logs secara atomik agar PIC tercatat presisi tanpa tabrakan duplikasi
-    for (const [vId, picPersonnelId] of Object.entries(vehiclePics)) {
+    // 4. Sinkronisasikan baris vehicle_readiness_logs secara atomik batch agar PIC tercatat presisi tanpa tabrakan duplikasi
+    const picEntries = Object.entries(vehiclePics);
+    if (picEntries.length > 0) {
+      const readinessBatchValues = picEntries.map(([vId, picPersonnelId]) => [
+        Number(vId),
+        shift_date,
+        shift_number,
+        team_group,
+        picPersonnelId,
+        'belum_dilaporkan',
+        'pending'
+      ]);
+
       await connection.query(
         `INSERT INTO vehicle_readiness_logs (
           vehicle_id, shift_date, shift_number, team_group,
           pic_personnel_id, status, follow_up_status
-        ) VALUES (?, ?, ?, ?, ?, 'belum_dilaporkan', 'pending')
+        ) VALUES ?
         ON DUPLICATE KEY UPDATE
           pic_personnel_id = VALUES(pic_personnel_id),
           team_group = VALUES(team_group)`,
-        [vId, shift_date, shift_number, team_group, picPersonnelId]
+        [readinessBatchValues]
       );
     }
 
@@ -484,11 +495,3 @@ export const saveDeploymentBatch = async (req, res) => {
     connection.release();
   }
 };
-
-// Re-export domain perizinan cuti dari leaveController.js untuk menjamin 100% backward compatibility
-export {
-  requestLeaveRange,
-  cancelLeave,
-  getLeaveHistory,
-  submitLeave
-} from './leaveController.js';

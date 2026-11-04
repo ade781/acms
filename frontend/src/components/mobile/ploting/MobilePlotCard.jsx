@@ -36,6 +36,8 @@ export default function MobilePlotCard({
 
   const picSlot = slots[0] || { personnel_id: '', is_pic: true };
   const crewSlots = slots.slice(1);
+  const isPosko = unit.category === 'posko' || unit.code_name === 'WATCHROOM';
+  const maxSlots = isPosko ? 2 : 4;
   const picPerson = picSlot.personnel_id
     ? (personnelMap[picSlot.personnel_id] || (picSlot.personnel_name ? { full_name: picSlot.personnel_name } : null))
     : null;
@@ -186,8 +188,8 @@ export default function MobilePlotCard({
         })}
       </div>
 
-      {/* Tombol Tambah Kru */}
-      {canEdit && onAddCrew && slots.length < 4 && (
+      {/* Tombol Tambah Kru (maksimal 4 armada, maksimal 2 posko) */}
+      {canEdit && onAddCrew && slots.length < maxSlots && (
         <div className="pt-0.5 flex justify-end">
           <button
             type="button"

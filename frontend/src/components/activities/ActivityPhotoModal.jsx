@@ -29,6 +29,7 @@ export default function ActivityPhotoModal({
         <img
           src={photoUrl}
           alt="Pratinjau Foto Penuh"
+          onError={(e) => { e.currentTarget.style.display = 'none'; }}
           className="max-h-[75vh] w-auto mx-auto object-contain rounded-lg"
         />
       </div>

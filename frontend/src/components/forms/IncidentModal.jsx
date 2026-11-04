@@ -8,21 +8,11 @@ import TextareaField from '../common/TextareaField';
 import { compressImageToWebP } from '../../utils/imageCompressor';
 import { cleanTeam, formatTeam } from '../../utils/shiftHelper';
 import { getErrorMessage } from '../../utils/errorHelper';
+import { OFFICIAL_INCIDENT_CLASSIFICATIONS, PRIORITY_OPTIONS } from '../../utils/incidentHelper';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 
-export const OFFICIAL_INCIDENT_CLASSIFICATIONS = [
-  'Aircraft Accident',
-  'Aircraft Incident',
-  'Kebakaran Gedung atau Terminal',
-  'Kebakaran Fasilitas atau Objek Lain di Bandara',
-  'Aircraft Go-Around',
-  'Hewan Liar atau Wildlife Hazard',
-  'Emergency atau Standby Operasional',
-  'Temuan Gangguan Fasilitas',
-  'Latihan atau Kegiatan Operasional',
-  'Kejadian Lainnya',
-];
+export { OFFICIAL_INCIDENT_CLASSIFICATIONS };
 
 export default function IncidentModal({
   isOpen,
@@ -279,12 +269,7 @@ export default function IncidentModal({
             value={priorityLevel}
             onChange={(e) => setPriorityLevel(e.target.value)}
             required
-            options={[
-              { value: 'rendah', label: 'Rendah (Pencegahan / Standby)' },
-              { value: 'sedang', label: 'Sedang (Penanganan Lokal Tanpa Dampak Fatal)' },
-              { value: 'tinggi', label: 'Tinggi (Kondisi Siaga II / Darurat Terkendali)' },
-              { value: 'kritis', label: 'Kritis (Kondisi Siaga I / Full Emergency)' },
-            ]}
+            options={PRIORITY_OPTIONS}
           />
         </div>
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   MapPin,
   Camera,
@@ -44,6 +45,7 @@ export default function MobileIncidentDetailModal({
   }, [isOpen, incidentId]);
 
   if (!isOpen) return null;
+  if (typeof document === 'undefined') return null;
 
   const currentInc = incident || initialIncident;
   if (!currentInc) return null;
@@ -86,10 +88,10 @@ export default function MobileIncidentDetailModal({
     }
   };
 
-  return (
+  return createPortal(
     <>
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-3"
+        className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/60 p-3 pb-8 safe-pb"
         onClick={onClose}
       >
         <div
@@ -333,7 +335,7 @@ export default function MobileIncidentDetailModal({
       {/* Large Image Modal */}
       {activePhoto && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-3"
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/90 p-3 pb-8 safe-pb"
           onClick={() => setActivePhoto(null)}
         >
           <div
@@ -370,6 +372,7 @@ export default function MobileIncidentDetailModal({
           </div>
         </div>
       )}
-    </>
+    </>,
+    document.body
   );
 }

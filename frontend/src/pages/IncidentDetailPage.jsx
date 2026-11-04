@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import { cleanTeam, formatTeam } from '../utils/shiftHelper';
+import { buildAuthenticatedFileUrl } from '../utils/fileHelper';
 import { useAuth } from '../context/AuthContext';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
@@ -316,8 +317,9 @@ export default function IncidentDetailPage() {
                         className="group relative rounded-xl overflow-hidden border border-slate-200 bg-slate-100 aspect-video cursor-pointer hover:border-slate-400 transition-colors duration-100 shadow-xs"
                       >
                         <img
-                          src={att.file_path || att.file_url}
+                          src={buildAuthenticatedFileUrl(att.file_path || att.file_url)}
                           alt={`Dokumentasi foto TKP ${idx + 1}`}
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                         />
                         <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity duration-100 flex items-center justify-center text-white text-xs font-semibold gap-1.5">
@@ -401,7 +403,7 @@ export default function IncidentDetailPage() {
 
             <div className="flex items-center gap-2">
               <a
-                href={incident.attachments[activePhotoIndex]?.file_path || incident.attachments[activePhotoIndex]?.file_url}
+                href={buildAuthenticatedFileUrl(incident.attachments[activePhotoIndex]?.file_path || incident.attachments[activePhotoIndex]?.file_url)}
                 download={`foto_tkp_${incident.report_number || incident.id}_${activePhotoIndex + 1}.webp`}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -443,11 +445,12 @@ export default function IncidentDetailPage() {
             {/* Photo Image */}
             <div className="max-h-[75vh] max-w-full flex items-center justify-center p-2">
               <img
-                src={
+                src={buildAuthenticatedFileUrl(
                   incident.attachments[activePhotoIndex]?.file_path ||
                   incident.attachments[activePhotoIndex]?.file_url
-                }
+                )}
                 alt={`Dokumentasi foto TKP resolusi penuh ${activePhotoIndex + 1}`}
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
                 className="max-h-[72vh] max-w-full object-contain rounded-lg shadow-2xl border border-slate-800"
               />
             </div>
@@ -486,8 +489,9 @@ export default function IncidentDetailPage() {
                   }`}
                 >
                   <img
-                    src={att.file_path || att.file_url}
+                    src={buildAuthenticatedFileUrl(att.file_path || att.file_url)}
                     alt={`Thumbnail ${idx + 1}`}
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
                     className="w-full h-full object-cover"
                   />
                 </button>

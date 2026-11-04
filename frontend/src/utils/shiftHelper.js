@@ -77,6 +77,33 @@ export const SHIFT_DEFINITIONS = [
 ];
 
 /**
+ * Mengambil jam operasional shift dalam format string WIB
+ * @param {number|string} shiftNum
+ * @returns {string} e.g. '07:00 - 13:00 WIB'
+ */
+export function getShiftHours(shiftNum) {
+  const num = Number(shiftNum);
+  const def = SHIFT_DEFINITIONS.find((s) => s.number === num);
+  if (def) {
+    return `${def.startTime} - ${def.endTime} WIB`;
+  }
+  return '07:00 - 13:00 WIB';
+}
+
+/**
+ * Mengambil label lengkap shift operasional
+ * @param {number|string} shiftNum
+ * @returns {string} e.g. 'Shift 1 (Pagi)'
+ */
+export function getShiftLabel(shiftNum) {
+  const num = Number(shiftNum);
+  const def = SHIFT_DEFINITIONS.find((s) => s.number === num);
+  if (def) {
+    return def.name;
+  }
+  return `Shift ${shiftNum || 1}`;
+}
+/**
  * Pola Rotasi 8 Hari ARFF (Siklus 2 Hari per Tugas):
  * Anchor Patokan: 2026-10-19:
  * - Regu Alpha:   Malam, Malam, Libur, Libur, Siang, Siang, Pagi, Pagi
@@ -367,4 +394,90 @@ export function cleanAnnouncementDescription(desc) {
   }
 
   return text;
+}
+
+/**
+ * Evaluasi status masa berlaku Lisensi STKP personel
+ * Single Source of Truth untuk PersonnelPage dan PersonnelDetailPage (Dossier)
+ * @param {object} person
+ * @returns {object} Status metadata STKP
+ */
+export function getStkpStatus(person) {
+  const expiry = person?.cert_expiry_date || person?.stkp_expiry_date;
+  const hasCert = Boolean(person?.cert_number);
+
+  if (!expiry) {
+    return {
+      status: hasCert ? 'registered' : 'none',
+      label: hasCert ? 'Terdaftar Resmi' : 'Belum Lisensi',
+      title: hasCert ? 'Lisensi STKP Utama' : 'Lisensi STKP Utama (Belum Terdaftar)',
+      tooltip: hasCert ? 'Nomor Lisensi terdaftar tanpa tanggal kedaluwarsa' : 'Belum memiliki Lisensi STKP',
+      badgeVariant: hasCert ? 'info' : 'neutral',
+      diffDays: null,
+      expiryStr: null,
+      isExpired: false,
+      isExpiringSoon: false,
+    };
+  }
+
+  const expiryDate = new Date(expiry);
+  if (isNaN(expiryDate.getTime())) {
+    return {
+      status: hasCert ? 'registered' : 'none',
+      label: hasCert ? 'Terdaftar Resmi' : 'Belum Lisensi',
+      title: hasCert ? 'Lisensi STKP Utama' : 'Lisensi STKP Utama (Belum Terdaftar)',
+      tooltip: hasCert ? 'Nomor Lisensi terdaftar' : 'Belum memiliki Lisensi STKP',
+      badgeVariant: hasCert ? 'info' : 'neutral',
+      diffDays: null,
+      expiryStr: null,
+      isExpired: false,
+      isExpiringSoon: false,
+    };
+  }
+
+  const now = new Date();
+  const diffDays = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  const expiryStr = typeof expiry === 'string'
+    ? expiry.split('T')[0]
+    : (expiry instanceof Date ? expiry.toISOString().split('T')[0] : String(expiry || ''));
+
+  if (diffDays <= 0) {
+    return {
+      status: 'expired',
+      label: 'Kedaluwarsa',
+      title: 'Lisensi STKP Utama (Kedaluwarsa)',
+      tooltip: `Lisensi STKP telah kedaluwarsa (${expiryStr})`,
+      badgeVariant: 'unserviceable',
+      diffDays,
+      expiryStr,
+      isExpired: true,
+      isExpiringSoon: false,
+    };
+  }
+
+  if (diffDays <= 60) {
+    return {
+      status: 'warning',
+      label: `Hampir Habis (${diffDays} hari)`,
+      title: 'Lisensi STKP Utama (Hampir Habis)',
+      tooltip: `Masa berlaku STKP tersisa ${diffDays} hari (${expiryStr})`,
+      badgeVariant: 'pending',
+      diffDays,
+      expiryStr,
+      isExpired: false,
+      isExpiringSoon: true,
+    };
+  }
+
+  return {
+    status: 'active',
+    label: 'Aktif',
+    title: 'Lisensi STKP Utama (Aktif)',
+    tooltip: `Lisensi STKP aktif hingga ${expiryStr}`,
+    badgeVariant: 'success',
+    diffDays,
+    expiryStr,
+    isExpired: false,
+    isExpiringSoon: false,
+  };
 }

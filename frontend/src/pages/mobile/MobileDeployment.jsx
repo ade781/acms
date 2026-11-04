@@ -162,41 +162,9 @@ export default function MobileDeployment({ onOpenAuditModal }) {
         ? depPayload.deployments
         : (Array.isArray(depRes.data?.deployments) ? depRes.data.deployments : []);
 
-      // Initialize vehicle slots
-      const initialSlots = {};
-      sortedVehicles.forEach((v) => {
-        const vId = v.id;
-        const isPosko = v.category === 'posko' || v.code_name === 'WATCHROOM';
-        const existingForUnit = deploymentsList.filter((d) =>
-          isPosko
-            ? (d.deployment_type === 'watchroom' || Number(d.vehicle_id) === Number(vId))
-            : Number(d.vehicle_id) === Number(vId)
-        );
-
-        if (existingForUnit.length > 0) {
-          const sorted = [...existingForUnit].sort((a, b) => (b.is_pic ? 1 : 0) - (a.is_pic ? 1 : 0));
-          initialSlots[vId] = sorted.map((d, idx) => ({
-            personnel_id: d.personnel_id || '',
-            is_pic: idx === 0,
-            personnel_name: d.full_name || '',
-          }));
-          // Ensure at least 3 slots (1 PIC + 2 crew) default slot exists
-          while (initialSlots[vId].length < 3) {
-            initialSlots[vId].push({ personnel_id: '', is_pic: false, personnel_name: '' });
-          }
-        } else {
-          initialSlots[vId] = [
-            { personnel_id: '', is_pic: true, personnel_name: '' },
-            { personnel_id: '', is_pic: false, personnel_name: '' },
-            { personnel_id: '', is_pic: false, personnel_name: '' },
-          ];
-        }
-      });
-      setVehicleSlots(initialSlots);
-      setInitialSnapshot(JSON.stringify(initialSlots));
-
       // Absent personnel list
       const existingAbsent = deploymentsList.filter((d) => d.deployment_type === 'absent');
+      const absentIdSet = new Set(existingAbsent.map((d) => Number(d.personnel_id)));
       setAbsentList(
         existingAbsent.map((d) => ({
           id: d.id,
@@ -206,6 +174,45 @@ export default function MobileDeployment({ onOpenAuditModal }) {
           notes: d.notes || '',
         }))
       );
+
+      // Initialize vehicle slots: default armada 3 slot (1 PIC + 2 kru), default posko 1 slot (1 PIC)
+      const initialSlots = {};
+      sortedVehicles.forEach((v) => {
+        const vId = v.id;
+        const isPosko = v.category === 'posko' || v.code_name === 'WATCHROOM';
+        const defaultEmptyCount = isPosko ? 1 : 3;
+        const existingForUnit = deploymentsList.filter((d) =>
+          isPosko
+            ? (d.deployment_type === 'watchroom' || Number(d.vehicle_id) === Number(vId))
+            : Number(d.vehicle_id) === Number(vId)
+        );
+
+        if (existingForUnit.length > 0) {
+          const sorted = [...existingForUnit].sort((a, b) => (b.is_pic ? 1 : 0) - (a.is_pic ? 1 : 0));
+          initialSlots[vId] = sorted.map((d, idx) => {
+            const isAbsentCrew = d.personnel_id && absentIdSet.has(Number(d.personnel_id));
+            return {
+              personnel_id: isAbsentCrew ? '' : (d.personnel_id || ''),
+              is_pic: idx === 0,
+              personnel_name: isAbsentCrew ? '' : (d.full_name || ''),
+            };
+          });
+          // Ensure default slot count (posko: 1, armada: 3)
+          while (initialSlots[vId].length < defaultEmptyCount) {
+            initialSlots[vId].push({ personnel_id: '', is_pic: false, personnel_name: '' });
+          }
+        } else {
+          initialSlots[vId] = isPosko
+            ? [{ personnel_id: '', is_pic: true, personnel_name: '' }]
+            : [
+                { personnel_id: '', is_pic: true, personnel_name: '' },
+                { personnel_id: '', is_pic: false, personnel_name: '' },
+                { personnel_id: '', is_pic: false, personnel_name: '' },
+              ];
+        }
+      });
+      setVehicleSlots(initialSlots);
+      setInitialSnapshot(JSON.stringify(initialSlots));
     } catch (err) {
       if (err.name === 'CanceledError' || err.name === 'AbortError' || err.code === 'ERR_CANCELED') {
         return;
@@ -258,12 +265,15 @@ export default function MobileDeployment({ onOpenAuditModal }) {
     fetchCandidates();
   };
 
-  // Add new dynamic crew slot to a unit (max 4 total slots)
+  // Add new dynamic crew slot to a unit (max 4 armada, max 2 posko)
   const handleAddCrew = (unitId) => {
     if (!canEditPlot) return;
+    const unit = vehicles.find((v) => String(v.id) === String(unitId));
+    const isPosko = unit?.category === 'posko' || unit?.code_name === 'WATCHROOM';
+    const maxSlots = isPosko ? 2 : 4;
     setVehicleSlots((prev) => {
       const currentList = [...(prev[unitId] || [])];
-      if (currentList.length < 4) {
+      if (currentList.length < maxSlots) {
         currentList.push({ personnel_id: '', is_pic: false, personnel_name: '' });
       }
       return { ...prev, [unitId]: currentList };
@@ -297,8 +307,11 @@ export default function MobileDeployment({ onOpenAuditModal }) {
         if (isPic) {
           unitList[0] = { ...unitList[0], personnel_id: '', personnel_name: '' };
         } else {
-          // If crew slot, remove slot if > 3 slots, otherwise clear
-          if (unitList.length > 3) {
+          // If crew slot, remove slot if > defaultEmptyCount, otherwise clear
+          const unit = vehicles.find((v) => String(v.id) === String(unitId));
+          const isPosko = unit?.category === 'posko' || unit?.code_name === 'WATCHROOM';
+          const defaultEmptyCount = isPosko ? 1 : 3;
+          if (unitList.length > defaultEmptyCount) {
             unitList.splice(slotIndex, 1);
           } else {
             unitList[slotIndex] = { ...unitList[slotIndex], personnel_id: '', personnel_name: '' };
@@ -347,6 +360,16 @@ export default function MobileDeployment({ onOpenAuditModal }) {
       }
     }
 
+    // Validasi: Personel yang sedang cuti tidak boleh diploting di armada
+    for (const abs of absentList) {
+      if (abs.personnel_id && assignedMap[Number(abs.personnel_id)]) {
+        const personObj = personnelList.find((p) => Number(p.id) === Number(abs.personnel_id));
+        const pName = personObj?.full_name || personObj?.name || abs.name || `ID #${abs.personnel_id}`;
+        setErrorMsg(`Personel ${pName} sedang cuti/izin namun terploting di ${assignedMap[Number(abs.personnel_id)]}. Harap kosongkan slotnya terlebih dahulu.`);
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       const payloadDeployments = [];
@@ -374,20 +397,6 @@ export default function MobileDeployment({ onOpenAuditModal }) {
         });
       });
 
-      // Collect absent crew
-      absentList.forEach((abs) => {
-        if (abs.personnel_id) {
-          payloadDeployments.push({
-            personnel_id: Number(abs.personnel_id),
-            deployment_type: 'absent',
-            vehicle_id: null,
-            is_pic: false,
-            absent_reason: abs.reason || 'cuti',
-            notes: abs.notes || 'Izin/Cuti Dinas Shift',
-          });
-        }
-      });
-
       await api.post('/deployments/batch', {
         shift_date: activeDate,
         shift_number: activeShiftNumber,
@@ -398,6 +407,7 @@ export default function MobileDeployment({ onOpenAuditModal }) {
       setToastMsg('Ploting penugasan armada berhasil disimpan.');
       setInitialSnapshot(JSON.stringify(vehicleSlots));
       window.dispatchEvent(new CustomEvent('arff:deployments-updated'));
+      await loadPlotingData();
     } catch (err) {
       console.error('Error saving deployments:', err);
       const msg = typeof err.response?.data?.message === 'string'

@@ -174,12 +174,12 @@ export default function DeploymentPage() {
         setAbsentList([]);
       }
 
-      // Initialize vehicle & watchroom slots secara fleksibel (tanpa paksaan harus 3 kru)
+      // Initialize vehicle & watchroom slots: default armada 3 slot (1 PIC + 2 kru), default posko 1 slot (1 PIC)
       const initialSlots = {};
       fetchedVehicles.forEach((v) => {
         const vId = v.id;
         const isPosko = v.category === 'posko' || v.code_name === 'WATCHROOM';
-        const defaultEmptyCount = 3;
+        const defaultEmptyCount = isPosko ? 1 : 3;
 
         const existingForUnit = (deploymentsList || []).filter((d) =>
           isPosko
@@ -201,11 +201,13 @@ export default function DeploymentPage() {
             initialSlots[vId].push({ personnel_id: '', is_pic: false, personnel_name: '' });
           }
         } else {
-          initialSlots[vId] = [
-            { personnel_id: '', is_pic: true, personnel_name: '' },
-            { personnel_id: '', is_pic: false, personnel_name: '' },
-            { personnel_id: '', is_pic: false, personnel_name: '' },
-          ];
+          initialSlots[vId] = isPosko
+            ? [{ personnel_id: '', is_pic: true, personnel_name: '' }]
+            : [
+                { personnel_id: '', is_pic: true, personnel_name: '' },
+                { personnel_id: '', is_pic: false, personnel_name: '' },
+                { personnel_id: '', is_pic: false, personnel_name: '' },
+              ];
         }
       });
       setVehicleSlots(initialSlots);
@@ -225,6 +227,19 @@ export default function DeploymentPage() {
     return () => controller.abort();
   }, [fetchDeploymentData]);
 
+  // Auto-reload saat ada perubahan cuti atau kelaikan armada
+  useEffect(() => {
+    const handleSync = () => {
+      fetchDeploymentData({ keepSuccessMsg: true });
+    };
+    window.addEventListener('arff:leave-updated', handleSync);
+    window.addEventListener('arff:readiness-updated', handleSync);
+    return () => {
+      window.removeEventListener('arff:leave-updated', handleSync);
+      window.removeEventListener('arff:readiness-updated', handleSync);
+    };
+  }, [fetchDeploymentData]);
+
   // Handle personnel change in a vehicle slot
   const handleSlotPersonnelChange = useCallback((vehicleId, slotIndex, personnelId) => {
     setVehicleSlots((prev) => {
@@ -238,16 +253,19 @@ export default function DeploymentPage() {
     });
   }, []);
 
-  // Add slot to vehicle (fleksibel)
+  // Add slot to vehicle (maksimal 4 armada, maksimal 2 posko watchroom)
   const handleAddSlot = useCallback((vehicleId) => {
     setVehicleSlots((prev) => {
       const currentList = [...(prev[vehicleId] || [])];
-      if (currentList.length < 6) {
-        currentList.push({ personnel_id: '', is_pic: false });
+      const unit = vehicles.find((v) => Number(v.id) === Number(vehicleId));
+      const isPosko = unit?.category === 'posko' || unit?.code_name === 'WATCHROOM';
+      const maxSlots = isPosko ? 2 : 4;
+      if (currentList.length < maxSlots) {
+        currentList.push({ personnel_id: '', is_pic: false, personnel_name: '' });
       }
       return { ...prev, [vehicleId]: currentList };
     });
-  }, []);
+  }, [vehicles]);
 
   // Remove slot from vehicle (fleksibel selama masih ada minimal 1 slot PIC)
   const handleRemoveSlot = useCallback((vehicleId, slotIndex) => {
@@ -267,6 +285,20 @@ export default function DeploymentPage() {
   const handleSaveDeployments = async () => {
     setError(null);
     setSuccessMsg(null);
+
+    // Validasi PIC: Unit yang memiliki kru wajib memiliki PIC (Slot 0)
+    for (const [vId, slots] of Object.entries(vehicleSlots)) {
+      const hasPic = Boolean(slots[0]?.personnel_id);
+      const hasAnyCrew = (slots || []).slice(1).some((s) => Boolean(s.personnel_id));
+
+      if (hasAnyCrew && !hasPic) {
+        const unitObj = vehicles.find((v) => Number(v.id) === Number(vId));
+        const unitName = unitObj?.code_name || unitObj?.vehicle_name || `Unit #${vId}`;
+        setError(`Unit ${unitName} memiliki kru tetapi belum memiliki PIC (Slot 0). Harap tunjuk PIC terlebih dahulu.`);
+        return;
+      }
+    }
+
     setSaving(true);
 
     try {

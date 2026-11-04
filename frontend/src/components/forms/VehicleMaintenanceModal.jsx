@@ -28,7 +28,10 @@ export default function VehicleMaintenanceModal({
   personnel = [],
   onSuccess,
 }) {
-  const recordId = initialData?.id || initialData?.maintenance_id || null;
+  const rawRecordId = initialData?.id || initialData?.maintenance_id || null;
+  const recordId = typeof rawRecordId === 'string' && rawRecordId.startsWith('log-')
+    ? rawRecordId.replace('log-', '')
+    : rawRecordId;
   const isEditMode = Boolean(initialData && recordId);
 
   // Form State
@@ -187,11 +190,11 @@ export default function VehicleMaintenanceModal({
     setError(null);
     try {
       await api.delete(`/readiness/maintenance/${recordId}`);
+      setShowDeleteConfirm(false);
+      onClose();
       if (onSuccess) {
         onSuccess('Catatan pemeliharaan / kendala armada berhasil dihapus.');
       }
-      setShowDeleteConfirm(false);
-      onClose();
     } catch (err) {
       console.error('Error deleting maintenance record:', err);
       const errMsg =

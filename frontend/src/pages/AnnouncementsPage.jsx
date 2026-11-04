@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { formatIndoDate } from '../utils/shiftHelper';
+import { formatIndoDate, cleanAnnouncementDescription } from '../utils/shiftHelper';
 import { buildAuthenticatedFileUrl } from '../utils/fileHelper';
 import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
@@ -616,13 +616,13 @@ export default function AnnouncementsPage() {
                             {cleanTitle(ann.title)}
                           </h4>
 
-                          {ann.description && (
+                          {cleanAnnouncementDescription(ann.description) && (
                             <p
                               className={`text-xs mt-1 line-clamp-2 ${
                                 isSelected ? 'text-slate-600' : 'text-slate-500'
                               }`}
                             >
-                              {ann.description}
+                              {cleanAnnouncementDescription(ann.description)}
                             </p>
                           )}
 

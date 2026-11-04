@@ -8,6 +8,34 @@ import { successResponse, errorResponse } from '../utils/responseHelper.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+function getCurrentOperationalShift(dateObj = new Date()) {
+  const utc = dateObj.getTime() + (dateObj.getTimezoneOffset() * 60000);
+  const wibDate = new Date(utc + (7 * 3600000));
+
+  const hours = wibDate.getHours();
+  const minutes = wibDate.getMinutes();
+  const timeVal = hours * 60 + minutes;
+
+  let shiftNumber = 1;
+  const shiftDate = new Date(wibDate);
+
+  if (timeVal >= 420 && timeVal < 780) { // 07:00 - 13:00 WIB
+    shiftNumber = 1;
+  } else if (timeVal >= 780 && timeVal < 1200) { // 13:00 - 20:00 WIB
+    shiftNumber = 2;
+  } else { // 20:00 - 07:00 WIB
+    shiftNumber = 3;
+    if (timeVal < 420) {
+      shiftDate.setDate(shiftDate.getDate() - 1);
+    }
+  }
+
+  const year = shiftDate.getFullYear();
+  const month = String(shiftDate.getMonth() + 1).padStart(2, '0');
+  const day = String(shiftDate.getDate()).padStart(2, '0');
+  return { shiftNumber, dateStr: `${year}-${month}-${day}` };
+}
+
 async function generateUniqueUsername(nip, fullName) {
   let baseUsername = '';
   if (nip && nip.trim() && nip.trim() !== '-') {
@@ -53,6 +81,7 @@ export const getOfficials = async (req, res) => {
          LEFT JOIN users u ON u.id = p.user_id
          WHERE (p.rank_position LIKE '%Dept%Head%' OR p.rank_position LIKE '%Department Head%' OR u.role = 'dept_head')
            AND p.rank_position NOT LIKE '%Section%'
+           AND p.is_active = 1
          ORDER BY p.id ASC
          LIMIT 1`
       ),
@@ -62,7 +91,8 @@ export const getOfficials = async (req, res) => {
                 COALESCE(u.signature_url, p.signature_url) as signature_url
          FROM personnel p
          LEFT JOIN users u ON u.id = p.user_id
-         WHERE p.rank_position LIKE '%Section%Head%' OR p.rank_position LIKE '%Seksi%' OR u.role = 'section_head'
+         WHERE (p.rank_position LIKE '%Section%Head%' OR p.rank_position LIKE '%Seksi%' OR u.role = 'section_head')
+           AND p.is_active = 1
          ORDER BY p.id ASC
          LIMIT 1`
       ),
@@ -76,7 +106,8 @@ export const getOfficials = async (req, res) => {
            AND p.rank_position NOT LIKE '%Assistant%'
            AND p.rank_position NOT LIKE '%Asisten%'
            AND p.rank_position NOT LIKE '%Wakil%'
-           AND u.role != 'chief_assistant'
+           AND (u.role IS NULL OR u.role != 'chief_assistant')
+           AND p.is_active = 1
          ORDER BY p.team_group ASC, p.id ASC`
       ),
       // 4. Staf Administrasi (Personel Non-Shift / Role Admin)
@@ -87,6 +118,7 @@ export const getOfficials = async (req, res) => {
          LEFT JOIN users u ON u.id = p.user_id
          WHERE (p.team_group = 'Non-Shift' OR p.team_group IS NULL)
            AND (p.rank_position NOT LIKE '%Dept%Head%' AND (u.role IS NULL OR u.role != 'dept_head'))
+           AND p.is_active = 1
          ORDER BY p.id ASC`
       )
     ]);
@@ -126,7 +158,8 @@ export const replaceDeptHead = async (req, res) => {
       `SELECT p.*, u.id as u_id
        FROM personnel p
        LEFT JOIN users u ON u.id = p.user_id
-       WHERE p.rank_position LIKE '%Dept%Head%' OR p.rank_position LIKE '%Department Head%' OR u.role = 'dept_head'`
+       WHERE (p.rank_position LIKE '%Dept%Head%' OR p.rank_position LIKE '%Department Head%' OR u.role = 'dept_head')
+         AND p.is_active = 1`
     );
 
     // KASUS A: Input Data Mandiri (Sesuai Aturan GEMINI.md Rule 18 & task_agent1.md)
@@ -139,12 +172,39 @@ export const replaceDeptHead = async (req, res) => {
       if (currentDeptHeads.length > 0) {
         const existingDh = currentDeptHeads[0];
         deptHeadId = existingDh.id;
-        await connection.query(
-          `UPDATE personnel 
-           SET full_name = ?, nip = ?, rank_position = ?, team_group = 'Non-Shift' 
-           WHERE id = ?`,
-          [cleanName, cleanNip, cleanRank, deptHeadId]
-        );
+
+        const isNameChanged = existingDh.full_name && existingDh.full_name.trim().toLowerCase() !== cleanName.toLowerCase();
+        const isNipChanged = (existingDh.nip || '').trim() !== (cleanNip || '');
+        const hasNewSignature = Boolean(req.file || req.body.signature_url);
+
+        if ((isNameChanged || isNipChanged) && !hasNewSignature) {
+          if (existingDh.signature_url) {
+            const sigFileName = path.basename(existingDh.signature_url);
+            const sigPath = path.resolve(__dirname, '../../uploads', sigFileName);
+            if (fs.existsSync(sigPath)) {
+              try { fs.unlinkSync(sigPath); } catch (e) {}
+            }
+          }
+          await connection.query(
+            `UPDATE personnel 
+             SET full_name = ?, nip = ?, rank_position = ?, team_group = 'Non-Shift', signature_url = NULL 
+             WHERE id = ?`,
+            [cleanName, cleanNip, cleanRank, deptHeadId]
+          );
+          if (existingDh.u_id) {
+            await connection.query(
+              `UPDATE users SET signature_url = NULL WHERE id = ?`,
+              [existingDh.u_id]
+            );
+          }
+        } else {
+          await connection.query(
+            `UPDATE personnel 
+             SET full_name = ?, nip = ?, rank_position = ?, team_group = 'Non-Shift' 
+             WHERE id = ?`,
+            [cleanName, cleanNip, cleanRank, deptHeadId]
+          );
+        }
 
         let dhUserId = existingDh.u_id;
         if (!dhUserId && cleanNip) {
@@ -274,6 +334,8 @@ export const replaceDeptHead = async (req, res) => {
   }
 };
 
+export const setDeptHead = replaceDeptHead;
+
 export const replaceChief = async (req, res) => {
   const connection = await pool.getConnection();
   try {
@@ -309,7 +371,8 @@ export const replaceChief = async (req, res) => {
          AND (u.role IN ('chief', 'supervisor') OR p.rank_position LIKE '%Chief%' OR p.rank_position LIKE '%Ketua%')
          AND p.rank_position NOT LIKE '%Assistant%'
          AND p.rank_position NOT LIKE '%Asisten%'
-         AND u.role != 'chief_assistant'`,
+         AND (u.role IS NULL OR u.role != 'chief_assistant')
+         AND p.is_active = 1`,
       [team_group]
     );
 
@@ -320,6 +383,32 @@ export const replaceChief = async (req, res) => {
       return errorResponse(
         res,
         `Personel tersebut saat ini sudah menjabat sebagai Ketua Regu ${team_group}. Silakan pilih anggota regu lain untuk melakukan pergantian Ketua Regu.`,
+        400
+      );
+    }
+
+    // Periksa tabel personnel_deployments pada shift aktif (GEMINI.md Butir 20)
+    const { shiftNumber: curShiftNum, dateStr: curDateStr } = getCurrentOperationalShift();
+    const [activeDuties] = await connection.query(
+      `SELECT pd.id, pd.is_pic, pd.deployment_type, ps.shift_date, ps.shift_number, ps.team_group,
+              v.vehicle_name, v.code_name, p.full_name
+       FROM personnel_deployments pd
+       JOIN personnel_shifts ps ON ps.id = pd.shift_id
+       LEFT JOIN vehicles v ON v.id = pd.vehicle_id
+       JOIN personnel p ON p.id = pd.personnel_id
+       WHERE pd.personnel_id = ?
+         AND pd.deployment_type IN ('vehicle_utama', 'vehicle_pendukung', 'watchroom')
+         AND ps.shift_date = ?
+         AND ps.shift_number = ?`,
+      [new_chief_id, curDateStr, curShiftNum]
+    );
+
+    if (activeDuties.length > 0) {
+      await connection.rollback();
+      connection.release();
+      return errorResponse(
+        res,
+        `Personel (${activeDuties[0].full_name || 'target'}) sedang aktif bertugas pada armada/posko di shift dinas saat ini. Lepaskan penugasan di menu Ploting terlebih dahulu sebelum melakukan pergantian Ketua Regu.`,
         400
       );
     }
@@ -357,13 +446,13 @@ export const replaceChief = async (req, res) => {
 
     // 2. Angkat Chief baru untuk regu ini
     const [newCandidate] = await connection.query(
-      `SELECT p.*, u.id as u_id FROM personnel p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?`,
+      `SELECT p.*, u.id as u_id FROM personnel p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ? AND p.is_active = 1`,
       [new_chief_id]
     );
 
     if (newCandidate.length === 0) {
       await connection.rollback();
-      return errorResponse(res, 'Personel baru tidak ditemukan', 404);
+      return errorResponse(res, 'Personel baru tidak ditemukan atau tidak aktif', 404);
     }
 
     const candidate = newCandidate[0];

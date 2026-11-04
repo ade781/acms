@@ -26,7 +26,7 @@ function DeploymentSlotCard({
   isSupervisor = false,
 }) {
   const isPosko = vehicle.category === 'posko' || vehicle.code_name === 'WATCHROOM';
-  const maxSlots = isPosko ? 2 : 6;
+  const maxSlots = isPosko ? 2 : 4;
   const minSlots = 1;
 
   const IconComponent = getVehicleIcon(vehicle);

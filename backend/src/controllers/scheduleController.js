@@ -6,7 +6,7 @@ import { successResponse, errorResponse } from '../utils/responseHelper.js';
 // Day 2 & 3: Alpha Libur, Bravo Siang, Charlie Pagi, Delta Malam
 // Day 4 & 5: Alpha Siang, Bravo Pagi, Charlie Malam, Delta Libur
 // Day 6 & 7: Alpha Pagi, Bravo Malam, Charlie Libur, Delta Siang
-const DEFAULT_ROTATION_8_DAYS = [
+export const DEFAULT_ROTATION_8_DAYS = [
   { 1: 'Delta', 2: 'Charlie', 3: 'Alpha', off: 'Bravo' },
   { 1: 'Delta', 2: 'Charlie', 3: 'Alpha', off: 'Bravo' },
   { 1: 'Charlie', 2: 'Bravo', 3: 'Delta', off: 'Alpha' },
@@ -72,7 +72,7 @@ async function getStoredCycles() {
 /**
  * Menghitung roster untuk suatu tanggal dengan memperhatikan siklus yang berlaku
  */
-function resolveRosterForDate(targetDateStr, storedCycles, defaultAnchor = '2026-10-19') {
+export function resolveRosterForDate(targetDateStr, storedCycles = [], defaultAnchor = '2026-10-19') {
   // Cari siklus yang berlaku (start_date <= targetDateStr) paling dekat
   const activeCycle = storedCycles.find((c) => c.start_date <= targetDateStr);
   if (activeCycle && Array.isArray(activeCycle.pattern) && activeCycle.pattern.length === 8) {

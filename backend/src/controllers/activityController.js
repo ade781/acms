@@ -8,6 +8,22 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const uploadsDir = path.resolve(__dirname, '../../uploads');
 
+/**
+ * Membersihkan berkas yang diunggah multer jika request gagal diproses
+ * untuk mencegah kebocoran file sampah (orphan files) di direktori uploads.
+ */
+const removeUploadedFile = (file) => {
+  if (!file) return;
+  const targetPath = file.path || (file.filename ? path.resolve(uploadsDir, file.filename) : null);
+  if (targetPath && fs.existsSync(targetPath)) {
+    try {
+      fs.unlinkSync(targetPath);
+    } catch (e) {
+      console.warn('Gagal membersihkan orphan file upload:', e.message);
+    }
+  }
+};
+
 export const getActivities = async (req, res) => {
   try {
     const { date, shift, team_group, page, limit, start_date, end_date, period, activity_type } = req.query;
@@ -86,6 +102,7 @@ export const createActivity = async (req, res) => {
   try {
     // BUTIR TUGAS 3: Selaraskan RBAC - seluruh personel dinas terautentikasi (termasuk kru) dapat mencatat kegiatan
     if (!req.user) {
+      removeUploadedFile(req.file);
       return errorResponse(res, 'Autentikasi diperlukan untuk mencatat kegiatan', 401);
     }
 
@@ -104,6 +121,7 @@ export const createActivity = async (req, res) => {
     } = req.body;
 
     if (!activity_type || !activity_time || !title) {
+      removeUploadedFile(req.file);
       return errorResponse(res, 'Jenis aktivitas, waktu, dan judul aktivitas wajib diisi', 400);
     }
 
@@ -177,6 +195,7 @@ export const createActivity = async (req, res) => {
     const [created] = await pool.query('SELECT * FROM daily_shift_activities WHERE id = ?', [result.insertId]);
     return createdResponse(res, 'Aktivitas berhasil ditambahkan ke logbook shift', created[0]);
   } catch (error) {
+    removeUploadedFile(req.file);
     console.error('Error createActivity:', error);
     return errorResponse(res, 'Gagal mencatat aktivitas: ' + error.message, 500);
   }
@@ -197,6 +216,7 @@ export const updateActivity = async (req, res) => {
     );
 
     if (existing.length === 0) {
+      removeUploadedFile(req.file);
       return errorResponse(res, 'Aktivitas tidak ditemukan', 404);
     }
 
@@ -216,6 +236,7 @@ export const updateActivity = async (req, res) => {
     const isOwner = currentActivity.created_by && Number(currentActivity.created_by) === Number(req.user?.id);
 
     if (!isAdmin && !isTeamChief && !isOwner) {
+      removeUploadedFile(req.file);
       return errorResponse(
         res,
         'Akses ditolak: Anda tidak memiliki wewenang untuk mengubah catatan kegiatan ini',
@@ -292,6 +313,7 @@ export const updateActivity = async (req, res) => {
     const [updated] = await pool.query('SELECT * FROM daily_shift_activities WHERE id = ?', [id]);
     return successResponse(res, 'Aktivitas berhasil diperbarui', updated[0]);
   } catch (error) {
+    removeUploadedFile(req.file);
     console.error('Error updateActivity:', error);
     return errorResponse(res, 'Gagal memperbarui aktivitas', 500);
   }

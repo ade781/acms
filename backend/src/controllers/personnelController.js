@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
 import pool from '../config/db.js';
 import { successResponse, errorResponse, createdResponse } from '../utils/responseHelper.js';
-import { generatePersonnelAccountsPdf } from '../services/pdfService.js';
+import { generatePersonnelAccountsPdf, streamPdfToResponse } from '../services/pdfService.js';
 import { sanitizeAndValidateCompetencies, parseCompetenciesArray } from '../utils/competencyHelper.js';
 import { getOfficialSignatory } from '../utils/officialHelper.js';
 import { mapRankPositionToRole } from '../utils/roleMapper.js';
@@ -100,14 +100,10 @@ export const exportPersonnelPdf = async (req, res) => {
 
     const doc = await generatePersonnelAccountsPdf(rows, signatory);
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader(
-      'Content-Disposition',
-      'attachment; filename="Buku_Induk_Personel_ARFF_YIA.pdf"'
-    );
-
-    doc.pipe(res);
-    doc.end();
+        streamPdfToResponse(doc, res, req, {
+      filename: 'Buku_Induk_Personel_ARFF_YIA.pdf',
+      disposition: 'attachment'
+    });
   } catch (error) {
     console.error('Error exportPersonnelPdf:', error);
     return errorResponse(res, 'Gagal mencetak PDF akun personel', 500);

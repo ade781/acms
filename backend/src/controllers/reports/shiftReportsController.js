@@ -4,6 +4,7 @@ import {
   getPdfCache,
   setPdfCache,
 } from '../../services/pdfService.js';
+import { isShiftOfficial, streamPdfToResponse } from '../../services/pdfBaseHelper.js';
 import { errorResponse } from '../../utils/responseHelper.js';
 import { getOfficialSignatory } from '../../utils/officialHelper.js';
 import { fetchVehicleIssuesAuditData } from './vehicleReportsController.js';
@@ -21,7 +22,7 @@ export const getShiftReportPdf = async (req, res) => {
 
     // Eksekusi data dinas shift resmi laporan A4
     const [shifts] = await pool.query(
-      `SELECT ps.*, u.name as supervisor_name, u.signature_url as user_sig, p.signature_url as pers_sig, p.nip as supervisor_nip
+      `SELECT ps.*, COALESCE(p.full_name, u.name) as supervisor_name, u.signature_url as user_sig, p.signature_url as pers_sig, p.nip as supervisor_nip
        FROM personnel_shifts ps
        LEFT JOIN users u ON u.id = ps.supervisor_id
        LEFT JOIN personnel p ON p.user_id = u.id
@@ -101,7 +102,7 @@ export const getShiftReportPdf = async (req, res) => {
 
     // Ambil data kesiapan kendaraan & PIC ploting resmi shift (seluruh armada & posko)
     const [vehicles] = await pool.query(
-      `SELECT v.code_name, v.vehicle_name, v.category, vrl.status, vrl.justification,
+      `SELECT v.id, v.code_name, v.vehicle_name, v.category, vrl.status, vrl.justification,
               COALESCE(deploy_pic.full_name, p.full_name) as pic_name
        FROM vehicles v
        LEFT JOIN vehicle_readiness_logs vrl
@@ -118,6 +119,47 @@ export const getShiftReportPdf = async (req, res) => {
        ORDER BY CASE v.category WHEN 'utama' THEN 1 WHEN 'pendukung' THEN 2 WHEN 'posko' THEN 3 ELSE 4 END, v.id ASC`,
       [shiftDate, shiftNumber, teamGroup, shiftDate, shiftNumber, teamGroup]
     );
+
+    // Carry-over status unserviceable untuk kendaraan yang belum dilaporkan di shift ini
+    const unreportedIds = vehicles
+      .filter((r) => !r.status || r.status === 'belum_dilaporkan')
+      .map((r) => r.id);
+    if (unreportedIds.length > 0) {
+      const [prevLogs] = await pool.query(
+        `SELECT vrl.vehicle_id, vrl.status, vrl.justification, vrl.follow_up_status, vrl.notes,
+                vrl.shift_date, vrl.shift_number, vrl.team_group, p.full_name as prev_pic_name
+         FROM vehicle_readiness_logs vrl
+         JOIN (
+           SELECT vehicle_id, MAX(CONCAT(shift_date, '_', LPAD(shift_number, 2, '0'))) as max_shift
+           FROM vehicle_readiness_logs
+           WHERE vehicle_id IN (?)
+             AND (shift_date < ? OR (shift_date = ? AND shift_number < ?))
+             AND status = 'unserviceable'
+             AND follow_up_status != 'resolved'
+           GROUP BY vehicle_id
+         ) latest ON latest.vehicle_id = vrl.vehicle_id
+                 AND CONCAT(vrl.shift_date, '_', LPAD(vrl.shift_number, 2, '0')) = latest.max_shift
+         LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
+         WHERE vrl.status = 'unserviceable'
+           AND vrl.follow_up_status != 'resolved'`,
+        [unreportedIds, shiftDate, shiftDate, shiftNumber]
+      );
+
+      const carryOverMap = new Map();
+      for (const prev of prevLogs) {
+        if (!carryOverMap.has(prev.vehicle_id)) {
+          carryOverMap.set(prev.vehicle_id, prev);
+        }
+      }
+
+      for (const item of vehicles) {
+        if ((!item.status || item.status === 'belum_dilaporkan') && carryOverMap.has(item.id)) {
+          const prev = carryOverMap.get(item.id);
+          item.status = 'unserviceable';
+          item.justification = prev.justification || item.justification;
+        }
+      }
+    }
 
     // Ambil kesiapan watchroom dari vehicle_readiness_logs
     const [watchrooms] = await pool.query(
@@ -187,7 +229,7 @@ export const getShiftReportPdf = async (req, res) => {
       activities = acts;
     }
 
-    const isShiftClosed = shiftData.status === 'closed';
+    const isOfficial = isShiftOfficial(shiftDate, shiftNumber, shiftData?.status);
 
     const reportPayload = {
       shift_date: shiftData.shift_date,
@@ -198,8 +240,9 @@ export const getShiftReportPdf = async (req, res) => {
       supervisor_signature_url: supervisorSignatureUrl,
       dept_head_name: deptHeadData?.name || 'Section Head ARFF',
       dept_head_nip: deptHeadData?.nip || null,
-      dept_head_signature_url: isShiftClosed ? (deptHeadData?.signature_url || null) : null,
+      dept_head_signature_url: isOfficial ? (deptHeadData?.signature_url || null) : null,
       status: shiftData.status,
+      is_official: isOfficial,
       vehicles,
       watchroom: watchrooms.length > 0 ? watchrooms[0] : {},
       deployments,
@@ -208,37 +251,12 @@ export const getShiftReportPdf = async (req, res) => {
       activities
     };
 
-    const doc = await generateShiftReportPdf(reportPayload);
+        const doc = await generateShiftReportPdf(reportPayload);
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader(
-      'Content-Disposition',
-      `inline; filename="laporan-shift-${shiftNumber}-${teamGroup}-${shiftDate}.pdf"`
-    );
-
-    const chunks = [];
-    doc.on('data', (chunk) => chunks.push(chunk));
-    doc.on('end', () => {
-      const resultBuffer = Buffer.concat(chunks);
-      setPdfCache(cacheKey, resultBuffer);
+    streamPdfToResponse(doc, res, req, {
+      filename: `laporan-shift-${shiftNumber}-${teamGroup}-${shiftDate}.pdf`,
+      onEnd: (resultBuffer) => setPdfCache(cacheKey, resultBuffer)
     });
-
-    doc.on('error', (err) => {
-      console.error('PDFKit stream error (ShiftReportPdf):', err);
-      if (!res.headersSent) {
-        return errorResponse(res, 'Gagal menerbitkan laporan PDF: ' + err.message, 500);
-      }
-      res.destroy(err);
-    });
-
-    req.on('close', () => {
-      if (!doc.destroyed && typeof doc.destroy === 'function') {
-        doc.destroy();
-      }
-    });
-
-    doc.pipe(res);
-    doc.end();
   } catch (error) {
     console.error('Error getShiftReportPdf:', error);
     return errorResponse(res, 'Gagal menerbitkan laporan PDF: ' + error.message, 500);
@@ -268,7 +286,7 @@ export const getShiftSummaryReport = async (req, res) => {
       vehicleIssues
     ] = await Promise.all([
       pool.query(
-        `SELECT ps.*, u.name as supervisor_name, u.signature_url as user_sig, p.signature_url as pers_sig, p.nip as supervisor_nip
+        `SELECT ps.*, COALESCE(p.full_name, u.name) as supervisor_name, u.signature_url as user_sig, p.signature_url as pers_sig, p.nip as supervisor_nip
          FROM personnel_shifts ps
          LEFT JOIN users u ON u.id = ps.supervisor_id
          LEFT JOIN personnel p ON p.user_id = u.id
@@ -472,6 +490,8 @@ export const getShiftSummaryReport = async (req, res) => {
       }));
     }
 
+    const isOfficial = isShiftOfficial(shiftDate, shiftNumber, shiftData?.status);
+
     const officialObj = {
       id: deptHeadData?.id || null,
       user_id: deptHeadData?.user_id || null,
@@ -489,12 +509,14 @@ export const getShiftSummaryReport = async (req, res) => {
       success: true,
       message: 'Rekapitulasi shift berhasil diambil',
       data: {
+        is_official: isOfficial,
         shift: {
           id: shiftData.id || null,
           shift_date: shiftData.shift_date,
           shift_number: shiftData.shift_number,
           team_group: shiftData.team_group,
           status: shiftData.status,
+          is_official: isOfficial,
           handover_notes: shiftData.handover_notes || null,
           supervisor_name: supervisorName,
           supervisor_nip: supervisorNip,

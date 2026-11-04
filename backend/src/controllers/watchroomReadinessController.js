@@ -1,5 +1,6 @@
 import pool from '../config/db.js';
 import { successResponse, errorResponse } from '../utils/responseHelper.js';
+import { clearPdfCache } from '../services/pdfService.js';
 
 export const getWatchroomReadiness = async (req, res) => {
   try {
@@ -20,7 +21,7 @@ export const getWatchroomReadiness = async (req, res) => {
       [shiftDate, shiftNumber, targetTeam]
     );
 
-    if (rows.length === 0) {
+    if (rows.length === 0 || rows[0].status === 'belum_dilaporkan') {
       // Carry-over kendala: jika belum dilaporkan, cek apakah shift sebelumnya unserviceable
       const [prevLogs] = await pool.query(
         `SELECT vrl.*, v.code_name, v.vehicle_name, p.full_name as inspector_name
@@ -39,6 +40,7 @@ export const getWatchroomReadiness = async (req, res) => {
       if (prevLogs.length > 0) {
         const prev = prevLogs[0];
         return successResponse(res, 'Data kesiapan watchroom (carry-over kendala)', {
+          ...(rows.length > 0 ? rows[0] : {}),
           ...prev,
           shift_date: shiftDate,
           shift_number: shiftNumber,
@@ -52,6 +54,10 @@ export const getWatchroomReadiness = async (req, res) => {
             reported_by: prev.inspector_name
           }
         });
+      }
+
+      if (rows.length > 0) {
+        return successResponse(res, 'Kesiapan watchroom belum dilaporkan pada shift ini', rows[0]);
       }
 
       return successResponse(res, 'Kesiapan watchroom belum dilaporkan pada shift ini', {
@@ -169,6 +175,7 @@ export const submitWatchroomReadiness = async (req, res) => {
       [wrId, shift_date, shift_number, targetTeam]
     );
 
+    clearPdfCache();
     return successResponse(res, 'Kesiapan watchroom berhasil dilaporkan', updated[0]);
   } catch (error) {
     console.error('Error submitWatchroomReadiness:', error);

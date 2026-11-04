@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import { downloadIncidentReportPdf } from '../services/reportService';
+import { buildAuthenticatedFileUrl } from '../utils/fileHelper';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
@@ -726,11 +727,11 @@ export default function IncidentReportsPage() {
                       className="group relative aspect-video rounded-lg overflow-hidden border border-slate-200 bg-slate-100 cursor-pointer shadow-xs hover:border-red-500 transition-colors duration-100"
                     >
                       <img
-                        src={att.file_path}
+                        src={buildAuthenticatedFileUrl(att.file_path)}
                         alt={`Lampiran ${aIdx + 1}`}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-150"
                         onError={(e) => {
-                          e.target.style.display = 'none';
+                          e.currentTarget.style.display = 'none';
                         }}
                       />
                       <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-100">
@@ -758,8 +759,11 @@ export default function IncidentReportsPage() {
                     <X className="w-4 h-4" />
                   </button>
                   <img
-                    src={activePhoto}
+                    src={buildAuthenticatedFileUrl(activePhoto)}
                     alt="Foto TKP Pembesaran"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
                     className="w-full h-auto max-h-[80vh] object-contain"
                   />
                 </div>
