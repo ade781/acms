@@ -123,6 +123,24 @@ export const protectPrivateUploads = async (req, res, next) => {
         }
       }
     } else {
+      // Cek apakah berkas merupakan dokumen pemeliharaan/kendala armada operasional
+      const [maintRows] = await pool.query(
+        'SELECT id FROM vehicle_maintenance_records WHERE document_url LIKE ? OR document_name = ?',
+        [`%${filename}`, filename]
+      );
+      if (maintRows.length > 0) {
+        if (!fs.existsSync(targetFilePath)) {
+          return res.status(404).json({
+            success: false,
+            message: 'Berkas tidak ditemukan pada server'
+          });
+        }
+        res.setHeader('Content-Type', 'application/pdf');
+        const dispositionType = req.query.download === '1' || req.query.download === 'true' ? 'attachment' : 'inline';
+        res.setHeader('Content-Disposition', `${dispositionType}; filename="${filename}"`);
+        return res.sendFile(targetFilePath);
+      }
+
       if (!isLeadership) {
         const [docRows] = await pool.query(
           `SELECT pd.id, pd.personnel_id, pd.uploaded_by, p.user_id

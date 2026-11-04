@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Download,
   AlertCircle,
-  RefreshCw,
   CheckCircle,
   Truck,
   Radio,
@@ -11,40 +10,19 @@ import {
   Eye,
   MapPin,
   ChevronRight,
-  Calendar,
-  ChevronLeft,
-  Clock,
-  Shield,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import {
-  cleanTeam,
-  formatTeam,
-  formatIndoDate,
-  getDailyRoster,
-  SHIFT_DEFINITIONS,
-} from '../utils/shiftHelper';
-import { getErrorMessage } from '../utils/errorHelper';
+import { cleanTeam } from '../utils/shiftHelper';
 import { fetchShiftReportData, downloadShiftReportPdf } from '../services/reportService';
 import Button from '../components/common/Button';
 import MobileUnitAuditModal from '../components/mobile/reports/MobileUnitAuditModal';
 import MobilePdfViewerModal from '../components/mobile/reports/MobilePdfViewerModal';
 import MobileSignaturesSection from '../components/mobile/reports/MobileSignaturesSection';
 
-/**
- * Halaman Rekapitulasi Laporan Dinas Operasional Harian ARFF YIA (24 Jam) - Desktop View
- * Merangkum 3 Shift dan 3 Regu Dinas (Shift 1 Pagi, Shift 2 Siang, Shift 3 Malam, dan Regu Off) dalam 1 Tanggal.
- * Sesuai panduan GEMINI.md & AGENTS.md: Bebas tombol sahkan manual, anti-slop, dan tipografi padat profesional.
- */
 export default function ShiftReportsPage() {
-  const { activeDate } = useAuth();
+  const { activeDate, activeShiftNumber, activeTeam } = useAuth();
   const abortControllerRef = useRef(null);
   const successTimerRef = useRef(null);
-
-  // Kontrol Tanggal Dinas Harian
-  const [selectedDate, setSelectedDate] = useState(
-    activeDate || new Date().toISOString().split('T')[0]
-  );
 
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
@@ -52,34 +30,30 @@ export default function ShiftReportsPage() {
   const [downloadSuccess, setDownloadSuccess] = useState(null);
   const [fetchError, setFetchError] = useState(null);
 
-  // Tab kru shift aktif (1, 2, atau 3)
-  const [selectedCrewShift, setSelectedCrewShift] = useState(1);
-
-  // Data State Laporan 24 Jam
-  const [roster, setRoster] = useState(() => getDailyRoster(selectedDate));
+  // Data State Sesuai Standar Operasional Resmi ARFF YIA
+  const [shiftData, setShiftData] = useState(null);
   const [deptHeadData, setDeptHeadData] = useState(null);
-  const [shiftsData, setShiftsData] = useState(null);
-  const [vehiclesDaily, setVehiclesDaily] = useState([]);
-  const [activities24h, setActivities24h] = useState([]);
-  const [incidents24h, setIncidents24h] = useState([]);
-  const [absents24h, setAbsents24h] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
+  const [watchroomData, setWatchroomData] = useState({});
+  const [deployments, setDeployments] = useState([]);
+  const [absents, setAbsents] = useState([]);
   const [vehicleIssues, setVehicleIssues] = useState({
     current_issues: [],
     backlog_issues: [],
     resolved_this_shift: [],
   });
-
-  // Backward compatibility state untuk modal audit
-  const [vehicles, setVehicles] = useState([]);
-  const [watchroomData, setWatchroomData] = useState({});
+  const [activities, setActivities] = useState([]);
+  const [incidents, setIncidents] = useState([]);
 
   // Modal State
   const [selectedAuditUnit, setSelectedAuditUnit] = useState(null);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
-  // Fetch data laporan operasional 24 jam terpadu
-  const loadDailyReport = useCallback(async () => {
+  const currentTeam = cleanTeam(activeTeam || 'Alpha');
+
+  // Fetch data laporan operasional terpadu (Single Source of Truth)
+  const fetchShiftData = useCallback(async () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -91,33 +65,34 @@ export default function ShiftReportsPage() {
       setFetchError(null);
 
       const data = await fetchShiftReportData({
-        date: selectedDate,
+        date: activeDate,
+        shift: activeShiftNumber,
+        team: activeTeam,
         signal: controller.signal,
       });
 
-      setRoster(data.roster || getDailyRoster(selectedDate));
+      setShiftData(data.shiftData);
       setDeptHeadData(data.deptHeadData);
-      setShiftsData(data.shiftsData);
-      setVehiclesDaily(data.vehiclesDaily || []);
-      setActivities24h(data.activities24h || []);
-      setIncidents24h(data.incidents24h || []);
-      setAbsents24h(data.absents24h || []);
-      setVehicleIssues(data.vehicleIssues || { current_issues: [], backlog_issues: [], resolved_this_shift: [] });
-      setVehicles(data.vehicles || []);
-      setWatchroomData(data.watchroomData || {});
+      setDeployments(data.deployments);
+      setAbsents(data.absents);
+      setVehicles(data.vehicles);
+      setWatchroomData(data.watchroomData);
+      setVehicleIssues(data.vehicleIssues);
+      setActivities(data.activities);
+      setIncidents(data.incidents);
     } catch (err) {
       if (err.name === 'CanceledError' || err.name === 'AbortError') return;
-      console.error('Fetch daily report preview error:', err);
+      console.error('Fetch shift report preview error:', err);
       setFetchError(
-        getErrorMessage(err, 'Gagal memuat pratinjau data laporan harian 24 jam. Silakan coba kembali.')
+        'Gagal memuat pratinjau data operasional shift. Silakan periksa koneksi server atau coba lagi.'
       );
     } finally {
       setLoading(false);
     }
-  }, [selectedDate]);
+  }, [activeDate, activeShiftNumber, activeTeam]);
 
   useEffect(() => {
-    loadDailyReport();
+    fetchShiftData();
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
@@ -126,20 +101,7 @@ export default function ShiftReportsPage() {
         clearTimeout(successTimerRef.current);
       }
     };
-  }, [loadDailyReport]);
-
-  // Navigasi Tanggal Harian
-  const changeDateBy = (offsetDays) => {
-    const d = new Date(selectedDate);
-    if (!isNaN(d.getTime())) {
-      d.setDate(d.getDate() + offsetDays);
-      setSelectedDate(d.toISOString().split('T')[0]);
-    }
-  };
-
-  const handleSetToday = () => {
-    setSelectedDate(new Date().toISOString().split('T')[0]);
-  };
+  }, [fetchShiftData]);
 
   const handleExportPDF = async () => {
     try {
@@ -151,126 +113,48 @@ export default function ShiftReportsPage() {
       }
 
       await downloadShiftReportPdf({
-        date: selectedDate,
+        date: activeDate,
+        shift: activeShiftNumber,
+        team: activeTeam,
       });
 
-      setDownloadSuccess('Berkas PDF dokumen dinas resmi 24 jam berhasil diunduh.');
+      setDownloadSuccess('Berkas PDF dokumen dinas resmi berhasil diunduh.');
       successTimerRef.current = setTimeout(() => {
         setDownloadSuccess(null);
       }, 4000);
     } catch (err) {
       console.error('Download PDF error:', err);
       setDownloadError(
-        getErrorMessage(err, 'Gagal mengunduh berkas PDF laporan dinas. Pastikan data tanggal valid.')
+        'Gagal mengunduh berkas PDF laporan dinas. Pastikan data shift valid.'
       );
     } finally {
       setDownloading(false);
     }
   };
 
-  // Metrik Ringkasan 24 Jam
-  const totalFleetUnits = vehiclesDaily.length || 8;
-  const serviceableAnywhereCount = vehiclesDaily.filter((v) => {
-    const s1 = v.shift1?.status === 'serviceable';
-    const s2 = v.shift2?.status === 'serviceable';
-    const s3 = v.shift3?.status === 'serviceable';
-    return s1 || s2 || s3;
-  }).length;
 
-  const totalCrewPresent = shiftsData
-    ? (shiftsData[1]?.presentDeployments?.length || 0) +
-      (shiftsData[2]?.presentDeployments?.length || 0) +
-      (shiftsData[3]?.presentDeployments?.length || 0)
-    : 0;
+  const presentDeployments = deployments.filter((d) => d.deployment_type !== 'absent');
+  const serviceableCount = vehicles.filter((v) => v.status === 'serviceable').length;
+  const unserviceableCount = vehicles.filter((v) => v.status === 'unserviceable').length;
+  const unverifiedCount = vehicles.filter((v) => !v.status || v.status === 'belum_dilaporkan').length;
+  const totalUnits = vehicles.length;
 
-  const watchroomUnit = vehiclesDaily.find((v) => v.category === 'posko' || v.code_name === 'WATCHROOM');
-
-  // Status penutupan shift keseluruhan
-  const isAllClosed = shiftsData
-    ? Object.values(shiftsData).every((s) => (s.status || '').toLowerCase() === 'closed')
-    : false;
-
-  // Data kru shift terpilih untuk tab penugasan
-  const activeShiftInfo = shiftsData?.[selectedCrewShift] || {
-    shiftNumber: selectedCrewShift,
-    teamGroup: selectedCrewShift === 1 ? roster.shift1 : selectedCrewShift === 2 ? roster.shift2 : roster.shift3,
-    shiftName: `Shift ${selectedCrewShift}`,
-    supervisor_name: '-',
-    supervisor_nip: '-',
-    deployments: [],
-    presentDeployments: [],
-    absents: [],
-  };
+  const watchroomUnit = vehicles.find((v) => v.category === 'posko' || v.code_name === 'WATCHROOM');
+  const watchroomStatus = watchroomUnit?.status || watchroomData?.status || 'belum_dilaporkan';
 
   return (
-    <div className="space-y-4 font-sans">
-      {/* 1. EXECUTIVE DOCUMENT CONTROL CARD & DATE PICKER */}
+    <div className="space-y-4">
+      {/* Executive Document Control Card + Integrated Horizontal Metric Ledger */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-        {/* Top Row: Title, Date Navigation, & Action Buttons */}
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
+        {/* Top Row: Title & Document Export Actions */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
           <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-lg font-bold tracking-tight text-slate-900 font-sans">
-                Laporan Harian Operasional ARFF (24 Jam)
-              </h2>
-              <span
-                className={`px-2.5 py-0.5 rounded text-xs font-bold border ${
-                  isAllClosed
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    : 'bg-red-50 text-red-700 border-red-200'
-                }`}
-              >
-                {isAllClosed ? 'Sah • Rekapitulasi Final' : 'Draft • Belum Disahkan'}
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Rekapitulasi terpadu 3 shift operasional & rotasi 4 regu dinas Bandara Internasional Yogyakarta
-            </p>
+            <h2 className="text-lg font-bold tracking-tight text-slate-900 font-sans">
+              Laporan Operasional Dinas
+            </h2>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Date Switcher Controller */}
-            <div className="flex items-center bg-slate-50 rounded-lg border border-slate-200 p-1">
-              <button
-                type="button"
-                onClick={() => changeDateBy(-1)}
-                className="p-1.5 rounded hover:bg-slate-200 text-slate-600 transition-colors duration-100"
-                title="Hari Sebelumnya"
-                aria-label="Hari Sebelumnya"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-
-              <div className="flex items-center gap-1.5 px-2">
-                <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
-                  className="text-xs font-bold font-mono text-slate-900 bg-transparent border-0 focus:ring-0 p-0 cursor-pointer"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={() => changeDateBy(1)}
-                className="p-1.5 rounded hover:bg-slate-200 text-slate-600 transition-colors duration-100"
-                title="Hari Berikutnya"
-                aria-label="Hari Berikutnya"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSetToday}
-                className="ml-1 px-2 py-1 rounded bg-white text-slate-700 hover:bg-slate-100 text-xs font-semibold border border-slate-200 shadow-2xs transition-colors duration-100"
-              >
-                Hari Ini
-              </button>
-            </div>
-
-            {/* Aksi Dokumen */}
             <Button
               variant="outline"
               size="sm"
@@ -279,16 +163,6 @@ export default function ShiftReportsPage() {
               disabled={loading}
             >
               Pratinjau Surat (A4)
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              icon={RefreshCw}
-              onClick={loadDailyReport}
-              disabled={loading || downloading}
-            >
-              {loading ? 'Menyinkron...' : 'Segarkan'}
             </Button>
 
             <Button
@@ -303,40 +177,48 @@ export default function ShiftReportsPage() {
           </div>
         </div>
 
-        {/* Bottom Row: Tabular Ledger Strip 24 Jam */}
+        {/* Bottom Row: Compact 4-Column Tabular Ledger Strip */}
         <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 bg-slate-50/60 text-xs font-sans">
-          {/* 1. Kesiapan Armada 24 Jam */}
+          {/* 1. Kesiapan Armada */}
           <div className="px-4 py-2.5 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-slate-600">
               <Truck className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="font-semibold">Armada Siaga</span>
+              <span className="font-semibold">Kesiapan Armada</span>
             </div>
             <div className="text-right">
-              <span className="font-bold text-slate-900 font-mono tabular-nums">
-                {serviceableAnywhereCount}/{totalFleetUnits}
-              </span>{' '}
-              <span className="text-emerald-700 font-bold text-xs">(Serviceable)</span>
-            </div>
-          </div>
-
-          {/* 2. Total Presensi Kru 24 Jam */}
-          <div className="px-4 py-2.5 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-slate-600">
-              <Users className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="font-semibold">Presensi Kru (3 Shift)</span>
-            </div>
-            <div className="text-right">
-              <span className="font-bold text-slate-900 font-mono tabular-nums">
-                {totalCrewPresent}
-              </span>{' '}
-              <span className="font-bold text-slate-900">Bertugas</span>
-              <span className="ml-1 text-xs font-bold text-amber-700">
-                ({absents24h.length} Cuti)
+              <span className="font-black text-slate-900 font-mono tabular-nums">{serviceableCount}/{totalUnits || 8}</span>
+              <span className="ml-1.5 text-xs font-bold">
+                {unserviceableCount > 0 ? (
+                  <span className="text-red-600">(<span className="font-mono tabular-nums">{unserviceableCount}</span> Rusak)</span>
+                ) : unverifiedCount > 0 ? (
+                  <span className="text-amber-700">(<span className="font-mono tabular-nums">{unverifiedCount}</span> Belum Dicek)</span>
+                ) : (
+                  <span className="text-emerald-700">(Serviceable)</span>
+                )}
               </span>
             </div>
           </div>
 
-          {/* 3. Posko Watchroom */}
+          {/* 2. Personel Dinas */}
+          <div className="px-4 py-2.5 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-slate-600">
+              <Users className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="font-semibold">Personel Dinas</span>
+            </div>
+            <div className="text-right">
+              <span className="font-black text-slate-900 font-mono tabular-nums">{presentDeployments.length}</span>{' '}
+              <span className="font-bold text-slate-900">Hadir</span>
+              <span className="ml-1.5 text-xs font-bold">
+                {absents.length > 0 ? (
+                  <span className="text-amber-700">(<span className="font-mono tabular-nums">{absents.length}</span> Cuti)</span>
+                ) : (
+                  <span className="text-emerald-700">(Nihil Cuti)</span>
+                )}
+              </span>
+            </div>
+          </div>
+
+          {/* 3. Watch Room */}
           <div className="px-4 py-2.5 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-slate-600">
               <Radio className="w-4 h-4 text-slate-400 shrink-0" />
@@ -344,58 +226,61 @@ export default function ShiftReportsPage() {
             </div>
             <span
               className={`px-2 py-0.5 rounded text-xs font-bold ${
-                watchroomUnit?.shift1?.status === 'serviceable' || watchroomUnit?.shift2?.status === 'serviceable' || watchroomUnit?.shift3?.status === 'serviceable'
+                watchroomStatus === 'serviceable'
                   ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : watchroomStatus === 'unserviceable'
+                  ? 'bg-red-50 text-red-700 border border-red-200'
                   : 'bg-slate-100 text-slate-600 border border-slate-200'
               }`}
             >
-              {watchroomUnit?.shift1?.status === 'serviceable' || watchroomUnit?.shift2?.status === 'serviceable' || watchroomUnit?.shift3?.status === 'serviceable'
+              {watchroomStatus === 'serviceable'
                 ? 'Serviceable'
+                : watchroomStatus === 'unserviceable'
+                ? 'Unserviceable'
                 : 'Belum Dicek'}
             </span>
           </div>
 
-          {/* 4. Logbook & Insiden 24 Jam */}
+          {/* 4. Aktivitas & Insiden */}
           <div className="px-4 py-2.5 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-slate-600">
               <FileText className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="font-semibold">Logbook & Insiden 24 Jam</span>
+              <span className="font-semibold">Logbook & Insiden</span>
             </div>
             <div className="text-right font-bold">
-              <span className="text-slate-900">
-                <span className="font-mono tabular-nums">{activities24h.length}</span> Giat
-              </span>
+              <span className="text-slate-900"><span className="font-mono tabular-nums">{activities.length}</span> Giat</span>
               <span className="text-slate-300 mx-1.5">•</span>
-              <span className={incidents24h.length > 0 ? 'text-red-600' : 'text-emerald-700'}>
-                <span className="font-mono tabular-nums">{incidents24h.length}</span> Insiden
+              <span className={incidents.length > 0 ? 'text-red-600' : 'text-emerald-700'}>
+                <span className="font-mono tabular-nums">{incidents.length}</span> Insiden
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Banner Error & Sukses */}
+      {/* Banner Error Pemuatan Data */}
       {fetchError && (
         <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-4 shadow-xs">
           <div className="flex items-center gap-2.5">
             <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-            <span>{fetchError}</span>
+            <span>{typeof fetchError === 'string' ? fetchError : (fetchError?.message || 'Gagal memuat pratinjau data operasional shift.')}</span>
           </div>
           <button
             type="button"
-            onClick={loadDailyReport}
+            onClick={fetchShiftData}
             className="px-3 py-1 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700 text-xs transition-colors duration-100"
           >
-            Muat Ulang
+            Muat Ulang Data
           </button>
         </div>
       )}
 
+      {/* Banner Error Unduh PDF */}
       {downloadError && (
         <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-4 shadow-xs">
           <div className="flex items-center gap-2.5">
             <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-            <span>{downloadError}</span>
+            <span>{typeof downloadError === 'string' ? downloadError : (downloadError?.message || 'Gagal mengunduh berkas PDF laporan dinas.')}</span>
           </div>
           <button
             type="button"
@@ -407,15 +292,21 @@ export default function ShiftReportsPage() {
         </div>
       )}
 
+      {/* Banner Sukses Unduh PDF */}
       {downloadSuccess && (
         <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between gap-4 shadow-xs">
           <div className="flex items-center gap-2.5">
             <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-            <span>{downloadSuccess}</span>
+            <span>{typeof downloadSuccess === 'string' ? downloadSuccess : 'Berkas PDF dokumen dinas resmi berhasil diunduh.'}</span>
           </div>
           <button
             type="button"
-            onClick={() => setDownloadSuccess(null)}
+            onClick={() => {
+              if (successTimerRef.current) {
+                clearTimeout(successTimerRef.current);
+              }
+              setDownloadSuccess(null);
+            }}
             className="text-emerald-600 hover:text-emerald-800 font-bold px-2 py-1"
           >
             Tutup
@@ -423,433 +314,129 @@ export default function ShiftReportsPage() {
         </div>
       )}
 
-      {/* 2. ROSTER BAR 3 SHIFT ELEGAN */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-slate-500" />
-            <h3 className="text-sm font-bold text-slate-900 tracking-wide">
-              Komposisi Roster Dinas 24 Jam • {formatIndoDate(selectedDate)}
-            </h3>
-          </div>
-          <span className="text-xs text-slate-500 font-medium">Siklus Rotasi 8 Hari ARFF</span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Shift 1 (Pagi) */}
-          <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/40 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                Shift 1 (Pagi)
-              </span>
-              <span className="text-xs font-mono font-semibold text-slate-500">07:00 – 13:00</span>
-            </div>
-            <div className="pt-1">
-              <span className="text-sm font-bold text-slate-900 block">Regu {roster.shift1}</span>
-              <p className="text-xs text-slate-600 truncate mt-0.5">
-                Chief: <strong className="text-slate-800">{shiftsData?.[1]?.supervisor_name || `Chief ${roster.shift1}`}</strong>
-              </p>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
-                Kru: <span className="font-mono tabular-nums text-slate-800 font-bold">{shiftsData?.[1]?.presentDeployments?.length || 0}</span> Hadir • <span className="font-mono tabular-nums text-amber-700">{shiftsData?.[1]?.absents?.length || 0}</span> Cuti
-              </p>
-            </div>
-          </div>
-
-          {/* Shift 2 (Siang) */}
-          <div className="p-3 rounded-xl border border-amber-200 bg-amber-50/40 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                Shift 2 (Siang)
-              </span>
-              <span className="text-xs font-mono font-semibold text-slate-500">13:00 – 20:00</span>
-            </div>
-            <div className="pt-1">
-              <span className="text-sm font-bold text-slate-900 block">Regu {roster.shift2}</span>
-              <p className="text-xs text-slate-600 truncate mt-0.5">
-                Chief: <strong className="text-slate-800">{shiftsData?.[2]?.supervisor_name || `Chief ${roster.shift2}`}</strong>
-              </p>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
-                Kru: <span className="font-mono tabular-nums text-slate-800 font-bold">{shiftsData?.[2]?.presentDeployments?.length || 0}</span> Hadir • <span className="font-mono tabular-nums text-amber-700">{shiftsData?.[2]?.absents?.length || 0}</span> Cuti
-              </p>
-            </div>
-          </div>
-
-          {/* Shift 3 (Malam) */}
-          <div className="p-3 rounded-xl border border-indigo-200 bg-indigo-50/40 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
-                Shift 3 (Malam)
-              </span>
-              <span className="text-xs font-mono font-semibold text-slate-500">20:00 – 07:00</span>
-            </div>
-            <div className="pt-1">
-              <span className="text-sm font-bold text-slate-900 block">Regu {roster.shift3}</span>
-              <p className="text-xs text-slate-600 truncate mt-0.5">
-                Chief: <strong className="text-slate-800">{shiftsData?.[3]?.supervisor_name || `Chief ${roster.shift3}`}</strong>
-              </p>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
-                Kru: <span className="font-mono tabular-nums text-slate-800 font-bold">{shiftsData?.[3]?.presentDeployments?.length || 0}</span> Hadir • <span className="font-mono tabular-nums text-amber-700">{shiftsData?.[3]?.absents?.length || 0}</span> Cuti
-              </p>
-            </div>
-          </div>
-
-          {/* Lepas Piket (Off) */}
-          <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/80 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-200 text-slate-700 border border-slate-300">
-                Lepas Piket (Off)
-              </span>
-              <span className="text-xs font-mono font-semibold text-slate-400">24 Jam</span>
-            </div>
-            <div className="pt-1">
-              <span className="text-sm font-bold text-slate-700 block">Regu {roster.offTeam}</span>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Status: <strong className="text-slate-600">Istirahat Bebas Dinas</strong>
-              </p>
-              <p className="text-xs text-slate-400 font-medium mt-0.5">
-                Tidak ada penugasan armada
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. MATRIKS KESIAPAN ARMADA OPERASIONAL 24 JAM */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
-              Matriks Kesiapan Armada Operasional & Posko (24 Jam)
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Pemantauan status fisik kelaikan dan PIC penanggung jawab di setiap pergantian shift
-            </p>
-          </div>
-          <span className="text-xs text-slate-500 font-medium">Klik baris untuk riwayat audit</span>
-        </div>
-
-        {/* Tabel Matriks 3 Shift */}
-        <div className="overflow-x-auto border border-slate-200 rounded-lg">
-          <table className="w-full text-xs text-left">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
-                <th className="py-2.5 px-3">Armada / Fasilitas</th>
-                <th className="py-2.5 px-3">Kategori</th>
-                <th className="py-2.5 px-3">
-                  <div className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <span>Shift 1 (Pagi • Regu {roster.shift1})</span>
-                  </div>
-                </th>
-                <th className="py-2.5 px-3">
-                  <div className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-amber-500" />
-                    <span>Shift 2 (Siang • Regu {roster.shift2})</span>
-                  </div>
-                </th>
-                <th className="py-2.5 px-3">
-                  <div className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-indigo-500" />
-                    <span>Shift 3 (Malam • Regu {roster.shift3})</span>
-                  </div>
-                </th>
-                <th className="py-2.5 px-3 text-right">Audit</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {vehiclesDaily.map((v) => {
-                const isPosko = v.category === 'posko' || v.code_name === 'WATCHROOM';
-
-                const renderShiftCell = (shiftObj) => {
-                  const status = shiftObj?.status || 'belum_dilaporkan';
-                  const isServ = status === 'serviceable';
-                  const isUnserv = status === 'unserviceable';
-
-                  return (
-                    <div className="space-y-0.5">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold border ${
-                          isServ
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                            : isUnserv
-                            ? 'bg-red-50 text-red-800 border-red-300'
-                            : 'bg-slate-50 text-slate-600 border-slate-200'
-                        }`}
-                      >
-                        {isServ ? 'Serviceable' : isUnserv ? 'Unserviceable' : 'Belum Dicek'}
-                      </span>
-                      <p className="text-[11px] text-slate-500 truncate max-w-[140px]">
-                        PIC: <strong className="text-slate-700">{shiftObj?.pic_name || 'Belum Ditunjuk'}</strong>
-                      </p>
-                      {shiftObj?.justification && (
-                        <p className="text-[10px] text-red-600 truncate max-w-[140px]">
-                          {shiftObj.justification}
-                        </p>
-                      )}
-                    </div>
-                  );
-                };
-
-                return (
-                  <tr
-                    key={v.id || v.code_name}
-                    onClick={() => {
-                      setSelectedAuditUnit(v);
-                      setIsAuditModalOpen(true);
-                    }}
-                    className="hover:bg-slate-50/70 transition-colors duration-100 cursor-pointer"
-                  >
-                    <td className="py-2.5 px-3">
-                      <div className="flex items-center gap-2">
-                        {isPosko && <Radio className="w-4 h-4 text-blue-600 shrink-0" />}
-                        <div>
-                          <span className="font-bold text-slate-900 font-mono tabular-nums block text-xs">
-                            {v.code_name}
-                          </span>
-                          <span className="text-slate-600 text-xs">{v.vehicle_name}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                          isPosko ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600'
-                        }`}
-                      >
-                        {isPosko ? 'Posko' : v.category}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3">{renderShiftCell(v.shift1)}</td>
-                    <td className="py-2.5 px-3">{renderShiftCell(v.shift2)}</td>
-                    <td className="py-2.5 px-3">{renderShiftCell(v.shift3)}</td>
-                    <td className="py-2.5 px-3 text-right">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedAuditUnit(v);
-                          setIsAuditModalOpen(true);
-                        }}
-                        className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-700 transition-colors duration-100"
-                        title="Buka Audit Trail Unit"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* 4. PENUGASAN KRU & PRESENSI PER SHIFT */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
-              Penugasan Armada & Presensi Personel Per Shift
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Pilih tab shift untuk melihat formasi kru lapangan dan personel yang izin/cuti
-            </p>
-          </div>
-
-          {/* Shift Tab Selector (Segmented Clean Bar) */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200/80">
-            {[1, 2, 3].map((num) => {
-              const isActive = selectedCrewShift === num;
-              const shiftTeam = num === 1 ? roster.shift1 : num === 2 ? roster.shift2 : roster.shift3;
-              return (
-                <button
-                  key={`crew-tab-${num}`}
-                  type="button"
-                  onClick={() => setSelectedCrewShift(num)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors duration-100 ${
-                    isActive
-                      ? 'bg-white text-slate-900 shadow-2xs border border-slate-200/80'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Shift {num} (Regu {shiftTeam})
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Info Card Supervisor / Chief Shift Terpilih */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200 text-xs">
-          <div>
-            <span className="text-slate-500 block font-semibold text-xs">Ketua Regu (Chief):</span>
-            <span className="font-bold text-slate-900 text-sm mt-0.5 block">
-              {activeShiftInfo.supervisor_name || `Chief Regu ${activeShiftInfo.teamGroup}`}
-            </span>
-            {activeShiftInfo.supervisor_nip && activeShiftInfo.supervisor_nip !== '-' && (
-              <span className="text-slate-500 font-mono tabular-nums text-xs">
-                NIP. {activeShiftInfo.supervisor_nip}
-              </span>
-            )}
-          </div>
-          <div>
-            <span className="text-slate-500 block font-semibold text-xs">Jam Dinas:</span>
-            <span className="font-bold text-slate-900 mt-0.5 block">
-              {selectedCrewShift === 1 ? '07:00 – 13:00 WIB (Pagi)' : selectedCrewShift === 2 ? '13:00 – 20:00 WIB (Siang)' : '20:00 – 07:00 WIB (Malam)'}
-            </span>
-          </div>
-          <div>
-            <span className="text-slate-500 block font-semibold text-xs">Presensi Personel:</span>
-            <span className="font-bold text-slate-900 mt-0.5 block">
-              <span className="font-mono tabular-nums text-slate-900 font-bold">{activeShiftInfo.presentDeployments?.length || 0}</span> Hadir Bertugas
-              <span className="text-amber-700 ml-1.5 font-bold">({activeShiftInfo.absents?.length || 0} Izin/Cuti)</span>
-            </span>
-          </div>
-        </div>
-
-        {/* Grid Ploting Penugasan Armada Pada Shift Terpilih */}
-        <div className="space-y-3">
-          <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wide">
-            Formasi Penugasan Kru Unit & Posko ({activeShiftInfo.shiftName})
-          </h4>
-
-          {activeShiftInfo.deployments?.length === 0 ? (
-            <p className="text-xs text-slate-500 italic p-4 text-center bg-slate-50 rounded-lg border border-slate-200">
-              Belum ada data penugasan formasi personel yang tercatat pada shift ini.
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {/* Kelompokkan deployment per vehicle */}
-              {(() => {
-                const groupMap = new Map();
-                activeShiftInfo.deployments.forEach((d) => {
-                  const vName = d.vehicle_name || d.vehicle_code || (d.deployment_type === 'posko' ? 'Posko Komunikasi' : 'Lainnya');
-                  if (!groupMap.has(vName)) {
-                    groupMap.set(vName, { code: d.vehicle_code, name: vName, crew: [] });
-                  }
-                  groupMap.get(vName).crew.push(d);
-                });
-
-                return Array.from(groupMap.values()).map((grp, gIdx) => (
-                  <div
-                    key={`grp-${gIdx}`}
-                    className="p-3 rounded-lg border border-slate-200 bg-white shadow-2xs space-y-2 text-xs"
-                  >
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-                      <span className="font-bold text-slate-900 truncate">
-                        {grp.code ? `${grp.code} - ` : ''}{grp.name}
-                      </span>
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                        {grp.crew.length} Kru
-                      </span>
-                    </div>
-
-                    <div className="space-y-1">
-                      {grp.crew.map((c, cIdx) => (
-                        <div
-                          key={`crew-member-${c.personnel_id || cIdx}`}
-                          className="flex items-center justify-between text-xs py-0.5"
-                        >
-                          <span className="text-slate-800 font-medium truncate max-w-[150px]">
-                            {c.full_name}
-                          </span>
-                          <span
-                            className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
-                              c.is_pic
-                                ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                                : 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
-                            {c.is_pic ? 'PIC' : 'Kru'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ));
-              })()}
-            </div>
-          )}
-
-          {/* Daftar Cuti / Izin Shift Terpilih */}
-          {activeShiftInfo.absents?.length > 0 && (
-            <div className="mt-3 p-3 rounded-lg bg-amber-50/60 border border-amber-200 text-xs space-y-1">
-              <span className="font-bold text-amber-900 block">
-                Personel Berhalangan / Cuti ({activeShiftInfo.absents.length} Personel):
-              </span>
-              <div className="flex flex-wrap gap-2 pt-1">
-                {activeShiftInfo.absents.map((ab, abIdx) => (
-                  <span
-                    key={`abs-${ab.personnel_id || abIdx}`}
-                    className="px-2 py-1 rounded bg-white border border-amber-300 text-slate-800 font-medium text-xs"
-                  >
-                    {ab.full_name} ({ab.absent_reason || ab.notes || 'Cuti/Izin'})
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 5. DUA KOLOM: JURNAL KEGIATAN 24 JAM & REKAPITULASI INSIDEN */}
+      {/* Grid Utama Laporan Dinas Format Modular */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* KOLOM KIRI: Logbook Rangkaian Kegiatan 24 Jam */}
-        <div className="lg:col-span-7 space-y-4">
+        {/* KOLOM KIRI: Kesiapan Unit Operasional & Posko */}
+        <div className="lg:col-span-7 space-y-6">
+          {/* 1. Kesiapan Fasilitas & Unit Armada Operasional */}
           <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4 font-sans">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
-                  Jurnal Kegiatan Dinas Operasional 24 Jam (Logbook)
+                  Kesiapan Unit Operasional & Posko
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Kronologis pelaksanaan tugas, latihan, pemeliharaan, dan siaga pergerakan
-                </p>
               </div>
-              <span className="text-xs font-mono font-bold text-slate-700">
-                {activities24h.length} Kegiatan
-              </span>
             </div>
 
-            {activities24h.length === 0 ? (
-              <p className="text-xs text-slate-500 font-medium italic p-4 text-center bg-slate-50 rounded-lg border border-slate-200">
-                Belum ada kegiatan rutin yang dicatat pada hari ini.
+            {/* List Flat Rows Armada & Posko */}
+            <div className="divide-y divide-slate-100">
+              {vehicles.map((v) => {
+                const isServ = v.status === 'serviceable';
+                const isUnserv = v.status === 'unserviceable';
+                const isPosko = v.category === 'posko' || v.code_name === 'WATCHROOM';
+
+                return (
+                  <div
+                    key={v.id || v.code_name || `veh-${v.vehicle_name}`}
+                    className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        {isPosko && (
+                          <Radio className="w-4 h-4 text-blue-600 shrink-0" />
+                        )}
+                        <span className="font-bold text-slate-900 text-sm truncate">
+                          <span className="font-mono tabular-nums">{v.code_name}</span> - {v.vehicle_name}
+                        </span>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded font-semibold font-sans uppercase ${
+                            isPosko ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {isPosko ? 'Posko Komunikasi' : v.category === 'utama' ? 'Utama' : 'Pendukung'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                        <span>
+                          PIC: <strong className="text-slate-700">{v.pic_name || 'Belum Ditunjuk'}</strong>
+                        </span>
+                        {(v.justification || v.notes) && (
+                          <>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-red-700 font-medium truncate max-w-xs">
+                              {v.justification || v.notes}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedAuditUnit(v);
+                        setIsAuditModalOpen(true);
+                      }}
+                      className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors duration-100 flex items-center gap-1.5 shrink-0 ${
+                        isServ
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                          : isUnserv
+                          ? 'bg-red-50 text-red-800 border-red-300 hover:bg-red-100'
+                          : 'bg-slate-50 text-slate-600 border-slate-300 hover:bg-slate-100'
+                      }`}
+                      title="Klik untuk membuka riwayat audit kendala unit"
+                    >
+                      <span
+                        className={`w-2 h-2 rounded-full ${
+                          isServ ? 'bg-emerald-600' : isUnserv ? 'bg-red-600' : 'bg-slate-400'
+                        }`}
+                      />
+                      <span>
+                        {isServ ? 'Serviceable' : isUnserv ? 'Unserviceable' : 'Belum Dicek'}
+                      </span>
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* KOLOM KANAN: Logbook Kegiatan, Insiden, & Pengesahan */}
+        <div className="lg:col-span-5 space-y-6">
+          {/* 2. Rangkaian Kegiatan Shift (Logbook) */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4 font-sans">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
+                Rangkaian Kegiatan Shift
+              </h3>
+            </div>
+
+            {activities.length === 0 ? (
+              <p className="text-xs text-slate-600 font-medium italic p-3 text-center bg-slate-50 rounded-lg border border-slate-200">
+                Belum ada kegiatan rutin yang dicatat pada sesi shift ini.
               </p>
             ) : (
               <div className="space-y-2.5">
-                {activities24h.map((act, actIdx) => (
+                {activities.map((act) => (
                   <div
-                    key={act.id || `act-${actIdx}`}
+                    key={act.id || `act-${act.activity_time || act.title}`}
                     className="p-3 rounded-lg bg-slate-50 border border-slate-200/80 space-y-1.5 text-xs"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
-                            act.shift_number === 1
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                              : act.shift_number === 2
-                              ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                              : 'bg-indigo-100 text-indigo-800 border border-indigo-300'
-                          }`}
-                        >
-                          Shift {act.shift_number || 1} • {act.team_group || 'Alpha'}
-                        </span>
-                        <span className="font-bold text-slate-900 text-sm truncate">
-                          {act.title}
-                        </span>
-                      </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-900 text-sm">
+                        {act.title}
+                      </span>
                       <span className="font-mono tabular-nums text-red-600 text-xs font-bold shrink-0">
                         {act.activity_time ? act.activity_time.substring(0, 5) : '-'} WIB
                       </span>
                     </div>
-
                     {act.description && (
                       <p className="text-xs text-slate-600 leading-relaxed">
                         {act.description}
                       </p>
                     )}
-
                     {act.photo_webp_url && (
                       <div className="mt-2 flex items-center gap-2 p-1.5 rounded-lg bg-white border border-slate-200 text-xs text-slate-700">
                         <img
@@ -865,56 +452,34 @@ export default function ShiftReportsPage() {
               </div>
             )}
           </div>
-        </div>
 
-        {/* KOLOM KANAN: Rekapitulasi Insiden 24 Jam */}
-        <div className="lg:col-span-5 space-y-4">
+          {/* 3. Rekapitulasi Insiden & Kejadian Airside */}
           <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4 font-sans">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
-                  Rekapitulasi Kejadian & Insiden (24 Jam)
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Laporan kejadian gawat darurat dan insiden keselamatan airside
-                </p>
-              </div>
-              <span className="text-xs font-mono font-bold text-slate-700">
-                {incidents24h.length} Insiden
-              </span>
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
+                Rekapitulasi Kejadian & Insiden
+              </h3>
             </div>
 
-            {incidents24h.length === 0 ? (
-              <div className="p-3.5 rounded-lg bg-emerald-50/70 border border-emerald-200 text-xs text-emerald-800 space-y-1">
-                <span className="font-bold block flex items-center gap-1.5">
-                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Kondisi Aman & Terkendali</span>
-                </span>
-                <p className="text-slate-600">
-                  Nihil kejadian darurat maupun insiden luar biasa dilaporkan selama 24 jam operasional hari ini.
-                </p>
-              </div>
+            {incidents.length === 0 ? (
+              <p className="text-xs text-emerald-700 bg-emerald-50/60 p-3 rounded-lg border border-emerald-200">
+                ✓ Nihil kejadian darurat maupun insiden luar biasa pada shift ini.
+              </p>
             ) : (
               <div className="space-y-2.5 text-xs">
-                {incidents24h.map((inc, incIdx) => (
+                {incidents.map((inc) => (
                   <div
-                    key={inc.id || `inc-${incIdx}`}
+                    key={inc.id || `inc-${inc.incident_time || inc.title}`}
                     className="p-3 rounded-lg bg-red-50/50 border border-red-200 space-y-1.5"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-800 font-bold text-[10px] uppercase">
-                          Shift {inc.shift_number || 1}
-                        </span>
-                        <span className="font-bold text-slate-900 text-sm truncate">
-                          {inc.title}
-                        </span>
-                      </div>
-                      <span className="px-2 py-0.5 rounded bg-red-100 text-red-800 font-bold text-xs uppercase shrink-0">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-900 text-sm">
+                        {inc.title}
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-red-100 text-red-800 font-bold text-xs uppercase">
                         {inc.priority || 'Siaga'}
                       </span>
                     </div>
-
                     <div className="flex items-center gap-2 text-xs text-slate-500">
                       <span className="flex items-center gap-1">
                         <MapPin className="w-3.5 h-3.5" />
@@ -925,7 +490,6 @@ export default function ShiftReportsPage() {
                         Waktu: <span className="font-mono tabular-nums">{inc.incident_time || '-'}</span> WIB
                       </span>
                     </div>
-
                     {inc.action_taken && (
                       <p className="text-xs text-slate-700 leading-relaxed bg-white/90 p-2 rounded border border-slate-200">
                         <strong>Tindakan:</strong> {inc.action_taken}
@@ -936,17 +500,23 @@ export default function ShiftReportsPage() {
               </div>
             )}
           </div>
+
+          {/* 4. Pengesahan Pejabat Dinas Dinamis */}
+          <MobileSignaturesSection
+            deptHead={deptHeadData}
+            supervisor={{
+              name: shiftData?.supervisor_name,
+              nip: shiftData?.supervisor_nip,
+              signature_url: shiftData?.supervisor_signature_url,
+              team_group: currentTeam,
+            }}
+            shiftDate={activeDate}
+            teamGroup={currentTeam}
+            isSheet={false}
+            isClosed={(shiftData?.status || '').toLowerCase() === 'closed'}
+          />
         </div>
       </div>
-
-      {/* 6. PENGESAHAN 4 PEJABAT RESMI OPERASIONAL 24 JAM */}
-      <MobileSignaturesSection
-        deptHead={deptHeadData}
-        shiftsData={shiftsData}
-        shiftDate={selectedDate}
-        isSheet={false}
-        isClosed={isAllClosed}
-      />
 
       {/* MODAL AUDIT TRAIL UNIT ARMADA */}
       <MobileUnitAuditModal
@@ -963,17 +533,18 @@ export default function ShiftReportsPage() {
       <MobilePdfViewerModal
         isOpen={isPdfModalOpen}
         onClose={() => setIsPdfModalOpen(false)}
+        shiftData={shiftData}
         deptHeadData={deptHeadData}
         vehicles={vehicles}
         watchroomData={watchroomData}
+        deployments={deployments}
+        absents={absents}
+        activities={activities}
+        incidents={incidents}
         vehicleIssues={vehicleIssues}
-        shiftDate={selectedDate}
-        roster={roster}
-        shiftsData={shiftsData}
-        vehiclesDaily={vehiclesDaily}
-        activities24h={activities24h}
-        incidents24h={incidents24h}
-        absents24h={absents24h}
+        shiftDate={activeDate}
+        shiftNumber={activeShiftNumber}
+        teamGroup={activeTeam}
       />
     </div>
   );

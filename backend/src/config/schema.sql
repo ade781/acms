@@ -241,3 +241,33 @@ CREATE TABLE IF NOT EXISTS `system_settings` (
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `vehicle_maintenance_records` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `vehicle_id` INT NOT NULL,
+  `start_date` DATE NOT NULL,
+  `start_shift_number` TINYINT NOT NULL DEFAULT 1,
+  `start_team_group` ENUM('Alpha', 'Bravo', 'Charlie', 'Delta') NULL,
+  `reported_by_id` INT NULL,
+  `issue_category` VARCHAR(100) NULL,
+  `issue_description` TEXT NOT NULL,
+  `status` ENUM('ongoing', 'resolved') NOT NULL DEFAULT 'ongoing',
+  `end_date` DATE NULL,
+  `end_shift_number` TINYINT NULL,
+  `end_team_group` ENUM('Alpha', 'Bravo', 'Charlie', 'Delta') NULL,
+  `resolved_by_id` INT NULL,
+  `resolution_notes` TEXT NULL,
+  `technician_vendor` VARCHAR(150) NULL,
+  `document_type` VARCHAR(50) NULL DEFAULT 'ba_kerusakan',
+  `document_url` VARCHAR(255) NULL,
+  `document_name` VARCHAR(255) NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX `idx_vmr_vehicle` (`vehicle_id`),
+  INDEX `idx_vmr_status` (`status`),
+  INDEX `idx_vmr_start_date` (`start_date`),
+  CONSTRAINT `fk_vmr_vehicle` FOREIGN KEY (`vehicle_id`) REFERENCES `vehicles` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_vmr_reported_by` FOREIGN KEY (`reported_by_id`) REFERENCES `personnel` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_vmr_resolved_by` FOREIGN KEY (`resolved_by_id`) REFERENCES `personnel` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

@@ -8,7 +8,6 @@ import {
   Clock,
   MapPin,
   Eye,
-  RefreshCw,
   Search,
   ShieldAlert,
   Camera,
@@ -295,16 +294,6 @@ export default function IncidentReportsPage() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              variant="outline"
-              size="sm"
-              icon={RefreshCw}
-              onClick={fetchSummaryReport}
-              disabled={loading || isExporting}
-            >
-              Segarkan
-            </Button>
-
             <Button
               variant="primary"
               size="sm"

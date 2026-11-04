@@ -44,11 +44,11 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Akses berkas unggahan dengan proteksi berkas rahasia
 const uploadsDir = path.resolve(__dirname, '../uploads');
 
-// Middleware pengaman akses /uploads untuk berkas privat (dokumen kepegawaian & tanda tangan)
-app.use('/uploads', protectPrivateUploads);
+// Middleware pengaman akses /uploads dan /api/uploads untuk berkas privat (dokumen kepegawaian & tanda tangan)
+app.use(['/uploads', '/api/uploads'], protectPrivateUploads);
 
 // Fallback untuk berkas statis dengan Cache-Control 7 hari
-app.use('/uploads', express.static(uploadsDir, { maxAge: '7d', etag: true, lastModified: true }));
+app.use(['/uploads', '/api/uploads'], express.static(uploadsDir, { maxAge: '7d', etag: true, lastModified: true }));
 
 // Route cek kesehatan server
 app.get('/api/health', (req, res) => {

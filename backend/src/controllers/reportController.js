@@ -10,9 +10,7 @@ export { getOfficialSignatory } from '../utils/officialHelper.js';
 
 export {
   getShiftReportPdf,
-  getShiftSummaryReport,
-  getDailySummaryReport,
-  fetchDailyReportData
+  getShiftSummaryReport
 } from './reports/shiftReportsController.js';
 
 export {

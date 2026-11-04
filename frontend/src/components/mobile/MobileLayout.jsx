@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { cleanTeam, getScheduledTeam } from '../../utils/shiftHelper';
@@ -11,18 +11,9 @@ import MandatoryPasswordChangeModal from '../forms/MandatoryPasswordChangeModal'
 import OfflineBanner from '../common/OfflineBanner';
 
 export default function MobileLayout({ children }) {
-  const { user, activeDate, activeShiftNumber, activeTeam, isChief, isAdmin, isSupervisor, resetToToday } = useAuth();
+  const { user, activeDate, activeShiftNumber, activeTeam, isChief, isAdmin, isSupervisor } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const prevPathRef = useRef(location.pathname);
-
-  // Otomatis kembalikan konteks tanggal & shift operasional ke hari ini saat pengguna berpindah menu/halaman mobile
-  useEffect(() => {
-    if (prevPathRef.current !== location.pathname) {
-      prevPathRef.current = location.pathname;
-      resetToToday();
-    }
-  }, [location.pathname, resetToToday]);
 
   // Sub-view profile state
   const [isProfileOpen, setIsProfileOpen] = useState(false);

@@ -11,13 +11,16 @@ import {
   AlertTriangle,
   Edit2,
   Edit3,
-  ShieldAlert,
   ShieldCheck,
   Clock,
+  Camera,
+  Eye,
+  ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam } from '../utils/shiftHelper';
 import { getVehicleIcon } from '../utils/vehicleHelper';
+import { buildAuthenticatedFileUrl } from '../utils/fileHelper';
 import api from '../services/api';
 import VehicleReadinessModal from '../components/forms/VehicleReadinessModal';
 import StateView from '../components/common/StateView';
@@ -42,6 +45,7 @@ export default function VehicleReadinessPage() {
   const [error, setError] = useState(null);
   const [vehicles, setVehicles] = useState([]);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const [previewPhotoVehicle, setPreviewPhotoVehicle] = useState(null);
 
   // Vehicle Management Modal State (Admin only)
   const [vehicleModalOpen, setVehicleModalOpen] = useState(false);
@@ -309,10 +313,9 @@ export default function VehicleReadinessPage() {
             const isPosko = v.category === 'posko' || v.code_name === 'WATCHROOM';
             const log = v.current_log || v;
             const status = getVehicleStatusKey(v);
-            const justification = v.justification || log?.justification;
-            const notes = v.notes || log?.notes;
             const isCarriedOver = Boolean(v.is_carried_over);
             const lastInspected = v.logged_at || log?.logged_at || v.updated_at || log?.updated_at;
+            const photoUrl = v.photo_webp_url || log?.photo_webp_url;
 
             let formattedTimestamp = null;
             if (lastInspected) {
@@ -424,21 +427,26 @@ export default function VehicleReadinessPage() {
                     )}
                   </div>
 
-                  {/* Justification snippet if unserviceable */}
-                  {status === 'unserviceable' && justification && (
-                    <div className="mt-3 p-2.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-900 font-sans">
-                      <div className="flex items-center gap-1 font-bold mb-1">
-                        <ShieldAlert className="w-3.5 h-3.5 text-red-600" />
-                        <span>Kendala / Kerusakan:</span>
-                      </div>
-                      <p className="line-clamp-2">{justification}</p>
-                    </div>
-                  )}
-
-                  {/* Notes if serviceable */}
-                  {status === 'serviceable' && notes && (
-                    <div className="mt-3 text-xs text-slate-500 line-clamp-1 italic font-sans">
-                      Catatan: {notes}
+                  {/* Bukti Foto Fisik Pemeriksaan (Opsi 1) */}
+                  {photoUrl && (
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewPhotoVehicle(v)}
+                        className="w-full flex items-center justify-between p-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 text-xs font-semibold text-slate-700 transition-colors duration-100 cursor-pointer group"
+                        title="Lihat foto bukti fisik pemeriksaan kelaikan armada"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-6 h-6 rounded bg-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                            <Camera className="w-3.5 h-3.5 text-slate-600" />
+                          </div>
+                          <span className="truncate">Bukti Foto Fisik</span>
+                        </div>
+                        <span className="text-xs text-slate-500 group-hover:text-slate-900 font-medium inline-flex items-center gap-1 flex-shrink-0">
+                          <span>Lihat Foto</span>
+                          <Eye className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600" />
+                        </span>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -488,6 +496,86 @@ export default function VehicleReadinessPage() {
           activeTeam={activeTeam}
           onSuccess={handleReadinessSuccess}
         />
+      )}
+
+      {/* Modal Pratinjau Bukti Foto Fisik Pemeriksaan */}
+      {previewPhotoVehicle && (
+        <Modal
+          isOpen={Boolean(previewPhotoVehicle)}
+          onClose={() => setPreviewPhotoVehicle(null)}
+          title={`Bukti Fisik: ${previewPhotoVehicle.code_name || previewPhotoVehicle.vehicle_name}`}
+          subtitle={`Inspeksi Kelaikan Fisik Armada • ${previewPhotoVehicle.vehicle_name}`}
+          maxWidth="max-w-2xl"
+          footer={
+            <div className="flex items-center justify-between w-full">
+              <div className="text-xs text-slate-500 font-sans">
+                {previewPhotoVehicle.pic_name ? (
+                  <span>
+                    Pelapor / PIC: <strong className="text-slate-800 font-semibold">{previewPhotoVehicle.pic_name}</strong>
+                  </span>
+                ) : (
+                  <span>Foto bukti fisik kelaikan shift aktif</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={buildAuthenticatedFileUrl(previewPhotoVehicle.photo_webp_url || previewPhotoVehicle.current_log?.photo_webp_url)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors duration-100 cursor-pointer"
+                  title="Buka gambar resolusi penuh di tab baru"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Buka Penuh</span>
+                </a>
+                <Button variant="outline" size="sm" onClick={() => setPreviewPhotoVehicle(null)}>
+                  Tutup
+                </Button>
+              </div>
+            </div>
+          }
+        >
+          <div className="space-y-3 font-sans text-xs">
+            {/* Tampilan Gambar Full */}
+            <div className="relative rounded-xl overflow-hidden bg-slate-950 border border-slate-200 flex items-center justify-center max-h-[65vh]">
+              <img
+                src={buildAuthenticatedFileUrl(previewPhotoVehicle.photo_webp_url || previewPhotoVehicle.current_log?.photo_webp_url)}
+                alt={`Foto fisik ${previewPhotoVehicle.code_name || previewPhotoVehicle.vehicle_name}`}
+                className="w-full h-auto max-h-[65vh] object-contain rounded-xl"
+              />
+            </div>
+
+            {/* Panel Ringkasan Informasi Pemeriksaan */}
+            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+              <div>
+                <span className="text-slate-400 block text-xs font-semibold uppercase">Status Pemeriksaan:</span>
+                <span className="font-bold text-slate-800">
+                  {getVehicleStatusKey(previewPhotoVehicle) === 'serviceable' ? (
+                    <span className="text-emerald-700 inline-flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      Serviceable
+                    </span>
+                  ) : getVehicleStatusKey(previewPhotoVehicle) === 'unserviceable' ? (
+                    <span className="text-red-700 inline-flex items-center gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                      Unserviceable
+                    </span>
+                  ) : (
+                    'Belum Dicek'
+                  )}
+                </span>
+              </div>
+              {(previewPhotoVehicle.justification || previewPhotoVehicle.notes) && (
+                <div className="sm:text-right max-w-sm">
+                  <span className="text-slate-400 block text-xs font-semibold uppercase">Catatan / Kendala:</span>
+                  <span className="font-medium text-slate-700">
+                    {previewPhotoVehicle.justification || previewPhotoVehicle.notes}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </Modal>
       )}
 
       {/* Modal Tambah / Edit Armada (Admin Only) */}

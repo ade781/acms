@@ -6,9 +6,15 @@ import {
   submitWatchroomReadiness,
   getVehicleTransitionsReport
 } from '../controllers/readinessController.js';
+import {
+  getMaintenanceRecords,
+  createMaintenanceRecord,
+  updateMaintenanceRecord,
+  deleteMaintenanceRecord
+} from '../controllers/vehicleMaintenanceController.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
 import { requireRole } from '../middleware/roleMiddleware.js';
-import { uploadSingleImage } from '../middleware/uploadMiddleware.js';
+import { uploadSingleImage, uploadSingleDocument } from '../middleware/uploadMiddleware.js';
 
 const router = Router();
 
@@ -26,5 +32,11 @@ router.post(
 );
 
 router.get('/transitions-report', getVehicleTransitionsReport);
+
+// Manajemen Rekam Jejak Pemeliharaan & Downtime Armada (CRUD)
+router.get('/maintenance', getMaintenanceRecords);
+router.post('/maintenance', uploadSingleDocument('document'), createMaintenanceRecord);
+router.put('/maintenance/:id', uploadSingleDocument('document'), updateMaintenanceRecord);
+router.delete('/maintenance/:id', deleteMaintenanceRecord);
 
 export default router;

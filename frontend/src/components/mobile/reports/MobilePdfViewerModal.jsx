@@ -9,19 +9,18 @@ import {
   CheckCircle2,
   AlertTriangle,
 } from 'lucide-react';
-import { formatIndoDate, cleanTeam, formatTeam, SHIFT_DEFINITIONS, getDailyRoster } from '../../../utils/shiftHelper';
+import { formatIndoDate, cleanTeam, formatTeam, SHIFT_DEFINITIONS } from '../../../utils/shiftHelper';
 import MobileSignaturesSection from './MobileSignaturesSection';
 import { downloadShiftReportPdf } from '../../../services/reportService';
 import { useAuth } from '../../../context/AuthContext';
 
 /**
  * Universal A4 Document Sheet & Print Preview Modal (Desktop & Mobile)
- * Menampilkan Laporan Harian Operasional ARFF YIA 24 Jam (Merangkum 3 Shift & 3 Regu)
- * 1. Kop Naskah Dinas resmi PT Angkasa Pura Indonesia & ARFF YIA dengan double rule line
- * 2. Watermark legalitas kedinasan
- * 3. Matriks Kesiapan Armada 24 Jam (Shift 1, 2, 3)
- * 4. Presensi Kru 3 Shift & Rangkaian Kegiatan 24 Jam
- * 5. Pengesahan 4 Pejabat Dinas (3 Chief Shift + Section Head ARFF)
+ * 1. Menampilkan lembar dokumen A4 otentik (rasio 1 : 1.414, background meja kerja bg-slate-200/80, shadow-md)
+ * 2. Kop Naskah Dinas resmi PT Angkasa Pura Indonesia & ARFF YIA dengan double rule line
+ * 3. Watermark legalitas diagonal 'DRAFT • BELUM DISAHKAN' saat status belum 'closed'
+ * 4. Tipografi nyaman dibaca di desktop (text-xs hingga text-sm) dan adaptif di mobile
+ * 5. Fitur Buka Layar Penuh (Native PDF), Unduh PDF Resmi, dan Cetak Dokumen
  */
 export default function MobilePdfViewerModal({
   isOpen,
@@ -38,12 +37,6 @@ export default function MobilePdfViewerModal({
   shiftDate,
   shiftNumber,
   teamGroup,
-  roster: propRoster,
-  shiftsData,
-  vehiclesDaily = [],
-  activities24h = [],
-  incidents24h = [],
-  absents24h = [],
 }) {
   const { token } = useAuth();
   const [downloading, setDownloading] = useState(false);
@@ -51,27 +44,34 @@ export default function MobilePdfViewerModal({
 
   if (!isOpen) return null;
 
+  const currentTeam = cleanTeam(teamGroup || shiftData?.team_group || 'Alpha');
+  const currentShiftNum = Number(shiftNumber || shiftData?.shift_number || 1);
   const currentDate = shiftDate || shiftData?.shift_date || new Date().toISOString().split('T')[0];
-  const roster = propRoster || getDailyRoster(currentDate);
+  const isShiftClosed = (shiftData?.status || '').toLowerCase() === 'closed';
 
-  // Periksa apakah semua shift berstatus closed
-  const isAllClosed = shiftsData
-    ? Object.values(shiftsData).every((s) => (s.status || '').toLowerCase() === 'closed')
-    : (shiftData?.status || '').toLowerCase() === 'closed';
+  const shiftDef = SHIFT_DEFINITIONS.find((s) => s.number === currentShiftNum) || SHIFT_DEFINITIONS[0];
 
-  // Siapkan data armada
-  const vehicleList = vehiclesDaily.length > 0 ? vehiclesDaily : vehicles;
+  // Helper hitung presensi personel aktif hadir bertugas
+  const presentDeployments = deployments.filter((d) => d.deployment_type !== 'absent');
 
-  // Siapkan data kegiatan & insiden
-  const actList = activities24h.length > 0 ? activities24h : activities;
-  const incList = incidents24h.length > 0 ? incidents24h : incidents;
+  // Helper hitung unit serviceable
+  const hasPoskoInVehicles = vehicles.some((v) => v.category === 'posko' || v.code_name === 'WATCHROOM');
+  const serviceableCount =
+    vehicles.filter((v) => v.status === 'serviceable').length +
+    (!hasPoskoInVehicles && watchroomData?.status === 'serviceable' ? 1 : 0);
+  const totalUnits = Math.max(
+    vehicles.length + (!hasPoskoInVehicles && watchroomData?.status ? 1 : 0),
+    8
+  );
 
   // Buat URL endpoint PDF resmi ber-token
   const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arff_token') : '') || '';
   const apiBase = import.meta.env.VITE_API_URL || '/api';
   const cleanBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
   const encodedToken = authToken ? encodeURIComponent(authToken) : '';
-  const pdfApiUrl = `${cleanBase}/reports/pdf?date=${currentDate}${encodedToken ? `&token=${encodedToken}` : ''}`;
+  const pdfApiUrl = `${cleanBase}/reports/pdf?date=${currentDate}&shift=${currentShiftNum}&team_group=${currentTeam}${
+    encodedToken ? `&token=${encodedToken}` : ''
+  }`;
 
   const handleOpenNativePdf = () => {
     if (!authToken) {
@@ -88,6 +88,8 @@ export default function MobilePdfViewerModal({
 
       await downloadShiftReportPdf({
         date: currentDate,
+        shift: currentShiftNum,
+        team: currentTeam,
       });
     } catch (err) {
       console.error('Download PDF error:', err);
@@ -188,20 +190,20 @@ export default function MobilePdfViewerModal({
             <div className="truncate">
               <div className="flex items-center gap-2 flex-wrap">
                 <h4 className="text-xs sm:text-sm md:text-base font-bold text-slate-900 truncate">
-                  Pratinjau Lembar Surat Dinas Operasional (A4)
+                  Pratinjau Lembar Surat Dinas (A4)
                 </h4>
                 <span
                   className={`px-2 py-0.5 rounded text-xs font-bold border ${
-                    isAllClosed
+                    isShiftClosed
                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                       : 'bg-red-50 text-red-700 border-red-200'
                   }`}
                 >
-                  {isAllClosed ? 'Sah • Rekapitulasi Final' : 'Draft • Belum Disahkan'}
+                  {isShiftClosed ? 'Sah • Rekapitulasi Final' : 'Draft • Belum Disahkan'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 font-mono tabular-nums truncate mt-0.5">
-                Laporan-Harian-Operasional-ARFF-{currentDate}.pdf
+                Laporan-Shift-{currentShiftNum}-{currentTeam}-{currentDate}.pdf
               </p>
             </div>
           </div>
@@ -296,13 +298,13 @@ export default function MobilePdfViewerModal({
 
         {/* Viewport Area: Meja Kerja (bg-slate-200/80) dengan Lembar A4 Proposional */}
         <div className="print-a4-viewport flex-1 overflow-y-auto border border-slate-200 rounded-xl bg-slate-200/80 p-2 sm:p-6 md:p-8">
-          {/* LEMBAR DOKUMEN A4 PROPOSIONAL */}
+          {/* LEMBAR DOKUMEN A4 PROPOSIONAL (rasio 1 : 1.414, shadow-md, max-w-[794px]) */}
           <div
             className="w-full max-w-[794px] mx-auto bg-white rounded-xs sm:rounded shadow-md border border-slate-300 p-4 sm:p-8 md:p-12 space-y-4 md:space-y-6 text-slate-800 font-sans relative overflow-hidden min-h-[600px] sm:min-h-[850px] md:min-h-[1123px]"
             id="a4-document-sheet"
           >
             {/* WATERMARK LEGALITAS KEDINASAN DIAGONAL */}
-            {!isAllClosed ? (
+            {!isShiftClosed ? (
               <div
                 className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0 overflow-hidden"
                 aria-hidden="true"
@@ -323,7 +325,7 @@ export default function MobilePdfViewerModal({
               >
                 <div className="transform -rotate-[32deg] text-center">
                   <span className="text-2xl sm:text-4xl md:text-5xl font-black text-slate-400/[0.08] tracking-widest uppercase block">
-                    ARFF YIA • DAILY OPS REPORT
+                    ARFF YIA • OFFICIAL OPS REPORT
                   </span>
                 </div>
               </div>
@@ -341,7 +343,7 @@ export default function MobilePdfViewerModal({
                 Kawasan Bandara Internasional Yogyakarta, Kulon Progo, D.I. Yogyakarta 55654
               </p>
 
-              {/* Garis Ganda Kedinasan (Double Rule Line) */}
+              {/* Garis Ganda Kedinasan (Double Rule Line: Tebal 2px & Tipis 0.75px) */}
               <div className="mt-2.5 space-y-[2px]" aria-hidden="true">
                 <div className="h-[2px] bg-slate-900 w-full" />
                 <div className="h-[0.75px] bg-slate-400 w-full" />
@@ -351,127 +353,126 @@ export default function MobilePdfViewerModal({
             {/* 2. JUDUL & NOMOR SURAT */}
             <div className="text-center py-1 relative z-10">
               <h4 className="text-xs sm:text-sm md:text-base font-black uppercase text-slate-900 tracking-wide underline leading-tight">
-                LAPORAN RESMI PELAKSANAAN DINAS HARIAN OPERASIONAL (24 JAM)
+                LAPORAN RESMI PELAKSANAAN DINAS SHIFT OPERASIONAL
               </h4>
               <p className="text-xs sm:text-sm font-mono tabular-nums text-slate-600 mt-1">
-                NOMOR: DSR/ARFF-YIA/{currentDate.replace(/-/g, '')}/24H
+                NOMOR: DSR/ARFF-YIA/{currentDate.replace(/-/g, '')}/S{currentShiftNum}
               </p>
             </div>
 
-            {/* 3. ROSTER 3 SHIFT & INFORMASI DINAS HARIAN */}
-            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 relative z-10 space-y-2 text-xs sm:text-sm">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                <div>
-                  <span className="text-slate-500 text-xs uppercase font-semibold">Tanggal Dinas:</span>
-                  <span className="font-bold text-slate-900 ml-2">{formatIndoDate(currentDate)}</span>
-                </div>
-                <div>
-                  <span
-                    className={`inline-flex items-center font-bold px-2 py-0.5 rounded text-xs ${
-                      isAllClosed
-                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                        : 'bg-red-100 text-red-800 border border-red-300'
-                    }`}
-                  >
-                    {isAllClosed ? 'REKAPITULASI RESMI (FINAL)' : 'DRAFT • BELUM DISAHKAN'}
-                  </span>
-                </div>
+            {/* 3. MATRIKS INFORMASI DINAS */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs sm:text-sm bg-slate-50 p-2.5 sm:p-3.5 rounded-lg border border-slate-200 relative z-10">
+              <div>
+                <span className="text-slate-500 block text-xs uppercase font-semibold">
+                  Tanggal Dinas
+                </span>
+                <span className="font-bold text-slate-900">{formatIndoDate(currentDate)}</span>
               </div>
-
-              {/* Grid 4 Regu Rotasi Roster */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                <div className="p-2 rounded bg-white border border-slate-200">
-                  <span className="text-slate-500 font-semibold block">Shift 1 (Pagi • 07-13)</span>
-                  <span className="font-bold text-slate-900 block mt-0.5">Regu {roster.shift1}</span>
-                  <span className="text-slate-500 text-xs truncate block">Chief: {shiftsData?.[1]?.supervisor_name || '-'}</span>
-                </div>
-                <div className="p-2 rounded bg-white border border-slate-200">
-                  <span className="text-slate-500 font-semibold block">Shift 2 (Siang • 13-20)</span>
-                  <span className="font-bold text-slate-900 block mt-0.5">Regu {roster.shift2}</span>
-                  <span className="text-slate-500 text-xs truncate block">Chief: {shiftsData?.[2]?.supervisor_name || '-'}</span>
-                </div>
-                <div className="p-2 rounded bg-white border border-slate-200">
-                  <span className="text-slate-500 font-semibold block">Shift 3 (Malam • 20-07)</span>
-                  <span className="font-bold text-slate-900 block mt-0.5">Regu {roster.shift3}</span>
-                  <span className="text-slate-500 text-xs truncate block">Chief: {shiftsData?.[3]?.supervisor_name || '-'}</span>
-                </div>
-                <div className="p-2 rounded bg-slate-100/80 border border-slate-200">
-                  <span className="text-slate-500 font-semibold block">Lepas Piket (Off)</span>
-                  <span className="font-bold text-slate-700 block mt-0.5">Regu {roster.offTeam}</span>
-                  <span className="text-slate-500 text-xs block">Istirahat Dinas</span>
-                </div>
+              <div>
+                <span className="text-slate-500 block text-xs uppercase font-semibold">
+                  Shift Operasional
+                </span>
+                <span className="font-bold text-slate-900">
+                  {shiftDef.name} (<span className="font-mono tabular-nums">{shiftDef.startTime} – {shiftDef.endTime}</span> WIB)
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-xs uppercase font-semibold">
+                  Regu Dinas
+                </span>
+                <span className="font-bold text-red-700">Regu {formatTeam(currentTeam)}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-xs uppercase font-semibold">
+                  Status Dokumen
+                </span>
+                <span
+                  className={`inline-flex items-center font-bold px-2 py-0.5 rounded text-xs ${
+                    isShiftClosed
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                      : 'bg-red-100 text-red-800 border border-red-300'
+                  }`}
+                >
+                  {isShiftClosed ? 'REKAPITULASI RESMI (FINAL)' : 'DRAFT • BELUM DISAHKAN'}
+                </span>
               </div>
             </div>
 
             {/* 4. ISI DOKUMEN (BAGIAN I S/D IV) */}
             <div className="space-y-4 text-xs sm:text-sm text-slate-800 leading-relaxed relative z-10">
-              {/* Bagian I: Matriks Kesiapan Unit Armada Operasional 24 Jam */}
+              {/* Bagian I: Rekapitulasi Armada Operasional & Watchroom */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between border-b-2 border-slate-300 pb-1">
                   <p className="font-bold text-xs sm:text-sm text-slate-900 uppercase">
-                    I. Matriks Kesiapan Unit Armada Operasional & Posko (24 Jam)
+                    I. Rekapitulasi Kesiapan Unit Armada Operasional & Posko
                   </p>
                   <span className="text-xs text-slate-500 font-medium">
-                    Shift 1 • Shift 2 • Shift 3
+                    <span className="font-mono tabular-nums">{serviceableCount}/{totalUnits}</span> Unit Serviceable
                   </span>
                 </div>
 
                 <div className="space-y-1 pt-1">
-                  {vehicleList.length > 0 ? (
-                    <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden bg-white text-xs">
-                      {/* Header Kolom Matriks */}
-                      <div className="grid grid-cols-12 px-3 py-1.5 bg-slate-100/80 font-bold text-slate-700 text-xs">
-                        <div className="col-span-4">Armada / Posko</div>
-                        <div className="col-span-2 text-center">Shift 1 (Pagi)</div>
-                        <div className="col-span-2 text-center">Shift 2 (Siang)</div>
-                        <div className="col-span-2 text-center">Shift 3 (Malam)</div>
-                        <div className="col-span-2 text-right">Kategori</div>
-                      </div>
-
-                      {vehicleList.map((v) => {
-                        const s1Status = v.shift1?.status || v.status || 'belum_dilaporkan';
-                        const s2Status = v.shift2?.status || v.status || 'belum_dilaporkan';
-                        const s3Status = v.shift3?.status || v.status || 'belum_dilaporkan';
+                  {vehicles.length > 0 ? (
+                    <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden bg-white">
+                      {vehicles.map((v) => {
+                        const isServ = v.status === 'serviceable';
+                        const isUnserv = v.status === 'unserviceable';
                         const isPosko = v.category === 'posko' || v.code_name === 'WATCHROOM';
-
-                        const renderBadge = (st) => {
-                          const isServ = st === 'serviceable';
-                          const isUnserv = st === 'unserviceable';
-                          return (
+                        return (
+                          <div
+                            key={v.id ?? v.code_name ?? `veh-${v.vehicle_name}`}
+                            className="flex justify-between items-center px-3 py-1.5 text-xs sm:text-sm hover:bg-slate-50/70"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900 font-mono tabular-nums">{v.code_name}</span>
+                              <span className="text-slate-600">— {v.vehicle_name}</span>
+                              {isPosko && (
+                                <span className="text-xs px-1.5 py-0.2 bg-blue-50 text-blue-700 font-semibold rounded uppercase">
+                                  Posko Komunikasi
+                                </span>
+                              )}
+                              <span className="text-slate-400 text-xs">
+                                ({v.pic_name ? `PIC: ${v.pic_name}` : 'PIC Belum Ditunjuk'})
+                              </span>
+                            </div>
                             <span
-                              className={`font-bold px-1.5 py-0.5 rounded text-[11px] inline-block ${
+                              className={`font-bold px-2 py-0.5 rounded text-xs ${
                                 isServ
                                   ? 'text-emerald-700 bg-emerald-50 border border-emerald-200'
                                   : isUnserv
                                   ? 'text-red-700 bg-red-50 border border-red-200'
-                                  : 'text-slate-500 bg-slate-100 border border-slate-200'
+                                  : 'text-slate-600 bg-slate-100 border border-slate-200'
                               }`}
                             >
-                              {isServ ? 'Serv' : isUnserv ? 'Unserv' : 'Belum'}
+                              {isServ ? 'Serviceable' : isUnserv ? 'Unserviceable' : 'Belum Dicek'}
                             </span>
-                          );
-                        };
-
-                        return (
-                          <div
-                            key={v.id ?? v.code_name ?? `veh-${v.vehicle_name}`}
-                            className="grid grid-cols-12 px-3 py-1.5 items-center hover:bg-slate-50/70"
-                          >
-                            <div className="col-span-4 min-w-0 pr-2">
-                              <span className="font-bold text-slate-900 font-mono tabular-nums">{v.code_name}</span>
-                              <span className="text-slate-600 block text-[11px] truncate">{v.vehicle_name}</span>
-                            </div>
-                            <div className="col-span-2 text-center">{renderBadge(s1Status)}</div>
-                            <div className="col-span-2 text-center">{renderBadge(s2Status)}</div>
-                            <div className="col-span-2 text-center">{renderBadge(s3Status)}</div>
-                            <div className="col-span-2 text-right">
-                              <span className="text-slate-500 font-medium uppercase text-[10px]">
-                                {isPosko ? 'Posko' : v.category}
-                              </span>
-                            </div>
                           </div>
                         );
                       })}
+
+                      {!hasPoskoInVehicles && watchroomData && (watchroomData.status || watchroomData.vehicle_name) && (
+                        <div className="flex justify-between items-center px-3 py-1.5 text-xs sm:text-sm bg-slate-50/50">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-900 font-mono tabular-nums">POSKO WATCHROOM</span>
+                            <span className="text-slate-600">— Posko Komunikasi ARFF</span>
+                          </div>
+                          <span
+                            className={`font-bold px-2 py-0.5 rounded text-xs ${
+                              watchroomData.status === 'serviceable'
+                                ? 'text-emerald-700 bg-emerald-50 border border-emerald-200'
+                                : watchroomData.status === 'unserviceable'
+                                ? 'text-red-700 bg-red-50 border border-red-200'
+                                : 'text-slate-600 bg-slate-100 border border-slate-200'
+                            }`}
+                          >
+                            {watchroomData.status === 'serviceable'
+                              ? 'Serviceable'
+                              : watchroomData.status === 'unserviceable'
+                              ? 'Unserviceable'
+                              : 'Belum Dicek'}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <p className="text-slate-500 italic p-2 bg-slate-50 rounded">
@@ -489,73 +490,63 @@ export default function MobilePdfViewerModal({
                       <span>Catatan Jejak Audit Kendala Kendaraan:</span>
                     </strong>
                     {vehicleIssues.current_issues?.map((iss, issIdx) => (
-                      <p key={`iss-${iss.id ?? issIdx}`} className="text-red-800">
+                      <p key={`iss-${iss.id ?? iss.vehicle_id ?? iss.code_name ?? issIdx}`} className="text-red-800">
                         • <strong className="font-mono tabular-nums">{iss.code_name}</strong>: Kendala tercatat ({iss.justification || 'Gangguan operasional'}).
                       </p>
                     ))}
                     {vehicleIssues.resolved_this_shift?.map((iss, resIdx) => (
-                      <p key={`res-${iss.id ?? resIdx}`} className="text-emerald-800">
-                        • <strong className="font-mono tabular-nums">{iss.code_name}</strong>: Pulih serviceable setelah perbaikan selesai.
+                      <p key={`res-${iss.id ?? iss.vehicle_id ?? iss.code_name ?? resIdx}`} className="text-emerald-800">
+                        • <strong className="font-mono tabular-nums">{iss.code_name}</strong>: Pulih serviceable pada shift ini setelah perbaikan selesai.
                       </p>
                     ))}
                   </div>
                 )}
               </div>
 
-              {/* Bagian II: Presensi & Distribusi Kru 3 Shift */}
+              {/* Bagian II: Presensi & Distribusi Personel Dinas */}
               <div className="space-y-1.5">
                 <p className="font-bold border-b-2 border-slate-300 pb-1 text-xs sm:text-sm text-slate-900 uppercase">
-                  II. Presensi & Distribusi Personel Dinas (3 Shift)
+                  II. Presensi & Distribusi Personel Dinas
                 </p>
-                <div className="pt-0.5 space-y-2 text-xs">
-                  {shiftsData ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      {[1, 2, 3].map((num) => {
-                        const s = shiftsData[num] || {};
-                        const presentCount = s.presentDeployments?.length || 0;
-                        const absentCount = s.absents?.length || 0;
-                        return (
-                          <div key={`pres-shift-${num}`} className="p-2 rounded bg-slate-50 border border-slate-200">
-                            <span className="font-bold text-slate-900 block">{s.shiftName || `Shift ${num}`} ({s.teamGroup})</span>
-                            <span className="text-slate-600 block mt-0.5">
-                              Hadir: <strong className="font-mono tabular-nums text-slate-900">{presentCount}</strong> Kru
-                            </span>
-                            <span className="text-slate-500 block">
-                              Izin/Cuti: <strong className="font-mono tabular-nums text-amber-700">{absentCount}</strong>
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-slate-700">Distribusi personel tercatat lengkap pada setiap sesi dinas shift.</p>
-                  )}
-
-                  {absents24h.length > 0 && (
-                    <p className="text-slate-600 mt-1">
-                      <strong>Personel Berhalangan (<span className="font-mono tabular-nums">{absents24h.length}</span>):</strong>{' '}
-                      {absents24h
-                        .map((a) => `${a.full_name || a.name || 'Personel'} (${a.absent_reason || a.notes || 'Cuti/Izin'})`)
+                <div className="pt-0.5 space-y-1">
+                  <p className="text-slate-700">
+                    Distribusi Penugasan: <strong><span className="font-mono tabular-nums">{presentDeployments.length}</span> Personel Aktif</strong> bertugas pada unit armada dan posko operasional.
+                  </p>
+                  {absents.length > 0 ? (
+                    <p className="text-slate-700">
+                      Personel Berhalangan (<span className="font-mono tabular-nums">{absents.length}</span>):{' '}
+                      {absents
+                        .map(
+                          (a) =>
+                            `${a.full_name || a.name || 'Personel'} (${
+                              a.leave_type || a.notes || 'Cuti/Izin'
+                            })`
+                        )
                         .join(', ')}.
+                    </p>
+                  ) : (
+                    <p className="text-emerald-700 text-xs sm:text-sm flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>Seluruh anggota regu terdata hadir tanpa keterangan izin/cuti.</span>
                     </p>
                   )}
                 </div>
               </div>
 
-              {/* Bagian III: Jurnal Kegiatan 24 Jam (Logbook) */}
+              {/* Bagian III: Logbook Kegiatan Shift */}
               <div className="space-y-1.5">
                 <p className="font-bold border-b-2 border-slate-300 pb-1 text-xs sm:text-sm text-slate-900 uppercase">
-                  III. Rangkaian Kegiatan 24 Jam (Logbook Harian)
+                  III. Rangkaian Kegiatan Shift (Logbook)
                 </p>
-                {actList.length > 0 ? (
+                {activities.length > 0 ? (
                   <div className="space-y-1 pt-0.5">
-                    {actList.map((act, actIdx) => (
+                    {activities.map((act, actIdx) => (
                       <div
                         key={act.id ?? `act-${actIdx}`}
-                        className="text-slate-700 flex items-start gap-1.5 text-xs"
+                        className="text-slate-700 flex items-start gap-1.5"
                       >
                         <span className="font-bold text-slate-900 shrink-0 font-mono tabular-nums">
-                          • [{act.activity_time ? act.activity_time.substring(0, 5) : '-'}] (Shift {act.shift_number || 1}):
+                          • {act.activity_time ? act.activity_time.substring(0, 5) : '-'} WIB:
                         </span>
                         <span>
                           <strong>{act.title}</strong>
@@ -565,24 +556,24 @@ export default function MobilePdfViewerModal({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-slate-500 italic pt-0.5 text-xs">Belum ada kegiatan khusus yang tercatat pada hari ini.</p>
+                  <p className="text-slate-500 italic pt-0.5">Belum ada kegiatan khusus yang tercatat pada sesi shift ini.</p>
                 )}
               </div>
 
-              {/* Bagian IV: Rekapitulasi Kejadian & Insiden 24 Jam */}
+              {/* Bagian IV: Rekapitulasi Kejadian & Insiden (Airside) */}
               <div className="space-y-1.5">
                 <p className="font-bold border-b-2 border-slate-300 pb-1 text-xs sm:text-sm text-slate-900 uppercase">
-                  IV. Rekapitulasi Kejadian & Insiden (24 Jam)
+                  IV. Rekapitulasi Kejadian & Insiden (Airside)
                 </p>
-                {incList.length > 0 ? (
+                {incidents.length > 0 ? (
                   <div className="space-y-1 pt-0.5">
-                    {incList.map((inc, incIdx) => (
+                    {incidents.map((inc, incIdx) => (
                       <div
                         key={inc.id ?? `inc-${incIdx}`}
-                        className="text-slate-700 flex items-start gap-1.5 text-xs"
+                        className="text-slate-700 flex items-start gap-1.5"
                       >
                         <span className="font-bold text-red-700 shrink-0 font-mono tabular-nums">
-                          • {inc.report_number || 'INC'} (Shift {inc.shift_number || 1}):
+                          • {inc.report_number || 'INC'}:
                         </span>
                         <span>
                           <strong>{inc.title}</strong> ({inc.location || 'Airside'}), status {inc.status || 'siaga'}.
@@ -592,21 +583,27 @@ export default function MobilePdfViewerModal({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-emerald-700 text-xs pt-0.5 flex items-center gap-1.5">
+                  <p className="text-emerald-700 text-xs sm:text-sm pt-0.5 flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Nihil kejadian darurat maupun insiden luar biasa selama 24 jam operasional.</span>
+                    <span>Nihil kejadian atau insiden luar biasa selama shift berlangsung.</span>
                   </p>
                 )}
               </div>
             </div>
 
-            {/* 5. PENGESAHAN 4 PEJABAT RESMI */}
+            {/* 5. PENGESAHAN PEJABAT RESMI */}
             <MobileSignaturesSection
               deptHead={deptHeadData}
-              shiftsData={shiftsData}
+              supervisor={{
+                name: shiftData?.supervisor_name,
+                nip: shiftData?.supervisor_nip,
+                signature_url: shiftData?.supervisor_signature_url,
+                team_group: currentTeam,
+              }}
               shiftDate={currentDate}
+              teamGroup={currentTeam}
               isSheet={true}
-              isClosed={isAllClosed}
+              isClosed={isShiftClosed}
             />
           </div>
         </div>

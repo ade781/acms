@@ -161,6 +161,10 @@ export const getVehiclesReportPdf = async (req, res) => {
           resolved_team_group: p.resolved_team_group,
           resolved_by: p.resolved_by,
           status: p.status,
+          duration_days: p.duration_days,
+          document_type: p.document_type || null,
+          document_url: p.document_url || null,
+          document_name: p.document_name || null,
         });
       });
     });

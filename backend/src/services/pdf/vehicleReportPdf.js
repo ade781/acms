@@ -86,8 +86,7 @@ export const generateVehicleReadinessReportPdf = async (data = {}) => {
   doc.rect(startX, tableHeaderY, contentWidth, 18).fill('#1e293b');
   doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#ffffff');
   doc.text('No', startX + 4, tableHeaderY + 5, { width: 22, align: 'center' });
-  doc.text('Kode & Nama Armada', startX + 28, tableHeaderY + 5, { width: 145, align: 'left' });
-  doc.text('Kategori', startX + 175, tableHeaderY + 5, { width: 55, align: 'center' });
+  doc.text('Nama Armada', startX + 28, tableHeaderY + 5, { width: 200, align: 'left' });
   doc.text('Status Saat Ini', startX + 232, tableHeaderY + 5, { width: 85, align: 'center' });
   doc.text('Siklus Kendala', startX + 320, tableHeaderY + 5, { width: 70, align: 'center' });
   doc.text('Riwayat Kelaikan & Catatan', startX + 392, tableHeaderY + 5, { width: 120, align: 'left' });
@@ -103,11 +102,10 @@ export const generateVehicleReadinessReportPdf = async (data = {}) => {
 
     doc.fontSize(7.5).font('Helvetica').fillColor('#475569').text(String(idx + 1), startX + 4, rowY + 5, { width: 22, align: 'center' });
     doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#0f172a').text(
-      `${v.code_name} - ${v.vehicle_name}`,
+      v.vehicle_name,
       startX + 28, rowY + 5,
-      { width: 145, align: 'left', lineBreak: false, ellipsis: true }
+      { width: 200, align: 'left', lineBreak: false, ellipsis: true }
     );
-    doc.fontSize(7.5).font('Helvetica').fillColor('#475569').text(v.category || 'utama', startX + 175, rowY + 5, { width: 55, align: 'center' });
 
     const currentStatus = v.current_status || v.status || 'belum_dilaporkan';
     const isServ = currentStatus === 'serviceable';
@@ -186,9 +184,14 @@ export const generateVehicleReadinessReportPdf = async (data = {}) => {
 
       doc.fontSize(7).font('Helvetica').fillColor('#475569').text(t.reported_by || '-', startX + 248, rowY + 5, { width: 80, lineBreak: false, ellipsis: true });
 
-      const issueText = t.justification && t.notes
+      let issueText = t.justification && t.notes && t.justification !== t.notes
         ? `${t.justification} • ${t.notes}`
         : (t.justification || t.notes || '-');
+
+      // Bersihkan prefix tanda kurung siku jika ada
+      while (/^\[[^\]]+\]\s*/.test(issueText)) {
+        issueText = issueText.replace(/^\[[^\]]+\]\s*/, '').trim();
+      }
 
       doc.fontSize(7).font('Helvetica').fillColor('#475569').text(issueText, startX + 332, rowY + 5, { width: 178, lineBreak: false, ellipsis: true });
 
