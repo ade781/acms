@@ -30,7 +30,9 @@ export const clearSignatureBufferCache = () => {
  */
 export const resolveSignatureBuffer = async (fileUrl) => {
   if (!fileUrl) return null;
-  const filename = path.basename(fileUrl);
+  // Bersihkan query string parameter (seperti ?token=... atau ?v=...) sebelum path.basename
+  const cleanUrl = fileUrl.split('?')[0].split('#')[0];
+  const filename = path.basename(cleanUrl);
   if (!filename || filename === '.' || filename === '/' || filename.includes('..')) return null;
 
   if (signatureBufferCache.has(filename)) {
@@ -220,51 +222,73 @@ export const isShiftOfficial = (shiftDateStr, shiftNumber, status = '', customNo
 // 6. Header Kop Resmi Kedinasan PT Angkasa Pura Indonesia & Bandara Internasional Yogyakarta
 export const drawOfficialHeader = (
   doc,
-  title = 'AIRPORT RESCUE & FIRE FIGHTING (ARFF) SECTION',
+  title = null,
   subtitle = null,
   contentWidth = 515,
   startX = 40
 ) => {
   let cWidth = contentWidth;
   let sX = startX;
-  let mainTitle = 'AIRPORT RESCUE & FIRE FIGHTING (ARFF) SECTION';
-  let subTitle = title;
+  let docTitle = title;
+  let docSubTitle = subtitle;
 
+  // Normalisasi pemanggilan parameter fleksibel / backward compatibility
   if (typeof subtitle === 'number') {
     sX = typeof contentWidth === 'number' ? contentWidth : 40;
     cWidth = subtitle;
-    subTitle = title;
-  } else if (subtitle) {
-    mainTitle = title || mainTitle;
-    subTitle = subtitle;
+    docTitle = title;
+    docSubTitle = null;
+  } else if (title && (title.includes('ARFF') || title.includes('SECTION')) && subtitle) {
+    docTitle = subtitle;
+    docSubTitle = null;
   }
 
-  doc.fontSize(12.5).font('Helvetica-Bold').fillColor('#0f172a').text(
-    mainTitle,
+  // 1. Kop Instansi Baku (PT Angkasa Pura Indonesia, ARFF Section, YIA)
+  doc.fontSize(11).font('Helvetica-Bold').fillColor('#0f172a').text(
+    'PT ANGKASA PURA INDONESIA',
     sX,
-    35,
+    30,
     { align: 'center', width: cWidth }
   );
-  doc.fontSize(10).font('Helvetica-Bold').fillColor('#b91c1c').text(
+  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#334155').text(
+    'AIRPORT RESCUE & FIRE FIGHTING (ARFF) SECTION',
+    sX,
+    44,
+    { align: 'center', width: cWidth }
+  );
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#b91c1c').text(
     'BANDARA INTERNASIONAL YOGYAKARTA (YIA)',
     sX,
-    52,
+    57,
     { align: 'center', width: cWidth }
   );
-  if (subTitle) {
-    doc.fontSize(8.5).font('Helvetica').fillColor('#475569').text(
-      subTitle,
+
+  // 2. Garis ganda pemisah kop kedinasan tebal (1.5pt) dan tipis (0.5pt)
+  doc.moveTo(sX, 72).lineTo(sX + cWidth, 72).lineWidth(1.5).strokeColor('#1e293b').stroke();
+  doc.moveTo(sX, 74.5).lineTo(sX + cWidth, 74.5).lineWidth(0.5).strokeColor('#94a3b8').stroke();
+
+  // 3. Judul Dokumen & Subjudul di BAWAH garis kop resmi
+  let currentY = 82;
+  if (docTitle) {
+    doc.fontSize(10).font('Helvetica-Bold').fillColor('#0f172a').text(
+      docTitle,
       sX,
-      67,
+      currentY,
       { align: 'center', width: cWidth }
     );
+    currentY += 14;
+  }
+  if (docSubTitle) {
+    doc.fontSize(8).font('Helvetica').fillColor('#64748b').text(
+      docSubTitle,
+      sX,
+      currentY,
+      { align: 'center', width: cWidth }
+    );
+    currentY += 12;
   }
 
-  // Garis ganda pemisah kop kedinasan tebal (1.5pt) dan tipis (0.5pt)
-  doc.moveTo(sX, 82).lineTo(sX + cWidth, 82).lineWidth(1.5).strokeColor('#1e293b').stroke();
-  doc.moveTo(sX, 84).lineTo(sX + cWidth, 84).lineWidth(0.5).strokeColor('#94a3b8').stroke();
-
-  doc.y = 92;
+  doc.y = currentY + 4;
 };
 
 // 7. Pemeriksa Sisa Ruang Halaman
@@ -277,6 +301,31 @@ export const checkPageBreak = (doc, neededHeight, maxHeight = 740, newPageY = 35
   return false;
 };
 
+// 7b. Helper Render Header Tabel Profesional (Anti-Slop: Latar Abu-abu Halus, Border Tegas, Teks Gelap)
+export const drawTableHeaderRow = (
+  doc,
+  y,
+  columns,
+  startX = 40,
+  contentWidth = 515,
+  height = 18
+) => {
+  doc.rect(startX, y, contentWidth, height).fillAndStroke('#f1f5f9', '#cbd5e1');
+  let curX = startX;
+  columns.forEach((col) => {
+    const colX = col.x !== undefined ? col.x : curX;
+    const colW = col.width || 50;
+    doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#0f172a').text(
+      col.header || col.title || '',
+      colX + (col.padX || 2),
+      y + 5,
+      { width: colW - ((col.padX || 2) * 2), align: col.align || 'left', lineBreak: false, ellipsis: true }
+    );
+    curX += colW;
+  });
+  return y + height;
+};
+
 // 8. Tanda Tangan Section Head
 export const drawSectionHeadSignature = async (
   doc,
@@ -287,7 +336,7 @@ export const drawSectionHeadSignature = async (
 ) => {
   let y = signY;
   if (y === null || y === undefined) {
-    checkPageBreak(doc, 100, 740, 45);
+    checkPageBreak(doc, 115, 740, 45);
     doc.moveDown(1.5);
     y = doc.y;
   }
@@ -297,40 +346,50 @@ export const drawSectionHeadSignature = async (
   const signatureUrl = signatory.dept_head_signature_url || signatory.signature_url || signatory.signatureUrl;
   const signatureBuffer = signatory.signatureBuffer;
   const title = signatory.title || 'Mengetahui / Mengesahkan,';
-  const role = signatory.role || 'AIRPORT RESCUE & FIRE FIGHTING SECTION HEAD';
+  const role = signatory.role || signatory.rank_position || 'AIRPORT RESCUE & FIRE FIGHTING SECTION HEAD';
   const isDraft = signatory.isDraft ?? (signatory.isClosed === false);
   const blockWidth = signatory.width || 220;
   const blockX = signatory.x !== undefined ? signatory.x : (startX + contentWidth - blockWidth);
   const imgFit = signatory.imgFit || [110, 40];
   const imgX = signatory.imgX !== undefined ? signatory.imgX : (blockX + (blockWidth - imgFit[0]) / 2);
 
-  doc.fontSize(8.5).font('Helvetica').fillColor('#0f172a').text(title, blockX, y, { width: blockWidth, align: 'center' });
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#0f172a').text(role, blockX, y + 12, { width: blockWidth, align: 'center' });
+  // Titimangsa resmi di atas jabatan
+  const todayIndo = formatIndonesianDate(new Date().toISOString().split('T')[0]);
+  const placeDate = signatory.place_date !== undefined ? signatory.place_date : `Kulon Progo, ${todayIndo}`;
+
+  let curY = y;
+  if (placeDate) {
+    doc.fontSize(8).font('Helvetica').fillColor('#475569').text(placeDate, blockX, curY, { width: blockWidth, align: 'center' });
+    curY += 12;
+  }
+
+  doc.fontSize(8.5).font('Helvetica').fillColor('#0f172a').text(title, blockX, curY, { width: blockWidth, align: 'center' });
+  doc.fontSize(8).font('Helvetica-Bold').fillColor('#0f172a').text(role, blockX, curY + 12, { width: blockWidth, align: 'center' });
 
   if (isDraft) {
     doc.fontSize(8).font('Helvetica-Oblique').fillColor('#94a3b8').text(
       '( Menunggu Pengesahan Dinas )',
       blockX,
-      y + 40,
+      curY + 40,
       { width: blockWidth, align: 'center' }
     );
   } else {
     const sigBuf = signatureBuffer || (signatureUrl ? await resolveSignatureBuffer(signatureUrl) : null);
     if (sigBuf) {
       try {
-        doc.image(sigBuf, imgX, y + 25, { fit: imgFit, align: 'center' });
+        doc.image(sigBuf, imgX, curY + 25, { fit: imgFit, align: 'center' });
       } catch (e) {
         console.warn('[PDFKit] Gagal memuat tanda tangan Section Head:', e.message);
       }
     }
   }
 
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0f172a').text(`( ${name} )`, blockX, y + 68, { width: blockWidth, align: 'center' });
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0f172a').text(`( ${name} )`, blockX, curY + 68, { width: blockWidth, align: 'center' });
   if (nip && nip !== '-') {
-    doc.fontSize(7.5).font('Helvetica').fillColor('#475569').text(`NIP. ${nip}`, blockX, y + 80, { width: blockWidth, align: 'center' });
+    doc.fontSize(7.5).font('Helvetica').fillColor('#475569').text(`NIP. ${nip}`, blockX, curY + 80, { width: blockWidth, align: 'center' });
   }
 
-  return y;
+  return curY + 92;
 };
 
 // 9. Tanda Tangan Supervisor Dinas / Ketua Regu
@@ -343,7 +402,7 @@ export const drawChiefSignature = async (
 ) => {
   let y = signY;
   if (y === null || y === undefined) {
-    checkPageBreak(doc, 100, 740, 45);
+    checkPageBreak(doc, 115, 740, 45);
     doc.moveDown(1.5);
     y = doc.y;
   }
@@ -358,27 +417,35 @@ export const drawChiefSignature = async (
   const imgFit = chief.imgFit || [100, 38];
   const imgX = chief.imgX !== undefined ? chief.imgX : (blockX + (blockWidth - imgFit[0]) / 2);
 
-  doc.fontSize(8.5).font('Helvetica').fillColor('#0f172a').text(title, blockX, y, { width: blockWidth, align: 'center' });
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#0f172a').text(role, blockX, y + 12, { width: blockWidth, align: 'center' });
+  let curY = y;
+  if (chief.place_date) {
+    doc.fontSize(8).font('Helvetica').fillColor('#475569').text(chief.place_date, blockX, curY, { width: blockWidth, align: 'center' });
+    curY += 12;
+  } else if (chief.include_space_for_date) {
+    curY += 12; // Sejajarkan vertikal dengan Section Head
+  }
+
+  doc.fontSize(8.5).font('Helvetica').fillColor('#0f172a').text(title, blockX, curY, { width: blockWidth, align: 'center' });
+  doc.fontSize(8).font('Helvetica-Bold').fillColor('#0f172a').text(role, blockX, curY + 12, { width: blockWidth, align: 'center' });
 
   const sigBuf = signatureUrl ? await resolveSignatureBuffer(signatureUrl) : null;
   if (sigBuf) {
     try {
-      doc.image(sigBuf, imgX, y + 25, { fit: imgFit, align: 'center' });
+      doc.image(sigBuf, imgX, curY + 25, { fit: imgFit, align: 'center' });
     } catch (e) {
       console.warn('[PDFKit] Gagal memuat tanda tangan Supervisor:', e.message);
     }
   }
 
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0f172a').text(`( ${name} )`, blockX, y + 68, { width: blockWidth, align: 'center' });
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0f172a').text(`( ${name} )`, blockX, curY + 68, { width: blockWidth, align: 'center' });
   if (nip && nip !== '-') {
-    doc.fontSize(7.5).font('Helvetica').fillColor('#475569').text(`NIP. ${nip}`, blockX, y + 80, { width: blockWidth, align: 'center' });
+    doc.fontSize(7.5).font('Helvetica').fillColor('#475569').text(`NIP. ${nip}`, blockX, curY + 80, { width: blockWidth, align: 'center' });
   }
 
-  return y;
+  return curY + 92;
 };
 
-// 10. Tanda Tangan Ganda: Section Head (Kiri) dan Chief (Kanan)
+// 10. Tanda Tangan Ganda: Ketua Regu di KIRI dan Section Head di KANAN
 export const drawDualSignatures = async (
   doc,
   { sectionHead = {}, chief = {} } = {},
@@ -388,23 +455,24 @@ export const drawDualSignatures = async (
 ) => {
   let y = signY;
   if (y === null || y === undefined) {
-    checkPageBreak(doc, 115, 740, 45);
+    checkPageBreak(doc, 125, 740, 45);
     doc.moveDown(1.5);
     y = doc.y;
   }
 
-  // 1. Section Head di sisi kiri
-  await drawSectionHeadSignature(doc, {
-    ...sectionHead,
-    x: startX + 20,
-    width: 200,
-    imgFit: [100, 38]
-  }, startX, contentWidth, y);
-
-  // 2. Chief di sisi kanan
+  // 1. Ketua Regu / Supervisor Dinas di sisi KIRI
   await drawChiefSignature(doc, {
     ...chief,
-    x: startX + 295,
+    x: startX + 20,
+    width: 200,
+    imgFit: [100, 38],
+    include_space_for_date: true
+  }, startX, contentWidth, y);
+
+  // 2. Section Head di sisi KANAN (dengan Titimangsa Kulon Progo)
+  await drawSectionHeadSignature(doc, {
+    ...sectionHead,
+    x: startX + contentWidth - 220,
     width: 200,
     imgFit: [100, 38]
   }, startX, contentWidth, y);
@@ -412,7 +480,88 @@ export const drawDualSignatures = async (
   return y;
 };
 
-// 11. Watermark Transparan & Penomoran Halaman Otomatis
+// 10b. Tanda Tangan Laporan Harian 3 Shift: 3 Ketua Regu di KIRI, Section Head di KANAN
+export const drawDailySignatures = async (
+  doc,
+  { chiefs = [], sectionHead = {}, shiftDate = null } = {},
+  startX = 40,
+  contentWidth = 515,
+  signY = null
+) => {
+  let y = signY;
+  if (y === null || y === undefined) {
+    checkPageBreak(doc, 120, 740, 45);
+    doc.moveDown(1.5);
+    y = doc.y;
+  }
+
+  const colWidth = 118;
+  const colGap = 8;
+  // 3 Ketua Regu di sisi Kiri
+  for (let i = 0; i < 3; i++) {
+    const c = chiefs[i] || {};
+    const bx = startX + i * (colWidth + colGap);
+    const shiftLabel = i === 0 ? 'Shift 1 (Pagi)' : i === 1 ? 'Shift 2 (Siang)' : 'Shift 3 (Malam)';
+    const teamName = c.team ? `REGU ${c.team.toUpperCase()}` : `REGU ${i + 1}`;
+    const name = c.name || `Ketua Regu ${c.team || ''}`;
+    const nip = c.nip;
+    const sigUrl = c.signature_url;
+
+    let curY = y + 12; // Penyeimbang vertikal sejajar titimangsa Section Head
+    doc.fontSize(7.5).font('Helvetica').fillColor('#0f172a').text(`Pejabat ${shiftLabel},`, bx, curY, { width: colWidth, align: 'center' });
+    doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#0f172a').text(`KETUA ${teamName}`, bx, curY + 11, { width: colWidth, align: 'center' });
+
+    if (sigUrl) {
+      const sigBuf = await resolveSignatureBuffer(sigUrl);
+      if (sigBuf) {
+        try {
+          doc.image(sigBuf, bx + (colWidth - 80) / 2, curY + 24, { fit: [80, 32], align: 'center' });
+        } catch (e) {
+          console.warn('[PDFKit] Gagal muat TTD Chief:', e.message);
+        }
+      }
+    }
+
+    doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#0f172a').text(`( ${name} )`, bx, curY + 62, { width: colWidth, align: 'center', lineBreak: false, ellipsis: true });
+    if (nip && nip !== '-') {
+      doc.fontSize(6.5).font('Helvetica').fillColor('#475569').text(`NIP. ${nip}`, bx, curY + 74, { width: colWidth, align: 'center', lineBreak: false, ellipsis: true });
+    }
+  }
+
+  // 1 Pejabat Section Head di sisi Kanan
+  const shX = startX + 3 * (colWidth + colGap) + 5;
+  const shWidth = contentWidth - (shX - startX);
+  const headName = sectionHead.name || 'Airport Rescue & Fire Fighting Section Head';
+  const headNip = sectionHead.nip;
+  const headSigUrl = sectionHead.signature_url;
+  const dateStr = shiftDate ? formatIndonesianDate(shiftDate) : formatIndonesianDate(new Date().toISOString().split('T')[0]);
+
+  let shY = y;
+  doc.fontSize(7.5).font('Helvetica').fillColor('#475569').text(`Kulon Progo, ${dateStr}`, shX, shY, { width: shWidth, align: 'center' });
+  shY += 12;
+  doc.fontSize(7.5).font('Helvetica').fillColor('#0f172a').text('Mengetahui / Mengesahkan,', shX, shY, { width: shWidth, align: 'center' });
+  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#0f172a').text('ARFF SECTION HEAD', shX, shY + 11, { width: shWidth, align: 'center' });
+
+  if (headSigUrl) {
+    const headSigBuf = await resolveSignatureBuffer(headSigUrl);
+    if (headSigBuf) {
+      try {
+        doc.image(headSigBuf, shX + (shWidth - 85) / 2, shY + 24, { fit: [85, 32], align: 'center' });
+      } catch (e) {
+        console.warn('[PDFKit] Gagal muat TTD Section Head:', e.message);
+      }
+    }
+  }
+
+  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#0f172a').text(`( ${headName} )`, shX, shY + 62, { width: shWidth, align: 'center', lineBreak: false, ellipsis: true });
+  if (headNip && headNip !== '-') {
+    doc.fontSize(6.5).font('Helvetica').fillColor('#475569').text(`NIP. ${headNip}`, shX, shY + 74, { width: shWidth, align: 'center', lineBreak: false, ellipsis: true });
+  }
+
+  return y + 88;
+};
+
+// 11. Watermark Transparan & Penomoran Halaman Otomatis (Bebas Phantom Blank Pages)
 export const applyWatermarkAndPageNumbers = (
   doc,
   contentWidth,
@@ -422,10 +571,14 @@ export const applyWatermarkAndPageNumbers = (
   const range = doc.bufferedPageRange();
   const pageHeight = doc.page.height;
   const pageWidth = doc.page.width;
-  const footerY = pageHeight - 35;
+  const footerY = pageHeight - 28; // Jarak aman di atas batas margin bawah
 
   for (let i = range.start; i < range.start + range.count; i++) {
     doc.switchToPage(i);
+
+    // Matikan proteksi margin bawah sementara untuk menghindari trigger continueOnNewPage internal PDFKit
+    const origBottomMargin = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
 
     // Watermark dinamis transparan di latar belakang tengah halaman
     doc.save();
@@ -433,7 +586,7 @@ export const applyWatermarkAndPageNumbers = (
     const centerX = pageWidth / 2;
     const centerY = pageHeight / 2;
     doc.rotate(-32, { origin: [centerX, centerY] });
-    doc.text(watermarkText, centerX - 260, centerY - 15, { width: 520, align: 'center' });
+    doc.text(watermarkText, centerX - 260, centerY - 15, { width: 520, align: 'center', lineBreak: false });
     doc.restore();
 
     // Footer penomoran halaman kedinasan resmi
@@ -441,8 +594,11 @@ export const applyWatermarkAndPageNumbers = (
       `Halaman ${i + 1} dari ${range.count} • Dokumen Resmi ARFF YIA • Dicetak otomatis oleh Sistem Monitoring Operasional`,
       startX,
       footerY,
-      { width: contentWidth, align: 'center' }
+      { width: contentWidth, align: 'center', lineBreak: false }
     );
+
+    // Kembalikan margin bawah asli
+    doc.page.margins.bottom = origBottomMargin;
   }
 };
 

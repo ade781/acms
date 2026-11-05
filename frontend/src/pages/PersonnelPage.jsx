@@ -65,7 +65,7 @@ function getStkpBadge(person) {
 }
 
 export default function PersonnelPage() {
-  const { isAdmin, isSupervisor, activeTeam, token } = useAuth();
+  const { isAdmin, isSupervisor, isDeptHead, activeTeam, token } = useAuth();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -240,12 +240,13 @@ export default function PersonnelPage() {
               </Button>
             )}
 
-            {isAdmin && (
+            {(isAdmin || isSupervisor || isDeptHead) && (
               <Button
                 variant="outline"
                 size="sm"
                 icon={FileText}
                 onClick={() => setPdfPreviewOpen(true)}
+                title="Buka Pratinjau Buku Induk Personel & Akun Sistem"
               >
                 Buku Induk PDF
               </Button>

@@ -4,23 +4,17 @@ import {
   getPdfCache,
   setPdfCache,
 } from '../../services/pdfService.js';
-import { isShiftOfficial, streamPdfToResponse } from '../../services/pdfBaseHelper.js';
+import { streamPdfToResponse } from '../../services/pdfBaseHelper.js';
 import { errorResponse } from '../../utils/responseHelper.js';
 import { getOfficialSignatory } from '../../utils/officialHelper.js';
-import { fetchVehicleIssuesAuditData } from './vehicleReportsController.js';
+import { resolveRosterForDate, getStoredCycles } from '../scheduleController.js';
 
-export const getShiftReportPdf = async (req, res) => {
+/**
+ * Mencari identitas Ketua Regu / Pejabat Penanggung Jawab Shift secara dinamis dari database
+ */
+async function getChiefForTeam(teamGroup, shiftDate, shiftNumber) {
   try {
-    const { date, shift, team_group } = req.query;
-
-    const shiftDate = date || new Date().toISOString().split('T')[0];
-    const shiftNumber = Math.min(Math.max(parseInt(shift, 10) || 1, 1), 3);
-    const ALLOWED_TEAMS = ['Alpha', 'Bravo', 'Charlie', 'Delta'];
-    const rawTeam = (team_group || 'Alpha').replace(/^(Regu\s+|Team\s+)/i, '').trim();
-    const matchedTeam = ALLOWED_TEAMS.find((t) => t.toLowerCase() === rawTeam.toLowerCase());
-    const teamGroup = matchedTeam || 'Alpha';
-
-    // Eksekusi data dinas shift resmi laporan A4
+    // 1. Cek dari personnel_shifts jika sudah ada entitas shift
     const [shifts] = await pool.query(
       `SELECT ps.*, COALESCE(p.full_name, u.name) as supervisor_name, u.signature_url as user_sig, p.signature_url as pers_sig, p.nip as supervisor_nip
        FROM personnel_shifts ps
@@ -29,512 +23,355 @@ export const getShiftReportPdf = async (req, res) => {
        WHERE ps.shift_date = ? AND ps.shift_number = ? AND ps.team_group = ?`,
       [shiftDate, shiftNumber, teamGroup]
     );
+    if (shifts.length > 0 && shifts[0].supervisor_name) {
+      return {
+        name: shifts[0].supervisor_name,
+        nip: shifts[0].supervisor_nip || null,
+        signature_url: shifts[0].pers_sig || shifts[0].user_sig || null,
+        team: teamGroup,
+        shift_number: shiftNumber,
+        status: shifts[0].status || 'open',
+      };
+    }
 
-    const shiftData = shifts.length > 0 ? shifts[0] : {
-      shift_date: shiftDate,
+    // 2. Cari dari tabel personnel yang memegang jabatan Chief / Supervisor untuk regu tersebut
+    const [teamChiefs] = await pool.query(
+      `SELECT p.full_name, p.nip, COALESCE(u.signature_url, p.signature_url) as signature_url
+       FROM personnel p
+       LEFT JOIN users u ON u.id = p.user_id
+       WHERE (u.role IN ('chief', 'supervisor') OR p.rank_position LIKE '%Chief%' OR p.rank_position LIKE '%Ketua%')
+         AND p.rank_position NOT LIKE '%Assistant%'
+         AND p.rank_position NOT LIKE '%Asisten%'
+         AND p.rank_position NOT LIKE '%Wakil%'
+         AND (u.role IS NULL OR u.role != 'chief_assistant')
+         AND p.team_group = ?
+       ORDER BY p.id ASC
+       LIMIT 1`,
+      [teamGroup]
+    );
+    if (teamChiefs.length > 0) {
+      return {
+        name: teamChiefs[0].full_name,
+        nip: teamChiefs[0].nip || null,
+        signature_url: teamChiefs[0].signature_url || null,
+        team: teamGroup,
+        shift_number: shiftNumber,
+        status: 'open',
+      };
+    }
+
+    // 3. Fallback: Cari personel aktif paling senior di regu tersebut
+    const [seniorMembers] = await pool.query(
+      `SELECT p.full_name, p.nip, COALESCE(u.signature_url, p.signature_url) as signature_url
+       FROM personnel p
+       LEFT JOIN users u ON u.id = p.user_id
+       WHERE p.team_group = ? AND p.is_active = 1
+       ORDER BY FIELD(p.cert_level, 'Senior', 'Junior', 'Basic'), p.id ASC
+       LIMIT 1`,
+      [teamGroup]
+    );
+    if (seniorMembers.length > 0) {
+      return {
+        name: seniorMembers[0].full_name,
+        nip: seniorMembers[0].nip || null,
+        signature_url: seniorMembers[0].signature_url || null,
+        team: teamGroup,
+        shift_number: shiftNumber,
+        status: 'open',
+      };
+    }
+
+    return {
+      name: `Ketua Regu ${teamGroup}`,
+      nip: null,
+      signature_url: null,
+      team: teamGroup,
       shift_number: shiftNumber,
-      team_group: teamGroup,
-      supervisor_name: null,
-      supervisor_nip: null,
-      supervisor_signature_url: null,
-      status: 'open'
+      status: 'open',
     };
+  } catch (err) {
+    console.warn(`Gagal mencari Chief untuk regu ${teamGroup}:`, err.message);
+    return {
+      name: `Ketua Regu ${teamGroup}`,
+      nip: null,
+      signature_url: null,
+      team: teamGroup,
+      shift_number: shiftNumber,
+      status: 'open',
+    };
+  }
+}
 
-    // 1. Cek In-Memory Cache PDF (termasuk status shift dan status official untuk mencegah drift data draf vs final)
-    const isOfficial = isShiftOfficial(shiftDate, shiftNumber, shiftData?.status);
-    const cacheKey = `shift_report_${shiftDate}_${shiftNumber}_${teamGroup}_${shiftData.status || 'open'}_${isOfficial ? 'official' : 'draft'}`;
+/**
+ * Mengambil data operasional harian 24 Jam (Shift 1, 2, dan 3) secara terpadu
+ * Format Matriks Kesiapan Armada Harian (Daily Readiness Matrix)
+ */
+export async function getDailyOperationalData(shiftDate) {
+  // 1. Roster 3 Regu untuk tanggal tersebut
+  const storedCycles = await getStoredCycles();
+  let roster = null;
+  const [overrideRows] = await pool.query(
+    `SELECT shift_1_team, shift_2_team, shift_3_team, off_team FROM schedule_rosters WHERE roster_date = ?`,
+    [shiftDate]
+  );
+  if (overrideRows.length > 0 && overrideRows[0].shift_1_team) {
+    roster = {
+      shift_1: overrideRows[0].shift_1_team,
+      shift_2: overrideRows[0].shift_2_team,
+      shift_3: overrideRows[0].shift_3_team,
+      off_team: overrideRows[0].off_team,
+    };
+  } else {
+    roster = resolveRosterForDate(shiftDate, storedCycles);
+  }
+
+  // 2. Pejabat Section Head & 3 Ketua Regu
+  const [deptHeadData, chiefs] = await Promise.all([
+    getOfficialSignatory(pool),
+    Promise.all([
+      getChiefForTeam(roster.shift_1, shiftDate, 1),
+      getChiefForTeam(roster.shift_2, shiftDate, 2),
+      getChiefForTeam(roster.shift_3, shiftDate, 3),
+    ]),
+  ]);
+
+  // 3. Seluruh Armada Aktif (termasuk Posko)
+  const [allVehicles] = await pool.query(
+    `SELECT v.id, v.code_name, v.vehicle_name, v.category, v.license_plate, v.description
+     FROM vehicles v
+     WHERE v.is_active = 1
+     ORDER BY CASE v.category WHEN 'utama' THEN 1 WHEN 'pendukung' THEN 2 WHEN 'posko' THEN 3 ELSE 4 END, v.id ASC`
+  );
+
+  // 4. Log Pemeriksaan Kesiapan Armada pada shiftDate
+  const [readinessLogs] = await pool.query(
+    `SELECT vrl.*, p.full_name as pic_name, p.nip as pic_nip
+     FROM vehicle_readiness_logs vrl
+     LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
+     WHERE vrl.shift_date = ?`,
+    [shiftDate]
+  );
+
+  // 5. Ploting PIC dari penugasan harian
+  const [picDeployments] = await pool.query(
+    `SELECT pd.vehicle_id, ps.shift_number, ps.team_group, p.id as personnel_id, p.full_name, p.nip
+     FROM personnel_deployments pd
+     JOIN personnel_shifts ps ON ps.id = pd.shift_id
+     JOIN personnel p ON p.id = pd.personnel_id
+     WHERE ps.shift_date = ? AND pd.is_pic = 1`,
+    [shiftDate]
+  );
+
+  // 6. Carry-Over unserviceable status dari hari/shift sebelumnya yang belum pulih
+  const [prevUnserv] = await pool.query(
+    `SELECT vrl.vehicle_id, vrl.status, vrl.justification, vrl.notes, vrl.shift_date, vrl.shift_number, vrl.team_group, p.full_name as prev_pic_name
+     FROM vehicle_readiness_logs vrl
+     JOIN (
+       SELECT vehicle_id, MAX(CONCAT(shift_date, '_', LPAD(shift_number, 2, '0'))) as max_shift
+       FROM vehicle_readiness_logs
+       WHERE shift_date < ?
+         AND status = 'unserviceable'
+         AND follow_up_status != 'resolved'
+       GROUP BY vehicle_id
+     ) latest ON latest.vehicle_id = vrl.vehicle_id AND CONCAT(vrl.shift_date, '_', LPAD(vrl.shift_number, 2, '0')) = latest.max_shift
+     LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
+     WHERE vrl.status = 'unserviceable' AND vrl.follow_up_status != 'resolved'`,
+    [shiftDate]
+  );
+  const carryOverMap = new Map();
+  prevUnserv.forEach((u) => carryOverMap.set(u.vehicle_id, u));
+
+  // 7. Bentuk Matriks Kesiapan Armada Harian
+  const matrixVehicles = allVehicles.map((v) => {
+    const shiftStatuses = {};
+    const vehicleNotes = [];
+
+    [1, 2, 3].forEach((sNum) => {
+      const team = sNum === 1 ? roster.shift_1 : sNum === 2 ? roster.shift_2 : roster.shift_3;
+      const log = readinessLogs.find(
+        (l) => l.vehicle_id === v.id && Number(l.shift_number) === sNum
+      );
+      const pic = picDeployments.find(
+        (d) => d.vehicle_id === v.id && Number(d.shift_number) === sNum
+      );
+
+      let status = 'belum_dilaporkan';
+      let justification = null;
+      let notes = null;
+      const picName = pic?.full_name || log?.pic_name || null;
+
+      if (log && log.status && log.status !== 'belum_dilaporkan') {
+        status = log.status;
+        justification = log.justification;
+        notes = log.notes;
+      } else if (carryOverMap.has(v.id)) {
+        const prev = carryOverMap.get(v.id);
+        status = 'unserviceable';
+        justification = prev.justification;
+        notes = prev.notes;
+      }
+
+      shiftStatuses[`shift_${sNum}`] = {
+        shift_number: sNum,
+        team_group: team,
+        status,
+        justification,
+        notes,
+        pic_name: picName,
+      };
+
+      if (justification || notes) {
+        const text = justification || notes;
+        vehicleNotes.push(`${team}: ${text}`);
+      }
+    });
+
+    return {
+      id: v.id,
+      code_name: v.code_name,
+      vehicle_name: v.vehicle_name,
+      category: v.category,
+      license_plate: v.license_plate,
+      description: v.description,
+      ...shiftStatuses,
+      notes: vehicleNotes.length > 0 ? vehicleNotes.join('; ') : '-',
+    };
+  });
+
+  // 8. Kekuatan & Distribusi Personel 3 Regu (Presensi & Cuti)
+  const [allDeployments] = await pool.query(
+    `SELECT pd.*, p.full_name, p.nip, p.rank_position, p.cert_level, p.team_group as personnel_team,
+            ps.shift_number, ps.team_group as shift_team
+     FROM personnel_deployments pd
+     JOIN personnel p ON p.id = pd.personnel_id
+     JOIN personnel_shifts ps ON ps.id = pd.shift_id
+     WHERE ps.shift_date = ?
+     ORDER BY ps.shift_number ASC, pd.deployment_type ASC, p.full_name ASC`,
+    [shiftDate]
+  );
+
+  const personnelSummary = {};
+  [1, 2, 3].forEach((sNum) => {
+    const team = sNum === 1 ? roster.shift_1 : sNum === 2 ? roster.shift_2 : roster.shift_3;
+    const shiftDeps = allDeployments.filter((d) => Number(d.shift_number) === sNum);
+    const present = shiftDeps.filter((d) => d.deployment_type !== 'absent');
+    const absents = shiftDeps.filter((d) => d.deployment_type === 'absent');
+
+    personnelSummary[`shift_${sNum}`] = {
+      shift_number: sNum,
+      team,
+      present_count: present.length,
+      absent_count: absents.length,
+      present,
+      absents,
+    };
+  });
+
+  // 9. Jurnal Kegiatan Rutin 24 Jam (Kronologis)
+  const [activities] = await pool.query(
+    `SELECT a.*, ps.shift_number, ps.team_group
+     FROM daily_shift_activities a
+     JOIN personnel_shifts ps ON ps.id = a.shift_id
+     WHERE ps.shift_date = ?
+     ORDER BY a.activity_time ASC, ps.shift_number ASC`,
+    [shiftDate]
+  );
+
+  // 10. Rekapitulasi Kejadian & Insiden 24 Jam (Kronologis)
+  const [incidentsRaw] = await pool.query(
+    `SELECT i.*, u.name as reporter_name
+     FROM incidents i
+     LEFT JOIN users u ON u.id = i.reporter_id
+     WHERE i.incident_date = ?
+     ORDER BY i.incident_time ASC, i.shift_number ASC`,
+    [shiftDate]
+  );
+
+  const officialObj = {
+    id: deptHeadData?.id || null,
+    user_id: deptHeadData?.user_id || null,
+    name: deptHeadData?.name || 'Section Head ARFF',
+    full_name: deptHeadData?.name || 'Section Head ARFF',
+    dept_head_name: deptHeadData?.name || 'Section Head ARFF',
+    nip: deptHeadData?.nip || null,
+    dept_head_nip: deptHeadData?.nip || null,
+    rank_position: deptHeadData?.rank_position || 'Airport Rescue & Fire Fighting Section Head',
+    signature_url: deptHeadData?.signature_url || null,
+    dept_head_signature_url: deptHeadData?.signature_url || null,
+  };
+
+  return {
+    shift_date: shiftDate,
+    roster,
+    matrixVehicles,
+    vehicles: matrixVehicles, // Backwards-compatible
+    personnelSummary,
+    deployments: allDeployments, // Backwards-compatible
+    absents: allDeployments.filter((d) => d.deployment_type === 'absent'), // Backwards-compatible
+    activities,
+    incidents: incidentsRaw,
+    chiefs: {
+      shift_1: chiefs[0],
+      shift_2: chiefs[1],
+      shift_3: chiefs[2],
+    },
+    chiefsList: chiefs,
+    dept_head: officialObj,
+    official: officialObj,
+    deptHeadData: officialObj,
+  };
+}
+
+/**
+ * Controller: Unduh / Streaming PDF Laporan Harian ARFF YIA (24 Jam • 3 Shift)
+ */
+export const getShiftReportPdf = async (req, res) => {
+  try {
+    const { date } = req.query;
+    const shiftDate = date || new Date().toISOString().split('T')[0];
+
+    // Cek In-Memory Cache PDF Laporan Harian
+    const cacheKey = `daily_report_${shiftDate}`;
     const cachedBuffer = getPdfCache(cacheKey);
     if (cachedBuffer) {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader(
         'Content-Disposition',
-        `inline; filename="laporan-shift-${shiftNumber}-${teamGroup}-${shiftDate}.pdf"`
+        `inline; filename="laporan-harian-arff-${shiftDate}.pdf"`
       );
       return res.send(cachedBuffer);
     }
 
-    // Ambil identitas Ketua Regu / Supervisor dinas secara dinamis dari database
-    let supervisorName = shiftData?.supervisor_name || null;
-    let supervisorNip = shiftData?.supervisor_nip || null;
-    let supervisorSignatureUrl = shiftData?.pers_sig || shiftData?.user_sig || null;
-
-    if (!supervisorName) {
-      const [teamChiefs] = await pool.query(
-        `SELECT p.full_name, p.nip, COALESCE(u.signature_url, p.signature_url) as signature_url
-         FROM personnel p
-         LEFT JOIN users u ON u.id = p.user_id
-         WHERE (u.role IN ('chief', 'supervisor') OR p.rank_position LIKE '%Chief%' OR p.rank_position LIKE '%Ketua%')
-           AND p.rank_position NOT LIKE '%Assistant%'
-           AND p.rank_position NOT LIKE '%Asisten%'
-           AND p.rank_position NOT LIKE '%Wakil%'
-           AND (u.role IS NULL OR u.role != 'chief_assistant')
-           AND p.team_group = ?
-         ORDER BY p.id ASC
-         LIMIT 1`,
-        [teamGroup]
-      );
-      if (teamChiefs.length > 0) {
-        supervisorName = teamChiefs[0].full_name;
-        supervisorNip = teamChiefs[0].nip;
-        supervisorSignatureUrl = teamChiefs[0].signature_url;
-      } else {
-        // Fallback dinamis: Cari personil paling senior di regu tersebut dari database (bukan hardcoded)
-        const [seniorMembers] = await pool.query(
-          `SELECT p.full_name, p.nip, COALESCE(u.signature_url, p.signature_url) as signature_url
-           FROM personnel p
-           LEFT JOIN users u ON u.id = p.user_id
-           WHERE p.team_group = ? AND p.is_active = 1
-           ORDER BY FIELD(p.cert_level, 'Senior', 'Junior', 'Basic'), p.id ASC
-           LIMIT 1`,
-          [teamGroup]
-        );
-        if (seniorMembers.length > 0) {
-          supervisorName = seniorMembers[0].full_name;
-          supervisorNip = seniorMembers[0].nip;
-          supervisorSignatureUrl = seniorMembers[0].signature_url;
-        } else {
-          supervisorName = `Ketua Regu ${teamGroup}`;
-        }
-      }
-    }
-
-    // Ambil data pejabat Section Head / Dept Head secara dinamis dari database
-    const deptHeadData = await getOfficialSignatory(pool);
-
-    // Ambil data kesiapan kendaraan & PIC ploting resmi shift (seluruh armada & posko)
-    const [vehicles] = await pool.query(
-      `SELECT v.id, v.code_name, v.vehicle_name, v.category, vrl.status, vrl.justification,
-              COALESCE(deploy_pic.full_name, p.full_name) as pic_name
-       FROM vehicles v
-       LEFT JOIN vehicle_readiness_logs vrl
-         ON vrl.vehicle_id = v.id AND vrl.shift_date = ? AND vrl.shift_number = ? AND vrl.team_group = ?
-       LEFT JOIN (
-         SELECT pd.vehicle_id, p.full_name
-         FROM personnel_deployments pd
-         JOIN personnel_shifts ps ON ps.id = pd.shift_id
-         JOIN personnel p ON p.id = pd.personnel_id
-         WHERE ps.shift_date = ? AND ps.shift_number = ? AND ps.team_group = ? AND pd.is_pic = 1
-       ) deploy_pic ON deploy_pic.vehicle_id = v.id
-       LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
-       WHERE v.is_active = 1
-       ORDER BY CASE v.category WHEN 'utama' THEN 1 WHEN 'pendukung' THEN 2 WHEN 'posko' THEN 3 ELSE 4 END, v.id ASC`,
-      [shiftDate, shiftNumber, teamGroup, shiftDate, shiftNumber, teamGroup]
-    );
-
-    // Carry-over status unserviceable untuk kendaraan yang belum dilaporkan di shift ini
-    const unreportedIds = vehicles
-      .filter((r) => !r.status || r.status === 'belum_dilaporkan')
-      .map((r) => r.id);
-    if (unreportedIds.length > 0) {
-      const [prevLogs] = await pool.query(
-        `SELECT vrl.vehicle_id, vrl.status, vrl.justification, vrl.follow_up_status, vrl.notes,
-                vrl.shift_date, vrl.shift_number, vrl.team_group, p.full_name as prev_pic_name
-         FROM vehicle_readiness_logs vrl
-         JOIN (
-           SELECT vehicle_id, MAX(CONCAT(shift_date, '_', LPAD(shift_number, 2, '0'))) as max_shift
-           FROM vehicle_readiness_logs
-           WHERE vehicle_id IN (?)
-             AND (shift_date < ? OR (shift_date = ? AND shift_number < ?))
-             AND status = 'unserviceable'
-             AND follow_up_status != 'resolved'
-           GROUP BY vehicle_id
-         ) latest ON latest.vehicle_id = vrl.vehicle_id
-                 AND CONCAT(vrl.shift_date, '_', LPAD(vrl.shift_number, 2, '0')) = latest.max_shift
-         LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
-         WHERE vrl.status = 'unserviceable'
-           AND vrl.follow_up_status != 'resolved'`,
-        [unreportedIds, shiftDate, shiftDate, shiftNumber]
-      );
-
-      const carryOverMap = new Map();
-      for (const prev of prevLogs) {
-        if (!carryOverMap.has(prev.vehicle_id)) {
-          carryOverMap.set(prev.vehicle_id, prev);
-        }
-      }
-
-      for (const item of vehicles) {
-        if ((!item.status || item.status === 'belum_dilaporkan') && carryOverMap.has(item.id)) {
-          const prev = carryOverMap.get(item.id);
-          item.status = 'unserviceable';
-          item.justification = prev.justification || item.justification;
-        }
-      }
-    }
-
-    // Ambil kesiapan watchroom dari vehicle_readiness_logs
-    const [watchrooms] = await pool.query(
-      `SELECT vrl.status, vrl.notes, p.full_name as inspector_name
-       FROM vehicle_readiness_logs vrl
-       JOIN vehicles v ON v.id = vrl.vehicle_id
-       LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
-       WHERE (v.category = 'posko' OR v.code_name = 'WATCHROOM')
-         AND vrl.shift_date = ? AND vrl.shift_number = ? AND vrl.team_group = ?
-       LIMIT 1`,
-      [shiftDate, shiftNumber, teamGroup]
-    );
-
-    // Ambil ploting personel & absensi
-    let deployments = [];
-    let absents = [];
-
-    if (shifts.length > 0) {
-      const [deps] = await pool.query(
-        `SELECT pd.*, p.full_name, p.nip, p.rank_position
-         FROM personnel_deployments pd
-         JOIN personnel p ON p.id = pd.personnel_id
-         WHERE pd.shift_id = ?
-         ORDER BY pd.deployment_type ASC, pd.is_pic DESC, p.full_name ASC`,
-        [shifts[0].id]
-      );
-      deployments = deps;
-      absents = deps.filter((d) => d.deployment_type === 'absent');
-    }
-
-    // Ambil juga personel dari regu ini yang tercatat cuti/izin pada tanggal ini
-    const [teamAbsents] = await pool.query(
-      `SELECT pd.*, p.full_name, p.nip, p.rank_position, pd.absent_reason, pd.notes
-       FROM personnel_deployments pd
-       JOIN personnel p ON p.id = pd.personnel_id
-       JOIN personnel_shifts ps ON ps.id = pd.shift_id
-       WHERE ps.shift_date = ? AND (p.team_group = ? OR ps.team_group = ?) AND pd.deployment_type = 'absent'`,
-      [shiftDate, teamGroup, teamGroup]
-    );
-
-    const absentMap = new Map();
-    absents.forEach((a) => absentMap.set(a.personnel_id, a));
-    teamAbsents.forEach((a) => {
-      if (!absentMap.has(a.personnel_id)) {
-        absentMap.set(a.personnel_id, a);
-      }
-    });
-    absents = Array.from(absentMap.values());
-
-    // Ambil insiden (dikunci berdasarkan tanggal, shift_number, dan team_group)
-    const [incidents] = await pool.query(
-      `SELECT report_number, title, location, incident_time, action_taken
-       FROM incidents
-       WHERE incident_date = ? AND shift_number = ? AND team_group = ?`,
-      [shiftDate, shiftNumber, teamGroup]
-    );
-
-    // Ambil aktivitas
-    let activities = [];
-    if (shifts.length > 0) {
-      const [acts] = await pool.query(
-        `SELECT activity_time, title, description
-         FROM daily_shift_activities
-         WHERE shift_id = ? ORDER BY activity_time ASC`,
-        [shifts[0].id]
-      );
-      activities = acts;
-    }
-
-    const reportPayload = {
-      shift_date: shiftData.shift_date,
-      shift_number: shiftData.shift_number,
-      team_group: shiftData.team_group,
-      supervisor_name: supervisorName,
-      supervisor_nip: supervisorNip,
-      supervisor_signature_url: supervisorSignatureUrl,
-      dept_head_name: deptHeadData?.name || 'Section Head ARFF',
-      dept_head_nip: deptHeadData?.nip || null,
-      dept_head_signature_url: isOfficial ? (deptHeadData?.signature_url || null) : null,
-      status: shiftData.status,
-      is_official: isOfficial,
-      vehicles,
-      watchroom: watchrooms.length > 0 ? watchrooms[0] : {},
-      deployments,
-      absents,
-      incidents,
-      activities
-    };
-
-        const doc = await generateShiftReportPdf(reportPayload);
+    const dailyData = await getDailyOperationalData(shiftDate);
+    const doc = await generateShiftReportPdf(dailyData);
 
     streamPdfToResponse(doc, res, req, {
-      filename: `laporan-shift-${shiftNumber}-${teamGroup}-${shiftDate}.pdf`,
-      onEnd: (resultBuffer) => setPdfCache(cacheKey, resultBuffer)
+      filename: `laporan-harian-arff-${shiftDate}.pdf`,
+      onEnd: (resultBuffer) => setPdfCache(cacheKey, resultBuffer),
     });
   } catch (error) {
     console.error('Error getShiftReportPdf:', error);
-    return errorResponse(res, 'Gagal menerbitkan laporan PDF: ' + error.message, 500);
+    return errorResponse(res, 'Gagal menerbitkan laporan PDF harian: ' + error.message, 500);
   }
 };
 
 /**
- * Endpoint agregasi terpadu ringkasan operasional shift (1 roundtrip HTTP)
- * Mengambil data shift, pejabat, kesiapan armada, watchroom, kendala unit, penugasan, absensi, insiden, dan kegiatan
+ * Controller: Ambil Ringkasan Laporan Harian Terpadu (1 roundtrip HTTP)
  */
 export const getShiftSummaryReport = async (req, res) => {
   try {
-    const { date, shift, team_group } = req.query;
-
+    const { date } = req.query;
     const shiftDate = date || new Date().toISOString().split('T')[0];
-    const shiftNumber = Math.min(Math.max(parseInt(shift, 10) || 1, 1), 3);
-    const ALLOWED_TEAMS = ['Alpha', 'Bravo', 'Charlie', 'Delta'];
-    const rawTeam = (team_group || 'Alpha').replace(/^(Regu\s+|Team\s+)/i, '').trim();
-    const matchedTeam = ALLOWED_TEAMS.find((t) => t.toLowerCase() === rawTeam.toLowerCase());
-    const teamGroup = matchedTeam || 'Alpha';
 
-    const [
-      [shifts],
-      deptHeadData,
-      [allVehicles],
-      [incidentsRaw],
-      vehicleIssues
-    ] = await Promise.all([
-      pool.query(
-        `SELECT ps.*, COALESCE(p.full_name, u.name) as supervisor_name, u.signature_url as user_sig, p.signature_url as pers_sig, p.nip as supervisor_nip
-         FROM personnel_shifts ps
-         LEFT JOIN users u ON u.id = ps.supervisor_id
-         LEFT JOIN personnel p ON p.user_id = u.id
-         WHERE ps.shift_date = ? AND ps.shift_number = ? AND ps.team_group = ?`,
-        [shiftDate, shiftNumber, teamGroup]
-      ),
-      getOfficialSignatory(pool),
-      pool.query(
-        `SELECT v.id, v.id as vehicle_id, v.code_name, v.vehicle_name, v.category, v.license_plate, v.description,
-                vrl.id as log_id,
-                COALESCE(vrl.status, 'belum_dilaporkan') as status,
-                vrl.justification, vrl.photo_webp_url, vrl.follow_up_status, vrl.notes, vrl.updated_at as logged_at,
-                COALESCE(deploy_pic.id, p_log.id) as pic_personnel_id,
-                COALESCE(deploy_pic.full_name, p_log.full_name) as pic_name,
-                COALESCE(deploy_pic.nip, p_log.nip) as pic_nip
-         FROM vehicles v
-         LEFT JOIN vehicle_readiness_logs vrl
-           ON vrl.vehicle_id = v.id AND vrl.shift_date = ? AND vrl.shift_number = ? AND vrl.team_group = ?
-         LEFT JOIN (
-           SELECT pd.vehicle_id, p.id, p.full_name, p.nip
-           FROM personnel_deployments pd
-           JOIN personnel_shifts ps ON ps.id = pd.shift_id
-           JOIN personnel p ON p.id = pd.personnel_id
-           WHERE ps.shift_date = ? AND ps.shift_number = ? AND ps.team_group = ? AND pd.is_pic = 1
-         ) deploy_pic ON deploy_pic.vehicle_id = v.id
-         LEFT JOIN personnel p_log ON p_log.id = vrl.pic_personnel_id
-         WHERE v.is_active = 1
-         ORDER BY CASE v.category WHEN 'utama' THEN 1 WHEN 'pendukung' THEN 2 WHEN 'posko' THEN 3 ELSE 4 END, v.id ASC`,
-        [shiftDate, shiftNumber, teamGroup, shiftDate, shiftNumber, teamGroup]
-      ),
-      pool.query(
-        `SELECT i.*, u.name as reporter_name
-         FROM incidents i
-         LEFT JOIN users u ON u.id = i.reporter_id
-         WHERE i.incident_date = ? AND i.shift_number = ? AND i.team_group = ?
-         ORDER BY i.incident_time ASC`,
-        [shiftDate, shiftNumber, teamGroup]
-      ),
-      fetchVehicleIssuesAuditData(shiftDate, shiftNumber, teamGroup)
-    ]);
-
-    // Carry-over status unserviceable untuk kendaraan yang belum dilaporkan di shift ini
-    const unreportedIds = allVehicles.filter((r) => r.status === 'belum_dilaporkan').map((r) => r.id);
-    if (unreportedIds.length > 0) {
-      const [prevLogs] = await pool.query(
-        `SELECT vrl.vehicle_id, vrl.status, vrl.justification, vrl.photo_webp_url, vrl.follow_up_status, vrl.notes,
-                vrl.shift_date, vrl.shift_number, vrl.team_group, p.full_name as prev_pic_name
-         FROM vehicle_readiness_logs vrl
-         JOIN (
-           SELECT vehicle_id, MAX(CONCAT(shift_date, '_', LPAD(shift_number, 2, '0'))) as max_shift
-           FROM vehicle_readiness_logs
-           WHERE vehicle_id IN (?)
-             AND (shift_date < ? OR (shift_date = ? AND shift_number < ?))
-             AND status = 'unserviceable'
-             AND follow_up_status != 'resolved'
-           GROUP BY vehicle_id
-         ) latest ON latest.vehicle_id = vrl.vehicle_id
-                 AND CONCAT(vrl.shift_date, '_', LPAD(vrl.shift_number, 2, '0')) = latest.max_shift
-         LEFT JOIN personnel p ON p.id = vrl.pic_personnel_id
-         WHERE vrl.status = 'unserviceable'
-           AND vrl.follow_up_status != 'resolved'`,
-        [unreportedIds, shiftDate, shiftDate, shiftNumber]
-      );
-
-      const carryOverMap = new Map();
-      for (const prev of prevLogs) {
-        if (!carryOverMap.has(prev.vehicle_id)) {
-          carryOverMap.set(prev.vehicle_id, prev);
-        }
-      }
-
-      for (const item of allVehicles) {
-        if (item.status === 'belum_dilaporkan' && carryOverMap.has(item.id)) {
-          const prev = carryOverMap.get(item.id);
-          item.status = 'unserviceable';
-          item.justification = prev.justification;
-          item.photo_webp_url = prev.photo_webp_url;
-          item.follow_up_status = prev.follow_up_status;
-          item.notes = prev.notes;
-          item.is_carried_over = true;
-          item.carried_from = {
-            shift_date: prev.shift_date,
-            shift_number: prev.shift_number,
-            team_group: prev.team_group,
-            reported_by: prev.prev_pic_name
-          };
-        }
-      }
-    }
-
-    const vehicles = allVehicles;
-    const watchroomUnit = allVehicles.find((v) => v.category === 'posko' || v.code_name === 'WATCHROOM');
-    const watchroom = watchroomUnit
-      ? {
-          ...watchroomUnit,
-          inspector_name: watchroomUnit.pic_name || null,
-          updated_at: watchroomUnit.logged_at || null
-        }
-      : { status: 'belum_dilaporkan', notes: null, inspector_name: null };
-
-    const shiftData = shifts.length > 0 ? shifts[0] : {
-      shift_date: shiftDate,
-      shift_number: shiftNumber,
-      team_group: teamGroup,
-      supervisor_name: null,
-      supervisor_nip: null,
-      supervisor_signature_url: null,
-      status: 'open'
-    };
-
-    let supervisorName = shiftData?.supervisor_name || null;
-    let supervisorNip = shiftData?.supervisor_nip || null;
-    let supervisorSignatureUrl = shiftData?.pers_sig || shiftData?.user_sig || null;
-
-    if (!supervisorName) {
-      const [teamChiefs] = await pool.query(
-        `SELECT p.full_name, p.nip, COALESCE(u.signature_url, p.signature_url) as signature_url
-         FROM personnel p
-         LEFT JOIN users u ON u.id = p.user_id
-         WHERE (u.role IN ('chief', 'supervisor') OR p.rank_position LIKE '%Chief%' OR p.rank_position LIKE '%Ketua%')
-           AND p.rank_position NOT LIKE '%Assistant%'
-           AND p.rank_position NOT LIKE '%Asisten%'
-           AND p.rank_position NOT LIKE '%Wakil%'
-           AND (u.role IS NULL OR u.role != 'chief_assistant')
-           AND p.team_group = ?
-         ORDER BY p.id ASC
-         LIMIT 1`,
-        [teamGroup]
-      );
-      if (teamChiefs.length > 0) {
-        supervisorName = teamChiefs[0].full_name;
-        supervisorNip = teamChiefs[0].nip;
-        supervisorSignatureUrl = teamChiefs[0].signature_url;
-      }
-    }
-
-    let deployments = [];
-    let absents = [];
-    let activities = [];
-
-    if (shifts.length > 0) {
-      const [[deps], [acts]] = await Promise.all([
-        pool.query(
-          `SELECT pd.*, p.full_name, p.nip, p.rank_position, p.cert_level, p.team_group as personnel_team,
-                  v.code_name as vehicle_code, v.vehicle_name, v.category as vehicle_category
-           FROM personnel_deployments pd
-           JOIN personnel p ON p.id = pd.personnel_id
-           LEFT JOIN vehicles v ON v.id = pd.vehicle_id
-           WHERE pd.shift_id = ?
-           ORDER BY pd.deployment_type ASC, pd.is_pic DESC, p.full_name ASC`,
-          [shifts[0].id]
-        ),
-        pool.query(
-          `SELECT a.*, ps.shift_date, ps.shift_number, ps.team_group
-           FROM daily_shift_activities a
-           JOIN personnel_shifts ps ON ps.id = a.shift_id
-           WHERE a.shift_id = ?
-           ORDER BY a.activity_time ASC`,
-          [shifts[0].id]
-        )
-      ]);
-      deployments = deps;
-      absents = deps.filter((d) => d.deployment_type === 'absent');
-      activities = acts;
-    }
-
-    const [teamAbsents] = await pool.query(
-      `SELECT pd.*, p.full_name, p.nip, p.rank_position, p.team_group as personnel_team, pd.absent_reason, pd.notes
-       FROM personnel_deployments pd
-       JOIN personnel p ON p.id = pd.personnel_id
-       JOIN personnel_shifts ps ON ps.id = pd.shift_id
-       WHERE ps.shift_date = ? AND (p.team_group = ? OR ps.team_group = ?) AND pd.deployment_type = 'absent'`,
-      [shiftDate, teamGroup, teamGroup]
-    );
-
-    const absentMap = new Map();
-    absents.forEach((a) => absentMap.set(a.personnel_id, a));
-    teamAbsents.forEach((a) => {
-      if (!absentMap.has(a.personnel_id)) {
-        absentMap.set(a.personnel_id, a);
-      }
-    });
-    absents = Array.from(absentMap.values());
-
-    // Lampirkan attachments jika ada insiden
-    let incidents = incidentsRaw;
-    if (incidents.length > 0) {
-      const incIds = incidents.map((i) => i.id);
-      const [attRows] = await pool.query(
-        'SELECT * FROM incident_attachments WHERE incident_id IN (?)',
-        [incIds]
-      );
-      const attMap = new Map();
-      attRows.forEach((att) => {
-        if (!attMap.has(att.incident_id)) attMap.set(att.incident_id, []);
-        attMap.get(att.incident_id).push(att);
-      });
-      incidents = incidents.map((inc) => ({
-        ...inc,
-        attachments: attMap.get(inc.id) || []
-      }));
-    }
-
-    const isOfficial = isShiftOfficial(shiftDate, shiftNumber, shiftData?.status);
-
-    const officialObj = {
-      id: deptHeadData?.id || null,
-      user_id: deptHeadData?.user_id || null,
-      name: deptHeadData?.name || 'Section Head ARFF',
-      full_name: deptHeadData?.name || 'Section Head ARFF',
-      dept_head_name: deptHeadData?.name || 'Section Head ARFF',
-      nip: deptHeadData?.nip || null,
-      dept_head_nip: deptHeadData?.nip || null,
-      rank_position: deptHeadData?.rank_position || 'Airport Rescue & Fire Fighting Section Head',
-      signature_url: deptHeadData?.signature_url || null,
-      dept_head_signature_url: deptHeadData?.signature_url || null
-    };
+    const dailyData = await getDailyOperationalData(shiftDate);
 
     return res.status(200).json({
       success: true,
-      message: 'Rekapitulasi shift berhasil diambil',
-      data: {
-        is_official: isOfficial,
-        shift: {
-          id: shiftData.id || null,
-          shift_date: shiftData.shift_date,
-          shift_number: shiftData.shift_number,
-          team_group: shiftData.team_group,
-          status: shiftData.status,
-          is_official: isOfficial,
-          handover_notes: shiftData.handover_notes || null,
-          supervisor_name: supervisorName,
-          supervisor_nip: supervisorNip,
-          supervisor_signature_url: supervisorSignatureUrl
-        },
-        dept_head: officialObj,
-        official: officialObj,
-        vehicles,
-        watchroom,
-        vehicle_issues: vehicleIssues,
-        deployments,
-        absents,
-        incidents,
-        activities
-      }
+      message: 'Rekapitulasi laporan harian operasional berhasil diambil',
+      data: dailyData,
     });
   } catch (error) {
     console.error('Error getShiftSummaryReport:', error);
-    return errorResponse(res, 'Gagal mengambil ringkasan laporan shift', 500);
+    return errorResponse(res, 'Gagal mengambil ringkasan laporan harian: ' + error.message, 500);
   }
 };
-

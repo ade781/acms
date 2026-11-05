@@ -3,12 +3,13 @@ import {
   generateActivitiesReportPdf,
   streamPdfToResponse,
 } from '../../services/pdfService.js';
+import { formatActivityCategory } from '../../services/pdf/activitiesReportPdf.js';
 import { errorResponse } from '../../utils/responseHelper.js';
 import { getOfficialSignatory } from '../../utils/officialHelper.js';
 
 export const getActivitiesReportPdf = async (req, res) => {
   try {
-    const { period = '1month', start_date, end_date, category, team_group } = req.query;
+    const { period = '1month', start_date, end_date, category, team_group, team } = req.query;
 
     let calculatedStartDate = start_date;
     let calculatedEndDate = end_date;
@@ -41,6 +42,15 @@ export const getActivitiesReportPdf = async (req, res) => {
       calculatedEndDate = now.toISOString().split('T')[0];
     }
 
+    if (!calculatedStartDate) {
+      const past = new Date(now);
+      past.setMonth(past.getMonth() - 1);
+      calculatedStartDate = past.toISOString().split('T')[0];
+    }
+    if (!calculatedEndDate) {
+      calculatedEndDate = now.toISOString().split('T')[0];
+    }
+
     let query = `
       SELECT a.*, ps.shift_date, ps.shift_number, ps.team_group
       FROM daily_shift_activities a
@@ -54,9 +64,10 @@ export const getActivitiesReportPdf = async (req, res) => {
       params.push(category);
     }
 
-    if (team_group && team_group !== 'ALL' && team_group !== 'all') {
+    const targetTeam = team_group || team;
+    if (targetTeam && targetTeam !== 'ALL' && targetTeam !== 'all') {
       query += ` AND ps.team_group = ?`;
-      params.push(team_group);
+      params.push(targetTeam);
     }
 
     query += ` ORDER BY ps.shift_date DESC, a.activity_time ASC, a.id DESC`;
@@ -71,8 +82,8 @@ export const getActivitiesReportPdf = async (req, res) => {
       activities: activitiesList,
       summary: {
         total: activitiesList.length,
-        categoryLabel: category && category !== 'ALL' ? category.replace(/_/g, ' ').toUpperCase() : 'Semua Kategori',
-        teamLabel: team_group && team_group !== 'ALL' ? `Regu ${team_group}` : 'Seluruh Regu (A-D)',
+        categoryLabel: category && category !== 'ALL' && category !== 'all' ? formatActivityCategory(category) : 'Semua Kategori',
+        teamLabel: targetTeam && targetTeam !== 'ALL' && targetTeam !== 'all' ? `Regu ${targetTeam}` : 'Seluruh Regu (A-D)',
       },
       dept_head_name: deptHeadData?.name || 'Airport Rescue & Fire Fighting Section Head',
       dept_head_nip: deptHeadData?.nip || null,
@@ -89,4 +100,3 @@ export const getActivitiesReportPdf = async (req, res) => {
     return errorResponse(res, 'Gagal menerbitkan laporan PDF logbook kegiatan: ' + error.message, 500);
   }
 };
-

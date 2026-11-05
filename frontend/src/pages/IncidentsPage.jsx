@@ -174,6 +174,22 @@ export default function IncidentsPage() {
   const totalPages = Math.ceil(filteredIncidents.length / pageSize) || 1;
   const paginatedIncidents = filteredIncidents.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+  const formatIndoDate = (dateStr) => {
+    if (!dateStr || typeof dateStr !== 'string') return '-';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const [year, month, day] = parts;
+    const months = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    const monthIdx = parseInt(month, 10) - 1;
+    if (monthIdx >= 0 && monthIdx < 12) {
+      return `${parseInt(day, 10)} ${months[monthIdx]} ${year}`;
+    }
+    return dateStr;
+  };
+
   const getPriorityBadge = (lvl) => {
     const meta = getPriorityMeta(lvl);
     return <Badge variant={meta.badgeVariant} size="sm">{meta.shortLabel || meta.label}</Badge>;
@@ -182,11 +198,12 @@ export default function IncidentsPage() {
   const getStatusBadge = (st) => {
     const meta = getStatusMeta(st);
     const s = (st || 'dalam_proses').toLowerCase();
+    const cleanLabel = meta?.label || String(st || 'Dalam Proses').replace(/_/g, ' ');
     if (s === 'selesai') {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
           <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-          {meta.label}
+          {cleanLabel}
         </span>
       );
     }
@@ -194,14 +211,14 @@ export default function IncidentsPage() {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
           <AlertTriangle className="w-3 h-3 text-rose-600" />
-          {meta.label}
+          {cleanLabel}
         </span>
       );
     }
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
         <Clock className="w-3 h-3 text-amber-600" />
-        {meta.label}
+        {cleanLabel}
       </span>
     );
   };
@@ -216,8 +233,14 @@ export default function IncidentsPage() {
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
             {filterScope === 'shift'
-              ? `Shift #${activeShiftNumber} Regu ${activeTeam} (${activeDate})`
-              : `Arsip & Rekapitulasi Periode: ${period === 'custom' ? `${startDate || '...'} s.d. ${endDate || '...'}` : period}`}
+              ? `Shift #${activeShiftNumber} Regu ${activeTeam} (${formatIndoDate(activeDate)})`
+              : `Arsip & Rekapitulasi Periode: ${
+                  period === 'custom'
+                    ? (startDate === endDate && startDate
+                        ? formatIndoDate(startDate)
+                        : `${formatIndoDate(startDate) || '...'} s.d. ${formatIndoDate(endDate) || '...'}`)
+                    : period
+                }`}
           </p>
         </div>
 
@@ -547,14 +570,14 @@ export default function IncidentsPage() {
                   <tr
                     key={inc.id || inc.report_number || `inc-${inc.incident_date}-${inc.incident_time}`}
                     onClick={() => navigate(`/incidents/${inc.id}`)}
-                    className="hover:bg-red-50/40 cursor-pointer transition-colors duration-100 group"
+                    className="hover:bg-slate-50 cursor-pointer transition-colors duration-100 group"
                   >
-                    <td className="py-3 px-4 font-bold text-red-700 font-mono tabular-nums text-xs">
+                    <td className="py-3 px-4 font-bold text-slate-900 group-hover:text-red-700 font-mono tabular-nums text-xs">
                       {inc.report_number || `INC-${inc.id || ''}`}
                     </td>
-                    <td className="py-3 px-4 text-slate-700 font-medium font-mono tabular-nums">
-                      <div>{typeof inc.incident_date === 'string' ? inc.incident_date : '-'}</div>
-                      <div className="text-xs text-slate-400">
+                    <td className="py-3 px-4 text-slate-700 font-medium">
+                      <div className="font-semibold text-slate-900">{formatIndoDate(inc.incident_date)}</div>
+                      <div className="text-xs text-slate-400 font-mono tabular-nums">
                         {typeof inc.incident_time === 'string' ? inc.incident_time.slice(0, 5) : ''} WIB
                       </div>
                     </td>

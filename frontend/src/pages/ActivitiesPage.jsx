@@ -206,9 +206,54 @@ export default function ActivitiesPage() {
     if (exportPeriod === '1month') return '1 Bulan Terakhir (30 Hari)';
     if (exportPeriod === '3months') return '3 Bulan Terakhir (Triwulan)';
     if (exportPeriod === '1year') return '1 Tahun Terakhir (Tahunan)';
-    if (exportPeriod === 'custom') return `${exportStartDate || '...'} s/d ${exportEndDate || '...'}`;
+    if (exportPeriod === 'custom') {
+      if (exportStartDate && exportEndDate) {
+        try {
+          if (exportStartDate === exportEndDate) {
+            return new Date(exportStartDate + 'T00:00:00').toLocaleDateString('id-ID', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+            });
+          }
+          const s = new Date(exportStartDate + 'T00:00:00').toLocaleDateString('id-ID', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          });
+          const e = new Date(exportEndDate + 'T00:00:00').toLocaleDateString('id-ID', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          });
+          return `${s} s.d. ${e}`;
+        } catch {
+          return `${exportStartDate} s.d. ${exportEndDate}`;
+        }
+      }
+      return `${exportStartDate || '...'} s.d. ${exportEndDate || '...'}`;
+    }
     return 'Periode Logbook';
   }, [exportPeriod, exportStartDate, exportEndDate]);
+
+  // Handler Pembukaan Modal Konfigurasi Cetak PDF Logbook Kegiatan
+  const handleOpenExportModal = () => {
+    if (!exportStartDate) {
+      const past = new Date();
+      past.setMonth(past.getMonth() - 1);
+      setExportStartDate(past.toISOString().split('T')[0]);
+    }
+    if (!exportEndDate) {
+      setExportEndDate(todayStr);
+    }
+    if (selectedFilterCategory && selectedFilterCategory !== 'ALL') {
+      setExportCategory(selectedFilterCategory);
+    }
+    if (selectedFilterTeam && selectedFilterTeam !== 'ALL') {
+      setExportTeam(selectedFilterTeam);
+    }
+    setExportModalOpen(true);
+  };
 
   // Handler Buka Pratinjau Dokumen PDF
   const handleOpenPreviewPdf = async () => {
@@ -459,7 +504,7 @@ export default function ActivitiesPage() {
           <Button
             variant="outline"
             icon={Download}
-            onClick={() => setExportModalOpen(true)}
+            onClick={handleOpenExportModal}
           >
             Cetak Logbook PDF
           </Button>

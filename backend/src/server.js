@@ -48,6 +48,7 @@ import app from './app.js';
 import pool from './config/db.js';
 
 const PORT = Number(process.env.PORT) || 5000;
+const HOST = process.env.HOST || '0.0.0.0';
 
 async function startServer() {
   try {
@@ -56,7 +57,7 @@ async function startServer() {
     console.log(`[Database] Terhubung ke MySQL '${process.env.DB_NAME}' dengan sukses.`);
     conn.release();
 
-    app.listen(PORT, () => {
+    app.listen(PORT, HOST, () => {
       console.log(`[Server] ARFF Backend API aktif dan berjalan di http://localhost:${PORT}`);
       console.log(`[Server] Endpoint dasar: http://localhost:${PORT}/api`);
     });

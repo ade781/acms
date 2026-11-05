@@ -26,9 +26,13 @@ export async function fetchShiftReportData({ date, shift, team, signal }) {
 
   const shiftData = sData.shift || null;
   const deptHeadData = sData.dept_head || sData.official || null;
+  const roster = sData.roster || { shift_1: 'Alpha', shift_2: 'Bravo', shift_3: 'Charlie', off_team: 'Delta' };
+  const matrixVehicles = Array.isArray(sData.matrixVehicles) ? sData.matrixVehicles : (Array.isArray(sData.vehicles) ? sData.vehicles : []);
+  const personnelSummary = sData.personnelSummary || {};
+  const chiefs = sData.chiefs || {};
   const deployments = Array.isArray(sData.deployments) ? sData.deployments : [];
   const absents = Array.isArray(sData.absents) ? sData.absents : [];
-  let vehicles = Array.isArray(sData.vehicles) ? [...sData.vehicles] : [];
+  let vehicles = matrixVehicles;
   const watchroomData = sData.watchroom || {};
 
   // Unifikasi Posko Komunikasi ke dalam vehicles jika belum ada
@@ -54,6 +58,11 @@ export async function fetchShiftReportData({ date, shift, team, signal }) {
   const incidents = Array.isArray(sData.incidents) ? sData.incidents : [];
 
   return {
+    shift_date: currentDate,
+    roster,
+    matrixVehicles,
+    personnelSummary,
+    chiefs,
     shiftData,
     deptHeadData,
     deployments,
@@ -100,26 +109,22 @@ async function handleBlobRequestError(err) {
 }
 
 /**
- * Mengunduh berkas PDF Dokumen Resmi Laporan Shift Operasional Harian
+ * Mengunduh berkas PDF Dokumen Resmi Laporan Harian ARFF (24 Jam • 3 Shift)
  * Single Source of Truth untuk Desktop & Mobile (DRY)
  */
-export async function downloadShiftReportPdf({ date, shift, team } = {}) {
+export async function downloadShiftReportPdf({ date } = {}) {
   const currentDate = date || new Date().toISOString().split('T')[0];
-  const currentShift = Number(shift || 1);
-  const currentTeam = cleanTeam(team || 'Alpha');
 
   try {
     const res = await api.get('/reports/pdf', {
       params: {
         date: currentDate,
-        shift: currentShift,
-        team_group: currentTeam,
       },
       responseType: 'blob',
     });
 
     const blob = await parseBlobResponse(res);
-    downloadBlob(blob, `Laporan-Shift-${currentShift}-${currentTeam}-${currentDate}.pdf`);
+    downloadBlob(blob, `Laporan-Harian-ARFF-${currentDate}.pdf`);
   } catch (err) {
     await handleBlobRequestError(err);
   }
@@ -195,3 +200,34 @@ export async function downloadActivityReportPdf(params = {}) {
   const blob = await fetchActivityReportPdfBlob(params);
   downloadBlob(blob, `Laporan-Logbook-Kegiatan-${params.period || '1month'}.pdf`);
 }
+
+/**
+ * Mengambil Blob dokumen PDF Laporan 5 (Buku Induk Personel Regu & Akun Sistem) untuk pratinjau
+ */
+export async function fetchPersonnelReportPdfBlob({ team = '', status = '', search = '' } = {}) {
+  const query = new URLSearchParams();
+  if (team && team !== 'ALL') query.append('team_group', team);
+  if (status && status !== 'ALL' && status !== 'all') query.append('status', status);
+  if (search) query.append('search', search);
+
+  try {
+    const res = await api.get(`/personnel/export/pdf?${query.toString()}`, {
+      responseType: 'blob',
+    });
+
+    return await parseBlobResponse(res);
+  } catch (err) {
+    await handleBlobRequestError(err);
+  }
+}
+
+/**
+ * Mengunduh dokumen PDF Laporan 5 (Buku Induk Personel Regu & Akun Sistem)
+ */
+export async function downloadPersonnelReportPdf(params = {}) {
+  const blob = await fetchPersonnelReportPdfBlob(params);
+  const teamLabel = params.team && params.team !== 'ALL' ? `_${params.team}` : '';
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
+  downloadBlob(blob, `Buku_Induk_Personel_ARFF_YIA${teamLabel}_${today}.pdf`);
+}
+

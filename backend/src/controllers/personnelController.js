@@ -73,42 +73,8 @@ export const getPersonnelList = async (req, res) => {
   }
 };
 
-export const exportPersonnelPdf = async (req, res) => {
-  try {
-    const { team_group, team } = req.query;
-    const effectiveTeam = team_group || team;
-
-    let query = `
-      SELECT p.*, u.username, u.email as user_email, u.role as user_role, u.must_change_password
-      FROM personnel p
-      LEFT JOIN users u ON u.id = p.user_id
-      WHERE 1=1
-    `;
-    const params = [];
-
-    if (effectiveTeam && effectiveTeam !== 'ALL') {
-      query += ` AND p.team_group = ?`;
-      params.push(effectiveTeam);
-    }
-
-    query += ` ORDER BY p.team_group ASC, p.id ASC`;
-
-    const [rows] = await pool.query(query, params);
-
-    // Ambil pejabat Dept Head / Section Head resmi untuk tanda tangan pengesahan
-    const signatory = await getOfficialSignatory(pool);
-
-    const doc = await generatePersonnelAccountsPdf(rows, signatory);
-
-        streamPdfToResponse(doc, res, req, {
-      filename: 'Buku_Induk_Personel_ARFF_YIA.pdf',
-      disposition: 'attachment'
-    });
-  } catch (error) {
-    console.error('Error exportPersonnelPdf:', error);
-    return errorResponse(res, 'Gagal mencetak PDF akun personel', 500);
-  }
-};
+import { getPersonnelReportPdf as exportPersonnelPdf } from './reports/personnelReportController.js';
+export { exportPersonnelPdf };
 
 export const getPersonnelById = async (req, res) => {
   try {

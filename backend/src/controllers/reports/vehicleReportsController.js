@@ -91,6 +91,9 @@ export const getVehiclesReportPdf = async (req, res) => {
           document_type: p.document_type || null,
           document_url: p.document_url || null,
           document_name: p.document_name || null,
+          technician_vendor: p.technician_vendor || null,
+          resolution_notes: p.resolution_notes || null,
+          issue_description: p.issue_description || null,
         });
       });
     });
@@ -115,6 +118,8 @@ export const getVehiclesReportPdf = async (req, res) => {
       dept_head_name: deptHeadData?.name || 'Airport Rescue & Fire Fighting Section Head',
       dept_head_nip: deptHeadData?.nip || null,
       dept_head_signature_url: deptHeadData?.signature_url || null,
+      dept_head_rank_position: deptHeadData?.rank_position || 'Airport Rescue & Fire Fighting Section Head',
+      rank_position: deptHeadData?.rank_position || 'Airport Rescue & Fire Fighting Section Head',
     };
 
     const doc = await generateVehicleReadinessReportPdf(payload);

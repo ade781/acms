@@ -66,6 +66,29 @@ export default function VehicleReportsPage() {
   const [previewError, setPreviewError] = useState(null);
 
 
+  // Helper Ekstraksi Pesan Error dari Blob Response
+  const extractBlobErrorMessage = async (errorOrBlob, fallbackMsg = 'Terjadi kesalahan pada dokumen PDF.') => {
+    try {
+      const blob = errorOrBlob?.response?.data instanceof Blob
+        ? errorOrBlob.response.data
+        : errorOrBlob instanceof Blob
+          ? errorOrBlob
+          : null;
+      if (blob) {
+        const text = await blob.text();
+        try {
+          const json = JSON.parse(text);
+          return json.message || json.error || text || fallbackMsg;
+        } catch {
+          return text || fallbackMsg;
+        }
+      }
+      return errorOrBlob?.response?.data?.message || errorOrBlob?.message || fallbackMsg;
+    } catch {
+      return fallbackMsg;
+    }
+  };
+
   // Bersihkan object URL saat komponen unmount
   useEffect(() => {
     return () => {
@@ -90,6 +113,17 @@ export default function VehicleReportsPage() {
       const res = await api.get(`/reports/vehicles/pdf?${query.toString()}`, {
         responseType: 'blob',
       });
+
+      // Validasi apakah response blob adalah JSON (error terbungkus blob)
+      if (res.data instanceof Blob && (res.data.type === 'application/json' || res.headers?.['content-type']?.includes('application/json'))) {
+        const errorMsg = await extractBlobErrorMessage(res.data, 'Gagal memuat pratinjau dokumen PDF armada.');
+        throw new Error(errorMsg);
+      }
+
+      if (res.data.size === 0) {
+        throw new Error('Dokumen PDF kosong atau tidak ditemukan.');
+      }
+
       const blob = new Blob([res.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       setPreviewPdfUrl((prev) => {
@@ -98,7 +132,12 @@ export default function VehicleReportsPage() {
       });
     } catch (err) {
       console.error('Error generating PDF preview:', err);
-      setPreviewError('Gagal memuat pratinjau dokumen PDF armada.');
+      const errMsg = await extractBlobErrorMessage(err, 'Gagal memuat pratinjau dokumen PDF armada.');
+      setPreviewError(errMsg);
+      setToastMsg({
+        type: 'error',
+        text: errMsg,
+      });
     } finally {
       setIsLoadingPreview(false);
     }
@@ -211,12 +250,10 @@ export default function VehicleReportsPage() {
       });
     } catch (err) {
       console.error('Gagal mengunduh PDF armada:', err);
+      const errMsg = await extractBlobErrorMessage(err, 'Gagal mengunduh dokumen PDF armada.');
       setToastMsg({
         type: 'error',
-        text: `Gagal mengunduh dokumen PDF armada: ${typeof err.response?.data?.message === 'string'
-          ? err.response.data.message
-          : err.message || 'Periksa koneksi server.'
-          }`,
+        text: errMsg,
       });
     } finally {
       setIsExporting(false);
@@ -231,11 +268,23 @@ export default function VehicleReportsPage() {
       const res = await api.get(docUrl, {
         responseType: 'blob',
       });
+
+      // Validasi apakah response blob adalah JSON (error terbungkus blob)
+      if (res.data instanceof Blob && (res.data.type === 'application/json' || res.headers?.['content-type']?.includes('application/json'))) {
+        const errorMsg = await extractBlobErrorMessage(res.data, 'Berkas PDF tidak ditemukan atau gagal diunduh.');
+        throw new Error(errorMsg);
+      }
+
       const blob = new Blob([res.data], { type: 'application/pdf' });
       downloadBlob(blob, docName || 'Dokumen_Lampiran.pdf');
       setToastMsg({ type: 'success', text: 'Berkas PDF berhasil diunduh.' });
     } catch (err) {
       console.error('Error downloading document:', err);
+      const errMsg = await extractBlobErrorMessage(err, 'Gagal mengunduh berkas lampiran.');
+      setToastMsg({
+        type: 'error',
+        text: errMsg,
+      });
       // Fallback: direct browser download via authenticated URL with download query
       const authUrl = buildAuthenticatedFileUrl(docUrl) + (docUrl.includes('?') ? '&download=1' : '?download=1');
       const link = document.createElement('a');
@@ -599,7 +648,7 @@ export default function VehicleReportsPage() {
                   <th className="py-3 px-4 text-center">
                     {periodInfo?.is_current_period === false ? 'Status Akhir Periode' : 'Status Saat Ini'}
                   </th>
-                  <th className="py-3 px-4">Jumlah Periode Rusak</th>
+                  <th className="py-3 px-4">Periode Unserviceable</th>
                   <th className="py-3 px-4">Riwayat Terakhir</th>
                   <th className="py-3 px-4 text-right print:hidden">Aksi</th>
                 </tr>
@@ -663,7 +712,7 @@ export default function VehicleReportsPage() {
                         </span>
                       </td>
 
-                      {/* Jumlah (Jumlah Periode Rusak - 1 Baris Murni) */}
+                      {/* Jumlah (Periode Unserviceable - 1 Baris Murni) */}
                       <td className="py-2.5 px-4 whitespace-nowrap">
                         {periodCount > 0 ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
@@ -929,12 +978,12 @@ export default function VehicleReportsPage() {
                               </div>
                             </div>
 
-                            {/* 2 Kolom: Uraian Kendala / Kerusakan & Tindakan Perbaikan / Suku Cadang */}
+                            {/* 2 Kolom: Uraian Kendala & Tindakan Perbaikan / Suku Cadang */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-0.5">
                               {/* Kolom Kiri: Uraian Kendala */}
                               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
                                 <strong className="font-bold block text-xs uppercase tracking-wider text-slate-700">
-                                  Uraian Kendala / Kerusakan:
+                                  Uraian Kendala Operasional:
                                 </strong>
 
                                 {/* Temuan Awal Lapangan PIC jika ada */}
@@ -947,7 +996,7 @@ export default function VehicleReportsPage() {
                                   </div>
                                 )}
 
-                                {/* Uraian Kendala / Kerusakan / SPK */}
+                                {/* Uraian Kendala Operasional / SPK */}
                                 <div className="text-xs text-slate-800 leading-relaxed">
                                   {item.issue_description || item.justification || (!item.field_justification ? 'Tidak ada catatan uraian khusus.' : null)}
                                 </div>

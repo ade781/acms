@@ -1,13 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, Download, ExternalLink, FileText, Shield, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import Button from '../common/Button';
-import api from '../../services/api';
+import { fetchPersonnelReportPdfBlob, downloadPersonnelReportPdf } from '../../services/reportService';
 import { getErrorMessage } from '../../utils/errorHelper';
 
-export default function PersonnelPdfPreviewModal({ isOpen, onClose, selectedTeam }) {
+export default function PersonnelPdfPreviewModal({ isOpen, onClose, selectedTeam, token }) {
   const [blobUrl, setBlobUrl] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [error, setError] = useState(null);
+
+  const loadPdfBlob = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const blob = await fetchPersonnelReportPdfBlob({ team: selectedTeam, token });
+      if (blob) {
+        const createdUrl = URL.createObjectURL(blob);
+        setBlobUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return createdUrl;
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching personnel PDF blob:', err);
+      setError(err?.message || 'Gagal memuat dokumen PDF.');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedTeam, token]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -18,41 +39,14 @@ export default function PersonnelPdfPreviewModal({ isOpen, onClose, selectedTeam
       return;
     }
 
-    let active = true;
-    let createdUrl = null;
-
-    async function loadPdfBlob() {
-      setLoading(true);
-      setError(null);
-      try {
-        const queryParam = selectedTeam && selectedTeam !== 'ALL' ? `?team_group=${encodeURIComponent(selectedTeam)}` : '';
-        const response = await api.get(`/personnel/export/pdf${queryParam}`, {
-          responseType: 'blob',
-        });
-
-        if (!active) return;
-
-        const blob = new Blob([response.data], { type: 'application/pdf' });
-        createdUrl = URL.createObjectURL(blob);
-        setBlobUrl(createdUrl);
-      } catch (err) {
-        if (!active) return;
-        console.error('Error fetching personnel PDF blob:', err);
-        setError(err.response?.data?.message || err.message || 'Gagal memuat dokumen PDF.');
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
-
     loadPdfBlob();
 
     return () => {
-      active = false;
-      if (createdUrl) {
-        URL.revokeObjectURL(createdUrl);
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
       }
     };
-  }, [isOpen, selectedTeam]);
+  }, [isOpen, loadPdfBlob]);
 
   if (!isOpen) return null;
 
@@ -62,15 +56,32 @@ export default function PersonnelPdfPreviewModal({ isOpen, onClose, selectedTeam
     }
   };
 
-  const handleDownload = () => {
-    if (!blobUrl) return;
-    const link = document.createElement('a');
-    link.href = blobUrl;
-    link.setAttribute('download', `Buku_Induk_Personel_ARFF_YIA_${new Date().toISOString().split('T')[0]}.pdf`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      if (blobUrl) {
+        // Gunakan blob yang sudah ter-buffer di memori untuk unduhan instan tanpa re-fetch
+        const teamLabel = selectedTeam && selectedTeam !== 'ALL' ? `_${selectedTeam}` : '';
+        const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = `Buku_Induk_Personel_ARFF_YIA${teamLabel}_${today}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        await downloadPersonnelReportPdf({ team: selectedTeam, token });
+      }
+    } catch (err) {
+      console.error('Error downloading personnel PDF:', err);
+    } finally {
+      setIsDownloading(false);
+    }
   };
+
+  const filterLabel = (selectedTeam && selectedTeam !== 'ALL')
+    ? (selectedTeam.toLowerCase().startsWith('regu') ? selectedTeam : `Regu ${selectedTeam}`)
+    : 'Seluruh Regu (A-D & Non-Shift)';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/70 overflow-hidden animate-in fade-in">
@@ -86,7 +97,7 @@ export default function PersonnelPdfPreviewModal({ isOpen, onClose, selectedTeam
                 Buku Induk Personel ARFF YIA
               </h3>
               <p className="text-xs text-slate-500">
-                Dokumen Resmi Kedinasan Unit PKP-PK
+                Dokumen Resmi Kedinasan • <span className="font-semibold text-slate-700">{filterLabel}</span>
               </p>
             </div>
           </div>
@@ -108,7 +119,8 @@ export default function PersonnelPdfPreviewModal({ isOpen, onClose, selectedTeam
               size="xs"
               icon={Download}
               onClick={handleDownload}
-              disabled={!blobUrl || loading}
+              loading={isDownloading}
+              disabled={!blobUrl || loading || isDownloading}
               title="Unduh Berkas PDF"
             >
               Unduh PDF
@@ -147,18 +159,7 @@ export default function PersonnelPdfPreviewModal({ isOpen, onClose, selectedTeam
                 variant="outline"
                 size="sm"
                 icon={RefreshCw}
-                onClick={() => {
-                  setBlobUrl(null);
-                  setError(null);
-                  setLoading(true);
-                  api.get('/personnel/export/pdf', { responseType: 'blob' })
-                    .then(res => {
-                      const blob = new Blob([res.data], { type: 'application/pdf' });
-                      setBlobUrl(URL.createObjectURL(blob));
-                    })
-                    .catch(e => setError(e.message))
-                    .finally(() => setLoading(false));
-                }}
+                onClick={loadPdfBlob}
               >
                 Coba Muat Ulang
               </Button>
@@ -188,7 +189,7 @@ export default function PersonnelPdfPreviewModal({ isOpen, onClose, selectedTeam
                     <Button variant="primary" size="sm" icon={ExternalLink} onClick={handleOpenNewTab}>
                       Buka Dokumen PDF
                     </Button>
-                    <Button variant="outline" size="sm" icon={Download} onClick={handleDownload}>
+                    <Button variant="outline" size="sm" icon={Download} onClick={handleDownload} loading={isDownloading}>
                       Unduh PDF
                     </Button>
                   </div>

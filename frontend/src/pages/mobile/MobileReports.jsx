@@ -1,41 +1,39 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   AlertCircle,
-  MapPin,
-  CheckCircle2,
+  Truck,
+  Radio,
+  Users,
   Eye,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import {
-  formatIndoDate,
-  cleanTeam,
-  formatTeam,
-} from '../../utils/shiftHelper';
 import { fetchShiftReportData } from '../../services/reportService';
-import MobileReportSummaryCard from '../../components/mobile/reports/MobileReportSummaryCard';
-import MobileUnitAuditModal from '../../components/mobile/reports/MobileUnitAuditModal';
 import MobilePdfViewerModal from '../../components/mobile/reports/MobilePdfViewerModal';
 import MobileSignaturesSection from '../../components/mobile/reports/MobileSignaturesSection';
 
 /**
- * Halaman Rekapitulasi Laporan Dinas Shift Komprehensif (Mobile)
- * Dapat diakses oleh Kru (Read-Only) dan Chief untuk pemantauan bersama.
- * Alur satu pintu dokumen A4: Menampilkan pratinjau surat dan unduh berkas resmi.
- * Data ditarik dinamis secara real-time dari database.
+ * Halaman Rekapitulasi Laporan Harian ARFF YIA (3 Shift) untuk Mobile
+ * Dapat diakses oleh Kru dan Chief untuk pemantauan harian terpadu.
+ * Menggunakan activeDate dari Navbar secara otomatis.
  */
 export default function MobileReports() {
-  const { activeDate, activeShiftNumber, activeTeam } = useAuth();
+  const { activeDate } = useAuth();
   const abortControllerRef = useRef(null);
 
   const [errorMessage, setErrorMessage] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Data State
-  const [shiftData, setShiftData] = useState(null);
+  // Data State Laporan Harian
+  const [roster, setRoster] = useState({
+    shift_1: 'Delta',
+    shift_2: 'Charlie',
+    shift_3: 'Alpha',
+    off_team: 'Bravo',
+  });
+  const [matrixVehicles, setMatrixVehicles] = useState([]);
+  const [personnelSummary, setPersonnelSummary] = useState({});
+  const [chiefs, setChiefs] = useState({});
   const [deptHeadData, setDeptHeadData] = useState(null);
-  const [vehicles, setVehicles] = useState([]);
-  const [watchroomData, setWatchroomData] = useState({});
-  const [deployments, setDeployments] = useState([]);
-  const [absents, setAbsents] = useState([]);
   const [activities, setActivities] = useState([]);
   const [incidents, setIncidents] = useState([]);
   const [vehicleIssues, setVehicleIssues] = useState({
@@ -45,51 +43,41 @@ export default function MobileReports() {
   });
 
   // Modal State
-  const [selectedAuditUnit, setSelectedAuditUnit] = useState(null);
-  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
-  const currentTeam = cleanTeam(activeTeam || 'Alpha');
+  // Fetch seluruh data laporan harian menggunakan activeDate
+  const fetchReportData = useCallback(async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
-  // Fetch seluruh data operasional shift secara agregat via modul service terpadu (Single Source of Truth)
-  const fetchReportData = useCallback(
-    async () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
+    try {
+      setLoading(true);
+      setErrorMessage(null);
 
-      try {
-        setErrorMessage(null);
+      const data = await fetchShiftReportData({
+        date: activeDate,
+        signal: controller.signal,
+      });
 
-        const data = await fetchShiftReportData({
-          date: activeDate,
-          shift: activeShiftNumber,
-          team: activeTeam,
-          signal: controller.signal,
-        });
-
-        setShiftData(data.shiftData);
-        setDeptHeadData(data.deptHeadData);
-        setDeployments(data.deployments);
-        setAbsents(data.absents);
-        setVehicles(data.vehicles);
-        setWatchroomData(data.watchroomData);
-        setVehicleIssues(data.vehicleIssues);
-        setActivities(data.activities);
-        setIncidents(data.incidents);
-      } catch (err) {
-        if (err.name === 'CanceledError' || err.name === 'AbortError' || err.code === 'ERR_CANCELED') return;
-        console.error('Error fetching mobile report data:', err);
-        const msg = typeof err.response?.data?.message === 'string'
-          ? err.response.data.message
-          : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Sebagian data operasional shift belum lengkap atau sedang disinkronkan.'));
-        setErrorMessage(msg);
-      }
-    },
-    [activeDate, activeShiftNumber, activeTeam]
-  );
+      setRoster(data.roster || { shift_1: 'Delta', shift_2: 'Charlie', shift_3: 'Alpha', off_team: 'Bravo' });
+      setMatrixVehicles(data.matrixVehicles || data.vehicles || []);
+      setPersonnelSummary(data.personnelSummary || {});
+      setChiefs(data.chiefs || {});
+      setDeptHeadData(data.deptHeadData);
+      setActivities(data.activities || []);
+      setIncidents(data.incidents || []);
+      setVehicleIssues(data.vehicleIssues || { current_issues: [], backlog_issues: [], resolved_this_shift: [] });
+    } catch (err) {
+      if (err.name === 'CanceledError' || err.name === 'AbortError' || err.code === 'ERR_CANCELED') return;
+      console.error('Error fetching daily mobile report data:', err);
+      setErrorMessage('Gagal memuat rekapitulasi data harian.');
+    } finally {
+      setLoading(false);
+    }
+  }, [activeDate]);
 
   useEffect(() => {
     fetchReportData();
@@ -100,237 +88,174 @@ export default function MobileReports() {
     };
   }, [fetchReportData]);
 
-  // Handler Klik Unit untuk Buka Audit Modal
-  const handleOpenUnitAudit = (unit) => {
-    setSelectedAuditUnit(unit);
-    setIsAuditModalOpen(true);
-  };
-
-  const isClosed = Boolean(shiftData?.is_official || (shiftData?.status || '').toLowerCase() === 'closed');
+  const team1 = roster?.shift_1 || 'Shift 1';
+  const team2 = roster?.shift_2 || 'Shift 2';
+  const team3 = roster?.shift_3 || 'Shift 3';
 
   return (
     <div className="space-y-3 pb-6 font-sans">
-      {/* 1. KOP RESMI DOKUMEN LAPORAN OPERASIONAL DINAS SHIFT */}
-      <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs space-y-2">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+      {/* 1. Header Ringkas Mobile */}
+      <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-xs flex items-center justify-between">
+        <div>
           <h2 className="text-sm font-bold text-slate-900 leading-tight">
-            Laporan Dinas Shift
+            Laporan Harian ARFF
           </h2>
+          <p className="text-[11px] text-slate-500 font-sans mt-0.5">
+            3 Shift: {team1} • {team2} • {team3}
+          </p>
         </div>
 
-        {/* Info Grid Shift Terpadu */}
-        <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 space-y-1.5 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-slate-500">Tanggal Dinas:</span>
-            <span className="font-semibold text-slate-700">
-              {formatIndoDate(activeDate)}
-            </span>
-          </div>
-          <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
-            <span className="text-slate-500">Ketua Regu:</span>
-            <span className="font-bold text-slate-900">
-              {shiftData?.supervisor_name || `Chief ${formatTeam(currentTeam)}`}
-            </span>
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={() => setIsPdfModalOpen(true)}
+          disabled={loading}
+          className="min-h-[36px] px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-xs transition-colors duration-100 disabled:opacity-50"
+        >
+          <Eye className="w-3.5 h-3.5" />
+          <span>Surat A4</span>
+        </button>
       </div>
 
       {errorMessage && (
         <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-2 shadow-xs">
           <div className="flex items-center gap-1.5 truncate">
             <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-500" />
-            <span className="truncate text-xs">
-              {typeof errorMessage === 'string' ? errorMessage : (errorMessage?.message || 'Terjadi kesalahan.')}
-            </span>
+            <span className="truncate text-xs">{errorMessage}</span>
           </div>
           <button
             type="button"
-            onClick={() => setErrorMessage(null)}
+            onClick={fetchReportData}
             className="text-xs font-bold text-red-600 hover:text-red-800 underline shrink-0"
           >
-            Tutup
+            Muat Ulang
           </button>
         </div>
       )}
 
-      {/* 2. REKAPITULASI UNIT OPERASIONAL & AUDIT TRAIL TRIGGER */}
-      <MobileReportSummaryCard
-        vehicles={vehicles}
-        deployments={deployments}
-        activities={activities}
-        incidents={incidents}
-        onOpenUnitAudit={handleOpenUnitAudit}
-      />
-
-      {/* 3. LOGBOOK KEGIATAN SHIFT */}
-      <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs space-y-2">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-          <h4 className="text-xs font-bold text-slate-900 uppercase">
-            Rangkaian Kegiatan Shift
-          </h4>
-          <span className="text-xs font-semibold text-slate-500">
-            <span className="font-mono tabular-nums">{activities.length}</span> Kegiatan
+      {/* 2. Matriks Kesiapan Armada Harian (Mobile Cards - Tanpa Catatan / Kendala) */}
+      <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-xs space-y-3">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide flex items-center gap-1.5">
+            <Truck className="w-3.5 h-3.5 text-slate-500" />
+            <span>Kesiapan Armada (Matriks 3 Shift)</span>
+          </h3>
+          <span className="text-[11px] font-mono text-slate-500">
+            {matrixVehicles.length} Unit
           </span>
         </div>
 
-        {activities.length === 0 ? (
-          <p className="text-xs text-slate-400 italic p-1">
-            Belum ada kegiatan rutin yang dicatat pada sesi shift ini.
-          </p>
-        ) : (
-          <div className="space-y-1.5 text-xs">
-            {activities.map((act, actIdx) => (
+        <div className="divide-y divide-slate-100">
+          {matrixVehicles.map((v, idx) => {
+            const s1Stat = (v.shift_1?.status || 'belum_dilaporkan').toLowerCase();
+            const s2Stat = (v.shift_2?.status || 'belum_dilaporkan').toLowerCase();
+            const s3Stat = (v.shift_3?.status || 'belum_dilaporkan').toLowerCase();
+            const isPosko = v.category === 'posko' || v.code_name === 'WATCHROOM';
+
+            const renderBadge = (label, stat) => {
+              const isServ = stat === 'serviceable';
+              const isUnserv = stat === 'unserviceable';
+              return (
+                <span
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0 ${
+                    isServ
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : isUnserv
+                      ? 'bg-red-50 text-red-800 border-red-200'
+                      : 'bg-slate-100 text-slate-600 border-slate-200'
+                  }`}
+                >
+                  {label}: {isServ ? 'Serv' : isUnserv ? 'Unserv' : 'Belum'}
+                </span>
+              );
+            };
+
+            return (
               <div
-                key={act.id ?? `act-${act.activity_time || actIdx}`}
-                className="p-2 rounded-lg bg-slate-50 border border-slate-200/70 space-y-1"
+                key={v.id ?? `v-${idx}`}
+                className="py-2.5 first:pt-0 last:pb-0 space-y-1.5"
               >
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {isPosko && <Radio className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
                   <span className="font-bold text-slate-900 text-xs truncate">
-                    {act.title}
-                  </span>
-                  <span className="font-mono tabular-nums text-red-600 text-xs font-bold shrink-0">
-                    {act.activity_time ? act.activity_time.substring(0, 5) : '-'} WIB
+                    {v.vehicle_name || v.code_name}
                   </span>
                 </div>
-                {act.description && (
-                  <p className="text-xs text-slate-600 leading-snug">
-                    {act.description}
-                  </p>
-                )}
-                {(act.attachment_url || act.photo_webp_url) && (
-                  <div className="mt-1 flex items-center gap-2 p-1.5 rounded bg-white border border-slate-200 text-xs text-slate-700">
-                    <img
-                      src={act.attachment_url || act.photo_webp_url}
-                      alt="Dokumentasi"
-                      className="w-8 h-8 rounded object-cover border border-slate-300 shrink-0"
-                    />
-                    <span className="truncate">Dokumentasi Terlampir</span>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* 4. REKAPITULASI KEJADIAN / INSIDEN (AIRSIDE) */}
-      <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs space-y-2">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-          <h4 className="text-xs font-bold text-slate-900 uppercase">
-            Rekapitulasi Insiden & Kejadian
-          </h4>
-          <span
-            className={`text-xs font-bold px-2 py-0.5 rounded ${
-              incidents.length > 0
-                ? 'bg-amber-100 text-amber-800'
-                : 'bg-emerald-100 text-emerald-800'
-            }`}
-          >
-            {incidents.length > 0 ? (
-              <>
-                <span className="font-mono tabular-nums">{incidents.length}</span> Kejadian
-              </>
-            ) : (
-              'Nihil Kejadian'
-            )}
-          </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {renderBadge(team1, s1Stat)}
+                  {renderBadge(team2, s2Stat)}
+                  {renderBadge(team3, s3Stat)}
+                </div>
+              </div>
+            );
+          })}
         </div>
-
-        {incidents.length === 0 ? (
-          <p className="text-xs text-emerald-700 bg-emerald-50/60 p-2 rounded-lg border border-emerald-200 flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span>Nihil kejadian darurat maupun insiden luar biasa pada shift ini.</span>
-          </p>
-        ) : (
-          <div className="space-y-1.5 text-xs">
-            {incidents.map((inc, incIdx) => (
-              <div
-                key={inc.id ?? `inc-${inc.incident_time || incIdx}`}
-                className="p-2 rounded-lg bg-red-50/40 border border-red-200 space-y-1"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-bold text-slate-900 text-xs truncate">
-                    {inc.title}
-                  </span>
-                  <span className="px-2 py-0.5 rounded bg-red-100 text-red-800 font-bold text-xs uppercase shrink-0">
-                    {inc.priority || 'Siaga'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3" />
-                    {inc.location || 'Airside'}
-                  </span>
-                  <span>•</span>
-                  <span>
-                    Waktu: <span className="font-mono tabular-nums">{inc.incident_time || '-'}</span>
-                  </span>
-                </div>
-                {inc.action_taken && (
-                  <p className="text-xs text-slate-700 leading-snug bg-white/80 p-1.5 rounded border border-slate-100">
-                    <strong>Tindakan:</strong> {inc.action_taken}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
-      {/* 5. PEJABAT PENANDATANGAN DINAMIS DARI DATABASE */}
+      {/* 3. Kekuatan Personel (3 Regu Operasional) */}
+      <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-xs space-y-2.5">
+        <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide flex items-center gap-1.5 border-b border-slate-100 pb-2">
+          <Users className="w-3.5 h-3.5 text-slate-500" />
+          <span>Personel Dinas (3 Regu Operasional)</span>
+        </h3>
+
+        <div className="grid grid-cols-1 gap-2 text-xs">
+          {[
+            { sNum: 1, team: team1, label: 'Shift 1 (Pagi 07:00 – 13:00)', data: personnelSummary?.shift_1 },
+            { sNum: 2, team: team2, label: 'Shift 2 (Siang 13:00 – 20:00)', data: personnelSummary?.shift_2 },
+            { sNum: 3, team: team3, label: 'Shift 3 (Malam 20:00 – 07:00)', data: personnelSummary?.shift_3 },
+          ].map((s) => {
+            const pData = s.data || {};
+            const presentCount = pData.present_count || 0;
+            const absentList = Array.isArray(pData.absents) ? pData.absents : [];
+            const absentCount = absentList.length;
+
+            return (
+              <div key={`mob-p-${s.sNum}`} className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 space-y-0.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-900">Regu {s.team}</span>
+                  <span className="text-[10px] text-slate-500">{s.label}</span>
+                </div>
+                <div className="flex items-center gap-2 pt-0.5">
+                  <span className="text-emerald-700 font-semibold text-[11px]">
+                    ✓ <span className="font-mono tabular-nums">{presentCount}</span> Hadir
+                  </span>
+                  {absentCount > 0 ? (
+                    <span className="text-red-700 text-[11px]">
+                      • <span className="font-mono tabular-nums">{absentCount}</span> Cuti/Izin
+                    </span>
+                  ) : (
+                    <span className="text-slate-400 text-[11px]">• Lengkap</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 4. Pengesahan Pejabat Resmi */}
       <MobileSignaturesSection
         deptHead={deptHeadData}
-        supervisor={{
-          name: shiftData?.supervisor_name,
-          nip: shiftData?.supervisor_nip,
-          signature_url: shiftData?.supervisor_signature_url,
-          team_group: currentTeam,
-        }}
+        chiefs={chiefs}
         shiftDate={activeDate}
-        teamGroup={currentTeam}
+        roster={roster}
         isSheet={false}
-        isClosed={isClosed}
       />
 
-      {/* 6. TOMBOL AKSI UTAMA DOKUMEN PDF (ALUR SATU PINTU KE PRATINJAU & UNDUH SURAT A4) */}
-      <div className="pt-1">
-        <button
-          type="button"
-          onClick={() => setIsPdfModalOpen(true)}
-          className="w-full min-h-[44px] py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs tracking-wide flex items-center justify-center gap-1.5 shadow-xs transition-colors duration-100 active:scale-[0.99] cursor-pointer"
-        >
-          <Eye className="w-4 h-4" />
-          <span>Pratinjau Surat Resmi (A4)</span>
-        </button>
-      </div>
-
-      {/* MODAL AUDIT TRAIL UNIT */}
-      <MobileUnitAuditModal
-        isOpen={isAuditModalOpen}
-        onClose={() => {
-          setIsAuditModalOpen(false);
-          setSelectedAuditUnit(null);
-        }}
-        unit={selectedAuditUnit}
-        vehicleIssues={vehicleIssues}
-      />
-
-      {/* MODAL PRATINJAU DOKUMEN RESMI A4 (Universal Mobile & Desktop) */}
+      {/* Modal Pratinjau Dokumen A4 */}
       <MobilePdfViewerModal
         isOpen={isPdfModalOpen}
         onClose={() => setIsPdfModalOpen(false)}
-        shiftData={shiftData}
-        deptHeadData={deptHeadData}
-        vehicles={vehicles}
-        watchroomData={watchroomData}
-        deployments={deployments}
-        absents={absents}
+        shiftDate={activeDate}
+        roster={roster}
+        matrixVehicles={matrixVehicles}
+        vehicles={matrixVehicles}
+        personnelSummary={personnelSummary}
         activities={activities}
         incidents={incidents}
-        vehicleIssues={vehicleIssues}
-        shiftDate={activeDate}
-        shiftNumber={activeShiftNumber}
-        teamGroup={activeTeam}
+        chiefs={chiefs}
+        deptHeadData={deptHeadData}
       />
     </div>
   );

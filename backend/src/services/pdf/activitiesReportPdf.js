@@ -1,16 +1,45 @@
 import PDFDocument from 'pdfkit';
 import {
-  resolveSignatureBuffer,
   applyWatermarkAndPageNumbers,
   drawOfficialHeader,
   drawSectionHeadSignature,
   checkPageBreak,
-} from './pdfHelpers.js';
+  formatIndonesianDate,
+} from '../pdfBaseHelper.js';
+
+/**
+ * Format string kategori aktivitas menjadi teks rapi tanpa underscore (Title Case)
+ * Contoh: 'latihan_gabungan' -> 'Latihan Gabungan'
+ */
+export const formatActivityCategory = (categoryStr) => {
+  if (!categoryStr || categoryStr === 'ALL' || categoryStr === 'all') return 'Semua Kategori';
+  const str = String(categoryStr).trim();
+  const lower = str.toLowerCase();
+
+  const map = {
+    serah_terima: 'Serah Terima Shift',
+    apel_briefing: 'Apel & Briefing',
+    periksa_armada: 'Pemeriksaan Armada',
+    periksa_peralatan: 'Pemeriksaan Peralatan',
+    latihan_drill: 'Latihan & Fire Drill',
+    pemeliharaan: 'Pemeliharaan Fasilitas',
+    sosialisasi_keselamatan: 'Inspeksi & Keselamatan',
+    catatan_kendala: 'Catatan & Kendala',
+  };
+
+  if (map[lower]) return map[lower];
+
+  return lower
+    .split('_')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
 
 /**
  * Membuat stream PDF Laporan Rekapitulasi Logbook Kegiatan Rutin Operasional ARFF (A4 Portrait)
  */
-export const generateActivitiesReportPdf = async (reportData) => {
+export const generateActivitiesReportPdf = async (reportData = {}) => {
   const doc = new PDFDocument({
     size: 'A4',
     margins: { top: 35, bottom: 35, left: 40, right: 40 },
@@ -22,10 +51,12 @@ export const generateActivitiesReportPdf = async (reportData) => {
     bufferPages: true,
   });
 
+  const todayWib = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
+
   const {
     periodLabel = '1 Bulan Terakhir',
-    startDate = '',
-    endDate = '',
+    startDate = todayWib,
+    endDate = todayWib,
     activities = [],
     summary = {},
     dept_head_name = 'Airport Rescue & Fire Fighting Section Head',
@@ -36,7 +67,7 @@ export const generateActivitiesReportPdf = async (reportData) => {
   const contentWidth = 515;
   const startX = 40;
 
-  // Header Dokumen Resmi Terpusat (Kop PT Angkasa Pura Indonesia & Garis Ganda)
+  // 1. Header Dokumen Resmi Terpusat (Kop PT Angkasa Pura Indonesia & Garis Ganda)
   drawOfficialHeader(
     doc,
     'AIRPORT RESCUE & FIRE FIGHTING (ARFF) SECTION',
@@ -45,86 +76,232 @@ export const generateActivitiesReportPdf = async (reportData) => {
     startX
   );
 
-  // Box Informasi Periode & Statistik
-  doc.rect(startX, doc.y, contentWidth, 38).fillAndStroke('#f8fafc', '#cbd5e1');
-  const infoY = doc.y + 6;
+  // 2. Kotak Parameter & Ringkasan Laporan (Width terkontrol agar tidak tumpang tindih)
+  const metaBoxY = doc.y + 4;
+  const metaBoxH = 38;
+  doc.rect(startX, metaBoxY, contentWidth, metaBoxH).fillAndStroke('#f8fafc', '#cbd5e1');
+  const infoY = metaBoxY + 6;
+  const infoY2 = metaBoxY + 20;
 
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0f172a');
-  doc.text('Periode Laporan: ', startX + 10, infoY);
-  doc.font('Helvetica').text(`${periodLabel} (${startDate} s.d. ${endDate})`, startX + 105, infoY);
+  const formattedStart = formatIndonesianDate(startDate);
+  const formattedEnd = formatIndonesianDate(endDate);
 
-  doc.font('Helvetica-Bold').text('Total Kegiatan: ', startX + 330, infoY);
-  doc.font('Helvetica-Bold').fillColor('#0284c7').text(`${activities.length} Kegiatan Terdata`, startX + 415, infoY);
+  let periodSummaryText = '';
+  if (formattedStart === formattedEnd) {
+    periodSummaryText = formattedStart;
+  } else {
+    periodSummaryText = `${formattedStart} s.d. ${formattedEnd}`;
+  }
+  if (periodLabel && !periodLabel.toLowerCase().includes('kustom') && !periodLabel.toLowerCase().includes('custom')) {
+    periodSummaryText = `${periodLabel} (${periodSummaryText})`;
+  }
 
-  const infoY2 = infoY + 14;
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0f172a');
-  doc.text('Filter Kategori: ', startX + 10, infoY2);
-  doc.font('Helvetica').text(summary.categoryLabel || 'Semua Kategori', startX + 105, infoY2);
+  // Baris 1: Periode & Total Kegiatan
+  doc.fontSize(8).font('Helvetica-Bold').fillColor('#0f172a').text(
+    'Periode Laporan:',
+    startX + 10,
+    infoY,
+    { width: 85, lineBreak: false }
+  );
+  doc.font('Helvetica').fillColor('#334155').text(
+    periodSummaryText,
+    startX + 95,
+    infoY,
+    { width: 235, lineBreak: false, ellipsis: true }
+  );
 
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0f172a').text('Regu Terdata: ', startX + 330, infoY2);
-  doc.font('Helvetica').text(summary.teamLabel || 'Seluruh Regu (A-D)', startX + 415, infoY2);
+  doc.font('Helvetica-Bold').fillColor('#0f172a').text(
+    'Total Kegiatan:',
+    startX + 335,
+    infoY,
+    { width: 75, lineBreak: false }
+  );
+  doc.font('Helvetica-Bold').fillColor('#0284c7').text(
+    `${activities.length} Kegiatan Terdata`,
+    startX + 412,
+    infoY,
+    { width: 95, lineBreak: false }
+  );
 
-  doc.y = 140;
+  // Baris 2: Filter Kategori & Regu Terdata
+  doc.fontSize(8).font('Helvetica-Bold').fillColor('#0f172a').text(
+    'Filter Kategori:',
+    startX + 10,
+    infoY2,
+    { width: 85, lineBreak: false }
+  );
 
-  // Tabel Logbook Kegiatan
-  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('DAFTAR LOGBOOK AKTIVITAS & KEGIATAN DINAS OPERASIONAL');
-  doc.moveDown(0.3);
+  const categoryDisplay = formatActivityCategory(summary.categoryLabel || summary.category || 'Semua Kategori');
+  doc.font('Helvetica').fillColor('#334155').text(
+    categoryDisplay,
+    startX + 95,
+    infoY2,
+    { width: 235, lineBreak: false, ellipsis: true }
+  );
+
+  doc.fontSize(8).font('Helvetica-Bold').fillColor('#0f172a').text(
+    'Regu Terdata:',
+    startX + 335,
+    infoY2,
+    { width: 75, lineBreak: false }
+  );
+  doc.font('Helvetica').fillColor('#334155').text(
+    summary.teamLabel || 'Seluruh Regu (A-D)',
+    startX + 412,
+    infoY2,
+    { width: 95, lineBreak: false, ellipsis: true }
+  );
+
+  // 3. Judul Bagian Tabel (Explicit startX & Y untuk mencegah cursor leak)
+  const sectionTitleY = metaBoxY + metaBoxH + 10;
+  doc.fontSize(9).font('Helvetica-Bold').fillColor('#0f172a').text(
+    'DAFTAR LOGBOOK AKTIVITAS & KEGIATAN DINAS OPERASIONAL',
+    startX,
+    sectionTitleY,
+    { width: contentWidth, align: 'left' }
+  );
+  doc.y = sectionTitleY + 14;
+
+  // Fungsi penggambar header tabel berulang (Anti-slop: Abu-abu halus #f1f5f9, stroke #cbd5e1, teks #0f172a bold)
+  const drawTableHeader = (y) => {
+    doc.rect(startX, y, contentWidth, 18).fillAndStroke('#f1f5f9', '#cbd5e1');
+    doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#0f172a');
+    doc.text('No', startX + 4, y + 5, { width: 20, align: 'center', lineBreak: false });
+    doc.text('Tanggal & Shift', startX + 26, y + 5, { width: 85, align: 'left', lineBreak: false });
+    doc.text('Jam (WIB)', startX + 113, y + 5, { width: 45, align: 'center', lineBreak: false });
+    doc.text('Kategori', startX + 160, y + 5, { width: 85, align: 'left', lineBreak: false });
+    doc.text('Judul Aktivitas & Uraian Pelaksanaan', startX + 248, y + 5, { width: 260, align: 'left', lineBreak: false });
+    doc.y = y + 18;
+  };
 
   if (activities.length === 0) {
-    doc.rect(startX, doc.y, contentWidth, 22).fillAndStroke('#f8fafc', '#cbd5e1');
+    const emptyY = doc.y;
+    doc.rect(startX, emptyY, contentWidth, 24).fillAndStroke('#f8fafc', '#cbd5e1');
     doc.fontSize(8).font('Helvetica').fillColor('#64748b').text(
       'Tidak ada catatan aktivitas operasional yang terdata pada periode ini.',
-      startX + 10, doc.y + 7
+      startX + 12,
+      emptyY + 7,
+      { width: contentWidth - 24, align: 'left', lineBreak: false }
     );
-    doc.y += 28;
+    doc.y = emptyY + 34;
   } else {
-    const actHeaderY = doc.y;
-    doc.rect(startX, actHeaderY, contentWidth, 18).fill('#1e293b');
-    doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#ffffff');
-    doc.text('No', startX + 4, actHeaderY + 5, { width: 20, align: 'center' });
-    doc.text('Tanggal & Shift', startX + 26, actHeaderY + 5, { width: 85, align: 'left' });
-    doc.text('Jam (WIB)', startX + 113, actHeaderY + 5, { width: 45, align: 'center' });
-    doc.text('Kategori', startX + 160, actHeaderY + 5, { width: 85, align: 'left' });
-    doc.text('Judul Aktivitas & Uraian Pelaksanaan', startX + 248, actHeaderY + 5, { width: 260, align: 'left' });
-
-    doc.y = actHeaderY + 18;
+    // Gambar header tabel pertama
+    drawTableHeader(doc.y);
 
     activities.forEach((act, idx) => {
-      checkPageBreak(doc, 28);
+      // Gabungkan Judul, Uraian Kegiatan, dan Catatan Hasil Inspeksi / Tindak Lanjut jika ada
+      const titleText = act.title || '-';
+      let fullUraian = (act.description || '').trim();
+      if (act.result_notes && act.result_notes.trim()) {
+        const cleanResult = act.result_notes.trim();
+        if (fullUraian) {
+          fullUraian += ` • Catatan/Hasil: ${cleanResult}`;
+        } else {
+          fullUraian = `Catatan/Hasil: ${cleanResult}`;
+        }
+      }
+      if (!fullUraian) fullUraian = '-';
+
+      // Hitung tinggi teks untuk penentuan tinggi baris yang proporsional
+      doc.fontSize(7).font('Helvetica-Bold');
+      const titleH = Math.min(doc.heightOfString(titleText, { width: 260 }), 18);
+      doc.fontSize(6.5).font('Helvetica');
+      const descH = doc.heightOfString(fullUraian, { width: 260 });
+      const cappedDescH = Math.min(descH, 45); // Batas aman tampilan paragraf uraian
+      const rowH = Math.max(26, titleH + 2 + cappedDescH + 10);
+
+      // Cek apakah baris membutuhkan halaman baru (Threshold 720pt untuk memastikan tidak terpotong di tepi bawah)
+      const isNewPage = checkPageBreak(doc, rowH, 720, 35);
+      if (isNewPage) {
+        drawTableHeader(doc.y);
+      }
+
       const rowY = doc.y;
-      if (idx % 2 === 1) doc.rect(startX, rowY, contentWidth, 24).fill('#f8fafc');
 
-      doc.fontSize(7).font('Helvetica').fillColor('#475569').text(String(idx + 1), startX + 4, rowY + 5, { width: 20, align: 'center' });
+      // Background selang-seling (zebra stripe)
+      if (idx % 2 === 1) {
+        doc.rect(startX, rowY, contentWidth, rowH).fill('#f8fafc');
+      }
 
-      const shiftInfo = act.shift_date ? `${act.shift_date} (Sh.${act.shift_number || 1} ${act.team_group || ''})` : '-';
-      doc.fontSize(7).font('Helvetica-Bold').fillColor('#0f172a').text(shiftInfo, startX + 26, rowY + 5, { width: 85 });
-
-      const timeStr = act.activity_time ? act.activity_time.substring(0, 5) : '-';
-      doc.fontSize(7).font('Helvetica-Bold').fillColor('#0284c7').text(timeStr, startX + 113, rowY + 5, { width: 45, align: 'center' });
-
+      // Kolom 1: No
       doc.fontSize(7).font('Helvetica').fillColor('#475569').text(
-        (act.activity_type || '-').replace(/_/g, ' ').toUpperCase(),
-        startX + 160, rowY + 5, { width: 85 }
+        String(idx + 1),
+        startX + 4,
+        rowY + 5,
+        { width: 20, align: 'center', lineBreak: false }
       );
 
-      doc.fontSize(7).font('Helvetica-Bold').fillColor('#0f172a').text(act.title || '-', startX + 248, rowY + 4, { width: 260, lineBreak: false, ellipsis: true });
+      // Kolom 2: Tanggal & Shift (Tanggal Indonesia + Shift Info)
+      const shiftDateFormatted = act.shift_date ? formatIndonesianDate(act.shift_date) : '-';
+      const shiftLabel = act.shift_number
+        ? `Shift ${act.shift_number} (${act.team_group || '-'})`
+        : (act.team_group ? `Regu ${act.team_group}` : '-');
+
+      doc.fontSize(7).font('Helvetica-Bold').fillColor('#0f172a').text(
+        shiftDateFormatted,
+        startX + 26,
+        rowY + 5,
+        { width: 85, lineBreak: false, ellipsis: true }
+      );
       doc.fontSize(6.5).font('Helvetica').fillColor('#64748b').text(
-        act.description || act.result_notes || '-',
-        startX + 248, rowY + 13, { width: 260, lineBreak: false, ellipsis: true }
+        shiftLabel,
+        startX + 26,
+        rowY + 15,
+        { width: 85, lineBreak: false, ellipsis: true }
       );
 
-      doc.moveTo(startX, rowY + 24).lineTo(startX + contentWidth, rowY + 24).lineWidth(0.5).strokeColor('#e2e8f0').stroke();
-      doc.y = rowY + 24;
+      // Kolom 3: Jam (WIB)
+      const timeStr = act.activity_time ? act.activity_time.substring(0, 5) : '-';
+      doc.fontSize(7).font('Helvetica-Bold').fillColor('#0284c7').text(
+        timeStr,
+        startX + 113,
+        rowY + 5,
+        { width: 45, align: 'center', lineBreak: false }
+      );
+
+      // Kolom 4: Kategori (Rapi tanpa underscore, Title Case)
+      const catLabel = formatActivityCategory(act.activity_type);
+      doc.fontSize(7).font('Helvetica').fillColor('#334155').text(
+        catLabel,
+        startX + 160,
+        rowY + 5,
+        { width: 85 }
+      );
+
+      // Kolom 5: Judul Aktivitas & Uraian Pelaksanaan (termasuk result_notes)
+      doc.fontSize(7).font('Helvetica-Bold').fillColor('#0f172a').text(
+        titleText,
+        startX + 248,
+        rowY + 5,
+        { width: 260, height: titleH + 1, ellipsis: true }
+      );
+      doc.fontSize(6.5).font('Helvetica').fillColor('#64748b').text(
+        fullUraian,
+        startX + 248,
+        rowY + 5 + titleH + 2,
+        { width: 260, height: cappedDescH, ellipsis: true }
+      );
+
+      // Garis batas antar baris
+      doc.moveTo(startX, rowY + rowH).lineTo(startX + contentWidth, rowY + rowH).lineWidth(0.5).strokeColor('#e2e8f0').stroke();
+      doc.y = rowY + rowH;
     });
   }
 
-  // Tanda Tangan Section Head Terpusat
-  await drawSectionHeadSignature(doc, {
-    dept_head_name,
-    dept_head_nip,
-    dept_head_signature_url
-  }, startX, contentWidth);
+  // 4. Tanda Tangan Section Head Terpusat (Otomatis titimangsa Kulon Progo)
+  await drawSectionHeadSignature(
+    doc,
+    {
+      dept_head_name,
+      dept_head_nip,
+      dept_head_signature_url,
+      isDraft: false,
+    },
+    startX,
+    contentWidth
+  );
 
+  // 5. Watermark Transparan & Penomoran Halaman Otomatis
   applyWatermarkAndPageNumbers(doc, contentWidth, startX, 'ARFF YIA • ACTIVITIES LOGBOOK REPORT');
 
   return doc;

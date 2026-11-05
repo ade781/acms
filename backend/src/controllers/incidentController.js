@@ -442,7 +442,7 @@ export const getIncidentSummaryReport = async (req, res) => {
 };
 
 /**
- * Endpoint Ekspor Dokumen Resmi PDF Rekapitulasi Insiden (Format A4 Landscape)
+ * Endpoint Ekspor Dokumen Resmi PDF Rekapitulasi Insiden (Format A4 Portrait)
  */
 export const getIncidentSummaryReportPdf = async (req, res) => {
   try {
@@ -450,12 +450,15 @@ export const getIncidentSummaryReportPdf = async (req, res) => {
 
     const today = new Date();
     let startDateStr = start_date;
-    let endDateStr = end_date || formatWIBDate(today);
+    let endDateStr = end_date || (start_date ? start_date : formatWIBDate(today));
 
     let periodLabel = '1 Bulan Terakhir';
     if (!startDateStr) {
       const past = new Date(today);
-      if (period === '3months') {
+      if (period === '1week') {
+        past.setDate(past.getDate() - 7);
+        periodLabel = '1 Minggu Terakhir';
+      } else if (period === '3months') {
         past.setDate(past.getDate() - 90);
         periodLabel = '3 Bulan Terakhir';
       } else if (period === '1year') {
@@ -467,7 +470,7 @@ export const getIncidentSummaryReportPdf = async (req, res) => {
       }
       startDateStr = formatWIBDate(past);
     } else if (start_date && end_date) {
-      periodLabel = 'Rentang Kustom';
+      periodLabel = start_date === end_date ? 'Laporan Harian' : 'Rentang Kustom';
     }
 
     let query = `
@@ -493,7 +496,8 @@ export const getIncidentSummaryReportPdf = async (req, res) => {
 
     // Hitung ringkasan statistik untuk header laporan
     const resolvedCount = incidents.filter(i => (i.status || '').toLowerCase() === 'selesai').length;
-    const inProgressCount = incidents.filter(i => ['dalam_proses', 'menunggu_tindak_lanjut'].includes((i.status || '').toLowerCase())).length;
+    const inProgressCount = incidents.filter(i => (i.status || '').toLowerCase() === 'dalam_proses').length;
+    const pendingCount = incidents.filter(i => (i.status || '').toLowerCase() === 'menunggu_tindak_lanjut').length;
 
     const catCounts = {};
     incidents.forEach(i => {
@@ -522,6 +526,7 @@ export const getIncidentSummaryReportPdf = async (req, res) => {
       summary: {
         resolvedCount,
         inProgressCount,
+        pendingCount,
         topCategory
       },
       dept_head_name: signatory?.name || 'Airport Rescue & Fire Fighting Section Head',
@@ -529,8 +534,12 @@ export const getIncidentSummaryReportPdf = async (req, res) => {
       dept_head_signature_url: signatory?.signature_url || null,
     });
 
-        streamPdfToResponse(doc, res, req, {
-      filename: `Laporan-Rekap-Insiden-${startDateStr}-${endDateStr}.pdf`
+    const filename = startDateStr === endDateStr
+      ? `Laporan-Rekap-Insiden-${startDateStr}.pdf`
+      : `Laporan-Rekap-Insiden-${startDateStr}-${endDateStr}.pdf`;
+
+    streamPdfToResponse(doc, res, req, {
+      filename
     });
   } catch (error) {
     console.error('Error getIncidentSummaryReportPdf:', error);

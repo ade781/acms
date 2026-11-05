@@ -20,3 +20,7 @@ export {
 export {
   getActivitiesReportPdf
 } from './reports/activityReportsController.js';
+
+export {
+  getPersonnelReportPdf
+} from './reports/personnelReportController.js';
