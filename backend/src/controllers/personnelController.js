@@ -7,7 +7,7 @@ import { successResponse, errorResponse, createdResponse } from '../utils/respon
 import { generatePersonnelAccountsPdf, streamPdfToResponse } from '../services/pdfService.js';
 import { sanitizeAndValidateCompetencies, parseCompetenciesArray } from '../utils/competencyHelper.js';
 import { getOfficialSignatory } from '../utils/officialHelper.js';
-import { mapRankPositionToRole } from '../utils/roleMapper.js';
+import { mapRankPositionToRole, cleanTeam } from '../utils/roleMapper.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -443,7 +443,7 @@ export const updatePersonnel = async (req, res) => {
 
     // Proteksi Integritas Mutasi Regu & Status Aktif:
     // Dilarang memindahkan regu atau menonaktifkan personel yang sedang bertugas aktif di armada/posko pada shift berjalan
-    const isTeamGroupChanged = isStaffAdmin && effectiveTeamGroup && effectiveTeamGroup !== existing[0].team_group;
+    const isTeamGroupChanged = isStaffAdmin && effectiveTeamGroup && cleanTeam(effectiveTeamGroup).toLowerCase() !== cleanTeam(existing[0].team_group).toLowerCase();
     const isDeactivated = isStaffAdmin && effectiveIsActive === 0 && existing[0].is_active === 1;
 
     if (isTeamGroupChanged || isDeactivated) {
@@ -455,7 +455,7 @@ export const updatePersonnel = async (req, res) => {
          JOIN personnel_shifts ps ON ps.id = pd.shift_id
          LEFT JOIN vehicles v ON v.id = pd.vehicle_id
          WHERE pd.personnel_id = ?
-           AND pd.deployment_type IN ('vehicle_utama', 'vehicle_pendukung', 'watchroom')
+           AND pd.deployment_type IN ('vehicle_utama', 'vehicle_pendukung', 'watchroom', 'posko')
            AND ps.shift_date = ?
            AND ps.shift_number = ?`,
         [id, curDateStr, curShiftNum]
@@ -610,7 +610,7 @@ export const deletePersonnel = async (req, res) => {
        JOIN personnel_shifts ps ON ps.id = pd.shift_id
        LEFT JOIN vehicles v ON v.id = pd.vehicle_id
        WHERE pd.personnel_id = ?
-         AND pd.deployment_type IN ('vehicle_utama', 'vehicle_pendukung', 'watchroom')
+         AND pd.deployment_type IN ('vehicle_utama', 'vehicle_pendukung', 'watchroom', 'posko')
          AND ps.shift_date = ?
          AND ps.shift_number = ?`,
       [id, curDateStr, curShiftNum]

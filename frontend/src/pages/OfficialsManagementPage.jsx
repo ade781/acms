@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
-  Shield,
   CheckCircle,
   AlertCircle,
   Award,
@@ -18,7 +17,6 @@ import InputField from '../components/common/InputField';
 import SelectField from '../components/common/SelectField';
 import StateView from '../components/common/StateView';
 import { getErrorMessage } from '../utils/errorHelper';
-import { buildAuthenticatedFileUrl } from '../utils/fileHelper';
 
 export default function OfficialsManagementPage() {
   const { isAdmin } = useAuth();
@@ -31,18 +29,15 @@ export default function OfficialsManagementPage() {
   const [officials, setOfficials] = useState({
     dept_head: null,
     chiefs: { Alpha: null, Bravo: null, Charlie: null, Delta: null },
-    administrasi: [],
   });
 
   const [allPersonnel, setAllPersonnel] = useState([]);
 
-  // Modal Kelola Dept Head Mandiri (Aturan GEMINI.md Rule 18 & task_agent1.md)
+  // Modal Kelola Dept Head Mandiri (Aturan GEMINI.md Rule 18)
   const [dhModalOpen, setDhModalOpen] = useState(false);
   const [dhFullName, setDhFullName] = useState('');
   const [dhNip, setDhNip] = useState('');
   const [dhRankPosition, setDhRankPosition] = useState('Airport Technology & ARFF Dept. Head');
-  const [dhSignatureFile, setDhSignatureFile] = useState(null);
-  const [dhSignaturePreview, setDhSignaturePreview] = useState(null);
   const [savingDh, setSavingDh] = useState(false);
   const [dhError, setDhError] = useState(null);
 
@@ -90,52 +85,7 @@ export default function OfficialsManagementPage() {
     setDhFullName(officials.dept_head?.full_name || '');
     setDhNip(officials.dept_head?.nip || '');
     setDhRankPosition(officials.dept_head?.rank_position || 'Airport Technology & ARFF Dept. Head');
-    setDhSignatureFile(null);
-    setDhSignaturePreview(null);
     setDhModalOpen(true);
-  };
-
-
-
-  // Handler unggah spesimen tanda tangan Dept Head dengan validasi sisi klien
-  const handleDhSignatureChange = (e) => {
-    const file = e.target.files?.[0];
-    setDhError(null);
-    if (!file) {
-      setDhSignatureFile(null);
-      setDhSignaturePreview(null);
-      return;
-    }
-
-    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      setDhError('Format berkas tidak valid. Harap pilih gambar bertipe PNG, JPG, atau WEBP.');
-      e.target.value = '';
-      setDhSignatureFile(null);
-      setDhSignaturePreview(null);
-      return;
-    }
-
-    const maxSizeBytes = 2 * 1024 * 1024; // 2MB
-    if (file.size > maxSizeBytes) {
-      setDhError(`Ukuran file terlalu besar (${(file.size / (1024 * 1024)).toFixed(1)} MB). Batas maksimum tanda tangan adalah 2 MB.`);
-      e.target.value = '';
-      setDhSignatureFile(null);
-      setDhSignaturePreview(null);
-      return;
-    }
-
-    setDhSignatureFile(file);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setDhSignaturePreview(event.target.result);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleClearDhSignatureFile = () => {
-    setDhSignatureFile(null);
-    setDhSignaturePreview(null);
   };
 
   // Submit Kelola Dept Head (Input Data Mandiri)
@@ -154,17 +104,6 @@ export default function OfficialsManagementPage() {
         nip: dhNip.trim() || null,
         rank_position: dhRankPosition.trim() || 'Airport Technology & ARFF Dept. Head',
       });
-
-      const deptHeadId = res.data?.data?.id || officials.dept_head?.id;
-
-      // Unggah tanda tangan digital jika ada berkas yang dipilih
-      if (dhSignatureFile && deptHeadId) {
-        const formData = new FormData();
-        formData.append('signature', dhSignatureFile);
-        await api.post(`/personnel/${deptHeadId}/signature`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-      }
 
       const rawMsg = res.data?.message;
       setSuccessMsg(typeof rawMsg === 'string' ? rawMsg : (rawMsg?.message || 'Data Dept. Head berhasil disimpan.'));
@@ -444,66 +383,6 @@ export default function OfficialsManagementPage() {
             })}
           </div>
         </div>
-
-        {/* Section 3: Administrasi */}
-        <div className="space-y-4 pt-4 border-t border-slate-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200 uppercase tracking-wider mb-1">
-                <Shield className="w-3.5 h-3.5 text-slate-600" />
-                Administrasi
-              </div>
-              <h3 className="text-base font-bold text-slate-900">
-                Staf Administrasi & Pemeliharaan (Non-Shift)
-              </h3>
-            </div>
-            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
-              Total: <span className="font-mono tabular-nums">{officials.administrasi?.length || 0}</span> Personel
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {officials.administrasi && officials.administrasi.length > 0 ? (
-              officials.administrasi.map((staff, sIdx) => (
-                <div
-                  key={staff.id || `staff-${sIdx}`}
-                  className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs flex flex-col justify-between hover:border-slate-300 transition-colors duration-100"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-end">
-                      <span className="text-xs font-mono text-slate-400">
-                        @{staff.username || 'admin'}
-                      </span>
-                    </div>
-                    <h4 className="text-sm font-bold text-slate-900 pt-1 leading-snug">
-                      {staff.full_name}
-                    </h4>
-                    <p className="text-xs text-slate-500 font-mono tabular-nums">
-                      NIP: {staff.nip || '-'}
-                    </p>
-                    <p className="text-xs text-slate-600 font-medium">
-                      {staff.rank_position || 'Staf Tata Usaha'}
-                    </p>
-                  </div>
-
-                  <div className="pt-3 mt-2 border-t border-slate-100 flex items-center justify-end">
-                    <Button
-                      variant="outline"
-                      size="xs"
-                      onClick={() => navigate(`/personnel/${staff.id}`)}
-                    >
-                      Detail
-                    </Button>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="col-span-full p-6 text-center rounded-xl bg-slate-50 border border-dashed border-slate-200 text-xs text-slate-500">
-                Belum ada data personel administrasi.
-              </div>
-            )}
-          </div>
-        </div>
       </StateView>
 
       {/* Modal 1: Kelola Dept Head (Input Data Mandiri Sesuai Aturan GEMINI.md Rule 18) */}
@@ -555,76 +434,12 @@ export default function OfficialsManagementPage() {
               required
             />
 
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold text-slate-700">
-                Spesimen Tanda Tangan Digital Resmi
-              </label>
-
-              {/* Pratinjau Tanda Tangan Aktif dari Database / Pratinjau Berkas Baru */}
-              {dhSignaturePreview ? (
-                <div className="p-3 bg-emerald-50/50 border border-emerald-300 rounded-xl space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-emerald-800 flex items-center gap-1">
-                      <FileCheck className="w-3.5 h-3.5 text-emerald-600" />
-                      Pratinjau Berkas Baru Terpilih (Belum Disimpan)
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleClearDhSignatureFile}
-                      className="text-xs text-red-600 hover:text-red-800 font-semibold underline cursor-pointer"
-                    >
-                      Batal Ganti
-                    </button>
-                  </div>
-                  <div className="p-2 bg-white rounded-lg border border-slate-200 flex items-center justify-center max-h-28 overflow-hidden">
-                    <img
-                      src={dhSignaturePreview}
-                      alt="Pratinjau Tanda Tangan Baru"
-                      className="max-h-24 w-auto object-contain"
-                    />
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    Nama file: {dhSignatureFile?.name} (<span className="font-mono tabular-nums">{(dhSignatureFile?.size / 1024).toFixed(0)} KB</span>)
-                  </p>
-                </div>
-              ) : officials.dept_head?.signature_url ? (
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
-                      <FileCheck className="w-3.5 h-3.5 text-emerald-600" />
-                      Tanda Tangan Aktif Tersimpan di Server
-                    </span>
-                    <span className="text-xs px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold border border-emerald-200">
-                      Aktif
-                    </span>
-                  </div>
-                  <div className="p-2 bg-white rounded-lg border border-slate-200 flex items-center justify-center max-h-28 overflow-hidden">
-                    <img
-                      src={buildAuthenticatedFileUrl(officials.dept_head.signature_url)}
-                      alt="Tanda Tangan Aktif Dept Head"
-                      className="max-h-24 w-auto object-contain"
-                    />
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    Pilih berkas baru di bawah jika ingin memperbarui spesimen tanda tangan ini.
-                  </p>
-                </div>
-              ) : (
-                <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl flex items-center gap-2 text-xs text-amber-800">
-                  <FileX className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>Belum ada tanda tangan aktif untuk Dept. Head ini di server.</span>
-                </div>
-              )}
-
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                onChange={handleDhSignatureChange}
-                className="text-xs text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 border border-slate-300 rounded-lg p-1.5 bg-white cursor-pointer"
-              />
-              <p className="text-xs text-slate-500">
-                Format yang didukung: PNG transparan disarankan, JPG, atau WEBP. Maksimal ukuran berkas 2 MB.
-              </p>
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 flex items-start gap-2.5">
+              <FileCheck className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-semibold text-slate-800 block">Pengelolaan Spesimen Tanda Tangan:</span>
+                Spesimen tanda tangan digital resmi dikelola langsung melalui halaman detail profil pejabat terkait setelah data ditetapkan.
+              </div>
             </div>
           </form>
         </Modal>

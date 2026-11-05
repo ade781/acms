@@ -108,7 +108,7 @@ export default function ShiftLeavesModal({
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-slate-900">
-                        {item.personnel_name || item.full_name || '-'}
+                        {typeof item.personnel_name === 'string' ? item.personnel_name : (typeof item.full_name === 'string' ? item.full_name : '-')}
                       </span>
                       <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                         Regu {cleanTeam(item.personnel_team || item.shift_team || currentTeam)}
@@ -119,7 +119,7 @@ export default function ShiftLeavesModal({
                     </div>
                     {(item.notes || item.raw_notes) && (
                       <div className="text-xs text-slate-600 mt-1">
-                        Keterangan: {item.notes || item.raw_notes}
+                        Keterangan: {typeof item.notes === 'string' ? item.notes : (typeof item.raw_notes === 'string' ? item.raw_notes : String(item.notes || item.raw_notes || '-'))}
                       </div>
                     )}
                   </div>

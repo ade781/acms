@@ -397,7 +397,7 @@ export const replaceChief = async (req, res) => {
        LEFT JOIN vehicles v ON v.id = pd.vehicle_id
        JOIN personnel p ON p.id = pd.personnel_id
        WHERE pd.personnel_id = ?
-         AND pd.deployment_type IN ('vehicle_utama', 'vehicle_pendukung', 'watchroom')
+         AND pd.deployment_type IN ('vehicle_utama', 'vehicle_pendukung', 'watchroom', 'posko')
          AND ps.shift_date = ?
          AND ps.shift_number = ?`,
       [new_chief_id, curDateStr, curShiftNum]
@@ -411,6 +411,35 @@ export const replaceChief = async (req, res) => {
         `Personel (${activeDuties[0].full_name || 'target'}) sedang aktif bertugas pada armada/posko di shift dinas saat ini. Lepaskan penugasan di menu Ploting terlebih dahulu sebelum melakukan pergantian Ketua Regu.`,
         400
       );
+    }
+
+    // Pengecekan penugasan aktif untuk Chief lama (oldChief) sebelum demote jabatan & hapus tanda tangan
+    for (const oldChief of currentChiefs) {
+      if (oldChief.id === Number(new_chief_id)) continue;
+
+      const [oldChiefActiveDuties] = await connection.query(
+        `SELECT pd.id, pd.is_pic, pd.deployment_type, ps.shift_date, ps.shift_number, ps.team_group,
+                v.vehicle_name, v.code_name, p.full_name
+         FROM personnel_deployments pd
+         JOIN personnel_shifts ps ON ps.id = pd.shift_id
+         LEFT JOIN vehicles v ON v.id = pd.vehicle_id
+         JOIN personnel p ON p.id = pd.personnel_id
+         WHERE pd.personnel_id = ?
+           AND pd.deployment_type IN ('vehicle_utama', 'vehicle_pendukung', 'watchroom', 'posko')
+           AND ps.shift_date = ?
+           AND ps.shift_number = ?`,
+        [oldChief.id, curDateStr, curShiftNum]
+      );
+
+      if (oldChiefActiveDuties.length > 0) {
+        await connection.rollback();
+        connection.release();
+        return errorResponse(
+          res,
+          `Ketua Regu saat ini (${oldChiefActiveDuties[0].full_name || 'Chief'}) sedang aktif bertugas pada armada/posko di shift dinas berjalan. Lepaskan penugasan di menu Ploting terlebih dahulu sebelum mengganti Ketua Regu.`,
+          400
+        );
+      }
     }
 
     for (const oldChief of currentChiefs) {

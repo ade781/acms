@@ -195,12 +195,6 @@ export default function VehicleReadinessPage() {
     return 'belum_dilaporkan';
   }, []);
 
-  const getVehicleCategoryKey = useCallback((v) => {
-    if (v.category === 'posko' || v.code_name === 'WATCHROOM') return 'posko';
-    if (v.category === 'pendukung') return 'pendukung';
-    return 'utama';
-  }, []);
-
   const statusSummary = useMemo(() => {
     let serviceableCount = 0;
     let unserviceableCount = 0;
@@ -254,14 +248,14 @@ export default function VehicleReadinessPage() {
           </div>
 
           <div className="flex items-center justify-between xl:justify-end gap-3 flex-wrap">
-            {/* Ringkasan Kelaikan Unit (Murni 3 Kondisi: Belum Dicek, Serviceable, Unserviceable) */}
+            {/* Ringkasan Kesiapan Unit (Murni 3 Kondisi: Belum Dicek, Serviceable, Unserviceable) */}
             <div className="inline-flex items-center divide-x divide-slate-200 rounded-lg bg-slate-50 border border-slate-200 text-xs overflow-hidden">
               <div className="px-2.5 py-1.5 flex items-center gap-1.5" title="Unit belum diperiksa PIC pada shift ini">
                 <span className="w-2 h-2 rounded-full bg-slate-400" />
                 <span className="text-slate-500 font-medium">Belum Dicek:</span>
                 <span className="font-bold text-slate-900 font-mono tabular-nums">{statusSummary.belumDicekCount}</span>
               </div>
-              <div className="px-2.5 py-1.5 flex items-center gap-1.5" title="Unit berstatus serviceable (laik)">
+              <div className="px-2.5 py-1.5 flex items-center gap-1.5" title="Unit berstatus Serviceable">
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
                 <span className="text-slate-500 font-medium">Serviceable:</span>
                 <span className="font-bold text-slate-900 font-mono tabular-nums">{statusSummary.serviceableCount}</span>
@@ -434,7 +428,7 @@ export default function VehicleReadinessPage() {
                         type="button"
                         onClick={() => setPreviewPhotoVehicle(v)}
                         className="w-full flex items-center justify-between p-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 text-xs font-semibold text-slate-700 transition-colors duration-100 cursor-pointer group"
-                        title="Lihat foto bukti fisik pemeriksaan kelaikan armada"
+                        title="Lihat foto bukti fisik pemeriksaan kesiapan armada"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <div className="w-6 h-6 rounded bg-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
@@ -468,11 +462,7 @@ export default function VehicleReadinessPage() {
                       <span className="flex items-center gap-1.5">
                         <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                         <span className="font-mono tabular-nums">
-                          {formattedTimestamp
-                            ? `Inspeksi: ${formattedTimestamp}`
-                            : status === 'belum_dilaporkan'
-                            ? 'Menunggu inspeksi PIC'
-                            : 'Terverifikasi shift aktif'}
+                          {formattedTimestamp ? `Inspeksi: ${formattedTimestamp}` : '-'}
                         </span>
                       </span>
                       <span className="text-xs text-slate-400 font-medium font-sans">Mode Pantau</span>
@@ -504,7 +494,7 @@ export default function VehicleReadinessPage() {
           isOpen={Boolean(previewPhotoVehicle)}
           onClose={() => setPreviewPhotoVehicle(null)}
           title={`Bukti Fisik: ${previewPhotoVehicle.code_name || previewPhotoVehicle.vehicle_name}`}
-          subtitle={`Inspeksi Kelaikan Fisik Armada • ${previewPhotoVehicle.vehicle_name}`}
+          subtitle={`Inspeksi Kesiapan Fisik Armada • ${previewPhotoVehicle.vehicle_name}`}
           maxWidth="max-w-2xl"
           footer={
             <div className="flex items-center justify-between w-full">
@@ -514,7 +504,7 @@ export default function VehicleReadinessPage() {
                     Pelapor / PIC: <strong className="text-slate-800 font-semibold">{previewPhotoVehicle.pic_name}</strong>
                   </span>
                 ) : (
-                  <span>Foto bukti fisik kelaikan shift aktif</span>
+                  <span>Foto bukti fisik kesiapan shift aktif</span>
                 )}
               </div>
               <div className="flex items-center gap-2">

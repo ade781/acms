@@ -106,7 +106,7 @@ export default function PersonnelPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get('/personnel?compact=true', { signal });
+      const res = await api.get('/personnel?is_active=1&compact=true', { signal });
       const list = Array.isArray(res.data?.data)
         ? res.data.data
         : (Array.isArray(res.data?.personnel)
@@ -175,8 +175,9 @@ export default function PersonnelPage() {
     }
   };
 
-  // Personel operasional 4 regu dinas (Alpha, Bravo, Charlie, Delta)
+  // Personel operasional 4 regu dinas (Alpha, Bravo, Charlie, Delta) - hanya personel aktif (is_active === 1)
   const operationalPersonnel = personnelList.filter((p) => {
+    if (p.is_active !== 1 && Number(p.is_active) !== 1) return false;
     const t = cleanTeam(p.team_group).toLowerCase();
     return ['alpha', 'bravo', 'charlie', 'delta'].includes(t);
   });
@@ -344,9 +345,9 @@ export default function PersonnelPage() {
             };
             const theme = teamThemes[teamKey] || teamThemes.alpha;
 
-            // Filter anggota untuk regu ini
+            // Filter anggota untuk regu ini (hanya personel aktif is_active === 1)
             const members = personnelList.filter(
-              (p) => cleanTeam(p.team_group).toLowerCase() === teamKey
+              (p) => (p.is_active === 1 || Number(p.is_active) === 1) && cleanTeam(p.team_group).toLowerCase() === teamKey
             );
 
             // Urutkan: Ketua Regu (Chief aktual) selalu paling atas #1, disusul Asisten Chief, lalu anggota lainnya

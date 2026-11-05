@@ -56,9 +56,12 @@ export default function PersonnelDossierEditModal({
   const formatDateForInput = (val) => {
     if (!val) return '';
     try {
+      if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val)) {
+        return val.slice(0, 10);
+      }
       const d = new Date(val);
       if (isNaN(d.getTime())) return '';
-      return d.toISOString().split('T')[0];
+      return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(d);
     } catch {
       return '';
     }

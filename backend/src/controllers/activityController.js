@@ -7,6 +7,10 @@ import { successResponse, errorResponse, createdResponse } from '../utils/respon
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const uploadsDir = path.resolve(__dirname, '../../uploads');
+const formatWIBDate = (date = new Date()) => {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(date);
+};
+
 
 /**
  * Membersihkan berkas yang diunggah multer jika request gagal diproses
@@ -50,8 +54,8 @@ export const getActivities = async (req, res) => {
       else if (period === '1year') past.setFullYear(now.getFullYear() - 1);
       else past.setMonth(now.getMonth() - 1); // default 1month
 
-      const startDateStr = past.toISOString().split('T')[0];
-      const endDateStr = now.toISOString().split('T')[0];
+      const startDateStr = formatWIBDate(past);
+      const endDateStr = formatWIBDate(now);
       query += ` AND ps.shift_date >= ? AND ps.shift_date <= ?`;
       params.push(startDateStr, endDateStr);
     } else if (date && shift) {
@@ -61,7 +65,7 @@ export const getActivities = async (req, res) => {
       query += ` AND ps.shift_date = ?`;
       params.push(date);
     } else {
-      const today = new Date().toISOString().split('T')[0];
+      const today = formatWIBDate();
       query += ` AND ps.shift_date = ? AND ps.shift_number = 1`;
       params.push(today);
     }
@@ -128,7 +132,7 @@ export const createActivity = async (req, res) => {
     let targetShiftId = shift_id;
 
     if (!targetShiftId) {
-      const sDate = shift_date || new Date().toISOString().split('T')[0];
+      const sDate = shift_date || formatWIBDate();
       const sNum = shift_number ? Number(shift_number) : 1;
       const sTeam = team_group || req.user.team_group || 'Alpha';
 

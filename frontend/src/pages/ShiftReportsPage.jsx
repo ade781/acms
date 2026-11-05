@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  Download,
   AlertCircle,
-  CheckCircle,
   Truck,
   Radio,
   Users,
@@ -13,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam } from '../utils/shiftHelper';
-import { fetchShiftReportData, downloadShiftReportPdf } from '../services/reportService';
+import { fetchShiftReportData } from '../services/reportService';
 import Button from '../components/common/Button';
 import MobileUnitAuditModal from '../components/mobile/reports/MobileUnitAuditModal';
 import MobilePdfViewerModal from '../components/mobile/reports/MobilePdfViewerModal';
@@ -22,12 +20,8 @@ import MobileSignaturesSection from '../components/mobile/reports/MobileSignatur
 export default function ShiftReportsPage() {
   const { activeDate, activeShiftNumber, activeTeam } = useAuth();
   const abortControllerRef = useRef(null);
-  const successTimerRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
-  const [downloading, setDownloading] = useState(false);
-  const [downloadError, setDownloadError] = useState(null);
-  const [downloadSuccess, setDownloadSuccess] = useState(null);
   const [fetchError, setFetchError] = useState(null);
 
   // Data State Sesuai Standar Operasional Resmi ARFF YIA
@@ -97,41 +91,8 @@ export default function ShiftReportsPage() {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
-      if (successTimerRef.current) {
-        clearTimeout(successTimerRef.current);
-      }
     };
   }, [fetchShiftData]);
-
-  const handleExportPDF = async () => {
-    try {
-      setDownloading(true);
-      setDownloadError(null);
-      setDownloadSuccess(null);
-      if (successTimerRef.current) {
-        clearTimeout(successTimerRef.current);
-      }
-
-      await downloadShiftReportPdf({
-        date: activeDate,
-        shift: activeShiftNumber,
-        team: activeTeam,
-      });
-
-      setDownloadSuccess('Berkas PDF dokumen dinas resmi berhasil diunduh.');
-      successTimerRef.current = setTimeout(() => {
-        setDownloadSuccess(null);
-      }, 4000);
-    } catch (err) {
-      console.error('Download PDF error:', err);
-      setDownloadError(
-        'Gagal mengunduh berkas PDF laporan dinas. Pastikan data shift valid.'
-      );
-    } finally {
-      setDownloading(false);
-    }
-  };
-
 
   const presentDeployments = deployments.filter((d) => d.deployment_type !== 'absent');
   const serviceableCount = vehicles.filter((v) => v.status === 'serviceable').length;
@@ -139,16 +100,14 @@ export default function ShiftReportsPage() {
   const unverifiedCount = vehicles.filter((v) => !v.status || v.status === 'belum_dilaporkan').length;
   const totalUnits = vehicles.length;
 
-  const watchroomUnit = vehicles.find((v) => v.category === 'posko' || v.code_name === 'WATCHROOM');
-  const watchroomStatus = watchroomUnit?.status || watchroomData?.status || 'belum_dilaporkan';
   const isClosed = Boolean(shiftData?.is_official || (shiftData?.status || '').toLowerCase() === 'closed');
 
   return (
     <div className="space-y-4">
       {/* Executive Document Control Card + Integrated Horizontal Metric Ledger */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-        {/* Top Row: Title & Document Export Actions */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
+        {/* Top Row: Title & Document Single Entry Point Action */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
           <div>
             <h2 className="text-lg font-bold tracking-tight text-slate-900 font-sans">
               Laporan Operasional Dinas
@@ -157,7 +116,7 @@ export default function ShiftReportsPage() {
 
           <div className="flex items-center gap-2 flex-wrap">
             <Button
-              variant="outline"
+              variant="primary"
               size="sm"
               icon={Eye}
               onClick={() => setIsPdfModalOpen(true)}
@@ -165,26 +124,16 @@ export default function ShiftReportsPage() {
             >
               Pratinjau Surat (A4)
             </Button>
-
-            <Button
-              variant="primary"
-              size="sm"
-              icon={Download}
-              onClick={handleExportPDF}
-              disabled={downloading}
-            >
-              {downloading ? 'Membuat PDF...' : 'Unduh PDF Resmi'}
-            </Button>
           </div>
         </div>
 
-        {/* Bottom Row: Compact 4-Column Tabular Ledger Strip */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 bg-slate-50/60 text-xs font-sans">
-          {/* 1. Kesiapan Armada */}
+        {/* Bottom Row: Compact 3-Column Proportional Tabular Ledger Strip */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 bg-slate-50/60 text-xs font-sans">
+          {/* 1. Kesiapan Unit & Posko */}
           <div className="px-4 py-2.5 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-slate-600">
               <Truck className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="font-semibold">Kesiapan Armada</span>
+              <span className="font-semibold">Kesiapan Unit & Posko</span>
             </div>
             <div className="text-right">
               <span className="font-black text-slate-900 font-mono tabular-nums">{serviceableCount}/{totalUnits || 8}</span>
@@ -219,34 +168,11 @@ export default function ShiftReportsPage() {
             </div>
           </div>
 
-          {/* 3. Watch Room */}
-          <div className="px-4 py-2.5 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-slate-600">
-              <Radio className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="font-semibold">Watch Room</span>
-            </div>
-            <span
-              className={`px-2 py-0.5 rounded text-xs font-bold ${
-                watchroomStatus === 'serviceable'
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                  : watchroomStatus === 'unserviceable'
-                  ? 'bg-red-50 text-red-700 border border-red-200'
-                  : 'bg-slate-100 text-slate-600 border border-slate-200'
-              }`}
-            >
-              {watchroomStatus === 'serviceable'
-                ? 'Serviceable'
-                : watchroomStatus === 'unserviceable'
-                ? 'Unserviceable'
-                : 'Belum Dicek'}
-            </span>
-          </div>
-
-          {/* 4. Aktivitas & Insiden */}
+          {/* 3. Kegiatan & Insiden */}
           <div className="px-4 py-2.5 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-slate-600">
               <FileText className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="font-semibold">Logbook & Insiden</span>
+              <span className="font-semibold">Kegiatan & Insiden</span>
             </div>
             <div className="text-right font-bold">
               <span className="text-slate-900"><span className="font-mono tabular-nums">{activities.length}</span> Giat</span>
@@ -272,45 +198,6 @@ export default function ShiftReportsPage() {
             className="px-3 py-1 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700 text-xs transition-colors duration-100"
           >
             Muat Ulang Data
-          </button>
-        </div>
-      )}
-
-      {/* Banner Error Unduh PDF */}
-      {downloadError && (
-        <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-4 shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-            <span>{typeof downloadError === 'string' ? downloadError : (downloadError?.message || 'Gagal mengunduh berkas PDF laporan dinas.')}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setDownloadError(null)}
-            className="text-red-500 hover:text-red-700 font-bold px-2 py-1"
-          >
-            Tutup
-          </button>
-        </div>
-      )}
-
-      {/* Banner Sukses Unduh PDF */}
-      {downloadSuccess && (
-        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between gap-4 shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-            <span>{typeof downloadSuccess === 'string' ? downloadSuccess : 'Berkas PDF dokumen dinas resmi berhasil diunduh.'}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              if (successTimerRef.current) {
-                clearTimeout(successTimerRef.current);
-              }
-              setDownloadSuccess(null);
-            }}
-            className="text-emerald-600 hover:text-emerald-800 font-bold px-2 py-1"
-          >
-            Tutup
           </button>
         </div>
       )}

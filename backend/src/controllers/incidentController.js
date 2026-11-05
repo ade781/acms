@@ -1,7 +1,12 @@
+import path from 'path';
 import pool from '../config/db.js';
 import { successResponse, errorResponse, createdResponse } from '../utils/responseHelper.js';
 import { generateIncidentSummaryReportPdf, streamPdfToResponse } from '../services/incidentPdfService.js';
 import { getOfficialSignatory } from '../utils/officialHelper.js';
+
+const formatWIBDate = (date = new Date()) => {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(date);
+};
 
 // Fungsi bantuan nomor laporan berurutan: INC-0001, INC-0002, dst. dengan proteksi penguncian atomik (FOR UPDATE)
 async function generateNextReportNumber(connection) {
@@ -26,7 +31,7 @@ async function generateNextReportNumber(connection) {
 
 export const getIncidents = async (req, res) => {
   try {
-    const { date, shift, team_group, status, priority, category, page, limit } = req.query;
+    const { date, start_date, end_date, period, shift, team_group, status, priority, category, page, limit } = req.query;
 
     let query = `
       SELECT i.*,
@@ -42,6 +47,24 @@ export const getIncidents = async (req, res) => {
     if (date) {
       query += ` AND i.incident_date = ?`;
       params.push(date);
+    } else if (start_date && end_date) {
+      query += ` AND i.incident_date BETWEEN ? AND ?`;
+      params.push(start_date, end_date);
+    } else if (start_date) {
+      query += ` AND i.incident_date >= ?`;
+      params.push(start_date);
+    } else if (end_date) {
+      query += ` AND i.incident_date <= ?`;
+      params.push(end_date);
+    } else if (period) {
+      const today = new Date();
+      const past = new Date(today);
+      if (period === '1week') past.setDate(today.getDate() - 7);
+      else if (period === '3months') past.setDate(today.getDate() - 90);
+      else if (period === '1year') past.setDate(today.getDate() - 365);
+      else past.setDate(today.getDate() - 30); // 1month
+      query += ` AND i.incident_date BETWEEN ? AND ?`;
+      params.push(formatWIBDate(past), formatWIBDate(today));
     }
     if (shift) {
       query += ` AND i.shift_number = ?`;
@@ -241,17 +264,19 @@ export const createIncident = async (req, res) => {
     // Simpan file lampiran WebP yang diunggah
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
+        const safeOriginalName = path.basename(file.originalname);
         await connection.query(
           `INSERT INTO incident_attachments (incident_id, file_name, file_path, file_type)
            VALUES (?, ?, ?, ?)`,
-          [incidentId, file.originalname, `/uploads/${file.filename}`, file.mimetype]
+          [incidentId, safeOriginalName, `/uploads/${file.filename}`, file.mimetype]
         );
       }
     } else if (req.file) {
+      const safeOriginalName = path.basename(req.file.originalname);
       await connection.query(
         `INSERT INTO incident_attachments (incident_id, file_name, file_path, file_type)
          VALUES (?, ?, ?, ?)`,
-        [incidentId, req.file.originalname, `/uploads/${req.file.filename}`, req.file.mimetype]
+        [incidentId, safeOriginalName, `/uploads/${req.file.filename}`, req.file.mimetype]
       );
     }
 
@@ -333,7 +358,7 @@ export const getIncidentSummaryReport = async (req, res) => {
 
     const today = new Date();
     let startDateStr = start_date;
-    let endDateStr = end_date || today.toISOString().split('T')[0];
+    let endDateStr = end_date || formatWIBDate(today);
 
     if (!startDateStr) {
       const past = new Date(today);
@@ -345,7 +370,7 @@ export const getIncidentSummaryReport = async (req, res) => {
         // default: 1 bulan (30 hari)
         past.setDate(past.getDate() - 30);
       }
-      startDateStr = past.toISOString().split('T')[0];
+      startDateStr = formatWIBDate(past);
     }
 
     let query = `
@@ -425,7 +450,7 @@ export const getIncidentSummaryReportPdf = async (req, res) => {
 
     const today = new Date();
     let startDateStr = start_date;
-    let endDateStr = end_date || today.toISOString().split('T')[0];
+    let endDateStr = end_date || formatWIBDate(today);
 
     let periodLabel = '1 Bulan Terakhir';
     if (!startDateStr) {
@@ -440,7 +465,7 @@ export const getIncidentSummaryReportPdf = async (req, res) => {
         past.setDate(past.getDate() - 30);
         periodLabel = '1 Bulan Terakhir';
       }
-      startDateStr = past.toISOString().split('T')[0];
+      startDateStr = formatWIBDate(past);
     } else if (start_date && end_date) {
       periodLabel = 'Rentang Kustom';
     }

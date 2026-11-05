@@ -10,7 +10,7 @@ import {
   Copy,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { cleanTeam, TEAMS } from '../utils/shiftHelper';
+import { cleanTeam, TEAMS, getWibDateString } from '../utils/shiftHelper';
 import api from '../services/api';
 import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
@@ -75,9 +75,10 @@ export default function RosterSchedulePage() {
   const { isAdmin, isSupervisor } = useAuth();
   const canEdit = Boolean(isAdmin || isSupervisor);
 
-  const today = new Date();
-  const [selectedYear, setSelectedYear] = useState(today.getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1); // 1-12
+  const todayWib = getWibDateString();
+  const [initialYear, initialMonth] = todayWib.split('-').map(Number);
+  const [selectedYear, setSelectedYear] = useState(initialYear);
+  const [selectedMonth, setSelectedMonth] = useState(initialMonth); // 1-12
   const [scheduleData, setScheduleData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -100,10 +101,7 @@ export default function RosterSchedulePage() {
   const cyclePreviewTimerRef = useRef(null);
 
   const getLocalDateStr = (d = new Date()) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
+    return getWibDateString(d);
   };
 
   const fetchMonthlySchedule = useCallback(async (forceRefresh = false, signal) => {

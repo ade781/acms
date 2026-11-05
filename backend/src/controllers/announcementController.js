@@ -7,6 +7,25 @@ import { successResponse, errorResponse, createdResponse } from '../utils/respon
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const FILLER_PATTERNS = [
+  /harus segera dibaca dan dilaksanakan[\.\!]*/gi,
+  /wajib dibaca dan dilaksanakan[\.\!]*/gi,
+  /mohon segera dibaca dan dilaksanakan[\.\!]*/gi,
+  /sesuai SOP keamanan bandara[\.\!]*/gi,
+  /sesuai SOP ICAO & PKP-PK[\.\!]*/gi,
+  /Kesiapan Armada & Penugasan Shift Berkelanjutan[\.\!]*/gi,
+  /\[MENDESAK\]\s*/gi,
+];
+
+function sanitizeAnnouncementText(text) {
+  if (!text || typeof text !== 'string') return text;
+  let cleaned = text;
+  for (const pattern of FILLER_PATTERNS) {
+    cleaned = cleaned.replace(pattern, '');
+  }
+  return cleaned.replace(/\s+/g, ' ').trim();
+}
+
 export const getAnnouncements = async (req, res) => {
   try {
     const userId = req.user?.id || 0;
@@ -88,7 +107,8 @@ export const createAnnouncement = async (req, res) => {
     const { title, circular_number, description, published_date } = req.body;
     const file = req.file;
 
-    if (!title || !title.trim()) {
+    const cleanTitle = sanitizeAnnouncementText(title);
+    if (!cleanTitle) {
       return errorResponse(res, 'Judul pengumuman wajib diisi', 400);
     }
 
@@ -109,19 +129,21 @@ export const createAnnouncement = async (req, res) => {
     const filePath = `/uploads/${file.filename}`;
     const fileName = file.originalname;
     const createdBy = req.user?.id || null;
-    const cleanTitle = (title || '').replace(/^\[MENDESAK\]\s*/i, '').trim();
+    const cleanDescription = description ? sanitizeAnnouncementText(description) : null;
+    const cleanCircular = circular_number?.trim() || null;
     const isPinned = req.body.is_pinned === '1' || req.body.is_pinned === 1 || req.body.is_pinned === true || req.body.is_pinned === 'true' ? 1 : 0;
 
     const [result] = await pool.query(
       `INSERT INTO announcements (title, circular_number, description, is_pinned, file_path, file_name, published_date, created_by)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [cleanTitle, circular_number?.trim() || null, description?.trim() || null, isPinned, filePath, fileName, pubDate, createdBy]
+      [cleanTitle, cleanCircular, cleanDescription, isPinned, filePath, fileName, pubDate, createdBy]
     );
 
     return createdResponse(res, 'Pengumuman dan dokumen edaran berhasil dipublikasikan', {
       id: result.insertId,
       title: cleanTitle,
-      circular_number,
+      circular_number: cleanCircular,
+      description: cleanDescription,
       is_pinned: isPinned,
       file_path: filePath,
       file_name: fileName,
@@ -222,7 +244,7 @@ export const updateAnnouncement = async (req, res) => {
     }
 
     const currentAnn = existing[0];
-    const newTitle = title !== undefined && title !== null ? String(title).replace(/^\[MENDESAK\]\s*/i, '').trim() : currentAnn.title;
+    const newTitle = title !== undefined && title !== null ? sanitizeAnnouncementText(String(title)) : currentAnn.title;
     if (!newTitle) {
       if (file?.path && fs.existsSync(file.path)) {
         try { fs.unlinkSync(file.path); } catch (e) { }
@@ -231,7 +253,7 @@ export const updateAnnouncement = async (req, res) => {
     }
 
     const newCircular = circular_number !== undefined ? (circular_number ? String(circular_number).trim() : null) : currentAnn.circular_number;
-    const newDesc = description !== undefined ? (description ? String(description).trim() : null) : currentAnn.description;
+    const newDesc = description !== undefined ? (description ? sanitizeAnnouncementText(String(description)) : null) : currentAnn.description;
 
     let newPinned = currentAnn.is_pinned;
     if (is_pinned !== undefined) {

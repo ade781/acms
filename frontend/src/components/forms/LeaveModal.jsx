@@ -22,10 +22,11 @@ export default function LeaveModal({
   const [error, setError] = useState(null);
 
   const MAX_LEAVE_DOC_SIZE = 5 * 1024 * 1024; // 5 MB
+  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
 
   useEffect(() => {
     if (isOpen) {
-      const initialDate = activeDate || new Date().toISOString().split('T')[0];
+      const initialDate = (activeDate && activeDate >= todayStr) ? activeDate : todayStr;
       setStartDate(initialDate);
       setEndDate(initialDate);
       setReason('cuti');
@@ -33,7 +34,7 @@ export default function LeaveModal({
       setFile(null);
       setError(null);
     }
-  }, [isOpen, activeDate]);
+  }, [isOpen, activeDate, todayStr]);
 
   if (!isOpen) return null;
 
@@ -65,6 +66,11 @@ export default function LeaveModal({
 
     if (!startDate || !endDate) {
       setError('Tanggal mulai dan tanggal selesai cuti wajib diisi.');
+      return;
+    }
+
+    if (startDate < todayStr) {
+      setError('Tanggal mulai cuti tidak boleh di masa lampau (minimal hari ini).');
       return;
     }
 
@@ -170,11 +176,12 @@ export default function LeaveModal({
             label="Tanggal Mulai Cuti"
             type="date"
             value={startDate}
+            min={todayStr}
             onChange={(e) => {
               const val = e.target.value;
               setStartDate(val);
               setError(null);
-              if (endDate && val && new Date(val) > new Date(endDate)) {
+              if (endDate && val && val > endDate) {
                 setEndDate(val);
               }
             }}
@@ -184,7 +191,7 @@ export default function LeaveModal({
             label="Tanggal Selesai Cuti"
             type="date"
             value={endDate}
-            min={startDate}
+            min={startDate || todayStr}
             onChange={(e) => {
               setEndDate(e.target.value);
               setError(null);

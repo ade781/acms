@@ -5,11 +5,11 @@ import {
   KeyRound,
   CheckCircle2,
   AlertCircle,
-  Award,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { formatTeam, formatRoleName } from '../../utils/shiftHelper';
+import { getErrorMessage } from '../../utils/errorHelper';
 import PersonnelDossier from '../personnel/PersonnelDossier';
 import PersonnelDossierEditModal from '../personnel/PersonnelDossierEditModal';
 import ProfilePasswordCard from './ProfilePasswordCard';
@@ -153,7 +153,7 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
             <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-3 shadow-xs">
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-                <span>{feedbackError}</span>
+                <span>{getErrorMessage(feedbackError)}</span>
               </div>
               <button
                 type="button"
@@ -183,16 +183,6 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
               </div>
 
               <div className="flex items-center gap-2">
-                {!isPureAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingDossier(true)}
-                    className="px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 hover:bg-emerald-100 text-xs font-semibold flex items-center gap-1.5 transition-colors duration-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer"
-                  >
-                    <Award className="w-3.5 h-3.5 text-emerald-700" />
-                    <span>Edit Profil & Dossier</span>
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={() => setIsChangingPassword((prev) => !prev)}

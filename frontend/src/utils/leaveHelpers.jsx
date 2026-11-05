@@ -2,7 +2,7 @@ import React from 'react';
 
 // Helper ekstrak rentang tanggal dari catatan cuti
 export const extractDateRange = (notes, activeDate) => {
-  if (!notes) return activeDate || '-';
+  if (typeof notes !== 'string' || !notes) return activeDate || '-';
   const match = notes.match(/\((?:Rentang:\s*)?([0-9]{4}-[0-9]{2}-[0-9]{2})\s*s\/?d\s*([0-9]{4}-[0-9]{2}-[0-9]{2})\)/i);
   if (match) {
     return `${match[1]} s/d ${match[2]}`;
@@ -12,9 +12,18 @@ export const extractDateRange = (notes, activeDate) => {
 
 // Helper membersihkan catatan dari string format tanggal agar tidak redundan
 export const cleanNotes = (notes) => {
-  if (!notes) return '-';
-  const cleaned = notes.replace(/\((?:Rentang:\s*)?[0-9]{4}-[0-9]{2}-[0-9]{2}\s*s\/?d\s*[0-9]{4}-[0-9]{2}-[0-9]{2}\)/gi, '').trim();
-  return cleaned || '-';
+  if (typeof notes !== 'string' || !notes) return '-';
+  // Hapus format rentang tanggal dalam kurung, e.g. (2026-11-01 s/d 2026-11-03) atau (Rentang: 2026-11-01 s/d 2026-11-03)
+  let cleaned = notes
+    .replace(/\((?:Rentang:\s*)?[0-9]{4}-[0-9]{2}-[0-9]{2}(?:\s*s\/?d\s*[0-9]{4}-[0-9]{2}-[0-9]{2})?\)/gi, '')
+    .trim();
+  // Hapus awalan repetitif seperti "Pengajuan Cuti - " atau "Pengajuan Cuti: "
+  cleaned = cleaned.replace(/^pengajuan\s+cuti\s*[-:]\s*/i, '').trim();
+  // Jika hanya tersisa "Pengajuan Cuti" atau "Cuti" bawaan sistem tanpa keterangan spesifik, tampilkan '-'
+  if (!cleaned || /^pengajuan\s+cuti$/i.test(cleaned) || /^cuti$/i.test(cleaned)) {
+    return '-';
+  }
+  return cleaned;
 };
 
 // Helper badge kategori izin / cuti

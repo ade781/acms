@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   CheckCircle,
   AlertCircle,
   Save,
   ShieldAlert,
   X,
-  FileBarChart2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cleanTeam, getScheduledTeam } from '../utils/shiftHelper';
@@ -16,7 +14,6 @@ import StateView from '../components/common/StateView';
 import Button from '../components/common/Button';
 
 export default function DeploymentPage() {
-  const navigate = useNavigate();
   const {
     user,
     activeDate,
@@ -227,7 +224,7 @@ export default function DeploymentPage() {
     return () => controller.abort();
   }, [fetchDeploymentData]);
 
-  // Auto-reload saat ada perubahan cuti atau kelaikan armada
+  // Auto-reload saat ada perubahan cuti atau status kesiapan armada
   useEffect(() => {
     const handleSync = () => {
       fetchDeploymentData({ keepSuccessMsg: true });
@@ -451,14 +448,6 @@ export default function DeploymentPage() {
 
               <div className="flex items-center justify-between xl:justify-end gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    icon={FileBarChart2}
-                    onClick={() => navigate('/reports')}
-                  >
-                    Laporan Shift
-                  </Button>
                   {canEditPlot && (
                     <>
                       {hasUnsavedChanges && (

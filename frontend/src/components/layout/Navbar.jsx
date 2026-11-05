@@ -106,29 +106,25 @@ export default function Navbar({ onToggleSidebar }) {
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 ml-auto md:ml-0">
           {user ? (
             <div className="flex items-center gap-2">
+              {/* Unified Profile Trigger (Single Button, 1 Tab Stop, Ergonomic Touch Target) */}
               <button
                 type="button"
                 onClick={() => setIsProfileOpen(true)}
-                className="hidden lg:flex flex-col text-right hover:opacity-80 transition-opacity focus:outline-none cursor-pointer"
+                className="flex items-center gap-2.5 p-1 sm:px-2 rounded-lg hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-red-500 cursor-pointer group text-left min-h-[44px]"
                 title={`Buka Profil ${userName}`}
                 aria-label={`Profil ${userName}`}
               >
-                <span className="text-xs font-bold text-slate-900 leading-tight truncate max-w-[160px]">
-                  {userName}
-                </span>
-                <span className="text-[10px] text-slate-500 font-medium">
-                  {formatRoleName(user.role)} {user.team_group ? `• ${formatTeam(user.team_group)}` : ''}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsProfileOpen(true)}
-                className="w-9 h-9 rounded-full bg-slate-100 hover:bg-red-50 hover:border-red-400 border border-slate-300 flex items-center justify-center text-slate-700 hover:text-red-600 font-semibold text-xs select-none transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-red-500 cursor-pointer"
-                title={`Profil ${userName}`}
-                aria-label={`Profil ${userName}`}
-              >
-                {userInitial ? userInitial : <User className="w-4 h-4" />}
+                <div className="hidden lg:flex flex-col text-right">
+                  <span className="text-xs font-bold text-slate-900 group-hover:text-red-600 leading-tight truncate max-w-[160px] transition-colors duration-100">
+                    {userName}
+                  </span>
+                  <span className="text-xs text-slate-500 font-medium">
+                    {formatRoleName(user.role)} {user.team_group ? `• ${formatTeam(user.team_group)}` : ''}
+                  </span>
+                </div>
+                <div className="w-9 h-9 rounded-full bg-slate-100 group-hover:bg-red-50 group-hover:border-red-400 border border-slate-300 flex items-center justify-center text-slate-700 group-hover:text-red-600 font-semibold text-xs select-none transition-colors duration-100 flex-shrink-0">
+                  {userInitial ? userInitial : <User className="w-4 h-4" />}
+                </div>
               </button>
 
               <button

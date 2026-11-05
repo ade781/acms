@@ -2,6 +2,14 @@ import pool from '../config/db.js';
 import { successResponse, errorResponse } from '../utils/responseHelper.js';
 import { calculateDefaultRoster, resolveRosterForDate } from './scheduleController.js';
 
+const formatWibDate = (d) => {
+  if (!d) return '';
+  if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d)) {
+    return d.slice(0, 10);
+  }
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date(d));
+};
+
 /**
  * Controller Khusus Pengelolaan Cuti & Izin Operasional ARFF YIA
  * Mematuhi Aturan GEMINI.md No. 15 (Hak prerogatif personel mandiri / self-service)
@@ -54,6 +62,12 @@ export const requestLeaveRange = async (req, res) => {
       return errorResponse(res, 'Tanggal selesai tidak boleh lebih awal dari tanggal mulai', 400);
     }
 
+    const todayDateStr = formatWibDate(new Date());
+    if (start_date < todayDateStr) {
+      connection.release();
+      return errorResponse(res, 'Tanggal mulai cuti tidak boleh di masa lampau (minimal hari ini).', 400);
+    }
+
     // MULAI TRANSAKSI ATOMIK (Mencegah Race Condition Double-Click Cuti - Temuan No. 32)
     await connection.beginTransaction();
 
@@ -83,9 +97,7 @@ export const requestLeaveRange = async (req, res) => {
     if (overlapRows.length > 0) {
       await connection.rollback();
       connection.release();
-      const conflictDate = overlapRows[0].shift_date instanceof Date
-        ? overlapRows[0].shift_date.toISOString().split('T')[0]
-        : String(overlapRows[0].shift_date).split('T')[0];
+      const conflictDate = formatWibDate(overlapRows[0].shift_date);
       return errorResponse(
         res,
         `Pengajuan ditolak: Personel sudah memiliki jadwal cuti/izin pada tanggal ${conflictDate}. Harap batalkan pengajuan sebelumnya terlebih dahulu jika ingin mengganti tanggal cuti.`,
@@ -94,8 +106,7 @@ export const requestLeaveRange = async (req, res) => {
     }
 
     // 2. Validasi Kuota Maksimal 2 Cuti yang Sedang / Akan Berjalan (Active / Upcoming)
-    // Gunakan zona waktu lokal WIB (UTC+7) agar tidak terjadi pergeseran tanggal saat pergantian hari
-    const todayDateStr = new Date(Date.now() + 7 * 3600000).toISOString().split('T')[0];
+    // Gunakan zona waktu lokal WIB (UTC+7) Asia/Jakarta
     const [activeRows] = await connection.query(`
       SELECT pd.id, pd.notes, ps.shift_date, pd.absent_reason
       FROM personnel_deployments pd
@@ -113,14 +124,14 @@ export const requestLeaveRange = async (req, res) => {
     for (const r of activeRows) {
       if (processedActiveIds.has(r.id)) continue;
       const match = (r.notes || '').match(/\((?:Rentang:\s*)?([0-9]{4}-[0-9]{2}-[0-9]{2})\s*s\/?d\s*([0-9]{4}-[0-9]{2}-[0-9]{2})\)/i);
-      const rStartDate = match ? match[1] : (r.shift_date instanceof Date ? r.shift_date.toISOString().split('T')[0] : String(r.shift_date).split('T')[0]);
-      const rEndDate = match ? match[2] : (r.shift_date instanceof Date ? r.shift_date.toISOString().split('T')[0] : String(r.shift_date).split('T')[0]);
+      const rStartDate = match ? match[1] : formatWibDate(r.shift_date);
+      const rEndDate = match ? match[2] : formatWibDate(r.shift_date);
 
       const related = activeRows.filter(other =>
         other.absent_reason === r.absent_reason &&
         (match
           ? (other.notes || '').includes(match[0])
-          : (other.shift_date instanceof Date ? other.shift_date.toISOString().split('T')[0] : String(other.shift_date).split('T')[0]) === rStartDate
+          : formatWibDate(other.shift_date) === rStartDate
         )
       );
       related.forEach(item => processedActiveIds.add(item.id));
@@ -207,11 +218,17 @@ export const requestLeaveRange = async (req, res) => {
       // fallback default
     }
 
-    let cur = new Date(startDateObj);
+    const [sYear, sMonth, sDay] = start_date.split('-').map(Number);
+    const [eYear, eMonth, eDay] = end_date.split('-').map(Number);
+    let cur = new Date(sYear, sMonth - 1, sDay);
+    const end = new Date(eYear, eMonth - 1, eDay);
     let daysCount = 0;
 
-    while (cur <= endDateObj) {
-      const curDateStr = cur.toISOString().split('T')[0];
+    while (cur <= end) {
+      const curYear = cur.getFullYear();
+      const curMonth = String(cur.getMonth() + 1).padStart(2, '0');
+      const curDay = String(cur.getDate()).padStart(2, '0');
+      const curDateStr = `${curYear}-${curMonth}-${curDay}`;
       let shiftNum = 1;
 
       if (overrideMap.has(curDateStr)) {
@@ -550,7 +567,7 @@ export const getLeaveHistory = async (req, res) => {
     }
 
     if (status === 'berjalan' || status === 'ongoing') {
-      const todayFilterStr = new Date(Date.now() + 7 * 3600000).toISOString().split('T')[0];
+      const todayFilterStr = formatWibDate(new Date());
       query += ' AND ps.shift_date >= ?';
       params.push(todayFilterStr);
     }
@@ -561,16 +578,14 @@ export const getLeaveHistory = async (req, res) => {
 
     // Agregasi entri cuti harian menjadi Paket Pengajuan Cuti (Grouped Packages)
     // Mencegah tampilan dobel-dobel di riwayat jika cuti diajukan untuk beberapa hari sekaligus (WIB UTC+7)
-    const todayStr = new Date(Date.now() + 7 * 3600000).toISOString().split('T')[0];
+    const todayStr = formatWibDate(new Date());
     const groupedPackages = [];
     const processedIds = new Set();
 
     for (const r of rows) {
       if (processedIds.has(r.id)) continue;
 
-      const dateStr = r.shift_date instanceof Date
-        ? r.shift_date.toISOString().split('T')[0]
-        : String(r.shift_date).split('T')[0];
+      const dateStr = formatWibDate(r.shift_date);
 
       const match = (r.notes || '').match(/\((?:Rentang:\s*)?([0-9]{4}-[0-9]{2}-[0-9]{2})\s*s\/?d\s*([0-9]{4}-[0-9]{2}-[0-9]{2})\)/i);
       let startDate = dateStr;
@@ -583,9 +598,7 @@ export const getLeaveHistory = async (req, res) => {
 
       // Cari baris-baris terkait dari personel yang sama dalam paket rentang tanggal yang sama
       const relatedRows = rows.filter(other => {
-        const otherDateStr = other.shift_date instanceof Date
-          ? other.shift_date.toISOString().split('T')[0]
-          : String(other.shift_date).split('T')[0];
+        const otherDateStr = formatWibDate(other.shift_date);
 
         return (
           other.personnel_id === r.personnel_id &&

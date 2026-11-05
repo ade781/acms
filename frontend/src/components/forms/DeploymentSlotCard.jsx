@@ -2,8 +2,6 @@ import React from 'react';
 import {
   UserPlus,
   Trash2,
-  ShieldCheck,
-  UserCheck,
   AlertTriangle,
   CheckCircle2,
   HelpCircle,
@@ -60,7 +58,6 @@ function DeploymentSlotCard({
 
   const isUnserviceable = readinessStatus === 'unserviceable';
   const isServiceable = readinessStatus === 'serviceable';
-  const filledSlotsCount = slots.filter((s) => Boolean(s.personnel_id)).length;
 
   const statusConfig = {
     serviceable: {
@@ -144,9 +141,6 @@ function DeploymentSlotCard({
               <StatusIcon className="w-3.5 h-3.5 flex-shrink-0" />
               <span>{cfg.label}</span>
             </span>
-            <span className="text-xs text-slate-500 font-mono tabular-nums">
-              {filledSlotsCount} Personel
-            </span>
           </div>
         </div>
 
@@ -184,46 +178,19 @@ function DeploymentSlotCard({
                 }`}
               >
                 <div className="flex items-center justify-between gap-1.5 mb-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className={`text-xs font-bold uppercase tracking-wider font-sans ${
-                        isPic
-                          ? 'text-amber-900'
-                          : isSlotFilled
-                          ? 'text-blue-900'
-                          : 'text-slate-600'
-                      }`}
-                    >
-                      {isPic
-                        ? (isPosko ? 'Slot #1 • PIC Watchroom' : 'Slot #1 • PIC')
-                        : (isPosko ? `Operator #${index + 1}` : `Kru Slot #${index + 1}`)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    {/* Indicator for current user */}
-                    {isCurrentUser && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-emerald-600 text-white font-sans">
-                        <UserCheck className="w-3 h-3" />
-                        <span>Tugas Saya</span>
-                      </span>
-                    )}
-
-                    {/* PIC label badge - tetap kuning */}
-                    {isPic && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200 font-sans">
-                        <ShieldCheck className="w-3 h-3" />
-                        <span>PIC</span>
-                      </span>
-                    )}
-
-                    {/* Kru label badge */}
-                    {!isPic && isSlotFilled && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200 font-sans">
-                        <span>Kru</span>
-                      </span>
-                    )}
-                  </div>
+                  <span
+                    className={`text-xs font-bold uppercase tracking-wider font-sans ${
+                      isPic
+                        ? 'text-amber-900'
+                        : isSlotFilled
+                        ? 'text-blue-900'
+                        : 'text-slate-600'
+                    }`}
+                  >
+                    {isPic
+                      ? (isPosko ? 'Slot #1 • PIC Watchroom' : 'Slot #1 • PIC')
+                      : (isPosko ? `Operator #${index + 1}` : `Kru Slot #${index + 1}`)}
+                  </span>
                 </div>
 
                 <div className="flex items-center gap-2">

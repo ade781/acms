@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import {
   Calendar,
   Clock,
-  Plus,
   Edit2,
   Trash2,
   Eye,
@@ -292,17 +291,6 @@ export default function DailyShiftActivityView({
                     untuk tanggal {formatDateIndo(selectedDate)}.
                   </p>
                 </div>
-                {canManageActivity && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    icon={Plus}
-                    onClick={onOpenCreateModal}
-                    className="mt-2"
-                  >
-                    Tambah Kegiatan Shift Ini
-                  </Button>
-                )}
               </div>
             ) : (
               /* Daftar Entri Kegiatan Kronologis Rapi */

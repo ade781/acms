@@ -49,7 +49,7 @@ export default function MobilePdfViewerModal({
   const currentTeam = cleanTeam(teamGroup || shiftData?.team_group || 'Alpha');
   const currentShiftNum = Number(shiftNumber || shiftData?.shift_number || 1);
   const currentDate = shiftDate || shiftData?.shift_date || new Date().toISOString().split('T')[0];
-  const isShiftClosed = (shiftData?.status || '').toLowerCase() === 'closed';
+  const isShiftClosed = Boolean(shiftData?.is_official || (shiftData?.status || '').toLowerCase() === 'closed');
 
   const shiftDef = SHIFT_DEFINITIONS.find((s) => s.number === currentShiftNum) || SHIFT_DEFINITIONS[0];
 
@@ -95,12 +95,22 @@ export default function MobilePdfViewerModal({
       });
     } catch (err) {
       console.error('Download PDF error:', err);
-      const msg =
-        typeof err.response?.data?.message === 'string'
-          ? err.response.data.message
-          : typeof err.response?.data === 'string'
-          ? err.response.data
-          : err?.message || 'Gagal mengunduh dokumen PDF. Silakan coba kembali.';
+      let msg = 'Gagal mengunduh dokumen PDF. Silakan coba kembali.';
+      if (err?.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const json = JSON.parse(text);
+          msg = json.message || json.error || text;
+        } catch {
+          msg = err?.message || msg;
+        }
+      } else if (typeof err?.response?.data?.message === 'string') {
+        msg = err.response.data.message;
+      } else if (typeof err?.response?.data === 'string') {
+        msg = err.response.data;
+      } else if (err?.message) {
+        msg = err.message;
+      }
       setDownloadError(msg);
     } finally {
       setDownloading(false);
@@ -198,10 +208,10 @@ export default function MobilePdfViewerModal({
                   className={`px-2 py-0.5 rounded text-xs font-bold border ${
                     isShiftClosed
                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      : 'bg-red-50 text-red-700 border-red-200'
+                      : 'bg-slate-100 text-slate-700 border-slate-300'
                   }`}
                 >
-                  {isShiftClosed ? 'Sah • Rekapitulasi Final' : 'Draft • Belum Disahkan'}
+                  {isShiftClosed ? 'Rekapitulasi Final' : 'Pratinjau Dokumen'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 font-mono tabular-nums truncate mt-0.5">

@@ -1,6 +1,6 @@
 import React from 'react';
-import { useAuth } from '../../../context/AuthContext';
 import { cleanTeam, formatTeam, formatIndoDate } from '../../../utils/shiftHelper';
+import { buildAuthenticatedFileUrl } from '../../../utils/fileHelper';
 
 /**
  * Komponen Pengesahan & Tanda Tangan Pejabat Dinamis (Mobile & Dokumen A4)
@@ -15,15 +15,10 @@ export default function MobileSignaturesSection({
   isSheet = false,
   isClosed = false,
 }) {
-  const { token } = useAuth();
-  const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arff_token') : '') || '';
-
-  const getAuthorizedUrl = (url) => {
+  const getSignatureUrl = (url) => {
     if (!url) return '';
     if (url.startsWith('data:') || url.startsWith('blob:')) return url;
-    if (!authToken || url.includes('token=')) return url;
-    const separator = url.includes('?') ? '&' : '?';
-    return `${url}${separator}token=${encodeURIComponent(authToken)}`;
+    return buildAuthenticatedFileUrl(url);
   };
 
   const teamClean = cleanTeam(teamGroup || supervisor?.team_group || 'Alpha');
@@ -42,15 +37,15 @@ export default function MobileSignaturesSection({
             <div className="h-14 sm:h-20 w-full flex items-center justify-center my-1.5">
               {isClosed && deptHead?.signature_url ? (
                 <img
-                  src={getAuthorizedUrl(deptHead.signature_url)}
+                  src={getSignatureUrl(deptHead.signature_url)}
                   alt={`Tanda Tangan ${deptHead.name || 'Section Head'}`}
                   className="max-h-12 sm:max-h-18 max-w-[130px] sm:max-w-[180px] object-contain"
                   loading="lazy"
                 />
               ) : !isClosed ? (
-                <div className="border border-dashed border-red-300 bg-red-50/70 rounded px-2.5 py-1 text-center max-w-[200px]">
-                  <span className="text-xs font-semibold text-red-700 block">
-                    [ DRAFT • BELUM DISAHKAN ]
+                <div className="border border-dashed border-slate-300 bg-slate-50/70 rounded px-2.5 py-1 text-center max-w-[200px]">
+                  <span className="text-xs font-semibold text-slate-500 block">
+                    [ Menunggu Pengesahan ]
                   </span>
                 </div>
               ) : (
@@ -83,7 +78,7 @@ export default function MobileSignaturesSection({
             <div className="h-14 sm:h-20 w-full flex items-center justify-center my-1.5">
               {supervisor?.signature_url ? (
                 <img
-                  src={getAuthorizedUrl(supervisor.signature_url)}
+                  src={getSignatureUrl(supervisor.signature_url)}
                   alt={`Tanda Tangan ${supervisor.name || 'Ketua Regu'}`}
                   className="max-h-12 sm:max-h-18 max-w-[130px] sm:max-w-[180px] object-contain"
                   loading="lazy"
@@ -131,7 +126,7 @@ export default function MobileSignaturesSection({
           <div className="h-14 w-full flex items-center justify-center my-1.5 bg-white/70 rounded border border-slate-100">
             {isClosed && deptHead?.signature_url ? (
               <img
-                src={getAuthorizedUrl(deptHead.signature_url)}
+                src={getSignatureUrl(deptHead.signature_url)}
                 alt="Tanda Tangan Section Head"
                 className="max-h-12 max-w-[110px] object-contain"
                 loading="lazy"
@@ -168,7 +163,7 @@ export default function MobileSignaturesSection({
           <div className="h-14 w-full flex items-center justify-center my-1.5 bg-white/70 rounded border border-slate-100">
             {supervisor?.signature_url ? (
               <img
-                src={getAuthorizedUrl(supervisor.signature_url)}
+                src={getSignatureUrl(supervisor.signature_url)}
                 alt="Tanda Tangan Ketua Regu"
                 className="max-h-12 max-w-[110px] object-contain"
                 loading="lazy"

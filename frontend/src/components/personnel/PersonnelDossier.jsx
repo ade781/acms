@@ -213,15 +213,7 @@ export default function PersonnelDossier({
                 <User className="w-4 h-4 text-slate-500" />
                 Data Pribadi & Riwayat Lahir
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-xs">Nama Lengkap</span>
-                  <span className="font-semibold text-slate-900 mt-1 block">{personnel.full_name || '-'}</span>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-xs">NIP</span>
-                  <span className="font-mono tabular-nums font-semibold text-slate-900 mt-1 block">{personnel.nip || '-'}</span>
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
                   <span className="text-slate-400 block text-xs">Tempat Lahir</span>
                   <span className="font-semibold text-slate-900 mt-1 block">{personnel.birth_place || '-'}</span>
@@ -229,10 +221,6 @@ export default function PersonnelDossier({
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
                   <span className="text-slate-400 block text-xs">Tanggal Lahir</span>
                   <span className="font-mono tabular-nums font-semibold text-slate-900 mt-1 block">{formatIndoDate(personnel.birth_date, { shortMonth: true })}</span>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-xs">Usia Sekarang</span>
-                  <span className="font-mono tabular-nums font-bold text-amber-700 mt-1 block">{calculateAge(personnel.birth_date)}</span>
                 </div>
               </div>
             </div>
@@ -242,20 +230,10 @@ export default function PersonnelDossier({
                 <Briefcase className="w-4 h-4 text-slate-500" />
                 Kedinasan & Riwayat Pendidikan
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-xs">Status Kepegawaian</span>
-                  <span className="font-semibold text-slate-900 mt-1 block uppercase">
-                    {personnel.employment_status || 'Organik'}
-                  </span>
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
                   <span className="text-slate-400 block text-xs">TMT Karyawan</span>
                   <span className="font-mono tabular-nums font-semibold text-slate-900 mt-1 block">{formatIndoDate(personnel.tmt_date, { shortMonth: true })}</span>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-xs">Masa Kerja Efektif</span>
-                  <span className="font-mono tabular-nums font-bold text-slate-900 mt-1 block">{calculateTenure(personnel.tmt_date)}</span>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
                   <span className="text-slate-400 block text-xs">Pendidikan Dimiliki</span>
@@ -264,10 +242,6 @@ export default function PersonnelDossier({
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
                   <span className="text-slate-400 block text-xs">Pendidikan Diakui</span>
                   <span className="font-semibold text-slate-900 mt-1 block">{personnel.recognized_education || '-'}</span>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-xs">Regu Penugasan</span>
-                  <span className="font-semibold text-slate-900 mt-1 block">{formatTeam(personnel.team_group)}</span>
                 </div>
               </div>
             </div>

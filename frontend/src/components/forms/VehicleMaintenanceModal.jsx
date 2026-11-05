@@ -19,20 +19,18 @@ import { buildAuthenticatedFileUrl, downloadBlob } from '../../utils/fileHelper'
 
 export const TEAM_GROUPS = ['Alpha', 'Bravo', 'Charlie', 'Delta'];
 export const SHIFT_NUMBERS = [1, 2, 3];
+const EMPTY_ARRAY = [];
 
 export default function VehicleMaintenanceModal({
   isOpen,
   onClose,
   initialData = null,
-  vehicles = [],
-  personnel = [],
+  vehicles = EMPTY_ARRAY,
+  personnel = EMPTY_ARRAY,
   onSuccess,
 }) {
   const rawRecordId = initialData?.id || initialData?.maintenance_id || null;
-  const recordId = typeof rawRecordId === 'string' && rawRecordId.startsWith('log-')
-    ? rawRecordId.replace('log-', '')
-    : rawRecordId;
-  const isEditMode = Boolean(initialData && recordId);
+  const isEditMode = Boolean(initialData && rawRecordId);
 
   // Form State
   const [vehicleId, setVehicleId] = useState('');
@@ -63,34 +61,39 @@ export default function VehicleMaintenanceModal({
   // Submission & Validation State
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [errorTitle, setErrorTitle] = useState('Gagal Menyimpan Data');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
 
-  // Ambil daftar personel aktif jika belum di-supply dari parent
+  // Ambil daftar personel aktif satu kali saat modal dibuka
   useEffect(() => {
     if (!isOpen) return;
 
-    if (personnel && personnel.length > 0) {
+    if (Array.isArray(personnel) && personnel.length > 0) {
       setPersonnelList(personnel);
-    } else {
-      let isMounted = true;
-      api
-        .get('/personnel?is_active=1&compact=true')
-        .then((res) => {
-          if (isMounted && res.data?.data) {
-            setPersonnelList(res.data.data);
-          }
-        })
-        .catch((err) => {
-          console.warn('Gagal mengambil daftar personel:', err.message);
-        });
-      return () => {
-        isMounted = false;
-      };
+      return;
     }
-  }, [isOpen, personnel]);
+
+    // Hindari pemanggilan berulang jika data sudah ada
+    if (personnelList.length > 0) return;
+
+    let isMounted = true;
+    api
+      .get('/personnel?is_active=1&compact=true')
+      .then((res) => {
+        if (isMounted && res.data?.data) {
+          setPersonnelList(res.data.data);
+        }
+      })
+      .catch((err) => {
+        console.warn('Gagal mengambil daftar personel:', err.message);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
 
   // Reset / Populate form when modal opens or initialData changes
   useEffect(() => {
@@ -98,6 +101,7 @@ export default function VehicleMaintenanceModal({
     if (!isOpen) {
       setSelectedFile(null);
       setError(null);
+      setErrorTitle('Gagal Menyimpan Data');
       return;
     }
 
@@ -120,7 +124,7 @@ export default function VehicleMaintenanceModal({
       setEndTeamGroup(initialData.end_team_group || initialData.resolved_team_group || 'Alpha');
       setResolvedById(initialData.resolved_by_id ? String(initialData.resolved_by_id) : '');
       setResolutionNotes(initialData.resolution_notes || '');
-      setTechnicianVendor(initialData.technician_vendor || '');
+      setTechnicianVendor(initialData.technician_vendor || initialData.resolved_by || '');
 
       setExistingDocUrl(initialData.document_url || '');
       setExistingDocName(initialData.document_name || (initialData.document_url ? 'Dokumen_Lampiran.pdf' : ''));
@@ -147,7 +151,8 @@ export default function VehicleMaintenanceModal({
     }
     setSelectedFile(null);
     setError(null);
-  }, [isOpen, initialData, vehicles, todayStr]);
+    setErrorTitle('Gagal Menyimpan Data');
+  }, [isOpen, initialData]);
 
   // Handle PDF file selection
   const handleFileChange = (e) => {
@@ -156,6 +161,7 @@ export default function VehicleMaintenanceModal({
 
     // Validasi format: Wajib PDF
     if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      setErrorTitle('Format Berkas Tidak Sesuai');
       setError('Format berkas tidak valid. Harap pilih berkas PDF (.pdf).');
       e.target.value = '';
       return;
@@ -164,12 +170,14 @@ export default function VehicleMaintenanceModal({
     // Validasi ukuran: Maksimal 10MB
     const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
+      setErrorTitle('Ukuran Berkas Melebihi Batas');
       setError(`Ukuran berkas melebihi batas 10MB (${(file.size / (1024 * 1024)).toFixed(1)} MB).`);
       e.target.value = '';
       return;
     }
 
     setError(null);
+    setErrorTitle('Gagal Menyimpan Data');
     setSelectedFile(file);
     setRemoveDocument(false);
   };
@@ -185,11 +193,11 @@ export default function VehicleMaintenanceModal({
   };
 
   const handleConfirmDelete = async () => {
-    if (!recordId) return;
+    if (!rawRecordId) return;
     setIsDeleting(true);
     setError(null);
     try {
-      await api.delete(`/readiness/maintenance/${recordId}`);
+      await api.delete(`/readiness/maintenance/${rawRecordId}`);
       setShowDeleteConfirm(false);
       onClose();
       if (onSuccess) {
@@ -203,6 +211,7 @@ export default function VehicleMaintenanceModal({
           : typeof err.response?.data === 'string'
             ? err.response.data
             : err.message || 'Gagal menghapus catatan pemeliharaan armada.';
+      setErrorTitle('Gagal Menghapus Data');
       setError(errMsg);
       setShowDeleteConfirm(false);
     } finally {
@@ -212,6 +221,7 @@ export default function VehicleMaintenanceModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrorTitle('Gagal Menyimpan Data');
     setError(null);
 
     if (!vehicleId) {
@@ -274,8 +284,8 @@ export default function VehicleMaintenanceModal({
         formData.append('remove_document', 'true');
       }
 
-      if (isEditMode && recordId) {
-        await api.put(`/readiness/maintenance/${recordId}`, formData);
+      if (isEditMode && rawRecordId) {
+        await api.put(`/readiness/maintenance/${rawRecordId}`, formData);
       } else {
         await api.post('/readiness/maintenance', formData);
       }
@@ -296,6 +306,7 @@ export default function VehicleMaintenanceModal({
           : typeof err.response?.data === 'string'
             ? err.response.data
             : err.message || 'Gagal menyimpan catatan pemeliharaan armada.';
+      setErrorTitle('Gagal Menyimpan Data');
       setError(errMsg);
     } finally {
       setSubmitting(false);
@@ -332,7 +343,7 @@ export default function VehicleMaintenanceModal({
       title={isEditMode ? 'Edit Catatan Pemeliharaan Armada' : 'Catat Pemeliharaan / Kendala Armada'}
       subtitle={
         isEditMode
-          ? 'Pencatatan resmi status kelaikan fisik, kendala teknis, dan riwayat perbaikan armada ARFF YIA'
+          ? 'Pencatatan resmi status kesiapan fisik, kendala teknis, dan riwayat perbaikan armada ARFF YIA'
           : 'Pencatatan tiket perbaikan baru, kendala fisik, atau SPK perawatan armada ARFF YIA'
       }
       maxWidth="max-w-2xl"
@@ -353,26 +364,30 @@ export default function VehicleMaintenanceModal({
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onClose}
-              disabled={submitting || isDeleting}
-            >
-              Batal
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              icon={CheckCircle2}
-              onClick={handleSubmit}
-              loading={submitting}
-              disabled={submitting || isDeleting || showDeleteConfirm}
-            >
-              {isEditMode ? 'Simpan Perubahan' : 'Simpan Catatan'}
-            </Button>
+            {!showDeleteConfirm && (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onClose}
+                  disabled={submitting || isDeleting}
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  icon={CheckCircle2}
+                  onClick={handleSubmit}
+                  loading={submitting}
+                  disabled={submitting || isDeleting}
+                >
+                  {isEditMode ? 'Simpan Perubahan' : 'Simpan Catatan'}
+                </Button>
+              </>
+            )}
           </div>
         </div>
       }
@@ -383,7 +398,9 @@ export default function VehicleMaintenanceModal({
           <div className="p-3 rounded-lg border border-red-200 bg-red-50 text-red-800 flex items-start gap-2.5 text-xs">
             <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
             <div className="flex-1">
-              <strong className="font-semibold block">Gagal Menyimpan Data</strong>
+              <strong className="font-semibold block">
+                {errorTitle || 'Gagal Menyimpan Data'}
+              </strong>
               <span>{typeof error === 'string' ? error : 'Terjadi kesalahan sistem.'}</span>
             </div>
             <button
@@ -576,16 +593,6 @@ export default function VehicleMaintenanceModal({
                   disabled={submitting}
                 />
 
-                {/* Teknisi / Vendor Bengkel */}
-                <InputField
-                  type="text"
-                  label="Teknisi / Pihak Bengkel (Vendor)"
-                  value={technicianVendor}
-                  onChange={(e) => setTechnicianVendor(e.target.value)}
-                  placeholder="Contoh: Teknisi ARFF / Bengkel Rekanan YIA"
-                  disabled={submitting}
-                />
-
                 {/* Shift Pemulihan */}
                 <SelectField
                   label="Shift Pemulihan"
@@ -606,16 +613,15 @@ export default function VehicleMaintenanceModal({
                   disabled={submitting}
                 />
 
-                {/* Personel Pemulih (PIC Penyelesai) */}
-                <div className="sm:col-span-2">
-                  <SelectField
-                    label="Petugas Pemulih (PIC Penyelesai)"
-                    value={resolvedById}
-                    onChange={(e) => setResolvedById(e.target.value)}
-                    options={personnelOptions}
-                    disabled={submitting}
-                  />
-                </div>
+                {/* Teknisi / Pelaksana Pemulihan (Input Terpadu) */}
+                <InputField
+                  type="text"
+                  label="Teknisi / Pelaksana Pemulihan"
+                  value={technicianVendor}
+                  onChange={(e) => setTechnicianVendor(e.target.value)}
+                  placeholder="Contoh: Teknisi ARFF YIA / Bengkel Rekanan / Petugas"
+                  disabled={submitting}
+                />
               </div>
 
               {/* Tindakan Perbaikan */}

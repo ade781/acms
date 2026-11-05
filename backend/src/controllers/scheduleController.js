@@ -17,9 +17,19 @@ export const DEFAULT_ROTATION_8_DAYS = [
   { 1: 'Alpha', 2: 'Delta', 3: 'Bravo', off: 'Charlie' },
 ];
 
+export function getWibDateString(date = new Date()) {
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(d);
+}
+
 export function calculateDefaultRoster(targetDateStr, anchorDateStr = '2026-10-19', pattern = DEFAULT_ROTATION_8_DAYS) {
-  const [ty, tm, td] = targetDateStr.split('-').map(Number);
-  const [ay, am, ad] = anchorDateStr.split('-').map(Number);
+  const safeTarget = (typeof targetDateStr === 'string' && targetDateStr.includes('-')) ? targetDateStr : '2026-10-19';
+  const safeAnchor = (typeof anchorDateStr === 'string' && anchorDateStr.includes('-')) ? anchorDateStr : '2026-10-19';
+  const safePattern = (Array.isArray(pattern) && pattern.length === 8) ? pattern : DEFAULT_ROTATION_8_DAYS;
+
+  const [ty, tm, td] = safeTarget.split('-').map(Number);
+  const [ay, am, ad] = safeAnchor.split('-').map(Number);
 
   const targetUtc = Date.UTC(ty, tm - 1, td);
   const anchorUtc = Date.UTC(ay, am - 1, ad);
@@ -27,7 +37,7 @@ export function calculateDefaultRoster(targetDateStr, anchorDateStr = '2026-10-1
   const diffDays = Math.round((targetUtc - anchorUtc) / (1000 * 60 * 60 * 24));
   const normIndex = ((diffDays % 8) + 8) % 8;
 
-  const dayPlan = pattern[normIndex] || DEFAULT_ROTATION_8_DAYS[normIndex];
+  const dayPlan = safePattern[normIndex] || DEFAULT_ROTATION_8_DAYS[normIndex];
 
   const teamDuties = {
     Alpha: 'Libur',
@@ -52,7 +62,7 @@ export function calculateDefaultRoster(targetDateStr, anchorDateStr = '2026-10-1
 /**
  * Mengambil daftar siklus pergantian jadwal dari database
  */
-async function getStoredCycles() {
+export async function getStoredCycles() {
   try {
     const [rows] = await pool.query(
       `SELECT setting_value FROM system_settings WHERE setting_key = 'schedule_custom_cycle'`
@@ -73,9 +83,18 @@ async function getStoredCycles() {
  * Menghitung roster untuk suatu tanggal dengan memperhatikan siklus yang berlaku
  */
 export function resolveRosterForDate(targetDateStr, storedCycles = [], defaultAnchor = '2026-10-19') {
-  // Cari siklus yang berlaku (start_date <= targetDateStr) paling dekat
-  const activeCycle = storedCycles.find((c) => c.start_date <= targetDateStr);
-  if (activeCycle && Array.isArray(activeCycle.pattern) && activeCycle.pattern.length === 8) {
+  if (!targetDateStr || typeof targetDateStr !== 'string' || !targetDateStr.includes('-')) {
+    return calculateDefaultRoster('2026-10-19', defaultAnchor, DEFAULT_ROTATION_8_DAYS);
+  }
+
+  // Filter siklus yang memiliki start_date valid dan pattern 8 hari, lalu urutkan descending (start_date terbaru diutamakan)
+  const validCycles = (Array.isArray(storedCycles) ? storedCycles : [storedCycles])
+    .filter((c) => c && typeof c.start_date === 'string' && c.start_date.includes('-') && Array.isArray(c.pattern) && c.pattern.length === 8)
+    .sort((a, b) => b.start_date.localeCompare(a.start_date));
+
+  // Cari siklus yang berlaku (start_date <= targetDateStr) paling dekat / paling baru
+  const activeCycle = validCycles.find((c) => c.start_date <= targetDateStr);
+  if (activeCycle) {
     return calculateDefaultRoster(targetDateStr, activeCycle.start_date, activeCycle.pattern);
   }
   return calculateDefaultRoster(targetDateStr, defaultAnchor, DEFAULT_ROTATION_8_DAYS);
@@ -83,9 +102,10 @@ export function resolveRosterForDate(targetDateStr, storedCycles = [], defaultAn
 
 export const getMonthlySchedule = async (req, res) => {
   try {
-    const today = new Date();
-    const year = parseInt(req.query.year, 10) || today.getFullYear();
-    const month = parseInt(req.query.month, 10) || (today.getMonth() + 1); // 1-12
+    const todayWib = getWibDateString();
+    const [curYear, curMonth] = todayWib.split('-').map(Number);
+    const year = parseInt(req.query.year, 10) || curYear;
+    const month = parseInt(req.query.month, 10) || curMonth; // 1-12
 
     // 1. Ambil anchor_date default dari system_settings
     let anchorDate = '2026-10-19';
@@ -186,10 +206,8 @@ export const getMonthlySchedule = async (req, res) => {
  */
 export const getScheduleCyclePreview = async (req, res) => {
   try {
-    const today = new Date();
-    const startDateStr =
-      req.query.start_date ||
-      `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const todayWib = getWibDateString();
+    const startDateStr = req.query.start_date || todayWib;
 
     let anchorDate = '2026-10-19';
     const [settings] = await pool.query(

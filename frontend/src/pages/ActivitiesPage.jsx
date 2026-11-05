@@ -68,8 +68,21 @@ export default function ActivitiesPage() {
   const canManageActivity =
     isAdmin || isSupervisor || ['admin', 'chief', 'chief_assistant', 'supervisor', 'dept_head'].includes(user?.role);
 
+  // Waktu & Tanggal Lokal Asia/Jakarta (WIB)
+  const getNowWIBTime = () => {
+    return new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Jakarta',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(new Date());
+  };
+
   // Tanggal & Shift Aman Terhubung Langsung dengan Navbar
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayStr = useMemo(
+    () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date()),
+    []
+  );
   const safeDate = activeDate || todayStr;
   const safeShift = Number(activeShiftNumber) || 1;
 
@@ -95,7 +108,7 @@ export default function ActivitiesPage() {
   const [editingId, setEditingId] = useState(null);
   const [title, setTitle] = useState('');
   const [activityType, setActivityType] = useState('serah_terima');
-  const [activityTime, setActivityTime] = useState(new Date().toTimeString().slice(0, 5));
+  const [activityTime, setActivityTime] = useState(getNowWIBTime);
   const [description, setDescription] = useState('');
   const [resultNotes, setResultNotes] = useState('');
   const [photoFile, setPhotoFile] = useState(null);
@@ -140,6 +153,22 @@ export default function ActivitiesPage() {
       }
     };
   }, [previewPdfUrl]);
+
+  // Bersihkan object URL foto preview untuk mencegah memory leak
+  useEffect(() => {
+    return () => {
+      if (photoPreview && photoPreview.startsWith('blob:')) {
+        window.URL.revokeObjectURL(photoPreview);
+      }
+    };
+  }, [photoPreview]);
+
+  // Anti Hidden Filter Lockout: reset selectedFilterTeam ke 'ALL' saat berpindah ke mode shift
+  useEffect(() => {
+    if (viewMode === 'shift') {
+      setSelectedFilterTeam('ALL');
+    }
+  }, [viewMode]);
 
   const fetchActivities = useCallback(async (signal) => {
     setLoading(true);
@@ -241,9 +270,12 @@ export default function ActivitiesPage() {
     setEditingId(null);
     setTitle('');
     setActivityType('serah_terima');
-    setActivityTime(new Date().toTimeString().slice(0, 5));
+    setActivityTime(getNowWIBTime());
     setDescription('');
     setResultNotes('');
+    if (photoPreview && photoPreview.startsWith('blob:')) {
+      window.URL.revokeObjectURL(photoPreview);
+    }
     setPhotoFile(null);
     setPhotoPreview(null);
     setPhotoRemoved(false);
@@ -255,9 +287,12 @@ export default function ActivitiesPage() {
     setEditingId(act.id);
     setTitle(act.title || '');
     setActivityType(act.activity_type || 'serah_terima');
-    setActivityTime(act.activity_time ? act.activity_time.slice(0, 5) : new Date().toTimeString().slice(0, 5));
+    setActivityTime(act.activity_time ? act.activity_time.slice(0, 5) : getNowWIBTime());
     setDescription(act.description || '');
     setResultNotes(act.result_notes || '');
+    if (photoPreview && photoPreview.startsWith('blob:')) {
+      window.URL.revokeObjectURL(photoPreview);
+    }
     setPhotoFile(null);
     setPhotoPreview(act.attachment_url || null);
     setPhotoRemoved(false);
@@ -280,8 +315,13 @@ export default function ActivitiesPage() {
           maxHeight: 1280,
           quality: 0.8,
         });
+        setPhotoPreview((prev) => {
+          if (prev && prev.startsWith('blob:')) {
+            window.URL.revokeObjectURL(prev);
+          }
+          return window.URL.createObjectURL(compressedWebP);
+        });
         setPhotoFile(compressedWebP);
-        setPhotoPreview(URL.createObjectURL(compressedWebP));
         setPhotoRemoved(false);
       } catch (err) {
         setFormError(`Gagal memproses gambar: ${err.message}`);
@@ -396,11 +436,14 @@ export default function ActivitiesPage() {
     return activities.filter((act) => {
       const actType = act.activity_type || 'serah_terima';
       const matchCat = selectedFilterCategory === 'ALL' || actType === selectedFilterCategory;
+      if (viewMode === 'shift') {
+        return matchCat;
+      }
       const actTeam = cleanTeam(act.team_group || act.personnel_team || '').toLowerCase();
       const matchTeam = selectedFilterTeam === 'ALL' || actTeam === selectedFilterTeam.toLowerCase();
       return matchCat && matchTeam;
     });
-  }, [activities, selectedFilterCategory, selectedFilterTeam]);
+  }, [activities, selectedFilterCategory, selectedFilterTeam, viewMode]);
 
   return (
     <div className="space-y-4">
@@ -443,6 +486,7 @@ export default function ActivitiesPage() {
               onClick={() => {
                 setViewMode('shift');
                 setActiveDate(todayStr);
+                setSelectedFilterTeam('ALL');
               }}
               className={`px-3 py-1.5 rounded-md transition-colors duration-100 cursor-pointer ${viewMode === 'shift'
                 ? 'bg-white text-slate-900 shadow-2xs font-bold'
@@ -488,31 +532,33 @@ export default function ActivitiesPage() {
             <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2.5 pointer-events-none" />
           </div>
 
-          {/* Dropdown Filter Regu di samping Dropdown Kategori (Berwarna sesuai border regu di Personel) */}
-          <div className="relative inline-flex items-center">
-            {TEAM_FILTER_THEMES[selectedFilterTeam]?.dot && (
-              <span
-                className={`w-2 h-2 rounded-full absolute left-2.5 pointer-events-none ${TEAM_FILTER_THEMES[selectedFilterTeam].dot}`}
-              />
-            )}
-            <select
-              value={selectedFilterTeam}
-              onChange={(e) => setSelectedFilterTeam(e.target.value)}
-              className={`${selectedFilterTeam !== 'ALL' ? 'pl-6' : 'pl-2.5'} pr-8 py-1.5 rounded-lg text-xs font-semibold shadow-2xs hover:bg-slate-50/80 focus:outline-none focus:ring-1 transition-colors duration-100 cursor-pointer appearance-none border ${
-                TEAM_FILTER_THEMES[selectedFilterTeam]?.select || TEAM_FILTER_THEMES.ALL.select
-              }`}
-              aria-label="Filter Regu Kegiatan"
-            >
-              <option value="ALL" className="text-slate-800 bg-white font-medium">Semua Regu</option>
-              <option value="Alpha" className="text-red-700 bg-white font-bold">Regu Alpha</option>
-              <option value="Bravo" className="text-blue-700 bg-white font-bold">Regu Bravo</option>
-              <option value="Charlie" className="text-emerald-700 bg-white font-bold">Regu Charlie</option>
-              <option value="Delta" className="text-purple-700 bg-white font-bold">Regu Delta</option>
-            </select>
-            <ChevronDown className={`w-3.5 h-3.5 absolute right-2.5 pointer-events-none ${
-              TEAM_FILTER_THEMES[selectedFilterTeam]?.chevron || TEAM_FILTER_THEMES.ALL.chevron
-            }`} />
-          </div>
+          {/* Dropdown Filter Regu di samping Dropdown Kategori (Hanya ditampilkan pada mode Riwayat & Arsip Periode) */}
+          {viewMode === 'range' && (
+            <div className="relative inline-flex items-center">
+              {TEAM_FILTER_THEMES[selectedFilterTeam]?.dot && (
+                <span
+                  className={`w-2 h-2 rounded-full absolute left-2.5 pointer-events-none ${TEAM_FILTER_THEMES[selectedFilterTeam].dot}`}
+                />
+              )}
+              <select
+                value={selectedFilterTeam}
+                onChange={(e) => setSelectedFilterTeam(e.target.value)}
+                className={`${selectedFilterTeam !== 'ALL' ? 'pl-6' : 'pl-2.5'} pr-8 py-1.5 rounded-lg text-xs font-semibold shadow-2xs hover:bg-slate-50/80 focus:outline-none focus:ring-1 transition-colors duration-100 cursor-pointer appearance-none border ${
+                  TEAM_FILTER_THEMES[selectedFilterTeam]?.select || TEAM_FILTER_THEMES.ALL.select
+                }`}
+                aria-label="Filter Regu Kegiatan"
+              >
+                <option value="ALL" className="text-slate-800 bg-white font-medium">Semua Regu</option>
+                <option value="Alpha" className="text-red-700 bg-white font-bold">Regu Alpha</option>
+                <option value="Bravo" className="text-blue-700 bg-white font-bold">Regu Bravo</option>
+                <option value="Charlie" className="text-emerald-700 bg-white font-bold">Regu Charlie</option>
+                <option value="Delta" className="text-purple-700 bg-white font-bold">Regu Delta</option>
+              </select>
+              <ChevronDown className={`w-3.5 h-3.5 absolute right-2.5 pointer-events-none ${
+                TEAM_FILTER_THEMES[selectedFilterTeam]?.chevron || TEAM_FILTER_THEMES.ALL.chevron
+              }`} />
+            </div>
+          )}
         </div>
 
         {/* Kontrol Periode jika dalam mode Riwayat & Arsip (7 Hari, 30 Hari, Triwulan) */}

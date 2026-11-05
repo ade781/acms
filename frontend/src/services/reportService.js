@@ -67,6 +67,39 @@ export async function fetchShiftReportData({ date, shift, team, signal }) {
 }
 
 /**
+ * Helper internal untuk memvalidasi blob PDF dan mengekstrak pesan error jika gagal
+ */
+async function parseBlobResponse(res) {
+  if (!res?.data) {
+    throw new Error('Dokumen PDF kosong atau tidak ditemukan.');
+  }
+  const blob = res.data instanceof Blob ? res.data : new Blob([res.data], { type: 'application/pdf' });
+  if (blob.size === 0) {
+    throw new Error('Dokumen PDF kosong atau tidak ditemukan.');
+  }
+  return blob;
+}
+
+async function handleBlobRequestError(err) {
+  if (err?.response?.data instanceof Blob) {
+    try {
+      const text = await err.response.data.text();
+      const json = JSON.parse(text);
+      if (json?.message) {
+        err.message = json.message;
+      } else if (json?.error) {
+        err.message = json.error;
+      } else if (text) {
+        err.message = text;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  throw err;
+}
+
+/**
  * Mengunduh berkas PDF Dokumen Resmi Laporan Shift Operasional Harian
  * Single Source of Truth untuk Desktop & Mobile (DRY)
  */
@@ -75,17 +108,21 @@ export async function downloadShiftReportPdf({ date, shift, team } = {}) {
   const currentShift = Number(shift || 1);
   const currentTeam = cleanTeam(team || 'Alpha');
 
-  const res = await api.get('/reports/pdf', {
-    params: {
-      date: currentDate,
-      shift: currentShift,
-      team_group: currentTeam,
-    },
-    responseType: 'blob',
-  });
+  try {
+    const res = await api.get('/reports/pdf', {
+      params: {
+        date: currentDate,
+        shift: currentShift,
+        team_group: currentTeam,
+      },
+      responseType: 'blob',
+    });
 
-  const blob = new Blob([res.data], { type: 'application/pdf' });
-  downloadBlob(blob, `Laporan-Shift-${currentShift}-${currentTeam}-${currentDate}.pdf`);
+    const blob = await parseBlobResponse(res);
+    downloadBlob(blob, `Laporan-Shift-${currentShift}-${currentTeam}-${currentDate}.pdf`);
+  } catch (err) {
+    await handleBlobRequestError(err);
+  }
 }
 
 /**
@@ -96,12 +133,16 @@ export async function downloadVehicleReportPdf({ period = '1month', start_date =
   if (start_date) query.append('start_date', start_date);
   if (end_date) query.append('end_date', end_date);
 
-  const res = await api.get(`/reports/vehicles/pdf?${query.toString()}`, {
-    responseType: 'blob',
-  });
+  try {
+    const res = await api.get(`/reports/vehicles/pdf?${query.toString()}`, {
+      responseType: 'blob',
+    });
 
-  const blob = new Blob([res.data], { type: 'application/pdf' });
-  downloadBlob(blob, `Laporan-Kesiapan-Armada-${period}.pdf`);
+    const blob = await parseBlobResponse(res);
+    downloadBlob(blob, `Laporan-Kesiapan-Armada-${period}.pdf`);
+  } catch (err) {
+    await handleBlobRequestError(err);
+  }
 }
 
 /**
@@ -114,12 +155,16 @@ export async function downloadIncidentReportPdf({ period = '1month', start_date 
   if (category && category !== 'ALL') query.append('category', category);
   if (status && status !== 'ALL') query.append('status', status);
 
-  const res = await api.get(`/incidents/summary-report/pdf?${query.toString()}`, {
-    responseType: 'blob',
-  });
+  try {
+    const res = await api.get(`/incidents/summary-report/pdf?${query.toString()}`, {
+      responseType: 'blob',
+    });
 
-  const blob = new Blob([res.data], { type: 'application/pdf' });
-  downloadBlob(blob, `Laporan-Rekap-Insiden-${period}.pdf`);
+    const blob = await parseBlobResponse(res);
+    downloadBlob(blob, `Laporan-Rekap-Insiden-${period}.pdf`);
+  } catch (err) {
+    await handleBlobRequestError(err);
+  }
 }
 
 /**
@@ -132,11 +177,15 @@ export async function fetchActivityReportPdfBlob({ period = '1month', start_date
   if (category && category !== 'ALL') query.append('category', category);
   if (team && team !== 'ALL') query.append('team_group', team);
 
-  const res = await api.get(`/reports/activities/pdf?${query.toString()}`, {
-    responseType: 'blob',
-  });
+  try {
+    const res = await api.get(`/reports/activities/pdf?${query.toString()}`, {
+      responseType: 'blob',
+    });
 
-  return new Blob([res.data], { type: 'application/pdf' });
+    return await parseBlobResponse(res);
+  } catch (err) {
+    await handleBlobRequestError(err);
+  }
 }
 
 /**
@@ -146,4 +195,3 @@ export async function downloadActivityReportPdf(params = {}) {
   const blob = await fetchActivityReportPdfBlob(params);
   downloadBlob(blob, `Laporan-Logbook-Kegiatan-${params.period || '1month'}.pdf`);
 }
-

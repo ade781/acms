@@ -726,9 +726,11 @@ export default function DashboardPage() {
                             </span>
                           )}
                         </div>
-                        <div className="text-xs text-slate-500 truncate mt-0.5">
-                          Chief: <span className="text-slate-700 font-medium">{typeof tStat.chiefName === 'string' ? tStat.chiefName : '-'}</span>
-                        </div>
+                        {!tStat.isCurrentShiftTeam && (
+                          <div className="text-xs text-slate-500 truncate mt-0.5">
+                            Chief: <span className="text-slate-700 font-medium">{typeof tStat.chiefName === 'string' ? tStat.chiefName : '-'}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 

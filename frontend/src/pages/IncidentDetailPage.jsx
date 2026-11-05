@@ -79,7 +79,8 @@ export default function IncidentDetailPage() {
     setError(null);
     try {
       const res = await api.get(`/incidents/${id}`, { signal });
-      setIncident(res.data?.incident || res.data);
+      const payload = res.data?.data?.incident || res.data?.incident || res.data?.data || res.data;
+      setIncident(payload);
     } catch (err) {
       if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
       console.error('Error fetching incident detail:', err);
@@ -105,19 +106,30 @@ export default function IncidentDetailPage() {
     setUpdating(true);
     setToastMsg(null);
     try {
-      await api.put(`/incidents/${id}/status`, {
+      const res = await api.put(`/incidents/${id}/status`, {
         status: 'selesai',
         action_taken: finalActionTaken.trim() || undefined,
         last_condition: finalLastCondition.trim() || undefined,
       });
-      setIncident((prev) => ({
-        ...prev,
-        status: 'selesai',
-        action_taken: finalActionTaken.trim() || prev?.action_taken,
-        last_condition: finalLastCondition.trim() || prev?.last_condition,
-      }));
+      const updatedPayload = res.data?.data?.incident || res.data?.incident || res.data?.data || res.data;
+      setIncident((prev) => {
+        // Ekstrak data murni dengan aman (menghindari proxy state flattening)
+        const base = prev && typeof prev === 'object' && prev.data ? prev.data : (prev || {});
+        const fresh = updatedPayload && typeof updatedPayload === 'object' && updatedPayload.data
+          ? updatedPayload.data
+          : (updatedPayload || {});
+        return {
+          ...base,
+          ...fresh,
+          status: 'selesai',
+          action_taken: finalActionTaken.trim() || fresh?.action_taken || base?.action_taken,
+          last_condition: finalLastCondition.trim() || fresh?.last_condition || base?.last_condition,
+          attachments: base?.attachments || fresh?.attachments || [],
+        };
+      });
       setResolveModalOpen(false);
       setToastMsg({ type: 'success', text: '✓ Status insiden berhasil diperbarui menjadi Selesai.' });
+      fetchDetail();
     } catch (err) {
       const errMsg = typeof err.response?.data?.message === 'string' ? err.response.data.message : typeof err.response?.data === 'string' ? err.response.data : err.message || 'Terjadi kesalahan sistem';
       setToastMsg({ type: 'error', text: `Gagal memperbarui status: ${errMsg}` });

@@ -283,6 +283,18 @@ export const calculateVehicleTransitionsData = async ({ period = '1month', start
         ? calculateDaysDifference(lDate, todayStr)
         : 1;
 
+      // Cari log pemulihan (serviceable log pertama pada atau setelah unserviceable log ini)
+      let resolvingLog = null;
+      if (isResolved) {
+        resolvingLog = vLogs.find(l => {
+          if (l.status !== 'serviceable') return false;
+          const rDate = formatDateOnly(l.shift_date);
+          if (rDate > lDate) return true;
+          if (rDate === lDate && (l.shift_number || 1) >= (item.shift_number || 1)) return true;
+          return false;
+        });
+      }
+
       return {
         id: `log-${item.id}`,
         period_number: 0,
@@ -296,7 +308,9 @@ export const calculateVehicleTransitionsData = async ({ period = '1month', start
         justification: cleanPrefixes(item.justification) || item.justification || '-',
         field_justification: item.justification || '-',
         notes: item.notes || '',
-        resolution_notes: isResolved ? (item.notes || 'Kendala terselesaikan pada pemeriksaan operasional') : null,
+        resolution_notes: isResolved
+          ? (resolvingLog?.notes || item.notes || 'Kendala terselesaikan pada pemeriksaan operasional')
+          : null,
         reported_by: item.pic_name || '-',
         reported_by_nip: item.pic_nip || null,
         photo_webp_url: item.photo_webp_url || null,
@@ -307,12 +321,22 @@ export const calculateVehicleTransitionsData = async ({ period = '1month', start
         duration_days: durationDays,
         unserviceable_shifts_count: 1,
         is_resolved: isResolved,
-        resolved_date: isResolved ? formatDateOnly(item.resolved_at || item.shift_date) : null,
-        resolved_shift_number: isResolved ? (item.shift_number || 1) : null,
-        resolved_team_group: isResolved ? (item.team_group || '-') : null,
+        resolved_date: isResolved
+          ? (resolvingLog ? formatDateOnly(resolvingLog.shift_date) : formatDateOnly(item.resolved_at || item.shift_date))
+          : null,
+        resolved_shift_number: isResolved
+          ? (resolvingLog ? Number(resolvingLog.shift_number || 1) : (item.shift_number || 1))
+          : null,
+        resolved_team_group: isResolved
+          ? (resolvingLog ? (resolvingLog.team_group || '-') : (item.team_group || '-'))
+          : null,
         resolved_by_id: null,
-        resolved_by: isResolved ? (item.pic_name || '-') : '-',
-        resolved_by_nip: isResolved ? (item.pic_nip || null) : null,
+        resolved_by: isResolved
+          ? (resolvingLog ? (resolvingLog.pic_name || '-') : (item.pic_name || '-'))
+          : '-',
+        resolved_by_nip: isResolved
+          ? (resolvingLog ? (resolvingLog.pic_nip || null) : (item.pic_nip || null))
+          : null,
         status: isOngoing ? 'ongoing' : 'resolved',
         created_at: item.created_at || null,
         logged_at: item.updated_at || item.created_at || null

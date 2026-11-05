@@ -80,7 +80,6 @@ const RosterSchedulePage = safeLazy(() => import('./pages/RosterSchedulePage.jsx
 const AnnouncementsPage = safeLazy(() => import('./pages/AnnouncementsPage.jsx'));
 const OfficialsManagementPage = safeLazy(() => import('./pages/OfficialsManagementPage.jsx'));
 const VehicleReportsPage = safeLazy(() => import('./pages/VehicleReportsPage.jsx'));
-const IncidentReportsPage = safeLazy(() => import('./pages/IncidentReportsPage.jsx'));
 
 // Mobile Pages (Safe Lazy Loaded)
 const MobileDashboard = safeLazy(() => import('./pages/mobile/MobileDashboard.jsx'));
@@ -226,9 +225,9 @@ export default function App() {
               <Route path="/personnel/officials" element={<OfficialsManagementPage />} />
               <Route path="/personnel/:id" element={<PersonnelDetailPage />} />
               <Route path="/incidents" element={<IncidentsPage />} />
-              <Route path="/incidents/reports" element={<IncidentReportsPage />} />
+              <Route path="/incidents/reports" element={<Navigate to="/incidents" replace />} />
               <Route path="/incidents/:id" element={<IncidentDetailPage />} />
-              <Route path="/insiden/laporan" element={<Navigate to="/incidents/reports" replace />} />
+              <Route path="/insiden/laporan" element={<Navigate to="/incidents" replace />} />
               <Route path="/leave" element={<LeaveManagementPage />} />
               <Route path="/activities" element={<ActivitiesPage />} />
               <Route path="/reports" element={<ShiftReportsPage />} />

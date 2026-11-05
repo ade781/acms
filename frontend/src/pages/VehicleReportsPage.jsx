@@ -2,10 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
-  Truck,
   AlertTriangle,
   CheckCircle2,
-  RefreshCw,
   Calendar,
   FileText,
   ChevronRight,
@@ -17,6 +15,7 @@ import {
   AlertCircle,
   Pencil,
   Wrench,
+  RefreshCw,
 } from 'lucide-react';
 import api from '../services/api';
 import { downloadVehicleReportPdf } from '../services/reportService';
@@ -136,7 +135,7 @@ export default function VehicleReportsPage() {
           ? err.response.data.message
           : typeof err.response?.data === 'string'
             ? err.response.data
-            : err.message || 'Gagal memuat laporan transisi kelaikan armada.';
+            : err.message || 'Gagal memuat laporan transisi kesiapan armada.';
       setError(errMsg);
     } finally {
       setLoading(false);
@@ -253,14 +252,11 @@ export default function VehicleReportsPage() {
   // Handler Buka Modal Edit Pemeliharaan
   const handleOpenEditMaintenance = (item) => {
     const rawId = item.maintenance_id || item.id || null;
-    const realId = typeof rawId === 'string' && rawId.startsWith('log-')
-      ? rawId.replace('log-', '')
-      : rawId;
     const rawDesc = item.issue_description || item.justification || item.notes || '';
     const cleanDesc = rawDesc.replace(/^\[.*?\]\s*/, '').trim();
 
     setMaintenanceInitialData({
-      id: realId,
+      id: rawId,
       vehicle_id: item.vehicle_id || selectedVehicleDetail?.id,
       start_date: item.start_date || item.shift_date,
       start_shift_number: item.start_shift_number || item.shift_number || 1,
@@ -308,10 +304,6 @@ export default function VehicleReportsPage() {
       rawStatus !== ''
     ) {
       return false;
-    }
-    if (filterStatus === 'kendala') {
-      const periodCount = Number(v.period_count ?? v.transition_count ?? (v.transitions?.length || 0));
-      if (periodCount === 0 && rawStatus !== 'unserviceable') return false;
     }
     return true;
   });
@@ -375,6 +367,11 @@ export default function VehicleReportsPage() {
                       ? `${periodInfo.start_date} s.d. ${periodInfo.end_date}`
                       : selectedPeriod}
                 </span>
+                <span className="mx-2 text-slate-300">•</span>
+                <span className="font-mono tabular-nums font-semibold text-slate-700">
+                  {summary.total_transitions}
+                </span>{' '}
+                Periode Kendala
               </p>
             </div>
           </div>
@@ -403,42 +400,8 @@ export default function VehicleReportsPage() {
           </div>
         </div>
 
-        {/* Bottom Row: Interactive 5-Column Tabular Ledger Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 bg-slate-50/60 text-xs font-sans">
-          <button
-            type="button"
-            onClick={() => setFilterStatus('ALL')}
-            className={`px-4 py-2.5 flex items-center justify-between gap-2 text-left cursor-pointer transition-colors duration-100 ${filterStatus === 'ALL'
-              ? 'bg-white shadow-2xs font-bold ring-1 ring-slate-200'
-              : 'hover:bg-slate-100/60'
-              }`}
-          >
-            <div className="flex items-center gap-2 text-slate-600">
-              <Truck className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="font-semibold">Total Unit Armada</span>
-            </div>
-            <span className="font-black text-slate-900 font-mono tabular-nums">
-              {summary.total_vehicles} Unit
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setFilterStatus(filterStatus === 'kendala' ? 'ALL' : 'kendala')}
-            className={`px-4 py-2.5 flex items-center justify-between gap-2 text-left cursor-pointer transition-colors duration-100 ${filterStatus === 'kendala'
-              ? 'bg-white shadow-2xs font-bold ring-1 ring-amber-300'
-              : 'hover:bg-slate-100/60'
-              }`}
-          >
-            <div className="flex items-center gap-2 text-slate-600">
-              <RefreshCw className="w-4 h-4 text-amber-500 shrink-0" />
-              <span className="font-semibold">Periode Kendala</span>
-            </div>
-            <span className="font-black text-amber-600 font-mono tabular-nums">
-              {summary.total_transitions} Periode
-            </span>
-          </button>
-
+        {/* Bottom Row: Interactive 3-Column Tabular Ledger Strip (Status Kesiapan Baku) */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 bg-slate-50/60 text-xs font-sans">
           <button
             type="button"
             onClick={() => setFilterStatus(filterStatus === 'serviceable' ? 'ALL' : 'serviceable')}
@@ -503,15 +466,23 @@ export default function VehicleReportsPage() {
               Daftar Rekapitulasi Kesiapan Armada
             </h3>
             {filterStatus !== 'ALL' && (
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-200 text-slate-700 font-sans">
-                Filter:{' '}
-                {filterStatus === 'kendala'
-                  ? 'Periode Kendala'
-                  : filterStatus === 'serviceable'
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-200 text-slate-700 font-sans flex items-center gap-1">
+                <span>Filter:</span>
+                <span className="font-bold">
+                  {filterStatus === 'serviceable'
                     ? 'Serviceable'
                     : filterStatus === 'unserviceable'
                       ? 'Unserviceable'
                       : 'Belum Dicek'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setFilterStatus('ALL')}
+                  className="ml-1 text-slate-500 hover:text-slate-800 cursor-pointer"
+                  title="Hapus Filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
               </span>
             )}
           </div>
@@ -628,8 +599,8 @@ export default function VehicleReportsPage() {
                   <th className="py-3 px-4 text-center">
                     {periodInfo?.is_current_period === false ? 'Status Akhir Periode' : 'Status Saat Ini'}
                   </th>
-                  <th className="py-3 px-4 text-center">Periode Kendala</th>
-                  <th className="py-3 px-4">Riwayat Kerusakan</th>
+                  <th className="py-3 px-4">Jumlah Periode Rusak</th>
+                  <th className="py-3 px-4">Riwayat Terakhir</th>
                   <th className="py-3 px-4 text-right print:hidden">Aksi</th>
                 </tr>
               </thead>
@@ -641,27 +612,33 @@ export default function VehicleReportsPage() {
                   const periodCount = Number(v.period_count ?? v.transition_count ?? 0);
                   const ongoingCount = Number(v.ongoing_issues_count ?? (isCurrentUnserv ? 1 : 0));
 
+                  const rawPeriods = v.issue_periods || v.transitions || [];
+                  const sortedPeriods = [...rawPeriods].sort((a, b) => {
+                    const dateA = new Date(a.start_date || a.shift_date || 0).getTime();
+                    const dateB = new Date(b.start_date || b.shift_date || 0).getTime();
+                    return dateB - dateA;
+                  });
+                  const latestPeriod = sortedPeriods[0];
+                  const latestDesc =
+                    latestPeriod?.issue_description ||
+                    latestPeriod?.justification ||
+                    v.incident_logs?.[0]?.justification ||
+                    v.incident_logs?.[0]?.notes;
+
                   return (
                     <tr
                       key={v.id || v.code_name || `veh-rep-${v.vehicle_name}`}
                       className="hover:bg-slate-50/80 transition-colors duration-100"
                     >
-                      {/* Nama Armada */}
-                      <td className="py-3 px-4">
-                        <div className="min-w-0">
-                          <div className="font-semibold text-slate-900">{v.vehicle_name}</div>
-                          {v.license_plate && (
-                            <div className="text-xs font-mono tabular-nums text-slate-400">
-                              {v.license_plate}
-                            </div>
-                          )}
-                        </div>
+                      {/* Nama Armada (1 Baris Murni) */}
+                      <td className="py-2.5 px-4 whitespace-nowrap">
+                        <span className="font-semibold text-slate-900">{v.vehicle_name}</span>
                       </td>
 
                       {/* Status Terkini */}
-                      <td className="py-3 px-4 text-center">
+                      <td className="py-2.5 px-4 text-center whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${isCurrentUnserv
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border ${isCurrentUnserv
                             ? 'bg-red-50 text-red-700 border-red-200'
                             : isCurrentServ
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
@@ -686,54 +663,37 @@ export default function VehicleReportsPage() {
                         </span>
                       </td>
 
-                      {/* Periode Kendala */}
-                      <td className="py-3 px-4 text-center">
+                      {/* Jumlah (Jumlah Periode Rusak - 1 Baris Murni) */}
+                      <td className="py-2.5 px-4 whitespace-nowrap">
                         {periodCount > 0 ? (
-                          <div className="inline-flex flex-col items-center">
-                            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                              <span className="font-mono tabular-nums">{periodCount}</span> Periode Kendala
-                            </span>
-                            {ongoingCount > 0 ? (
-                              <span className="text-xs text-red-600 font-medium mt-0.5">
-                                <span className="font-mono tabular-nums">{ongoingCount}</span> Belum Pulih
-                              </span>
-                            ) : (
-                              <span className="text-xs text-emerald-600 font-medium mt-0.5">
-                                Seluruhnya Selesai
-                              </span>
-                            )}
-                          </div>
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            <span className="font-mono tabular-nums">{periodCount}</span> Periode
+                          </span>
                         ) : (
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-50 text-slate-500 border border-slate-200">
-                            Nihil Kendala
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-50 text-slate-500 border border-slate-200">
+                            0 Periode
                           </span>
                         )}
                       </td>
 
-                      {/* Riwayat Kerusakan & Justifikasi */}
-                      <td className="py-3 px-4 max-w-xs">
-                        {v.incident_logs && v.incident_logs.length > 0 ? (
-                          <div className="space-y-1">
-                            <p className="text-xs font-semibold text-red-700 flex items-center gap-1">
-                              <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0" />
-                              <span>
-                                <span className="font-mono tabular-nums">{v.incident_logs.length}</span> Kali Kendala
-                              </span>
-                            </p>
-                            <p className="text-xs text-slate-600 line-clamp-2 italic">
-                              Terakhir: "{v.incident_logs[0].justification || v.incident_logs[0].notes || '-'}"
-                            </p>
-                          </div>
+                      {/* Riwayat (Riwayat Terakhir - 1 Baris Uraian Saja) */}
+                      <td className="py-2.5 px-4 max-w-md">
+                        {latestDesc ? (
+                          <span
+                            className="text-xs text-slate-700 font-medium truncate block"
+                            title={latestDesc}
+                          >
+                            {latestDesc}
+                          </span>
                         ) : (
-                          <span className="text-emerald-600 text-xs font-medium flex items-center gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                            <span>Tidak ada kendala</span>
+                          <span className="text-xs text-slate-400 italic">
+                            -
                           </span>
                         )}
                       </td>
 
                       {/* Aksi Detail */}
-                      <td className="py-3 px-4 text-right print:hidden">
+                      <td className="py-2.5 px-4 text-right print:hidden whitespace-nowrap">
                         <button
                           type="button"
                           onClick={() => setSelectedVehicleDetail(v)}
@@ -822,331 +782,331 @@ export default function VehicleReportsPage() {
                       {sortedPeriods.map((item, idx) => {
                         const isOngoing = item.status === 'ongoing' || !item.is_resolved;
                         return (
-                            <div
-                              key={item.maintenance_id || item.id || idx}
-                              className={`p-4 sm:p-5 rounded-2xl border bg-white space-y-3.5 shadow-xs transition-colors duration-100 ${isOngoing ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200'
-                                }`}
-                            >
-                              {/* Header Card Periode */}
-                              <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5 flex-wrap">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200">
-                                    Periode #<span className="font-mono tabular-nums">{item.period_number || idx + 1}</span>
+                          <div
+                            key={item.maintenance_id || item.id || idx}
+                            className={`p-4 sm:p-5 rounded-2xl border bg-white space-y-3.5 shadow-xs transition-colors duration-100 ${isOngoing ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200'
+                              }`}
+                          >
+                            {/* Header Card Periode */}
+                            <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5 flex-wrap">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200">
+                                  Periode #<span className="font-mono tabular-nums">{item.period_number || idx + 1}</span>
+                                </span>
+                                {item.is_carried_from_prior && (
+                                  <span className="px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                                    Carry-Over
                                   </span>
-                                  {item.is_carried_from_prior && (
-                                    <span className="px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
-                                      Carry-Over
-                                    </span>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {/* Status Badge Tegas Tanpa Metrik Downtime */}
+                                <span
+                                  className={`px-2.5 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5 ${isOngoing
+                                    ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                    : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                    }`}
+                                >
+                                  {isOngoing ? (
+                                    <>
+                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
+                                      <span>Dalam Penanganan</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                      <span>Selesai</span>
+                                    </>
                                   )}
-                                </div>
+                                </span>
 
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  {/* Status Badge Tegas Tanpa Metrik Downtime */}
-                                  <span
-                                    className={`px-2.5 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5 ${isOngoing
-                                        ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                                        : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                      }`}
-                                  >
-                                    {isOngoing ? (
-                                      <>
-                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
-                                        <span>Dalam Penanganan</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                        <span>Pulih (Serviceable)</span>
-                                      </>
-                                    )}
-                                  </span>
-
-                                  {/* Tombol Aksi: Buka/Unduh Dokumen PDF, Edit & Hapus */}
-                                  <div className="flex items-center gap-1.5">
-                                    {/* Tombol Dokumen PDF (di samping tombol edit) */}
-                                    {item.document_url ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDownloadDocument(item.document_url, item.document_name)}
-                                        className="p-1.5 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200 transition-colors duration-100 cursor-pointer inline-flex items-center justify-center"
-                                        title={`Dokumen: ${item.document_name || 'Dokumen_Lampiran.pdf'}`}
-                                      >
-                                        <FileText className="w-3.5 h-3.5" />
-                                      </button>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setToastMsg({
-                                            type: 'info',
-                                            text: 'Belum ada dokumen lampiran pada catatan ini. Anda dapat mengunggahnya melalui tombol Edit.',
-                                          });
-                                          handleOpenEditMaintenance(item);
-                                        }}
-                                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 border border-slate-200 transition-colors duration-100 cursor-pointer inline-flex items-center justify-center"
-                                        title="Dokumen (Belum ada berkas terunggah, klik untuk unggah)"
-                                      >
-                                        <FileText className="w-3.5 h-3.5" />
-                                      </button>
-                                    )}
-
+                                {/* Tombol Aksi: Buka/Unduh Dokumen PDF, Edit & Hapus */}
+                                <div className="flex items-center gap-1.5">
+                                  {/* Tombol Dokumen PDF (di samping tombol edit) */}
+                                  {item.document_url ? (
                                     <button
                                       type="button"
-                                      onClick={() => handleOpenEditMaintenance(item)}
-                                      className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-slate-200 transition-colors duration-100 cursor-pointer"
-                                      title="Edit Catatan Kendala & Pemeliharaan"
+                                      onClick={() => handleDownloadDocument(item.document_url, item.document_name)}
+                                      className="p-1.5 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200 transition-colors duration-100 cursor-pointer inline-flex items-center justify-center"
+                                      title={`Dokumen: ${item.document_name || 'Dokumen_Lampiran.pdf'}`}
                                     >
-                                      <Pencil className="w-3.5 h-3.5" />
+                                      <FileText className="w-3.5 h-3.5" />
                                     </button>
-                                  </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setToastMsg({
+                                          type: 'info',
+                                          text: 'Belum ada dokumen lampiran pada catatan ini. Anda dapat mengunggahnya melalui tombol Edit.',
+                                        });
+                                        handleOpenEditMaintenance(item);
+                                      }}
+                                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 border border-slate-200 transition-colors duration-100 cursor-pointer inline-flex items-center justify-center"
+                                      title="Dokumen (Belum ada berkas terunggah, klik untuk unggah)"
+                                    >
+                                      <FileText className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEditMaintenance(item)}
+                                    className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-slate-200 transition-colors duration-100 cursor-pointer"
+                                    title="Edit Catatan Kendala & Pemeliharaan"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </div>
                             </div>
 
-                              {/* Baris Log: Mulai Kendala & Status Pemulihan */ }
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
-                              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">
-                                Mulai Kendala:
-                              </p>
-                              <p className="font-semibold text-slate-800 mt-1">
-                                {formatIndoDate(item.start_date || item.shift_date, { shortMonth: true })} | Shift{' '}
-                                <span className="font-mono tabular-nums">
-                                  {item.start_shift_number || item.shift_number || 1}
-                                </span>{' '}
-                                ({item.start_team_group || item.team_group || 'Alpha'})
-                              </p>
-                              <p className="text-slate-600 text-xs mt-1">
-                                Pelapor: <span className="font-medium text-slate-800">{item.reported_by || '-'}</span>
-                              </p>
-                            </div>
+                            {/* Baris Log: Mulai Kendala & Status Pemulihan */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">
+                                  Mulai Kendala:
+                                </p>
+                                <p className="font-semibold text-slate-800 mt-1">
+                                  {formatIndoDate(item.start_date || item.shift_date, { shortMonth: true })} | Shift{' '}
+                                  <span className="font-mono tabular-nums">
+                                    {item.start_shift_number || item.shift_number || 1}
+                                  </span>{' '}
+                                  ({item.start_team_group || item.team_group || 'Alpha'})
+                                </p>
+                                <p className="text-slate-600 text-xs mt-1">
+                                  Pelapor: <span className="font-medium text-slate-800">{item.reported_by || '-'}</span>
+                                </p>
+                              </div>
 
-                            <div
-                              className={`p-3 rounded-xl border ${isOngoing
+                              <div
+                                className={`p-3 rounded-xl border ${isOngoing
                                   ? 'bg-amber-50/40 border-amber-200 text-amber-900'
                                   : 'bg-emerald-50/40 border-emerald-100 text-emerald-900'
-                                }`}
-                            >
-                              <p className="text-xs font-bold uppercase tracking-wider opacity-75">
-                                Status Pemulihan:
-                              </p>
-                              {!isOngoing && (item.resolved_date || item.end_date) ? (
-                                <>
-                                  <p className="font-semibold mt-1">
-                                    {formatIndoDate(item.resolved_date || item.end_date, { shortMonth: true })} | Shift{' '}
-                                    <span className="font-mono tabular-nums">
-                                      {item.resolved_shift_number || item.end_shift_number || 1}
-                                    </span>{' '}
-                                    ({item.resolved_team_group || item.end_team_group || 'Alpha'})
-                                  </p>
-                                  <p className="text-xs opacity-80 mt-1">
-                                    Dipulihkan oleh:{' '}
-                                    <span className="font-medium">
-                                      {item.resolved_by || item.technician_vendor || '-'}
-                                    </span>
-                                  </p>
-                                  {item.technician_vendor && item.technician_vendor !== item.resolved_by && (
-                                    <p className="text-xs opacity-80 mt-0.5">
-                                      Teknisi/Bengkel: <span className="font-medium">{item.technician_vendor}</span>
+                                  }`}
+                              >
+                                <p className="text-xs font-bold uppercase tracking-wider opacity-75">
+                                  Status Pemulihan:
+                                </p>
+                                {!isOngoing && (item.resolved_date || item.end_date) ? (
+                                  <>
+                                    <p className="font-semibold mt-1">
+                                      {formatIndoDate(item.resolved_date || item.end_date, { shortMonth: true })} | Shift{' '}
+                                      <span className="font-mono tabular-nums">
+                                        {item.resolved_shift_number || item.end_shift_number || 1}
+                                      </span>{' '}
+                                      ({item.resolved_team_group || item.end_team_group || 'Alpha'})
                                     </p>
-                                  )}
-                                </>
-                              ) : (
-                                <>
-                                  <p className="font-semibold text-amber-900 mt-1">
-                                    Sedang Dalam Penanganan
-                                  </p>
-                                  {item.technician_vendor ? (
-                                    <p className="text-xs text-amber-800 mt-1">
-                                      Teknisi/Bengkel: <span className="font-medium">{item.technician_vendor}</span>
+                                    <p className="text-xs opacity-80 mt-1">
+                                      Dipulihkan oleh:{' '}
+                                      <span className="font-medium">
+                                        {item.resolved_by || item.technician_vendor || '-'}
+                                      </span>
                                     </p>
-                                  ) : (
-                                    <p className="text-xs text-amber-700/80 mt-1">
-                                      Unit pemeliharaan / log shift berjalan
+                                    {item.technician_vendor && item.technician_vendor !== item.resolved_by && (
+                                      <p className="text-xs opacity-80 mt-0.5">
+                                        Teknisi/Bengkel: <span className="font-medium">{item.technician_vendor}</span>
+                                      </p>
+                                    )}
+                                  </>
+                                ) : (
+                                  <>
+                                    <p className="font-semibold text-amber-900 mt-1">
+                                      Sedang Dalam Penanganan
                                     </p>
-                                  )}
-                                </>
-                              )}
+                                    {item.technician_vendor ? (
+                                      <p className="text-xs text-amber-800 mt-1">
+                                        Teknisi/Bengkel: <span className="font-medium">{item.technician_vendor}</span>
+                                      </p>
+                                    ) : (
+                                      <p className="text-xs text-amber-700/80 mt-1">
+                                        Unit pemeliharaan / log shift berjalan
+                                      </p>
+                                    )}
+                                  </>
+                                )}
+                              </div>
                             </div>
-                          </div>
 
-                          {/* 2 Kolom: Uraian Kendala / Kerusakan & Tindakan Perbaikan / Suku Cadang */ }
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-0.5">
-                            {/* Kolom Kiri: Uraian Kendala */}
-                            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
-                              <strong className="font-bold block text-xs uppercase tracking-wider text-slate-700">
-                                Uraian Kendala / Kerusakan:
-                              </strong>
+                            {/* 2 Kolom: Uraian Kendala / Kerusakan & Tindakan Perbaikan / Suku Cadang */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-0.5">
+                              {/* Kolom Kiri: Uraian Kendala */}
+                              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+                                <strong className="font-bold block text-xs uppercase tracking-wider text-slate-700">
+                                  Uraian Kendala / Kerusakan:
+                                </strong>
 
-                              {/* Temuan Awal Lapangan PIC jika ada */}
-                              {item.field_justification && item.field_justification !== item.issue_description && (
-                                <div className="text-xs text-amber-900 bg-amber-50/80 p-2 rounded-lg border border-amber-200/70">
-                                  <span className="font-semibold text-amber-800 block text-xs mb-0.5">
-                                    Temuan Lapangan (PIC):
-                                  </span>
-                                  {item.field_justification}
+                                {/* Temuan Awal Lapangan PIC jika ada */}
+                                {item.field_justification && item.field_justification !== item.issue_description && (
+                                  <div className="text-xs text-amber-900 bg-amber-50/80 p-2 rounded-lg border border-amber-200/70">
+                                    <span className="font-semibold text-amber-800 block text-xs mb-0.5">
+                                      Temuan Lapangan (PIC):
+                                    </span>
+                                    {item.field_justification}
+                                  </div>
+                                )}
+
+                                {/* Uraian Kendala / Kerusakan / SPK */}
+                                <div className="text-xs text-slate-800 leading-relaxed">
+                                  {item.issue_description || item.justification || (!item.field_justification ? 'Tidak ada catatan uraian khusus.' : null)}
                                 </div>
-                              )}
 
-                              {/* Uraian Kendala / Kerusakan / SPK */}
-                              <div className="text-xs text-slate-800 leading-relaxed">
-                                {item.issue_description || item.justification || (!item.field_justification ? 'Tidak ada catatan uraian khusus.' : null)}
+                                {item.notes &&
+                                  item.notes !== item.issue_description &&
+                                  item.notes !== item.resolution_notes &&
+                                  item.notes !== item.field_justification && (
+                                    <p className="text-xs text-slate-500 italic pt-1.5 border-t border-slate-200/70">
+                                      <strong className="not-italic text-slate-600">Catatan Tambahan:</strong> {item.notes}
+                                    </p>
+                                  )}
                               </div>
 
-                              {item.notes &&
-                                item.notes !== item.issue_description &&
-                                item.notes !== item.resolution_notes &&
-                                item.notes !== item.field_justification && (
-                                  <p className="text-xs text-slate-500 italic pt-1.5 border-t border-slate-200/70">
-                                    <strong className="not-italic text-slate-600">Catatan Tambahan:</strong> {item.notes}
-                                  </p>
-                                )}
-                            </div>
-
-                            {/* Kolom Kanan: Tindakan Perbaikan */}
-                            <div className={`p-3.5 rounded-xl border space-y-2 ${isOngoing ? 'bg-amber-50/30 border-amber-200/80' : 'bg-emerald-50/30 border-emerald-200/80'
-                              }`}>
-                              <strong className={`font-bold block text-xs uppercase tracking-wider ${isOngoing ? 'text-amber-800' : 'text-emerald-700'
+                              {/* Kolom Kanan: Tindakan Perbaikan */}
+                              <div className={`p-3.5 rounded-xl border space-y-2 ${isOngoing ? 'bg-amber-50/30 border-amber-200/80' : 'bg-emerald-50/30 border-emerald-200/80'
                                 }`}>
-                                Tindakan Perbaikan / Suku Cadang:
-                              </strong>
+                                <strong className={`font-bold block text-xs uppercase tracking-wider ${isOngoing ? 'text-amber-800' : 'text-emerald-700'
+                                  }`}>
+                                  Tindakan Perbaikan / Suku Cadang:
+                                </strong>
 
-                              {item.resolution_notes ? (
-                                <div className="text-xs text-slate-800 leading-relaxed">
-                                  {item.resolution_notes}
-                                </div>
-                              ) : isOngoing ? (
-                                <div className="text-xs text-amber-800 italic">
-                                  Armada masih dalam proses penanganan / belum ada catatan penyelesaian perbaikan.
-                                </div>
-                              ) : (
-                                <div className="text-xs text-slate-500 italic">
-                                  Telah dinyatakan pulih / serviceable pada shift berjalan.
-                                </div>
-                              )}
+                                {item.resolution_notes ? (
+                                  <div className="text-xs text-slate-800 leading-relaxed">
+                                    {item.resolution_notes}
+                                  </div>
+                                ) : isOngoing ? (
+                                  <div className="text-xs text-amber-800 italic">
+                                    Armada masih dalam proses penanganan / belum ada catatan penyelesaian perbaikan.
+                                  </div>
+                                ) : (
+                                  <div className="text-xs text-slate-500 italic">
+                                    Telah dinyatakan pulih / serviceable pada shift berjalan.
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                  );
-                        })}
-                </div>
-              ) : (
-            <div className="p-8 text-center bg-slate-50 border border-slate-200 rounded-xl">
-              <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2 opacity-80" />
-              <p className="text-xs font-semibold text-slate-700">
-                Nihil Riwayat Kendala Armada
-              </p>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Tidak ada catatan kendala atau transisi unserviceable pada rentang periode ini.
-              </p>
-            </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center bg-slate-50 border border-slate-200 rounded-xl">
+                      <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2 opacity-80" />
+                      <p className="text-xs font-semibold text-slate-700">
+                        Nihil Riwayat Kendala Armada
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Tidak ada catatan kendala atau transisi unserviceable pada rentang periode ini.
+                      </p>
+                    </div>
                   )}
-          </div>
-          );
+                </div>
+              );
             })()}
-        </div>
-                                      </Modal>
-  )
-}
+          </div>
+        </Modal>
+      )
+      }
 
-{/* Modal Form CRUD Catatan Kendala & Pemeliharaan Armada */ }
-<VehicleMaintenanceModal
-  isOpen={isMaintenanceModalOpen}
-  onClose={() => {
-    setIsMaintenanceModalOpen(false);
-    setMaintenanceInitialData(null);
-  }}
-  initialData={maintenanceInitialData}
-  vehicles={vehicles}
-  onSuccess={(msg) => {
-    setToastMsg({ type: 'success', text: msg });
-    fetchReport();
-  }}
-/>
+      {/* Modal Form CRUD Catatan Kendala & Pemeliharaan Armada */}
+      <VehicleMaintenanceModal
+        isOpen={isMaintenanceModalOpen}
+        onClose={() => {
+          setIsMaintenanceModalOpen(false);
+          setMaintenanceInitialData(null);
+        }}
+        initialData={maintenanceInitialData}
+        vehicles={vehicles}
+        onSuccess={(msg) => {
+          setToastMsg({ type: 'success', text: msg });
+          fetchReport();
+        }}
+      />
 
-{/* Modal Pratinjau Dokumen PDF Resmi */ }
-{
-  isPreviewModalOpen && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-5 bg-slate-900/70 animate-in fade-in duration-150 font-sans">
-      <div className="bg-white w-full max-w-5xl h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200">
-        {/* Header Modal */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex-wrap gap-2">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-red-100 text-arff-primary flex items-center justify-center shrink-0">
-              <FileText className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">
-                Pratinjau Dokumen PDF Laporan Armada
-              </h3>
-              <p className="text-xs text-slate-500">
-                Periode:{' '}
-                <span className="font-mono tabular-nums">
-                  {isCustomMode
-                    ? `${startDate} s/d ${endDate}`
-                    : periodInfo
-                      ? `${periodInfo.start_date} s/d ${periodInfo.end_date}`
-                      : selectedPeriod}
-                </span>
-              </p>
+      {/* Modal Pratinjau Dokumen PDF Resmi */}
+      {
+        isPreviewModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-5 bg-slate-900/70 animate-in fade-in duration-150 font-sans">
+            <div className="bg-white w-full max-w-5xl h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200">
+              {/* Header Modal */}
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex-wrap gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-red-100 text-arff-primary flex items-center justify-center shrink-0">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      Pratinjau Dokumen PDF Laporan Armada
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Periode:{' '}
+                      <span className="font-mono tabular-nums">
+                        {isCustomMode
+                          ? `${startDate} s/d ${endDate}`
+                          : periodInfo
+                            ? `${periodInfo.start_date} s/d ${periodInfo.end_date}`
+                            : selectedPeriod}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {previewPdfUrl && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon={ExternalLink}
+                      onClick={() => window.open(previewPdfUrl, '_blank')}
+                      title="Buka PDF di tab baru browser"
+                    >
+                      Buka Tab Baru
+                    </Button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleClosePreview}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors duration-100 ml-1 cursor-pointer"
+                    title="Tutup Pratinjau"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Area Pratinjau Dokumen */}
+              <div className="flex-1 bg-slate-100 p-2 sm:p-4 flex flex-col items-center justify-center overflow-hidden">
+                {isLoadingPreview ? (
+                  <div className="flex flex-col items-center justify-center gap-3 text-slate-500 text-xs py-16">
+                    <RefreshCw className="w-8 h-8 animate-spin text-red-600" />
+                    <p className="font-semibold text-slate-700 text-sm">
+                      Menyusun & Merender Dokumen PDF...
+                    </p>
+                  </div>
+                ) : previewError ? (
+                  <div className="p-6 text-center text-xs space-y-3">
+                    <AlertTriangle className="w-8 h-8 text-red-500 mx-auto" />
+                    <p className="font-bold text-slate-800 text-sm">
+                      {typeof previewError === 'string'
+                        ? previewError
+                        : 'Gagal memuat pratinjau dokumen PDF armada.'}
+                    </p>
+                    <Button variant="outline" size="sm" onClick={handleOpenPreview}>
+                      Coba Muat Ulang
+                    </Button>
+                  </div>
+                ) : previewPdfUrl ? (
+                  <iframe
+                    src={`${previewPdfUrl}#toolbar=1&navpanes=0`}
+                    title="Pratinjau PDF Laporan Armada"
+                    className="w-full h-full rounded-xl border border-slate-300 shadow-inner bg-white"
+                  />
+                ) : null}
+              </div>
             </div>
           </div>
-
-          <div className="flex items-center gap-2">
-            {previewPdfUrl && (
-              <Button
-                variant="primary"
-                size="sm"
-                icon={ExternalLink}
-                onClick={() => window.open(previewPdfUrl, '_blank')}
-                title="Buka PDF di tab baru browser"
-              >
-                Buka Tab Baru
-              </Button>
-            )}
-            <button
-              type="button"
-              onClick={handleClosePreview}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors duration-100 ml-1 cursor-pointer"
-              title="Tutup Pratinjau"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Area Pratinjau Dokumen */}
-        <div className="flex-1 bg-slate-100 p-2 sm:p-4 flex flex-col items-center justify-center overflow-hidden">
-          {isLoadingPreview ? (
-            <div className="flex flex-col items-center justify-center gap-3 text-slate-500 text-xs py-16">
-              <RefreshCw className="w-8 h-8 animate-spin text-red-600" />
-              <p className="font-semibold text-slate-700 text-sm">
-                Menyusun & Merender Dokumen PDF...
-              </p>
-            </div>
-          ) : previewError ? (
-            <div className="p-6 text-center text-xs space-y-3">
-              <AlertTriangle className="w-8 h-8 text-red-500 mx-auto" />
-              <p className="font-bold text-slate-800 text-sm">
-                {typeof previewError === 'string'
-                  ? previewError
-                  : 'Gagal memuat pratinjau dokumen PDF armada.'}
-              </p>
-              <Button variant="outline" size="sm" onClick={handleOpenPreview}>
-                Coba Muat Ulang
-              </Button>
-            </div>
-          ) : previewPdfUrl ? (
-            <iframe
-              src={`${previewPdfUrl}#toolbar=1&navpanes=0`}
-              title="Pratinjau PDF Laporan Armada"
-              className="w-full h-full rounded-xl border border-slate-300 shadow-inner bg-white"
-            />
-          ) : null}
-        </div>
-      </div>
-    </div>
-  )
+        )
+      }
+    </div >
+  );
 }
-                                    </div >
-                                  );
-                                }

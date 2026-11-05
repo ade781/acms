@@ -181,6 +181,20 @@ export function getScheduledTeam(dateStr, shiftNumber = 1, anchorDateStr = '2026
 }
 
 /**
+ * Mengambil tanggal dalam format YYYY-MM-DD berbasis WIB (Asia/Jakarta)
+ * Mencegah pergeseran timezone UTC yang mundur ke H-1 saat tengah malam
+ * @param {Date|string|number} [date=new Date()]
+ * @returns {string} YYYY-MM-DD
+ */
+export function getWibDateString(date = new Date()) {
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
+  }
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(d);
+}
+
+/**
  * Get the current operational shift based on client local time normalized to WIB (UTC+7)
  * @param {Date} [now=new Date()]
  * @returns {{ shiftNumber: number, shiftDate: string, shiftName: string, scheduledTeam: string }}
@@ -439,7 +453,7 @@ export function getStkpStatus(person) {
   const diffDays = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   const expiryStr = typeof expiry === 'string'
     ? expiry.split('T')[0]
-    : (expiry instanceof Date ? expiry.toISOString().split('T')[0] : String(expiry || ''));
+    : (expiry instanceof Date ? getWibDateString(expiry) : String(expiry || ''));
 
   if (diffDays <= 0) {
     return {

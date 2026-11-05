@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Camera, X, AlertCircle, Clock } from 'lucide-react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
@@ -34,6 +34,8 @@ export default function ActivityFormModal({
   compressing = false,
   formError = null,
 }) {
+  const fileInputRef = useRef(null);
+
   if (!isOpen) return null;
 
   return (
@@ -70,13 +72,16 @@ export default function ActivityFormModal({
               <button
                 type="button"
                 onClick={() => {
-                  const now = new Date();
-                  const hours = String(now.getHours()).padStart(2, '0');
-                  const minutes = String(now.getMinutes()).padStart(2, '0');
-                  setActivityTime(`${hours}:${minutes}`);
+                  const nowStr = new Intl.DateTimeFormat('en-GB', {
+                    timeZone: 'Asia/Jakarta',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false,
+                  }).format(new Date());
+                  setActivityTime(nowStr);
                 }}
                 className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200/60 px-2 py-0.5 rounded transition-colors duration-100 flex items-center gap-1 cursor-pointer"
-                title="Isi otomatis dengan waktu jam sekarang"
+                title="Isi otomatis dengan waktu jam sekarang (WIB)"
               >
                 <Clock className="w-3 h-3" />
                 <span>Waktu Sekarang</span>
@@ -92,7 +97,7 @@ export default function ActivityFormModal({
           </div>
 
           <SelectField
-            label="Kategori Baku Operasional"
+            label="Kategori Kegiatan"
             value={activityType}
             onChange={(e) => setActivityType(e.target.value)}
             options={OFFICIAL_ACTIVITY_CATEGORIES}
@@ -140,6 +145,7 @@ export default function ActivityFormModal({
               <Camera className="w-4 h-4 text-slate-500" />
               <span>{photoPreview ? 'Ganti Foto' : 'Pilih Foto'}</span>
               <input
+                ref={fileInputRef}
                 type="file"
                 accept="image/*"
                 onChange={handlePhotoSelect}
@@ -152,6 +158,12 @@ export default function ActivityFormModal({
               <button
                 type="button"
                 onClick={() => {
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                  }
+                  if (photoPreview && photoPreview.startsWith('blob:')) {
+                    URL.revokeObjectURL(photoPreview);
+                  }
                   setPhotoFile(null);
                   setPhotoPreview(null);
                   setPhotoRemoved(true);

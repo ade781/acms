@@ -40,8 +40,9 @@ export const getShiftReportPdf = async (req, res) => {
       status: 'open'
     };
 
-    // 1. Cek In-Memory Cache PDF (termasuk status shift untuk mencegah drift data draf vs final)
-    const cacheKey = `shift_report_${shiftDate}_${shiftNumber}_${teamGroup}_${shiftData.status || 'open'}`;
+    // 1. Cek In-Memory Cache PDF (termasuk status shift dan status official untuk mencegah drift data draf vs final)
+    const isOfficial = isShiftOfficial(shiftDate, shiftNumber, shiftData?.status);
+    const cacheKey = `shift_report_${shiftDate}_${shiftNumber}_${teamGroup}_${shiftData.status || 'open'}_${isOfficial ? 'official' : 'draft'}`;
     const cachedBuffer = getPdfCache(cacheKey);
     if (cachedBuffer) {
       res.setHeader('Content-Type', 'application/pdf');
@@ -228,8 +229,6 @@ export const getShiftReportPdf = async (req, res) => {
       );
       activities = acts;
     }
-
-    const isOfficial = isShiftOfficial(shiftDate, shiftNumber, shiftData?.status);
 
     const reportPayload = {
       shift_date: shiftData.shift_date,

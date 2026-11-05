@@ -1,10 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Camera, Check, AlertCircle, X } from 'lucide-react';
 import api from '../../../services/api';
 import { OFFICIAL_ACTIVITY_CATEGORIES } from '../../../utils/activityCategories';
 import { cleanTeam } from '../../../utils/shiftHelper';
 import { compressImageToWebP } from '../../../utils/imageCompressor';
+
+const getNowWIBTime = () => {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Jakarta',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date());
+};
 
 export default function MobileActivityModal({
   isOpen,
@@ -15,10 +24,9 @@ export default function MobileActivityModal({
   teamGroup,
   editingActivity = null,
 }) {
-  const [activityTime, setActivityTime] = useState(() => {
-    const now = new Date();
-    return now.toTimeString().slice(0, 5);
-  });
+  const fileInputRef = useRef(null);
+
+  const [activityTime, setActivityTime] = useState(getNowWIBTime);
   const [activityType, setActivityType] = useState('serah_terima');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -33,14 +41,26 @@ export default function MobileActivityModal({
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Bersihkan object URL foto preview untuk mencegah memory leak
+  useEffect(() => {
+    return () => {
+      if (photoPreview && photoPreview.startsWith('blob:')) {
+        window.URL.revokeObjectURL(photoPreview);
+      }
+    };
+  }, [photoPreview]);
+
   // Sinkronisasi data saat modal dibuka untuk tambah atau edit
   useEffect(() => {
     if (!isOpen) return;
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
     if (editingActivity) {
       setActivityTime(
         editingActivity.activity_time
           ? editingActivity.activity_time.slice(0, 5)
-          : new Date().toTimeString().slice(0, 5)
+          : getNowWIBTime()
       );
       setActivityType(editingActivity.activity_type || 'serah_terima');
       setTitle(editingActivity.title || '');
@@ -51,7 +71,7 @@ export default function MobileActivityModal({
       setPhotoRemoved(false);
       setErrorMsg('');
     } else {
-      setActivityTime(new Date().toTimeString().slice(0, 5));
+      setActivityTime(getNowWIBTime());
       setActivityType('serah_terima');
       setTitle('');
       setDescription('');
@@ -81,8 +101,11 @@ export default function MobileActivityModal({
           maxHeight: 1280,
           quality: 0.8,
         });
+        if (photoPreview && photoPreview.startsWith('blob:')) {
+          window.URL.revokeObjectURL(photoPreview);
+        }
         setSelectedPhoto(compressedWebP);
-        setPhotoPreview(URL.createObjectURL(compressedWebP));
+        setPhotoPreview(window.URL.createObjectURL(compressedWebP));
         setPhotoRemoved(false);
       } catch (err) {
         setErrorMsg(`Gagal memproses gambar: ${err?.message || 'Format tidak valid'}`);
@@ -93,6 +116,12 @@ export default function MobileActivityModal({
   };
 
   const handleRemovePhoto = () => {
+    if (photoPreview && photoPreview.startsWith('blob:')) {
+      window.URL.revokeObjectURL(photoPreview);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
     setSelectedPhoto(null);
     setPhotoPreview(null);
     setPhotoRemoved(true);
@@ -208,10 +237,10 @@ export default function MobileActivityModal({
             </div>
           </div>
 
-          {/* Kategori Baku Operasional */}
+          {/* Kategori Kegiatan */}
           <div>
             <label className="text-xs font-bold text-slate-700 block mb-0.5">
-              Kategori Baku Operasional *
+              Kategori Kegiatan *
             </label>
             <select
               value={activityType}
@@ -283,6 +312,7 @@ export default function MobileActivityModal({
                   {selectedPhoto ? selectedPhoto.name : 'Pilih / Ambil Foto'}
                 </span>
                 <input
+                  ref={fileInputRef}
                   type="file"
                   accept="image/*"
                   className="hidden"

@@ -15,6 +15,10 @@ import {
  */
 export { streamPdfToResponse } from './pdfBaseHelper.js';
 
+const formatWIBDate = (date = new Date()) => {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(date);
+};
+
 export const generateIncidentSummaryReportPdf = async (data = {}) => {
   const doc = new PDFDocument({
     size: 'A4',
@@ -29,8 +33,8 @@ export const generateIncidentSummaryReportPdf = async (data = {}) => {
 
   const {
     periodLabel = '1 Bulan Terakhir',
-    startDate = new Date().toISOString().split('T')[0],
-    endDate = new Date().toISOString().split('T')[0],
+    startDate = formatWIBDate(),
+    endDate = formatWIBDate(),
     incidents = [],
     summary = {},
     dept_head_name = 'Airport Rescue & Fire Fighting Section Head',
@@ -124,7 +128,7 @@ export const generateIncidentSummaryReportPdf = async (data = {}) => {
 
       const statusColor = inc.status === 'selesai' ? '#15803d' : '#b45309';
       doc.fontSize(7).font('Helvetica-Bold').fillColor(statusColor).text(
-        (inc.status || 'dalam_proses').replace('_', ' ').toUpperCase(),
+        (inc.status || 'dalam_proses').replace(/_/g, ' ').toUpperCase(),
         startX + 425, rowY + 5, { width: 85, align: 'center' }
       );
 

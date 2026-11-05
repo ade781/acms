@@ -1,5 +1,5 @@
 import React from 'react';
-import { Truck, Radio, Users, ChevronRight } from 'lucide-react';
+import { Truck, Radio, Users, FileText, ChevronRight } from 'lucide-react';
 
 /**
  * Kartu Rekapitulasi Ringkas Status Operasional Shift (Mobile)
@@ -9,6 +9,8 @@ import { Truck, Radio, Users, ChevronRight } from 'lucide-react';
 export default function MobileReportSummaryCard({
   vehicles = [],
   deployments = [],
+  activities = [],
+  incidents = [],
   onOpenUnitAudit,
 }) {
   const totalUnits = vehicles.length;
@@ -18,13 +20,13 @@ export default function MobileReportSummaryCard({
 
   return (
     <div className="space-y-3 font-sans">
-      {/* KPI Summary Grid Ringkas */}
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        {/* Kesiapan Armada & Posko */}
+      {/* KPI Summary Grid 3 Kolom Proposional */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+        {/* 1. Kesiapan Unit & Posko */}
         <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Kesiapan Armada
+              Kesiapan Unit & Posko
             </span>
             <Truck className="w-4 h-4 text-slate-400" />
           </div>
@@ -36,10 +38,9 @@ export default function MobileReportSummaryCard({
               / <span className="font-mono tabular-nums">{totalUnits}</span> Serviceable
             </span>
           </div>
-
         </div>
 
-        {/* Presensi Personel */}
+        {/* 2. Presensi Personel */}
         <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -51,9 +52,27 @@ export default function MobileReportSummaryCard({
             <span className="text-lg font-black text-slate-900 font-mono tabular-nums leading-none">
               {presentDeployments.length}
             </span>
-            <span className="text-xs text-slate-500 font-medium">Hadir</span>
+            <span className="text-xs text-slate-500 font-medium">Hadir Bertugas</span>
           </div>
+        </div>
 
+        {/* 3. Kegiatan & Insiden */}
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Kegiatan & Insiden
+            </span>
+            <FileText className="w-4 h-4 text-slate-400" />
+          </div>
+          <div className="flex items-baseline gap-1 text-xs">
+            <span className="text-lg font-black text-slate-900 font-mono tabular-nums leading-none">
+              {activities.length}
+            </span>
+            <span className="text-xs text-slate-500 font-medium mr-1.5">Giat</span>
+            <span className={`text-xs font-bold ${incidents.length > 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+              • <span className="font-mono tabular-nums">{incidents.length}</span> Insiden
+            </span>
+          </div>
         </div>
       </div>
 
@@ -61,7 +80,7 @@ export default function MobileReportSummaryCard({
       <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs space-y-2">
         <div className="border-b border-slate-100 pb-2">
           <h4 className="text-xs font-bold text-slate-900 uppercase">
-            Kesiapan Unit Operasional
+            Kesiapan Unit Operasional & Posko
           </h4>
         </div>
 

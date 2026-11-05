@@ -1,33 +1,32 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  Download,
   AlertCircle,
   MapPin,
   CheckCircle2,
+  Eye,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import {
   formatIndoDate,
   cleanTeam,
   formatTeam,
-  SHIFT_DEFINITIONS,
 } from '../../utils/shiftHelper';
-import { fetchShiftReportData, downloadShiftReportPdf } from '../../services/reportService';
+import { fetchShiftReportData } from '../../services/reportService';
 import MobileReportSummaryCard from '../../components/mobile/reports/MobileReportSummaryCard';
 import MobileUnitAuditModal from '../../components/mobile/reports/MobileUnitAuditModal';
+import MobilePdfViewerModal from '../../components/mobile/reports/MobilePdfViewerModal';
 import MobileSignaturesSection from '../../components/mobile/reports/MobileSignaturesSection';
 
 /**
  * Halaman Rekapitulasi Laporan Dinas Shift Komprehensif (Mobile)
  * Dapat diakses oleh Kru (Read-Only) dan Chief untuk pemantauan bersama.
- * STRICT GEMINI.md BUTIR 2: Bebas dari tombol "Sahkan Shift" manual.
+ * Alur satu pintu dokumen A4: Menampilkan pratinjau surat dan unduh berkas resmi.
  * Data ditarik dinamis secara real-time dari database.
  */
 export default function MobileReports() {
   const { activeDate, activeShiftNumber, activeTeam } = useAuth();
   const abortControllerRef = useRef(null);
 
-  const [downloading, setDownloading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
   // Data State
@@ -48,12 +47,9 @@ export default function MobileReports() {
   // Modal State
   const [selectedAuditUnit, setSelectedAuditUnit] = useState(null);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
-  const currentShiftNum = Number(activeShiftNumber || 1);
   const currentTeam = cleanTeam(activeTeam || 'Alpha');
-  const shiftDef =
-    SHIFT_DEFINITIONS.find((s) => s.number === currentShiftNum) ||
-    SHIFT_DEFINITIONS[0];
 
   // Fetch seluruh data operasional shift secara agregat via modul service terpadu (Single Source of Truth)
   const fetchReportData = useCallback(
@@ -103,29 +99,6 @@ export default function MobileReports() {
       }
     };
   }, [fetchReportData]);
-
-  // Handler Download PDF Langsung via Service Terpadu
-  const handleDownloadPdf = async () => {
-    try {
-      setDownloading(true);
-      setErrorMessage(null);
-
-      await downloadShiftReportPdf({
-        date: activeDate,
-        shift: activeShiftNumber,
-        team: activeTeam,
-      });
-    } catch (err) {
-      console.error('Download PDF error:', err);
-      const msg = typeof err.response?.data?.message === 'string'
-        ? err.response.data.message
-        : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal mengunduh berkas PDF laporan dinas. Pastikan data shift valid.'));
-      setErrorMessage(msg);
-    } finally {
-      setDownloading(false);
-    }
-  };
-
 
   // Handler Klik Unit untuk Buka Audit Modal
   const handleOpenUnitAudit = (unit) => {
@@ -183,9 +156,9 @@ export default function MobileReports() {
       {/* 2. REKAPITULASI UNIT OPERASIONAL & AUDIT TRAIL TRIGGER */}
       <MobileReportSummaryCard
         vehicles={vehicles}
-        watchroomData={watchroomData}
         deployments={deployments}
-        absents={absents}
+        activities={activities}
+        incidents={incidents}
         onOpenUnitAudit={handleOpenUnitAudit}
       />
 
@@ -319,16 +292,15 @@ export default function MobileReports() {
         isClosed={isClosed}
       />
 
-      {/* 6. TOMBOL AKSI UTAMA DOKUMEN PDF */}
+      {/* 6. TOMBOL AKSI UTAMA DOKUMEN PDF (ALUR SATU PINTU KE PRATINJAU & UNDUH SURAT A4) */}
       <div className="pt-1">
         <button
           type="button"
-          onClick={handleDownloadPdf}
-          disabled={downloading}
-          className="w-full min-h-[44px] py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs tracking-wide flex items-center justify-center gap-1.5 shadow-xs transition-colors duration-100 disabled:opacity-50 active:scale-[0.99] cursor-pointer"
+          onClick={() => setIsPdfModalOpen(true)}
+          className="w-full min-h-[44px] py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs tracking-wide flex items-center justify-center gap-1.5 shadow-xs transition-colors duration-100 active:scale-[0.99] cursor-pointer"
         >
-          <Download className="w-4 h-4" />
-          <span>{downloading ? 'Membuat PDF...' : 'Unduh PDF Resmi'}</span>
+          <Eye className="w-4 h-4" />
+          <span>Pratinjau Surat Resmi (A4)</span>
         </button>
       </div>
 
@@ -341,6 +313,24 @@ export default function MobileReports() {
         }}
         unit={selectedAuditUnit}
         vehicleIssues={vehicleIssues}
+      />
+
+      {/* MODAL PRATINJAU DOKUMEN RESMI A4 (Universal Mobile & Desktop) */}
+      <MobilePdfViewerModal
+        isOpen={isPdfModalOpen}
+        onClose={() => setIsPdfModalOpen(false)}
+        shiftData={shiftData}
+        deptHeadData={deptHeadData}
+        vehicles={vehicles}
+        watchroomData={watchroomData}
+        deployments={deployments}
+        absents={absents}
+        activities={activities}
+        incidents={incidents}
+        vehicleIssues={vehicleIssues}
+        shiftDate={activeDate}
+        shiftNumber={activeShiftNumber}
+        teamGroup={activeTeam}
       />
     </div>
   );

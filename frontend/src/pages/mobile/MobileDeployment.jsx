@@ -235,6 +235,19 @@ export default function MobileDeployment({ onOpenAuditModal }) {
     };
   }, [loadPlotingData]);
 
+  // Sinkronisasi otomatis saat ada mutasi/pengajuan cuti atau pembaruan status kesiapan armada
+  useEffect(() => {
+    const handleSync = () => {
+      loadPlotingData();
+    };
+    window.addEventListener('arff:leave-updated', handleSync);
+    window.addEventListener('arff:readiness-updated', handleSync);
+    return () => {
+      window.removeEventListener('arff:leave-updated', handleSync);
+      window.removeEventListener('arff:readiness-updated', handleSync);
+    };
+  }, [loadPlotingData]);
+
   // Lazy-fetch kandidat personel hanya saat picker sheet dibuka (Temuan #16)
   useEffect(() => { setPersonnelList([]); }, [activeTeam]);
   const fetchCandidates = useCallback(async () => {
@@ -280,6 +293,18 @@ export default function MobileDeployment({ onOpenAuditModal }) {
     });
   };
 
+  // Remove dynamic crew slot from a unit (fleksibel dihapus hingga tersisa 1 slot PIC)
+  const handleRemoveCrew = (unitId, slotIndex) => {
+    if (!canEditPlot) return;
+    setVehicleSlots((prev) => {
+      const currentList = [...(prev[unitId] || [])];
+      if (slotIndex > 0 && currentList.length > 1) {
+        currentList.splice(slotIndex, 1);
+      }
+      return { ...prev, [unitId]: currentList };
+    });
+  };
+
   // Select personnel into a slot or clear slot
   const handleSelectPersonnel = (selectedPersonnelId, selectedPersonObj = null) => {
     if (!canEditPlot) return;
@@ -307,15 +332,8 @@ export default function MobileDeployment({ onOpenAuditModal }) {
         if (isPic) {
           unitList[0] = { ...unitList[0], personnel_id: '', personnel_name: '' };
         } else {
-          // If crew slot, remove slot if > defaultEmptyCount, otherwise clear
-          const unit = vehicles.find((v) => String(v.id) === String(unitId));
-          const isPosko = unit?.category === 'posko' || unit?.code_name === 'WATCHROOM';
-          const defaultEmptyCount = isPosko ? 1 : 3;
-          if (unitList.length > defaultEmptyCount) {
-            unitList.splice(slotIndex, 1);
-          } else {
-            unitList[slotIndex] = { ...unitList[slotIndex], personnel_id: '', personnel_name: '' };
-          }
+          // If crew slot, kosongkan isi slot
+          unitList[slotIndex] = { ...unitList[slotIndex], personnel_id: '', personnel_name: '' };
         }
       } else {
         const person = selectedPersonObj || personnelMap[selectedPersonnelId];
@@ -547,6 +565,7 @@ export default function MobileDeployment({ onOpenAuditModal }) {
               currentUserName={user?.name || user?.full_name}
               onOpenPicker={canEditPlot ? (slotIdx, isPic) => handleOpenPicker(unit.id, slotIdx, isPic) : null}
               onAddCrew={canEditPlot ? () => handleAddCrew(unit.id) : null}
+              onRemoveCrew={canEditPlot ? (slotIdx) => handleRemoveCrew(unit.id, slotIdx) : null}
               canEdit={canEditPlot}
             />
           ))}

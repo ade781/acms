@@ -8,7 +8,7 @@ import {
 } from './pdfHelpers.js';
 
 /**
- * Membuat dokumen PDF Laporan Rekapitulasi Kesiapan & Kelaikan Armada ARFF YIA (Format A4 Portrait)
+ * Membuat dokumen PDF Laporan Rekapitulasi Kesiapan Armada ARFF YIA (Format A4 Portrait)
  * Mendukung Halaman Laporan Armada dengan filter 1 Bulan, 3 Bulan, 1 Tahun, atau Rentang Kustom
  */
 export const generateVehicleReadinessReportPdf = async (data = {}) => {
@@ -18,15 +18,16 @@ export const generateVehicleReadinessReportPdf = async (data = {}) => {
     info: {
       Title: `Laporan Kesiapan Armada ARFF YIA - ${data.periodLabel || 'Periode Operasional'}`,
       Author: 'Unit Airport Rescue & Fire Fighting (PKP-PK) YIA',
-      Subject: 'Rekapitulasi Kelaikan Armada & Pergantian Status'
+      Subject: 'Rekapitulasi Kesiapan Armada & Pergantian Status'
     },
     bufferPages: true,
   });
 
+  const todayWib = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
   const {
     periodLabel = '1 Bulan Terakhir',
-    startDate = new Date().toISOString().split('T')[0],
-    endDate = new Date().toISOString().split('T')[0],
+    startDate = todayWib,
+    endDate = todayWib,
     vehicles = [],
     summary = {},
     transitionLogs = [],
@@ -42,7 +43,7 @@ export const generateVehicleReadinessReportPdf = async (data = {}) => {
   drawOfficialHeader(
     doc,
     'AIRPORT RESCUE & FIRE FIGHTING (ARFF) SECTION',
-    'LAPORAN RESMI REKAPITULASI KESIAPAN ARMADA & AUDIT STATUS KELAIKAN',
+    'LAPORAN RESMI REKAPITULASI KESIAPAN ARMADA & AUDIT STATUS OPERASIONAL',
     contentWidth,
     startX
   );
@@ -61,7 +62,7 @@ export const generateVehicleReadinessReportPdf = async (data = {}) => {
   const infoY2 = infoY + 14;
   doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0f172a');
   doc.text('Kondisi Fisik Saat Ini: ', startX + 10, infoY2);
-  let statusSummaryText = `${summary.currently_serviceable || 0} Siap (Serviceable)`;
+  let statusSummaryText = `${summary.currently_serviceable || 0} Serviceable`;
   if ((summary.currently_unserviceable || 0) > 0) {
     statusSummaryText += ` • ${summary.currently_unserviceable} Rusak`;
   }
@@ -78,8 +79,8 @@ export const generateVehicleReadinessReportPdf = async (data = {}) => {
 
   doc.y = 140;
 
-  // Tabel 1: Rekapitulasi Kelaikan & Siklus Kendala Per Unit
-  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('1. REKAPITULASI KELAIKAN & FREKUENSI KENDALA PER UNIT ARMADA');
+  // Tabel 1: Rekapitulasi Kesiapan & Siklus Kendala Per Unit
+  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0f172a').text('1. REKAPITULASI KESIAPAN & FREKUENSI KENDALA PER UNIT ARMADA');
   doc.moveDown(0.3);
 
   const tableHeaderY = doc.y;
@@ -89,7 +90,7 @@ export const generateVehicleReadinessReportPdf = async (data = {}) => {
   doc.text('Nama Armada', startX + 28, tableHeaderY + 5, { width: 200, align: 'left' });
   doc.text('Status Saat Ini', startX + 232, tableHeaderY + 5, { width: 85, align: 'center' });
   doc.text('Siklus Kendala', startX + 320, tableHeaderY + 5, { width: 70, align: 'center' });
-  doc.text('Riwayat Kelaikan & Catatan', startX + 392, tableHeaderY + 5, { width: 120, align: 'left' });
+  doc.text('Riwayat Status & Catatan', startX + 392, tableHeaderY + 5, { width: 120, align: 'left' });
 
   doc.y = tableHeaderY + 18;
 
@@ -124,7 +125,7 @@ export const generateVehicleReadinessReportPdf = async (data = {}) => {
       startX + 320, rowY + 5, { width: 70, align: 'center' }
     );
 
-    let statusDesc = 'Siap Operasi Penuh (Nihil)';
+    let statusDesc = 'Serviceable Penuh (Nihil)';
     let statusDescColor = '#15803d';
     if (isUnserv) {
       statusDesc = 'Dalam Perbaikan Kendala';

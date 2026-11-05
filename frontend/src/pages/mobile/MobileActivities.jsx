@@ -70,6 +70,16 @@ export default function MobileActivities() {
     setTargetDeleteId(id);
   };
 
+  // Auto-dismiss toast feedback 3.5 detik
+  useEffect(() => {
+    if (toastMsg) {
+      const timer = setTimeout(() => {
+        setToastMsg(null);
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMsg]);
+
   const handleConfirmDelete = async () => {
     if (!targetDeleteId) return;
     setIsDeleting(true);

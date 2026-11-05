@@ -76,7 +76,7 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
     fetchDashboardData(false, controller.signal);
 
     const handleDataUpdated = () => fetchDashboardData(true);
-    const handleVisibilityOrFocus = () => {
+    const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         fetchDashboardData(true);
       }
@@ -85,8 +85,7 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
     window.addEventListener('arff:leave-updated', handleDataUpdated);
     window.addEventListener('arff:announcements-updated', handleDataUpdated);
     window.addEventListener('arff:deployments-updated', handleDataUpdated);
-    window.addEventListener('focus', handleVisibilityOrFocus);
-    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // Polling berkala 30 detik agar perubahan penugasan dari Chief langsung tampil seketika
     const pollTimer = setInterval(() => {
@@ -101,8 +100,7 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
       window.removeEventListener('arff:leave-updated', handleDataUpdated);
       window.removeEventListener('arff:announcements-updated', handleDataUpdated);
       window.removeEventListener('arff:deployments-updated', handleDataUpdated);
-      window.removeEventListener('focus', handleVisibilityOrFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [fetchDashboardData]);
 

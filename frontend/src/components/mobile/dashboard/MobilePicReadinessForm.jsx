@@ -66,9 +66,10 @@ export default function MobilePicReadinessForm({
     if (vehicleReadiness) {
       if (vehicleReadiness.status === 'unserviceable') {
         setStatus('unserviceable');
-        setJustification(vehicleReadiness.justification || '');
+        setJustification(vehicleReadiness.justification || vehicleReadiness.notes || '');
       } else if (vehicleReadiness.status === 'serviceable') {
         setStatus('serviceable');
+        setNotes(vehicleReadiness.notes || '');
       }
       if (vehicleReadiness.photo_webp_url) {
         setPhotoPreview(vehicleReadiness.photo_webp_url);
@@ -149,18 +150,15 @@ export default function MobilePicReadinessForm({
       formData.append('status', status);
 
       if (status === 'unserviceable') {
-        formData.append('justification', justification.trim());
+        const cleanDesc = justification.trim();
+        formData.append('justification', cleanDesc);
+        formData.append('notes', cleanDesc);
         formData.append('follow_up_status', 'pending');
       } else {
-        if (wasInitiallyUnserviceable) {
-          formData.append('follow_up_status', 'resolved');
-        } else {
-          formData.append('follow_up_status', 'resolved');
+        formData.append('follow_up_status', 'resolved');
+        if (notes.trim()) {
+          formData.append('notes', notes.trim());
         }
-      }
-
-      if (notes.trim()) {
-        formData.append('notes', notes.trim());
       }
 
       if (photoFile) {
@@ -226,7 +224,7 @@ export default function MobilePicReadinessForm({
       {/* TAMPILAN 1: KETIKA SUDAH DICEK DAN TIDAK SEDANG DALAM MODE EDIT */}
       {hasShiftLog && !isEditing ? (
         <div className="space-y-2.5">
-          {/* Banner Status Konfirmasi Verifikasi */}
+          {/* Banner Status Konfirmasi Verifikasi (Tunggal & Bersih) */}
           <div
             className={`p-2.5 rounded-xl border flex items-center justify-between gap-2.5 ${isCurrentlyServiceable
                 ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
@@ -241,19 +239,32 @@ export default function MobilePicReadinessForm({
                 {isCurrentlyServiceable ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-bold leading-tight truncate">
-                  {isCurrentlyServiceable
-                    ? 'Status: Serviceable'
-                  : isCurrentlyUnserviceable
-                  ? 'Status: Unserviceable'
-                    : 'Status: Belum Dicek'}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-bold leading-tight truncate">
+                    {isCurrentlyServiceable
+                      ? 'Status: Serviceable'
+                      : isCarriedOver
+                        ? 'Status Estafet: Unserviceable'
+                        : isCurrentlyUnserviceable
+                          ? 'Status: Unserviceable'
+                          : 'Status: Belum Dicek'}
+                  </p>
+                  {isCarriedOver && onOpenAuditModal && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenAuditModal(vehicleId)}
+                      className="text-xs text-red-700 underline font-semibold shrink-0 cursor-pointer"
+                    >
+                      Riwayat
+                    </button>
+                  )}
+                </div>
                 <p className="text-xs opacity-80 mt-0.5 truncate">
                   {isCurrentlyServiceable
                     ? vehicleReadiness?.notes || 'Unit terverifikasi fisik.'
-                  : isCurrentlyUnserviceable
-                  ? vehicleReadiness?.justification || 'Terdapat kendala teknis pada unit.'
-                    : 'Pemeriksaan fisik unit belum dilaporkan.'}
+                    : (isCarriedOver && vehicleReadiness?.carried_from?.shift_date
+                        ? `Estafet sejak ${vehicleReadiness.carried_from.shift_date} (Regu ${vehicleReadiness.carried_from.team_group || ''}): `
+                        : '') + (vehicleReadiness?.justification || vehicleReadiness?.notes || 'Terdapat kendala teknis pada unit.')}
                 </p>
               </div>
             </div>
@@ -263,34 +274,6 @@ export default function MobilePicReadinessForm({
               </div>
             )}
           </div>
-
-          {/* Banner Status Bawaan (Carried-over dari shift/regu sebelumnya) jika ada */}
-          {isCarriedOver && (
-            <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-xs space-y-0.5">
-              <div className="flex items-center justify-between text-red-800 font-bold text-xs">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-red-600"></span>
-                  <span>Status Estafet: UNSERVICEABLE</span>
-                </span>
-                {onOpenAuditModal && (
-                  <button
-                    type="button"
-                    onClick={() => onOpenAuditModal(vehicleId)}
-                    className="text-xs text-red-700 underline font-semibold"
-                  >
-                    Riwayat
-                  </button>
-                )}
-              </div>
-              <p className="text-xs text-red-700 leading-snug">
-                Unit berstatus kendala estafet
-                {vehicleReadiness?.carried_from?.shift_date
-                  ? ` sejak ${vehicleReadiness.carried_from.shift_date} (Regu ${vehicleReadiness.carried_from.team_group || ''})`
-                  : ''}
-                : {vehicleReadiness?.justification || vehicleReadiness?.notes || 'Kendala mekanis/fungsi'}.
-              </p>
-            </div>
-          )}
 
           {successMsg && (
             <div className="p-2 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-1.5">
@@ -396,18 +379,18 @@ export default function MobilePicReadinessForm({
               </button>
             </div>
 
-            {/* Input Justifikasi Kerusakan jika Unserviceable */}
+            {/* Input Tunggal Uraian Kendala / Kerusakan jika Unserviceable */}
             {status === 'unserviceable' && (
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-700 block">
-                  Keterangan Kerusakan & Kendala * <span className="text-red-600 font-bold">(Wajib)</span>
+                  Uraian Kendala & Kerusakan Fisik * <span className="text-red-600 font-bold">(Wajib)</span>
                 </label>
                 <textarea
                   rows={2}
                   value={justification}
                   onChange={(e) => setJustification(e.target.value)}
-                  placeholder="Jelaskan komponen yang rusak atau malfungsi secara spesifik..."
-                  className="w-full p-1.5 text-xs border border-slate-300 rounded-lg bg-slate-50 text-slate-900 focus:bg-white focus:border-red-500 outline-none transition-colors duration-100"
+                  placeholder="Jelaskan secara spesifik komponen yang rusak, malfungsi teknis, atau kendala fisik lapangan..."
+                  className="w-full p-2 text-xs border border-slate-300 rounded-lg bg-slate-50 text-slate-900 focus:bg-white focus:border-red-500 outline-none transition-colors duration-100"
                 />
               </div>
             )}

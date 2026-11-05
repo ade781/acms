@@ -1,6 +1,6 @@
 import pool from '../config/db.js';
 import { successResponse, errorResponse } from '../utils/responseHelper.js';
-import { calculateDefaultRoster } from './scheduleController.js';
+import { calculateDefaultRoster, resolveRosterForDate, getStoredCycles } from './scheduleController.js';
 import { clearPdfCache } from '../services/pdfService.js';
 import { getOfficialSignatory } from '../utils/officialHelper.js';
 import { cleanTeam } from '../utils/roleMapper.js';
@@ -9,8 +9,20 @@ export const getCurrentDeployment = async (req, res) => {
   try {
     const { date, shift, team_group } = req.query;
 
-    const shiftDate = date || new Date().toISOString().split('T')[0];
+    const shiftDate = date || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
     const shiftNumber = shift ? Number(shift) : 1;
+
+    // Ambil seluruh cuti/absent resmi untuk shift_date ini dari personnel_shifts
+    const [dateAbsentRows] = await pool.query(
+      `SELECT DISTINCT pd.id, pd.shift_id, pd.personnel_id, pd.deployment_type, pd.absent_reason, pd.notes,
+              p.nip, p.full_name, p.rank_position, p.employment_status, p.cert_level, p.team_group as personnel_team
+       FROM personnel_deployments pd
+       JOIN personnel_shifts ps ON ps.id = pd.shift_id
+       JOIN personnel p ON p.id = pd.personnel_id
+       WHERE ps.shift_date = ? AND pd.deployment_type = 'absent'
+       ORDER BY p.full_name ASC`,
+      [shiftDate]
+    );
 
     let shiftQuery = `
       SELECT ps.*, u.name as supervisor_name, p.nip as supervisor_nip, COALESCE(u.signature_url, p.signature_url) as supervisor_signature_url
@@ -87,7 +99,7 @@ export const getCurrentDeployment = async (req, res) => {
         deployments: [],
         vehicles: defaultVehiclesList,
         watchroom: [],
-        absents: []
+        absents: dateAbsentRows
       });
     }
 
@@ -142,7 +154,10 @@ export const getCurrentDeployment = async (req, res) => {
     });
 
     const watchroomDeployments = [];
-    const absentDeployments = [];
+    const absentMap = new Map();
+    dateAbsentRows.forEach((item) => {
+      absentMap.set(Number(item.personnel_id), item);
+    });
 
     deployments.forEach(item => {
       if (
@@ -174,9 +189,11 @@ export const getCurrentDeployment = async (req, res) => {
       if (item.deployment_type === 'watchroom') {
         watchroomDeployments.push(item);
       } else if (item.deployment_type === 'absent') {
-        absentDeployments.push(item);
+        absentMap.set(Number(item.personnel_id), item);
       }
     });
+
+    const absentDeployments = Array.from(absentMap.values());
 
     return successResponse(res, 'Data ploting shift berhasil diambil', {
       shift: currentShift,
@@ -219,8 +236,22 @@ export const saveDeploymentBatch = async (req, res) => {
     // Validasi Otorisasi Shift: Jika bukan admin atau dept_head, pastikan hanya regu berdinas yang boleh memploting
     const isSuperRole = ['admin', 'dept_head'].includes(req.user?.role);
     if (!isSuperRole) {
-      const roster = calculateDefaultRoster(shift_date);
-      const scheduledTeam = shift_number == 1 ? roster.shift_1 : (shift_number == 2 ? roster.shift_2 : roster.shift_3);
+      // 1. Cek manual override di schedule_rosters untuk shift_date ini
+      const [rosterOverrides] = await connection.query(
+        'SELECT shift_1_team, shift_2_team, shift_3_team FROM schedule_rosters WHERE roster_date = ?',
+        [shift_date]
+      );
+      let scheduledTeam;
+      if (rosterOverrides.length > 0) {
+        const o = rosterOverrides[0];
+        scheduledTeam = shift_number == 1 ? o.shift_1_team : (shift_number == 2 ? o.shift_2_team : o.shift_3_team);
+      } else {
+        // 2. Baca siklus aktif via resolveRosterForDate dari schedule_custom_cycle di system_settings
+        const storedCycles = await getStoredCycles();
+        const roster = resolveRosterForDate(shift_date, storedCycles);
+        scheduledTeam = shift_number == 1 ? roster.shift_1 : (shift_number == 2 ? roster.shift_2 : roster.shift_3);
+      }
+
       if (scheduledTeam && team_group.toLowerCase() !== scheduledTeam.toLowerCase()) {
         connection.release();
         return errorResponse(
@@ -239,20 +270,15 @@ export const saveDeploymentBatch = async (req, res) => {
       }
     }
 
-    // Validasi Integritas: Ambil data personel cuti langsung dari database untuk shift ini
-    const [existingShifts] = await connection.query(
-      `SELECT id FROM personnel_shifts WHERE shift_date = ? AND shift_number = ? AND team_group = ?`,
-      [shift_date, shift_number, team_group]
+    // Validasi Integritas: Ambil seluruh data personel cuti langsung dari database untuk shift_date ini
+    const [absentRows] = await connection.query(
+      `SELECT DISTINCT pd.personnel_id
+       FROM personnel_deployments pd
+       JOIN personnel_shifts ps ON ps.id = pd.shift_id
+       WHERE ps.shift_date = ? AND pd.deployment_type = 'absent'`,
+      [shift_date]
     );
-    const existingShiftId = existingShifts[0]?.id;
-    let dbAbsentIds = new Set();
-    if (existingShiftId) {
-      const [absentRows] = await connection.query(
-        "SELECT personnel_id FROM personnel_deployments WHERE shift_id = ? AND deployment_type = 'absent'",
-        [existingShiftId]
-      );
-      dbAbsentIds = new Set(absentRows.map(r => Number(r.personnel_id)));
-    }
+    const dbAbsentIds = new Set(absentRows.map(r => Number(r.personnel_id)));
 
     // Cek apakah ada personel yang sedang cuti di database namun disusupkan pada unit operasional
     for (const d of deployments) {
@@ -260,7 +286,7 @@ export const saveDeploymentBatch = async (req, res) => {
         connection.release();
         return errorResponse(
           res,
-          `Personel (ID: ${d.personnel_id}) tercatat berstatus izin/cuti resmi pada shift ini. Personel yang sedang cuti tidak dapat ditugaskan pada unit operasional.`,
+          `Personel (ID: ${d.personnel_id}) tercatat berstatus izin/cuti resmi pada tanggal ${shift_date}. Personel yang sedang cuti tidak dapat ditugaskan pada unit operasional.`,
           400
         );
       }
