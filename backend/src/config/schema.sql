@@ -129,7 +129,7 @@ CREATE TABLE IF NOT EXISTS `incidents` (
   `shift_number` TINYINT NOT NULL,
   `reporter_id` INT NULL,
   `supervisor_id` INT NULL,
-  `category` ENUM('aircraft_accident', 'aircraft_incident', 'fire', 'medical_emergency', 'hazmat', 'other') NOT NULL DEFAULT 'other',
+  `category` ENUM('aircraft_accident', 'aircraft_incident', 'full_emergency', 'local_standby', 'fuel_spill', 'structure_fire', 'bomb_threat', 'hazmat', 'medical_emergency', 'wildlife_hazard', 'fire', 'other') NOT NULL DEFAULT 'other',
   `title` VARCHAR(200) NOT NULL,
   `location` VARCHAR(200) NOT NULL,
   `chronology` TEXT NOT NULL,

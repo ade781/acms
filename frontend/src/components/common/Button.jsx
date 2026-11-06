@@ -16,7 +16,7 @@ export default function Button({
 
   const variants = {
     primary: 'bg-arff-primary text-white hover:bg-arff-primaryHover focus:ring-red-600',
-    secondary: 'bg-slate-800 text-white hover:bg-slate-700 focus:ring-slate-700',
+    secondary: 'bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-200/80 focus:ring-slate-400',
     accent: 'bg-arff-accent text-white hover:bg-arff-accentHover focus:ring-sky-600',
     success: 'bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-emerald-600',
     danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-600',

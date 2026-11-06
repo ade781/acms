@@ -52,86 +52,93 @@ const cleanPrefixes = (text) => {
 
 /**
  * Helper terpadu untuk sinkronisasi tiket pemeliharaan ke log kesiapan armada
+ * Dijalankan dalam konteks koneksi/transaksi aktif
  */
-const syncMaintenanceToReadinessLogs = async ({
-  vehicle_id,
-  status,
-  start_date,
-  start_shift_number,
-  start_team_group,
-  reported_by_id,
-  issue_description,
-  end_date,
-  end_shift_number,
-  end_team_group,
-  resolved_by_id,
-  resolution_notes
-}) => {
-  try {
-    const vId = Number(vehicle_id);
-    if (status === 'ongoing' && start_team_group) {
-      await pool.query(
-        `INSERT INTO vehicle_readiness_logs (
-          vehicle_id, shift_date, shift_number, team_group, pic_personnel_id,
-          status, justification, follow_up_status, notes, updated_at
-        ) VALUES (?, ?, ?, ?, ?, 'unserviceable', ?, 'in_progress', ?, NOW())
-        ON DUPLICATE KEY UPDATE
-          status = 'unserviceable',
-          justification = VALUES(justification),
-          follow_up_status = 'in_progress',
-          notes = VALUES(notes),
-          updated_at = NOW()`,
-        [
-          vId,
-          start_date,
-          start_shift_number,
-          start_team_group,
-          reported_by_id,
-          issue_description,
-          issue_description
-        ]
-      );
-    } else if (status === 'resolved') {
-      const targetEndDate = end_date || start_date;
-      const targetEndShift = end_shift_number || start_shift_number;
-      const targetEndTeam = end_team_group || start_team_group || 'Alpha';
-      await pool.query(
-        `INSERT INTO vehicle_readiness_logs (
-          vehicle_id, shift_date, shift_number, team_group, pic_personnel_id,
-          status, justification, follow_up_status, resolved_at, notes, updated_at
-        ) VALUES (?, ?, ?, ?, ?, 'serviceable', NULL, 'resolved', NOW(), ?, NOW())
-        ON DUPLICATE KEY UPDATE
-          status = 'serviceable',
-          follow_up_status = 'resolved',
-          resolved_at = NOW(),
-          notes = VALUES(notes),
-          updated_at = NOW()`,
-        [
-          vId,
-          targetEndDate,
-          targetEndShift,
-          targetEndTeam,
-          resolved_by_id,
-          resolution_notes || 'Pemeliharaan selesai'
-        ]
-      );
-      await pool.query(
-        `UPDATE vehicle_readiness_logs 
-         SET follow_up_status = 'resolved', resolved_at = NOW() 
-         WHERE vehicle_id = ? AND shift_date >= ? AND follow_up_status != 'resolved'`,
-        [vId, start_date]
-      );
+const syncMaintenanceToReadinessLogs = async (
+  connection,
+  {
+    vehicle_id,
+    status,
+    start_date,
+    start_shift_number,
+    start_team_group,
+    reported_by_id,
+    issue_description,
+    end_date,
+    end_shift_number,
+    end_team_group,
+    resolved_by_id,
+    resolution_notes
+  }
+) => {
+  const vId = Number(vehicle_id);
+  const todayStr = getWibDateStr();
+
+  if (status === 'ongoing' && start_team_group) {
+    await connection.query(
+      `INSERT INTO vehicle_readiness_logs (
+        vehicle_id, shift_date, shift_number, team_group, pic_personnel_id,
+        status, justification, follow_up_status, notes, updated_at
+      ) VALUES (?, ?, ?, ?, ?, 'unserviceable', ?, 'in_progress', ?, NOW())
+      ON DUPLICATE KEY UPDATE
+        status = 'unserviceable',
+        justification = VALUES(justification),
+        follow_up_status = 'in_progress',
+        notes = VALUES(notes),
+        updated_at = NOW()`,
+      [
+        vId,
+        start_date,
+        start_shift_number,
+        start_team_group,
+        reported_by_id,
+        issue_description,
+        issue_description
+      ]
+    );
+  } else if (status === 'resolved') {
+    let targetEndDate = end_date || todayStr;
+    if (targetEndDate > todayStr) {
+      targetEndDate = todayStr;
     }
-  } catch (syncErr) {
-    console.warn('Peringatan sinkronisasi vehicle_readiness_logs:', syncErr.message);
+    const targetEndShift = end_shift_number || start_shift_number || 1;
+    const targetEndTeam = end_team_group || start_team_group || 'Alpha';
+
+    await connection.query(
+      `INSERT INTO vehicle_readiness_logs (
+        vehicle_id, shift_date, shift_number, team_group, pic_personnel_id,
+        status, justification, follow_up_status, resolved_at, notes, updated_at
+      ) VALUES (?, ?, ?, ?, ?, 'serviceable', NULL, 'resolved', NOW(), ?, NOW())
+      ON DUPLICATE KEY UPDATE
+        status = 'serviceable',
+        follow_up_status = 'resolved',
+        resolved_at = NOW(),
+        notes = VALUES(notes),
+        updated_at = NOW()`,
+      [
+        vId,
+        targetEndDate,
+        targetEndShift,
+        targetEndTeam,
+        resolved_by_id,
+        resolution_notes || 'Pemeliharaan selesai'
+      ]
+    );
+
+    await connection.query(
+      `UPDATE vehicle_readiness_logs 
+       SET follow_up_status = 'resolved', resolved_at = NOW() 
+       WHERE vehicle_id = ? AND shift_date >= ? AND follow_up_status != 'resolved'`,
+      [vId, start_date]
+    );
   }
 };
 
 /**
  * Helper mengambil data record pemeliharaan lengkap beserta join
  */
-const fetchMaintenanceRecordById = async (id) => {
-  const [rows] = await pool.query(
+const fetchMaintenanceRecordById = async (id, conn = pool) => {
+  const [rows] = await conn.query(
     `SELECT 
       vmr.id,
       vmr.vehicle_id,
@@ -259,9 +266,13 @@ export const getMaintenanceRecords = async (req, res) => {
 
 /**
  * POST /api/readiness/maintenance
- * Menambahkan tiket/catatan pemeliharaan baru (dengan dukungan lampiran dokumen PDF/gambar)
+ * Menambahkan tiket/catatan pemeliharaan baru (dengan dukungan lampiran dokumen PDF)
+ * Dijalankan dalam transaksi atomik dengan pola pembersihan berkas post-commit
  */
 export const createMaintenanceRecord = async (req, res) => {
+  const filesToUnlink = [];
+  const connection = await pool.getConnection();
+
   try {
     const {
       vehicle_id,
@@ -280,22 +291,27 @@ export const createMaintenanceRecord = async (req, res) => {
     } = req.body;
 
     if (!vehicle_id) {
-      safeUnlink(req.file?.path);
+      if (req.file?.path) safeUnlink(req.file.path);
       return errorResponse(res, 'ID armada kendaraan operasional wajib ditentukan', 400);
     }
 
     if (!issue_description || !String(issue_description).trim()) {
-      safeUnlink(req.file?.path);
+      if (req.file?.path) safeUnlink(req.file.path);
       return errorResponse(res, 'Deskripsi kendala atau pemeliharaan wajib diisi', 400);
     }
 
     const todayStr = getWibDateStr();
-    const recStartDate = start_date || todayStr;
+    let recStartDate = start_date || todayStr;
+    if (recStartDate > todayStr) {
+      recStartDate = todayStr;
+    }
     const recStartShift = start_shift_number ? Number(start_shift_number) : 1;
     let recStartTeam = start_team_group ? String(start_team_group).trim() : null;
 
+    await connection.beginTransaction();
+
     if (!recStartTeam) {
-      const [activeShift] = await pool.query(
+      const [activeShift] = await connection.query(
         'SELECT team_group FROM personnel_shifts WHERE shift_date = ? AND shift_number = ? LIMIT 1',
         [recStartDate, recStartShift]
       );
@@ -309,7 +325,7 @@ export const createMaintenanceRecord = async (req, res) => {
     let recReportedBy = null;
     const candidateReportedBy = reported_by_id ? Number(reported_by_id) : (req.user?.personnel_id || null);
     if (candidateReportedBy) {
-      const [pRows] = await pool.query('SELECT id FROM personnel WHERE id = ?', [candidateReportedBy]);
+      const [pRows] = await connection.query('SELECT id FROM personnel WHERE id = ?', [candidateReportedBy]);
       if (pRows.length > 0) {
         recReportedBy = pRows[0].id;
       }
@@ -321,7 +337,7 @@ export const createMaintenanceRecord = async (req, res) => {
 
     // Jika armada telah memiliki tiket ongoing aktif, perbarui tiket tersebut secara transparan (UPSERT)
     if (recStatus === 'ongoing') {
-      const [openTickets] = await pool.query(
+      const [openTickets] = await connection.query(
         'SELECT id, document_url, document_name FROM vehicle_maintenance_records WHERE vehicle_id = ? AND status = ?',
         [Number(vehicle_id), 'ongoing']
       );
@@ -334,17 +350,17 @@ export const createMaintenanceRecord = async (req, res) => {
           docUrl = `/uploads/${req.file.filename}`;
           docName = req.file.originalname;
           if (existingTicket.document_url && existingTicket.document_url !== docUrl) {
-            safeUnlink(existingTicket.document_url);
+            filesToUnlink.push(existingTicket.document_url);
           }
         } else if (req.body.remove_document === 'true' || req.body.remove_document === true) {
           if (existingTicket.document_url) {
-            safeUnlink(existingTicket.document_url);
+            filesToUnlink.push(existingTicket.document_url);
           }
           docUrl = null;
           docName = null;
         }
 
-        await pool.query(
+        await connection.query(
           `UPDATE vehicle_maintenance_records
            SET issue_description = COALESCE(?, issue_description),
                document_url = ?,
@@ -353,6 +369,13 @@ export const createMaintenanceRecord = async (req, res) => {
            WHERE id = ?`,
           [recDescription, docUrl, docName, existingTicket.id]
         );
+
+        await connection.commit();
+
+        // Pola post-commit cleanup untuk berkas fisik
+        for (const f of filesToUnlink) {
+          safeUnlink(f);
+        }
 
         return successResponse(res, 'Dokumen dan catatan pemeliharaan armada berhasil diperbarui', {
           id: existingTicket.id,
@@ -370,7 +393,7 @@ export const createMaintenanceRecord = async (req, res) => {
     let recResolvedBy = null;
     const candidateResolvedBy = resolved_by_id ? Number(resolved_by_id) : null;
     if (candidateResolvedBy) {
-      const [pRows] = await pool.query('SELECT id FROM personnel WHERE id = ?', [candidateResolvedBy]);
+      const [pRows] = await connection.query('SELECT id FROM personnel WHERE id = ?', [candidateResolvedBy]);
       if (pRows.length > 0) {
         recResolvedBy = pRows[0].id;
       }
@@ -380,10 +403,18 @@ export const createMaintenanceRecord = async (req, res) => {
 
     if (recStatus === 'resolved') {
       if (!recEndDate) {
-        recEndDate = recStartDate;
+        recEndDate = todayStr;
+      }
+      if (recEndDate > todayStr) {
+        recEndDate = todayStr;
+      }
+      if (recEndDate < recStartDate) {
+        await connection.rollback();
+        if (req.file?.path) safeUnlink(req.file.path);
+        return errorResponse(res, 'Tanggal pemulihan tidak boleh lebih awal dari tanggal mulai kendala.', 400);
       }
       if (!recResolvedBy && req.user?.personnel_id) {
-        const [pRows] = await pool.query('SELECT id FROM personnel WHERE id = ?', [req.user.personnel_id]);
+        const [pRows] = await connection.query('SELECT id FROM personnel WHERE id = ?', [req.user.personnel_id]);
         if (pRows.length > 0) {
           recResolvedBy = pRows[0].id;
         }
@@ -397,7 +428,7 @@ export const createMaintenanceRecord = async (req, res) => {
       document_name = req.file.originalname;
     }
 
-    const [result] = await pool.query(
+    const [result] = await connection.query(
       `INSERT INTO vehicle_maintenance_records (
         vehicle_id, start_date, start_shift_number, start_team_group, reported_by_id,
         issue_description, status, end_date, end_shift_number,
@@ -424,8 +455,8 @@ export const createMaintenanceRecord = async (req, res) => {
       ]
     );
 
-    // Sinkronisasi status ke log kesiapan armada operasional
-    await syncMaintenanceToReadinessLogs({
+    // Sinkronisasi status ke log kesiapan armada operasional dalam transaksi yang sama
+    await syncMaintenanceToReadinessLogs(connection, {
       vehicle_id,
       status: recStatus,
       start_date: recStartDate,
@@ -440,20 +471,35 @@ export const createMaintenanceRecord = async (req, res) => {
       resolution_notes: recResolutionNotes
     });
 
+    await connection.commit();
+
+    // Pola post-commit cleanup untuk berkas fisik
+    for (const f of filesToUnlink) {
+      safeUnlink(f);
+    }
+
     const createdRecord = await fetchMaintenanceRecordById(result.insertId);
     return successResponse(res, 'Catatan pemeliharaan armada berhasil disimpan', createdRecord, 201);
   } catch (error) {
-    safeUnlink(req.file?.path);
+    await connection.rollback();
+    if (req.file?.path) safeUnlink(req.file.path);
     console.error('Error createMaintenanceRecord:', error);
     return errorResponse(res, 'Gagal menambahkan catatan pemeliharaan: ' + error.message, 500);
+  } finally {
+    connection.release();
   }
 };
 
 /**
  * PUT /api/readiness/maintenance/:id
  * Memperbarui catatan pemeliharaan armada
+ * Jika entri kendala berawalan 'log-' diberi dokumen atau teknisi, entri tersebut dipromosikan
+ * menjadi baris resmi di tabel vehicle_maintenance_records.
  */
 export const updateMaintenanceRecord = async (req, res) => {
+  const filesToUnlink = [];
+  const connection = await pool.getConnection();
+
   try {
     const rawId = String(req.params.id || '');
     const isLog = rawId.startsWith('log-');
@@ -461,28 +507,131 @@ export const updateMaintenanceRecord = async (req, res) => {
     const recordId = Number(cleanId);
 
     if (!recordId) {
-      safeUnlink(req.file?.path);
+      if (req.file?.path) safeUnlink(req.file.path);
       return errorResponse(res, 'ID catatan pemeliharaan atau log tidak valid', 400);
     }
 
-    // Tangani jika ID secara eksplisit adalah log harian kesiapan armada (awalan 'log-')
+    const todayStr = getWibDateStr();
+    await connection.beginTransaction();
+
+    // 1. Tangani jika ID secara eksplisit adalah log harian kesiapan armada (awalan 'log-')
     if (isLog) {
-      const [readinessRows] = await pool.query(
+      const [readinessRows] = await connection.query(
         'SELECT * FROM vehicle_readiness_logs WHERE id = ?',
         [recordId]
       );
       if (readinessRows.length === 0) {
-        safeUnlink(req.file?.path);
+        await connection.rollback();
+        if (req.file?.path) safeUnlink(req.file.path);
         return errorResponse(res, 'Log kesiapan armada tidak ditemukan', 404);
       }
+
       const readinessLog = readinessRows[0];
+      const hasDocOrTech = Boolean(
+        req.file ||
+        (req.body.technician_vendor && String(req.body.technician_vendor).trim()) ||
+        req.body.document_type ||
+        req.body.promote_to_maintenance
+      );
+
       const targetStatus = req.body.status === 'resolved' ? 'serviceable' : 'unserviceable';
+      const recStatus = req.body.status === 'resolved' ? 'resolved' : 'ongoing';
       const followUp = req.body.status === 'resolved' ? 'resolved' : 'in_progress';
       const resolvedAt = req.body.status === 'resolved' ? new Date() : null;
       const rawDesc = req.body.issue_description !== undefined ? String(req.body.issue_description).trim() : readinessLog.justification;
       const cleanDesc = cleanPrefixes(rawDesc) || rawDesc;
 
-      await pool.query(
+      let recEndDate = req.body.end_date || null;
+      if (recStatus === 'resolved') {
+        if (!recEndDate) {
+          recEndDate = todayStr;
+        }
+        if (recEndDate > todayStr) {
+          recEndDate = todayStr;
+        }
+      }
+
+      // Jika ada dokumen atau data teknisi, promosikan ke vehicle_maintenance_records resmi
+      if (hasDocOrTech) {
+        let document_url = null;
+        let document_name = null;
+        if (req.file) {
+          document_url = `/uploads/${req.file.filename}`;
+          document_name = req.file.originalname;
+        }
+
+        const recStartDate = req.body.start_date || formatDateOnly(readinessLog.shift_date) || todayStr;
+        const recStartShift = req.body.start_shift_number ? Number(req.body.start_shift_number) : (readinessLog.shift_number || 1);
+        const recStartTeam = req.body.start_team_group || readinessLog.team_group || 'Alpha';
+        const recReportedBy = req.body.reported_by_id ? Number(req.body.reported_by_id) : (readinessLog.pic_personnel_id || req.user?.personnel_id || null);
+        const recEndShift = req.body.end_shift_number ? Number(req.body.end_shift_number) : 1;
+        const recEndTeam = req.body.end_team_group || 'Alpha';
+        const recResolvedBy = req.body.resolved_by_id ? Number(req.body.resolved_by_id) : (req.user?.personnel_id || null);
+        const recResolutionNotes = req.body.resolution_notes || readinessLog.notes || null;
+        const recVendor = req.body.technician_vendor ? String(req.body.technician_vendor).trim() : null;
+        const recDocType = req.body.document_type || 'ba_kerusakan';
+
+        const [insertResult] = await connection.query(
+          `INSERT INTO vehicle_maintenance_records (
+            vehicle_id, start_date, start_shift_number, start_team_group, reported_by_id,
+            issue_description, status, end_date, end_shift_number,
+            end_team_group, resolved_by_id, resolution_notes, technician_vendor,
+            document_type, document_url, document_name
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            readinessLog.vehicle_id,
+            recStartDate,
+            recStartShift,
+            recStartTeam,
+            recReportedBy,
+            cleanDesc || readinessLog.justification || 'Kendala Armada',
+            recStatus,
+            recEndDate,
+            recEndShift,
+            recEndTeam,
+            recResolvedBy,
+            recResolutionNotes,
+            recVendor,
+            recDocType,
+            document_url,
+            document_name
+          ]
+        );
+
+        // Perbarui log harian agar sinkron
+        await connection.query(
+          `UPDATE vehicle_readiness_logs SET
+            status = ?,
+            justification = ?,
+            follow_up_status = ?,
+            resolved_at = ?,
+            notes = ?,
+            pic_personnel_id = COALESCE(?, pic_personnel_id),
+            updated_at = NOW()
+          WHERE id = ?`,
+          [
+            targetStatus,
+            cleanDesc || readinessLog.justification,
+            followUp,
+            resolvedAt,
+            recResolutionNotes || cleanDesc,
+            recReportedBy,
+            recordId
+          ]
+        );
+
+        await connection.commit();
+
+        const promotedRecord = await fetchMaintenanceRecordById(insertResult.insertId);
+        return successResponse(
+          res,
+          'Catatan kendala berhasil dipromosikan menjadi catatan pemeliharaan resmi',
+          promotedRecord
+        );
+      }
+
+      // Pembaruan ringan pada log harian kesiapan tanpa dokumen/teknisi
+      await connection.query(
         `UPDATE vehicle_readiness_logs SET
           status = ?,
           justification = ?,
@@ -503,7 +652,8 @@ export const updateMaintenanceRecord = async (req, res) => {
         ]
       );
 
-      safeUnlink(req.file?.path);
+      await connection.commit();
+
       return successResponse(res, 'Log kesiapan armada berhasil diperbarui', {
         id: `log-${recordId}`,
         vehicle_id: readinessLog.vehicle_id,
@@ -514,27 +664,123 @@ export const updateMaintenanceRecord = async (req, res) => {
       });
     }
 
-    let [existingRows] = await pool.query(
+    // 2. Cari di vehicle_maintenance_records
+    const [existingRows] = await connection.query(
       'SELECT * FROM vehicle_maintenance_records WHERE id = ?',
       [recordId]
     );
 
     if (existingRows.length === 0) {
-      // Periksa apakah ID ini adalah log kendala kesiapan armada harian (vehicle_readiness_logs)
-      const [readinessRows] = await pool.query(
+      // Periksa apakah ID ini adalah log kendala harian tanpa awalan 'log-'
+      const [readinessRows] = await connection.query(
         'SELECT * FROM vehicle_readiness_logs WHERE id = ?',
         [recordId]
       );
 
       if (readinessRows.length > 0) {
         const readinessLog = readinessRows[0];
+        const hasDocOrTech = Boolean(
+          req.file ||
+          (req.body.technician_vendor && String(req.body.technician_vendor).trim()) ||
+          req.body.document_type ||
+          req.body.promote_to_maintenance
+        );
+
         const targetStatus = req.body.status === 'resolved' ? 'serviceable' : 'unserviceable';
+        const recStatus = req.body.status === 'resolved' ? 'resolved' : 'ongoing';
         const followUp = req.body.status === 'resolved' ? 'resolved' : 'in_progress';
         const resolvedAt = req.body.status === 'resolved' ? new Date() : null;
         const rawDesc = req.body.issue_description !== undefined ? String(req.body.issue_description).trim() : readinessLog.justification;
         const cleanDesc = cleanPrefixes(rawDesc) || rawDesc;
 
-        await pool.query(
+        let recEndDate = req.body.end_date || null;
+        if (recStatus === 'resolved') {
+          if (!recEndDate) {
+            recEndDate = todayStr;
+          }
+          if (recEndDate > todayStr) {
+            recEndDate = todayStr;
+          }
+        }
+
+        if (hasDocOrTech) {
+          let document_url = null;
+          let document_name = null;
+          if (req.file) {
+            document_url = `/uploads/${req.file.filename}`;
+            document_name = req.file.originalname;
+          }
+
+          const recStartDate = req.body.start_date || formatDateOnly(readinessLog.shift_date) || todayStr;
+          const recStartShift = req.body.start_shift_number ? Number(req.body.start_shift_number) : (readinessLog.shift_number || 1);
+          const recStartTeam = req.body.start_team_group || readinessLog.team_group || 'Alpha';
+          const recReportedBy = req.body.reported_by_id ? Number(req.body.reported_by_id) : (readinessLog.pic_personnel_id || req.user?.personnel_id || null);
+          const recEndShift = req.body.end_shift_number ? Number(req.body.end_shift_number) : 1;
+          const recEndTeam = req.body.end_team_group || 'Alpha';
+          const recResolvedBy = req.body.resolved_by_id ? Number(req.body.resolved_by_id) : (req.user?.personnel_id || null);
+          const recResolutionNotes = req.body.resolution_notes || readinessLog.notes || null;
+          const recVendor = req.body.technician_vendor ? String(req.body.technician_vendor).trim() : null;
+          const recDocType = req.body.document_type || 'ba_kerusakan';
+
+          const [insertResult] = await connection.query(
+            `INSERT INTO vehicle_maintenance_records (
+              vehicle_id, start_date, start_shift_number, start_team_group, reported_by_id,
+              issue_description, status, end_date, end_shift_number,
+              end_team_group, resolved_by_id, resolution_notes, technician_vendor,
+              document_type, document_url, document_name
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              readinessLog.vehicle_id,
+              recStartDate,
+              recStartShift,
+              recStartTeam,
+              recReportedBy,
+              cleanDesc || readinessLog.justification || 'Kendala Armada',
+              recStatus,
+              recEndDate,
+              recEndShift,
+              recEndTeam,
+              recResolvedBy,
+              recResolutionNotes,
+              recVendor,
+              recDocType,
+              document_url,
+              document_name
+            ]
+          );
+
+          await connection.query(
+            `UPDATE vehicle_readiness_logs SET
+              status = ?,
+              justification = ?,
+              follow_up_status = ?,
+              resolved_at = ?,
+              notes = ?,
+              pic_personnel_id = COALESCE(?, pic_personnel_id),
+              updated_at = NOW()
+            WHERE id = ?`,
+            [
+              targetStatus,
+              cleanDesc || readinessLog.justification,
+              followUp,
+              resolvedAt,
+              recResolutionNotes || cleanDesc,
+              recReportedBy,
+              recordId
+            ]
+          );
+
+          await connection.commit();
+
+          const promotedRecord = await fetchMaintenanceRecordById(insertResult.insertId);
+          return successResponse(
+            res,
+            'Catatan kendala berhasil dipromosikan menjadi catatan pemeliharaan resmi',
+            promotedRecord
+          );
+        }
+
+        await connection.query(
           `UPDATE vehicle_readiness_logs SET
             status = ?,
             justification = ?,
@@ -555,7 +801,7 @@ export const updateMaintenanceRecord = async (req, res) => {
           ]
         );
 
-        safeUnlink(req.file?.path);
+        await connection.commit();
         return successResponse(res, 'Log kesiapan armada berhasil diperbarui', {
           id: `log-${recordId}`,
           vehicle_id: readinessLog.vehicle_id,
@@ -566,10 +812,8 @@ export const updateMaintenanceRecord = async (req, res) => {
         });
       }
 
-      if (req.body.vehicle_id) {
-        return createMaintenanceRecord(req, res);
-      }
-      safeUnlink(req.file?.path);
+      await connection.rollback();
+      if (req.file?.path) safeUnlink(req.file.path);
       return errorResponse(res, 'Catatan pemeliharaan tidak ditemukan', 404);
     }
 
@@ -582,11 +826,11 @@ export const updateMaintenanceRecord = async (req, res) => {
       document_url = `/uploads/${req.file.filename}`;
       document_name = req.file.originalname;
       if (existing.document_url && existing.document_url !== document_url) {
-        safeUnlink(existing.document_url);
+        filesToUnlink.push(existing.document_url);
       }
     } else if (req.body.remove_document === 'true' || req.body.remove_document === true) {
       if (existing.document_url) {
-        safeUnlink(existing.document_url);
+        filesToUnlink.push(existing.document_url);
       }
       document_url = null;
       document_name = null;
@@ -598,7 +842,7 @@ export const updateMaintenanceRecord = async (req, res) => {
     let startTeamGroup = req.body.start_team_group !== undefined ? req.body.start_team_group : existing.start_team_group;
 
     if (!startTeamGroup) {
-      const [activeShift] = await pool.query(
+      const [activeShift] = await connection.query(
         'SELECT team_group FROM personnel_shifts WHERE shift_date = ? AND shift_number = ? LIMIT 1',
         [startDate, startShiftNumber]
       );
@@ -612,7 +856,7 @@ export const updateMaintenanceRecord = async (req, res) => {
     let reportedById = existing.reported_by_id;
     if (req.body.reported_by_id !== undefined) {
       if (req.body.reported_by_id) {
-        const [pRows] = await pool.query('SELECT id FROM personnel WHERE id = ?', [Number(req.body.reported_by_id)]);
+        const [pRows] = await connection.query('SELECT id FROM personnel WHERE id = ?', [Number(req.body.reported_by_id)]);
         reportedById = pRows.length > 0 ? pRows[0].id : null;
       } else {
         reportedById = null;
@@ -632,7 +876,7 @@ export const updateMaintenanceRecord = async (req, res) => {
     let resolvedById = existing.resolved_by_id;
     if (req.body.resolved_by_id !== undefined) {
       if (req.body.resolved_by_id) {
-        const [pRows] = await pool.query('SELECT id FROM personnel WHERE id = ?', [Number(req.body.resolved_by_id)]);
+        const [pRows] = await connection.query('SELECT id FROM personnel WHERE id = ?', [Number(req.body.resolved_by_id)]);
         resolvedById = pRows.length > 0 ? pRows[0].id : null;
       } else {
         resolvedById = null;
@@ -644,12 +888,13 @@ export const updateMaintenanceRecord = async (req, res) => {
     const documentType = req.body.document_type !== undefined ? req.body.document_type : (existing.document_type || 'ba_kerusakan');
 
     if (status === 'ongoing') {
-      const [openTickets] = await pool.query(
+      const [openTickets] = await connection.query(
         'SELECT id FROM vehicle_maintenance_records WHERE vehicle_id = ? AND status = ? AND id != ?',
         [vehicleId, 'ongoing', recordId]
       );
       if (openTickets.length > 0) {
-        safeUnlink(req.file?.path);
+        await connection.rollback();
+        if (req.file?.path) safeUnlink(req.file.path);
         return errorResponse(
           res,
           `Armada ini telah memiliki tiket pemeliharaan aktif lain (#${openTickets[0].id}) yang berstatus Dalam Penanganan.`,
@@ -660,10 +905,18 @@ export const updateMaintenanceRecord = async (req, res) => {
 
     if (status === 'resolved') {
       if (!endDate) {
-        endDate = getWibDateStr();
+        endDate = todayStr;
+      }
+      if (endDate > todayStr) {
+        endDate = todayStr;
+      }
+      if (startDate && endDate < startDate) {
+        await connection.rollback();
+        if (req.file?.path) safeUnlink(req.file.path);
+        return errorResponse(res, 'Tanggal pemulihan tidak boleh lebih awal dari tanggal mulai kendala.', 400);
       }
       if (!resolvedById && req.user?.personnel_id) {
-        const [pRows] = await pool.query('SELECT id FROM personnel WHERE id = ?', [req.user.personnel_id]);
+        const [pRows] = await connection.query('SELECT id FROM personnel WHERE id = ?', [req.user.personnel_id]);
         if (pRows.length > 0) {
           resolvedById = pRows[0].id;
         }
@@ -676,7 +929,7 @@ export const updateMaintenanceRecord = async (req, res) => {
       resolutionNotes = null;
     }
 
-    await pool.query(
+    await connection.query(
       `UPDATE vehicle_maintenance_records SET
         vehicle_id = ?,
         start_date = ?,
@@ -716,8 +969,8 @@ export const updateMaintenanceRecord = async (req, res) => {
       ]
     );
 
-    // Sinkronisasi status ke log kesiapan armada operasional
-    await syncMaintenanceToReadinessLogs({
+    // Sinkronisasi status ke log kesiapan armada operasional dalam transaksi yang sama
+    await syncMaintenanceToReadinessLogs(connection, {
       vehicle_id: vehicleId,
       status,
       start_date: startDate,
@@ -732,20 +985,34 @@ export const updateMaintenanceRecord = async (req, res) => {
       resolution_notes: resolutionNotes
     });
 
+    await connection.commit();
+
+    // Pola post-commit cleanup untuk berkas fisik
+    for (const f of filesToUnlink) {
+      safeUnlink(f);
+    }
+
     const updatedRecord = await fetchMaintenanceRecordById(recordId);
     return successResponse(res, 'Catatan pemeliharaan armada berhasil diperbarui', updatedRecord);
   } catch (error) {
-    safeUnlink(req.file?.path);
+    await connection.rollback();
+    if (req.file?.path) safeUnlink(req.file.path);
     console.error('Error updateMaintenanceRecord:', error);
     return errorResponse(res, 'Gagal memperbarui catatan pemeliharaan: ' + error.message, 500);
+  } finally {
+    connection.release();
   }
 };
 
 /**
  * DELETE /api/readiness/maintenance/:id
  * Menghapus catatan pemeliharaan armada beserta berkas lampiran fisiknya secara langsung
+ * Log historis shift yang sudah lampau dilindungi dan tidak diubah massal menjadi serviceable.
  */
 export const deleteMaintenanceRecord = async (req, res) => {
+  const filesToUnlink = [];
+  const connection = await pool.getConnection();
+
   try {
     const rawId = String(req.params.id || '');
     const isLog = rawId.startsWith('log-');
@@ -756,45 +1023,49 @@ export const deleteMaintenanceRecord = async (req, res) => {
       return errorResponse(res, 'ID catatan pemeliharaan atau log tidak valid', 400);
     }
 
+    await connection.beginTransaction();
+
     if (isLog) {
-      const [readinessRows] = await pool.query(
+      const [readinessRows] = await connection.query(
         'SELECT * FROM vehicle_readiness_logs WHERE id = ?',
         [recordId]
       );
 
-      if (readinessRows.length > 0) {
-        await pool.query(
-          `UPDATE vehicle_readiness_logs
-           SET status = 'serviceable',
-               justification = NULL,
-               follow_up_status = 'resolved',
-               resolved_at = NOW(),
-               notes = NULL,
-               updated_at = NOW()
-           WHERE id = ?`,
-          [recordId]
-        );
-        return successResponse(res, 'Catatan kendala armada pada log kesiapan berhasil dihapus dan armada dipulihkan');
+      if (readinessRows.length === 0) {
+        await connection.rollback();
+        return errorResponse(res, 'Log kesiapan armada tidak ditemukan', 404);
       }
 
-      return errorResponse(res, 'Log kesiapan armada tidak ditemukan', 404);
+      await connection.query(
+        `UPDATE vehicle_readiness_logs
+         SET status = 'serviceable',
+             justification = NULL,
+             follow_up_status = 'resolved',
+             resolved_at = NOW(),
+             notes = NULL,
+             updated_at = NOW()
+         WHERE id = ?`,
+        [recordId]
+      );
+
+      await connection.commit();
+      return successResponse(res, 'Catatan kendala armada pada log kesiapan berhasil dipulihkan');
     }
 
-    const [existingRows] = await pool.query(
+    const [existingRows] = await connection.query(
       'SELECT * FROM vehicle_maintenance_records WHERE id = ?',
       [recordId]
     );
 
     if (existingRows.length === 0) {
-      // Periksa apakah ID ini adalah log kendala kesiapan armada harian (vehicle_readiness_logs)
-      const [readinessRows] = await pool.query(
+      // Periksa apakah ID ini adalah log kendala kesiapan armada harian tanpa prefix
+      const [readinessRows] = await connection.query(
         'SELECT * FROM vehicle_readiness_logs WHERE id = ?',
         [recordId]
       );
 
       if (readinessRows.length > 0) {
-        // Pulihkan log kesiapan ke status serviceable dan bersihkan catatan kendala
-        await pool.query(
+        await connection.query(
           `UPDATE vehicle_readiness_logs
            SET status = 'serviceable',
                justification = NULL,
@@ -805,42 +1076,38 @@ export const deleteMaintenanceRecord = async (req, res) => {
            WHERE id = ?`,
           [recordId]
         );
-        return successResponse(res, 'Catatan kendala armada pada log kesiapan berhasil dihapus dan armada dipulihkan');
+
+        await connection.commit();
+        return successResponse(res, 'Catatan kendala armada pada log kesiapan berhasil dipulihkan');
       }
 
+      await connection.rollback();
       return errorResponse(res, 'Catatan pemeliharaan tidak ditemukan', 404);
     }
 
     const record = existingRows[0];
-
     if (record.document_url) {
-      safeUnlink(record.document_url);
+      filesToUnlink.push(record.document_url);
     }
 
-    await pool.query('DELETE FROM vehicle_maintenance_records WHERE id = ?', [recordId]);
+    await connection.query('DELETE FROM vehicle_maintenance_records WHERE id = ?', [recordId]);
 
-    // Jika tidak ada tiket pemeliharaan aktif lain pada armada ini, pulihkan log kesiapan yang unserviceable
-    try {
-      const [otherOngoing] = await pool.query(
-        'SELECT id FROM vehicle_maintenance_records WHERE vehicle_id = ? AND status = ?',
-        [record.vehicle_id, 'ongoing']
-      );
+    // PERHATIAN: Query pemulihan massal historis berbasis shift_date >= start_date
+    // DIHAPUS sesuai aturan sistem agar tidak mengubah log historis shift lampau menjadi serviceable.
 
-      if (otherOngoing.length === 0) {
-        await pool.query(
-          `UPDATE vehicle_readiness_logs
-           SET status = 'serviceable', follow_up_status = 'resolved', resolved_at = NOW()
-           WHERE vehicle_id = ? AND status = 'unserviceable' AND shift_date >= ?`,
-          [record.vehicle_id, formatDateOnly(record.start_date)]
-        );
-      }
-    } catch (syncErr) {
-      console.warn('Peringatan pembersihan log kesiapan armada pasca-hapus pemeliharaan:', syncErr.message);
+    await connection.commit();
+
+    // Pola post-commit cleanup untuk berkas fisik
+    for (const f of filesToUnlink) {
+      safeUnlink(f);
     }
 
     return successResponse(res, 'Catatan pemeliharaan armada berhasil dihapus');
   } catch (error) {
+    await connection.rollback();
     console.error('Error deleteMaintenanceRecord:', error);
     return errorResponse(res, 'Gagal menghapus catatan pemeliharaan: ' + error.message, 500);
+  } finally {
+    connection.release();
   }
 };

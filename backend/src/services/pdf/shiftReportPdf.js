@@ -6,6 +6,7 @@ import {
   drawTableHeaderRow,
   checkPageBreak,
   formatIndonesianDate,
+  isShiftOfficial,
 } from './pdfHelpers.js';
 
 /**
@@ -324,10 +325,15 @@ export const generateShiftReportPdf = async (reportData) => {
         chiefs.shift_3 || { team: team3 },
       ];
 
+  // Evaluasi keabsahan dokumen dinas resmi
+  const shift = reportData.shift || reportData;
+  const isOfficial = isShiftOfficial(shift);
+
   const sectionHeadObj = {
     name: deptHeadData?.name || dept_head_name || 'Airport Rescue & Fire Fighting Section Head',
     nip: deptHeadData?.nip || dept_head_nip,
-    signature_url: deptHeadData?.signature_url || dept_head_signature_url,
+    signature_url: isOfficial ? (deptHeadData?.signature_url || dept_head_signature_url) : null,
+    isDraft: !isOfficial,
   };
 
   await drawDailySignatures(
@@ -341,8 +347,10 @@ export const generateShiftReportPdf = async (reportData) => {
     contentWidth
   );
 
-  // Watermark Resmi & Penomoran Halaman Otomatis (Watermark Bersih: 'ARFF YIA • DAILY OPS REPORT')
-  applyWatermarkAndPageNumbers(doc, contentWidth, startX, 'ARFF YIA • DAILY OPS REPORT');
+  // Watermark Resmi & Penomoran Halaman Otomatis
+  // Jika status shift belum selesai/sah, pasang watermark diagonal transparan 'DRAFT • BELUM DISAHKAN'
+  const watermarkText = isOfficial ? 'ARFF YIA • DAILY OPS REPORT' : 'DRAFT • BELUM DISAHKAN';
+  applyWatermarkAndPageNumbers(doc, contentWidth, startX, watermarkText);
 
   return doc;
 };

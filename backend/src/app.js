@@ -31,9 +31,50 @@ app.set('trust proxy', 1);
 // Middleware kompresi respons HTTP (Gzip/Brotli)
 app.use(compression());
 
-// Middleware dasar
+// Konfigurasi asal domain CORS yang diizinkan (Anti-Wildcard)
+const defaultOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:4173',
+  'http://127.0.0.1:4173'
+];
+const configuredOrigins = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(',').map((url) => url.trim()).filter(Boolean)
+  : defaultOrigins;
+
+// Validator domain/origin yang aman dan fleksibel untuk akses lokal & LAN (perangkat mobile / tablet operasional)
+const isOriginAllowed = (origin) => {
+  // Izinkan request tanpa origin (seperti curl, aplikasi mobile/desktop native, server-to-server)
+  if (!origin) return true;
+
+  if (configuredOrigins.includes(origin) || defaultOrigins.includes(origin)) {
+    return true;
+  }
+
+  // Izinkan seluruh alamat IP Lokal / Private LAN (RFC 1918) serta localhost pada semua port
+  // Termasuk 192.168.x.x, 10.x.x.x, 172.16-31.x.x
+  const isPrivateLanOrLocal = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$/.test(origin);
+  if (isPrivateLanOrLocal) {
+    return true;
+  }
+
+  // Fallback aman pada mode non-production
+  if (process.env.NODE_ENV !== 'production') {
+    return true;
+  }
+
+  return false;
+};
+
 app.use(cors({
-  origin: '*',
+  origin: (origin, callback) => {
+    if (isOriginAllowed(origin)) {
+      return callback(null, true);
+    }
+    // Tolak origin asing secara anggun tanpa melempar fatal exception ke next(err) yang memicu HTTP 500
+    return callback(null, false);
+  },
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));

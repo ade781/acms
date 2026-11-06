@@ -12,7 +12,6 @@ import {
 import { formatIndoDate } from '../../../utils/shiftHelper';
 import MobileSignaturesSection from './MobileSignaturesSection';
 import { downloadShiftReportPdf } from '../../../services/reportService';
-import { useAuth } from '../../../context/AuthContext';
 
 /**
  * Universal A4 Document Sheet & Print Preview Modal (Desktop & Mobile)
@@ -36,7 +35,6 @@ export default function MobilePdfViewerModal({
   chiefs = {},
   deptHeadData = null,
 }) {
-  const { token } = useAuth();
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState(null);
 
@@ -49,23 +47,6 @@ export default function MobilePdfViewerModal({
   const team1 = roster?.shift_1 || 'Shift 1';
   const team2 = roster?.shift_2 || 'Shift 2';
   const team3 = roster?.shift_3 || 'Shift 3';
-
-  // Buat URL endpoint PDF resmi ber-token
-  const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('arff_token') : '') || '';
-  const apiBase = import.meta.env.VITE_API_URL || '/api';
-  const cleanBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
-  const encodedToken = authToken ? encodeURIComponent(authToken) : '';
-  const pdfApiUrl = `${cleanBase}/reports/pdf?date=${currentDate}${
-    encodedToken ? `&token=${encodedToken}` : ''
-  }`;
-
-  const handleOpenNativePdf = () => {
-    if (!authToken) {
-      setDownloadError('Sesi autentikasi tidak ditemukan. Harap masuk kembali.');
-      return;
-    }
-    window.open(pdfApiUrl, '_blank');
-  };
 
   const handleDownloadPdf = async () => {
     try {
@@ -97,6 +78,10 @@ export default function MobilePdfViewerModal({
     } finally {
       setDownloading(false);
     }
+  };
+
+  const handleOpenNativePdf = async () => {
+    await handleDownloadPdf();
   };
 
   const handlePrint = () => {
@@ -212,8 +197,9 @@ export default function MobilePdfViewerModal({
               <button
                 type="button"
                 onClick={handleOpenNativePdf}
-                className="min-h-[38px] px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs flex items-center gap-1.5 transition-colors duration-100 active:scale-[0.99]"
-                title="Buka PDF Asli di Tab Baru"
+                disabled={downloading}
+                className="min-h-[38px] px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs flex items-center gap-1.5 transition-colors duration-100 disabled:opacity-50 active:scale-[0.99]"
+                title="Unduh & Buka Berkas PDF Resmi"
               >
                 <ExternalLink className="w-4 h-4 text-slate-500" />
                 <span>Buka PDF</span>
@@ -247,7 +233,8 @@ export default function MobilePdfViewerModal({
           <button
             type="button"
             onClick={handleOpenNativePdf}
-            className="min-h-[40px] py-2 px-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1 transition-colors duration-100 active:scale-[0.99]"
+            disabled={downloading}
+            className="min-h-[40px] py-2 px-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1 transition-colors duration-100 disabled:opacity-50 active:scale-[0.99]"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             <span>Buka PDF</span>
@@ -303,16 +290,19 @@ export default function MobilePdfViewerModal({
               </div>
             </div>
 
-            {/* 1. KOP NASKAH DINAS RESMI PT ANGKASA PURA INDONESIA & ARFF YIA */}
+            {/* 1. KOP NASKAH DINAS RESMI PT ANGKASA PURA INDONESIA & ARFF YIA (4 BARIS BAKU) */}
             <div className="text-center pb-2 relative z-10">
               <p className="text-xs sm:text-sm md:text-base font-extrabold tracking-wider text-slate-900 uppercase">
                 PT ANGKASA PURA INDONESIA
               </p>
-              <p className="text-xs sm:text-sm font-bold text-red-700 uppercase tracking-wide mt-0.5">
-                AIRPORT RESCUE & FIRE FIGHTING (ARFF) SECTION - BANDARA INTERNASIONAL YOGYAKARTA (YIA)
+              <p className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide mt-0.5">
+                KANTOR CABANG BANDARA INTERNASIONAL YOGYAKARTA (YIA)
               </p>
-              <p className="text-xs text-slate-500 font-medium tracking-tight mt-0.5">
-                Kawasan Bandara Internasional Yogyakarta, Kulon Progo, D.I. Yogyakarta 55654
+              <p className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-wide mt-0.5">
+                AIRPORT RESCUE & FIRE FIGHTING (ARFF) SECTION
+              </p>
+              <p className="text-xs font-bold text-red-700 tracking-wide mt-0.5">
+                KODE WAHI • KATEGORI 8
               </p>
 
               {/* Garis Ganda Kedinasan (Double Rule Line: Tebal 2px & Tipis 0.75px) */}

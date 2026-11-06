@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
 import Modal from '../../common/Modal';
 import Button from '../../common/Button';
@@ -117,13 +118,14 @@ export default function IncidentQuickDetailModal({
         )}
         {/* Tautan Navigasi Manajemen Insiden Penuh */}
         <div className="pt-2 border-t border-slate-200 flex justify-end">
-          <a
-            href="/incidents"
-            className="text-xs font-semibold text-red-600 hover:text-red-700 hover:underline inline-flex items-center gap-1"
+          <Link
+            to="/incidents"
+            onClick={onClose}
+            className="text-xs font-semibold text-red-600 hover:text-red-700 hover:underline inline-flex items-center gap-1 cursor-pointer"
           >
             <span>Buka Manajemen Insiden Lengkap</span>
             <ExternalLink className="w-3 h-3" />
-          </a>
+          </Link>
         </div>
       </div>
     </Modal>

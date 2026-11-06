@@ -117,6 +117,7 @@ export default function DailyShiftActivityView({
   selectedShift,
   onShiftChange,
   canManageActivity = false,
+  currentUser = null,
   onOpenCreateModal,
   onOpenEditModal,
   onOpenDeleteModal,
@@ -293,100 +294,133 @@ export default function DailyShiftActivityView({
                 </div>
               </div>
             ) : (
-              /* Daftar Entri Kegiatan Kronologis Rapi */
-              <div className="space-y-3">
+              /* Linimasa Entri Kegiatan Kronologis dengan Garis Rel Vertikal */
+              <div className="relative pl-7 space-y-3.5">
+                {/* Garis Rel Linimasa Vertikal Penghubung Node Waktu */}
+                <div
+                  className="absolute left-[13px] top-4 bottom-4 w-0.5 bg-slate-200/90"
+                  aria-hidden="true"
+                />
+
                 {activeShiftActivities.map((act) => {
                   const meta = getActivityCategoryMeta(act.activity_type);
                   const photoSource = act.attachment_url || act.photo_url;
                   const currentTeamName = shiftTeams[selectedShift] || 'Alpha';
                   const currentTheme = getTeamTheme(currentTeamName);
 
-                  return (
-                    <div
-                      key={act.id}
-                      className={`bg-white rounded-xl border border-slate-200 ${currentTheme.borderLeft} p-4 sm:p-5 shadow-2xs hover:border-slate-300 transition-colors duration-100 space-y-3`}
-                    >
-                      {/* Header Baris Kegiatan: Jam, Kategori, & Tombol Aksi */}
-                      <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100 flex-wrap">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono tabular-nums text-xs font-bold text-slate-900 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5 text-slate-500" />
-                            {act.activity_time ? act.activity_time.slice(0, 5) : '-'} WIB
-                          </span>
-                          <span
-                            className={`text-xs font-bold border px-2.5 py-0.5 rounded-md ${meta.badgeBg}`}
-                          >
-                            {meta.label}
-                          </span>
-                        </div>
+                  const isActLeader =
+                    ['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor', 'operation_chief'].includes(
+                      currentUser?.role
+                    );
+                  const isActOwner =
+                    currentUser?.id && act.created_by && Number(act.created_by) === Number(currentUser.id);
+                  const canEditItem = currentUser ? isActLeader || isActOwner : canManageActivity;
+                  const canDeleteItem = currentUser
+                    ? isActLeader || (isActOwner && (!act.shift_date || act.shift_date === todayStr))
+                    : canManageActivity;
 
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-slate-400 font-medium hidden sm:inline">
-                            Oleh: {act.reporter_name || 'Petugas Operasional'}
-                          </span>
-                          {canManageActivity && (
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => onOpenEditModal(act)}
-                                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-100 cursor-pointer"
-                                title="Edit Kegiatan"
-                                aria-label="Edit Kegiatan"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => onOpenDeleteModal(act)}
-                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-100 cursor-pointer"
-                                title="Hapus Kegiatan"
-                                aria-label="Hapus Kegiatan"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          )}
+                  return (
+                    <div key={act.id} className="relative group">
+                      {/* Node Waktu Linimasa (Berada tepat di atas rel vertikal) */}
+                      <div
+                        className="absolute -left-7 top-4 w-7 h-7 flex items-center justify-center z-10"
+                        aria-hidden="true"
+                      >
+                        <div className="w-4 h-4 rounded-full bg-white border-2 border-slate-300 group-hover:border-slate-400 flex items-center justify-center shadow-2xs transition-colors duration-100">
+                          <div className={`w-1.5 h-1.5 rounded-full ${currentTheme.dot || 'bg-slate-400'}`} />
                         </div>
                       </div>
 
-                      {/* Konten Kegiatan & Foto Dokumentasi Kompak di Kanan */}
-                      <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-4">
-                        <div className="flex-1 min-w-0 space-y-2">
-                          <div>
-                            <h4 className="text-sm font-bold text-slate-900 mb-1">
-                              {act.title}
-                            </h4>
-                            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line">
-                              {act.description}
-                            </p>
+                      {/* Kartu Kegiatan */}
+                      <div
+                        className={`bg-white rounded-xl border border-slate-200 ${currentTheme.borderLeft} p-4 sm:p-5 shadow-2xs hover:border-slate-300 transition-colors duration-100 space-y-3`}
+                      >
+                        {/* Header Baris Kegiatan: Jam, Kategori, & Tombol Aksi */}
+                        <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100 flex-wrap">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono tabular-nums text-xs font-bold text-slate-900 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5 text-slate-500" />
+                              {act.activity_time ? act.activity_time.slice(0, 5) : '-'} WIB
+                            </span>
+                            <span
+                              className={`text-xs font-bold border px-2.5 py-0.5 rounded-md ${meta.badgeBg}`}
+                            >
+                              {meta.label}
+                            </span>
                           </div>
 
-                          {/* Catatan / Hasil Uji Fungsi (Jika Ada) */}
-                          {act.result_notes && (
-                            <div className="p-2.5 rounded-lg bg-amber-50/50 border border-amber-200/70 text-xs text-slate-800 space-y-0.5">
-                              <span className="text-xs font-bold text-amber-900 uppercase tracking-wider block">
-                                Hasil & Catatan Pelaksanaan:
-                              </span>
-                              <p className="whitespace-pre-line leading-relaxed text-slate-700">
-                                {act.result_notes}
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-400 font-medium hidden sm:inline">
+                              Oleh: {act.reporter_name || 'Petugas Operasional'}
+                            </span>
+                            {(canEditItem || canDeleteItem) && (
+                              <div className="flex items-center gap-1">
+                                {canEditItem && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onOpenEditModal(act)}
+                                    className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-100 cursor-pointer"
+                                    title="Edit Kegiatan"
+                                    aria-label="Edit Kegiatan"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                                {canDeleteItem && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onOpenDeleteModal(act)}
+                                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-100 cursor-pointer"
+                                    title="Hapus Kegiatan"
+                                    aria-label="Hapus Kegiatan"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Konten Kegiatan & Foto Dokumentasi Kompak di Kanan */}
+                        <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-4">
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <div>
+                              <h4 className="text-sm font-bold text-slate-900 mb-1">
+                                {act.title}
+                              </h4>
+                              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                                {act.description}
                               </p>
+                            </div>
+
+                            {/* Catatan / Hasil Uji Fungsi (Jika Ada) */}
+                            {act.result_notes && (
+                              <div className="p-2.5 rounded-lg bg-amber-50/50 border border-amber-200/70 text-xs text-slate-800 space-y-0.5">
+                                <span className="text-xs font-bold text-amber-900 uppercase tracking-wider block">
+                                  Hasil & Catatan Pelaksanaan:
+                                </span>
+                                <p className="whitespace-pre-line leading-relaxed text-slate-700">
+                                  {act.result_notes}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Foto Dokumentasi di Sisi Kanan (Kompak & Dapat Diklik Langsung) */}
+                          {photoSource && (
+                            <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 self-start overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-2xs">
+                              <img
+                                src={buildAuthenticatedFileUrl(photoSource)}
+                                alt={act.title}
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                className="w-full h-full object-cover hover:opacity-90 hover:scale-105 transition-transform duration-150 cursor-pointer"
+                                onClick={() => onPreviewPhoto(buildAuthenticatedFileUrl(photoSource))}
+                                title="Klik untuk melihat foto dokumentasi"
+                              />
                             </div>
                           )}
                         </div>
-
-                        {/* Foto Dokumentasi di Sisi Kanan (Kompak & Dapat Diklik Langsung) */}
-                        {photoSource && (
-                          <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 self-start overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-2xs">
-                            <img
-                              src={buildAuthenticatedFileUrl(photoSource)}
-                              alt={act.title}
-                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                              className="w-full h-full object-cover hover:opacity-90 hover:scale-105 transition-transform duration-150 cursor-pointer"
-                              onClick={() => onPreviewPhoto(buildAuthenticatedFileUrl(photoSource))}
-                              title="Klik untuk melihat foto dokumentasi"
-                            />
-                          </div>
-                        )}
                       </div>
                     </div>
                   );

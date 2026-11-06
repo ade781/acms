@@ -56,6 +56,14 @@ export default function IncidentsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
+  // Cache stats cakupan agar Scorecard tetap utuh saat filter spesifik aktif
+  const [scopeStats, setScopeStats] = useState({
+    total: 0,
+    inProgress: 0,
+    pendingFollowUp: 0,
+    resolved: 0,
+  });
+
   const fetchIncidents = useCallback(async (signal) => {
     setLoading(true);
     setError(null);
@@ -74,6 +82,17 @@ export default function IncidentsPage() {
         }
       }
 
+      // Hubungkan filter status operasional & prioritas ke query API
+      if (filterTriage && filterTriage !== 'ALL') {
+        if (['dalam_proses', 'menunggu_tindak_lanjut', 'selesai'].includes(filterTriage)) {
+          params.status = filterTriage;
+        } else if (filterTriage === 'kritis') {
+          params.priority = 'kritis';
+        } else if (filterTriage === 'emergency') {
+          params.priority = 'emergency';
+        }
+      }
+
       const res = await api.get('/incidents', { params, signal });
       const raw = res.data?.data ?? res.data?.incidents ?? res.data;
       const list = Array.isArray(raw) ? raw : [];
@@ -85,7 +104,7 @@ export default function IncidentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [filterScope, activeDate, activeShiftNumber, activeTeam, period, startDate, endDate]);
+  }, [filterScope, activeDate, activeShiftNumber, activeTeam, period, startDate, endDate, filterTriage]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -117,6 +136,20 @@ export default function IncidentsPage() {
       resolved,
     };
   }, [incidents]);
+
+  // Perbarui cache stats cakupan saat filter dalam mode ALL
+  useEffect(() => {
+    if (filterTriage === 'ALL' && Array.isArray(incidents)) {
+      setScopeStats({
+        total: incidents.length,
+        inProgress: incidents.filter((i) => (i.status || 'dalam_proses').toLowerCase() === 'dalam_proses').length,
+        pendingFollowUp: incidents.filter((i) => (i.status || '').toLowerCase() === 'menunggu_tindak_lanjut').length,
+        resolved: incidents.filter((i) => (i.status || '').toLowerCase() === 'selesai').length,
+      });
+    }
+  }, [incidents, filterTriage]);
+
+  const displayStats = filterTriage === 'ALL' ? statusStats : (scopeStats.total > 0 ? scopeStats : statusStats);
 
   // Statistik prioritas untuk opsi dropdown
   const priorityStats = useMemo(() => {
@@ -317,7 +350,7 @@ export default function IncidentsPage() {
             <FileText className="w-4 h-4 text-slate-400" />
           </div>
           <div className="text-xl font-bold font-mono tabular-nums text-slate-900">
-            {statusStats.total}
+            {displayStats.total}
           </div>
           <div className="text-xs text-slate-400 mt-0.5">Seluruh laporan tercatat</div>
         </button>
@@ -340,7 +373,7 @@ export default function IncidentsPage() {
             <Clock className="w-4 h-4 text-amber-500" />
           </div>
           <div className="text-xl font-bold font-mono tabular-nums text-amber-700">
-            {statusStats.inProgress}
+            {displayStats.inProgress}
           </div>
           <div className="text-xs text-slate-400 mt-0.5">Investigasi / penanganan</div>
         </button>
@@ -363,7 +396,7 @@ export default function IncidentsPage() {
             <AlertTriangle className="w-4 h-4 text-rose-500" />
           </div>
           <div className="text-xl font-bold font-mono tabular-nums text-rose-700">
-            {statusStats.pendingFollowUp}
+            {displayStats.pendingFollowUp}
           </div>
           <div className="text-xs text-slate-400 mt-0.5">Perlu evaluasi lanjutan</div>
         </button>
@@ -386,7 +419,7 @@ export default function IncidentsPage() {
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
           </div>
           <div className="text-xl font-bold font-mono tabular-nums text-emerald-700">
-            {statusStats.resolved}
+            {displayStats.resolved}
           </div>
           <div className="text-xs text-slate-400 mt-0.5">Penanganan tuntas</div>
         </button>
@@ -440,10 +473,10 @@ export default function IncidentsPage() {
                 aria-label="Filter Status Insiden"
               >
                 <optgroup label="Status Operasional (Mutually Exclusive)">
-                  <option value="ALL">Semua Kasus ({statusStats.total})</option>
-                  <option value="dalam_proses">Dalam Proses ({statusStats.inProgress})</option>
-                  <option value="menunggu_tindak_lanjut">Menunggu Tindak Lanjut ({statusStats.pendingFollowUp})</option>
-                  <option value="selesai">Selesai Ditangani ({statusStats.resolved})</option>
+                  <option value="ALL">Semua Kasus ({displayStats.total})</option>
+                  <option value="dalam_proses">Dalam Proses ({displayStats.inProgress})</option>
+                  <option value="menunggu_tindak_lanjut">Menunggu Tindak Lanjut ({displayStats.pendingFollowUp})</option>
+                  <option value="selesai">Selesai Ditangani ({displayStats.resolved})</option>
                 </optgroup>
                 <optgroup label="Tingkat Prioritas">
                   <option value="emergency">Prioritas Siaga I & II ({priorityStats.emergency})</option>

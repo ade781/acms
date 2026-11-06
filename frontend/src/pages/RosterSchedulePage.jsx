@@ -155,8 +155,9 @@ export default function RosterSchedulePage() {
   };
 
   const handleCurrentMonth = () => {
-    setSelectedYear(today.getFullYear());
-    setSelectedMonth(today.getMonth() + 1);
+    const [curY, curM] = todayWib.split('-').map(Number);
+    setSelectedYear(curY);
+    setSelectedMonth(curM);
   };
 
   /**

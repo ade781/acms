@@ -26,7 +26,9 @@ export default function MobilePicReadinessForm({
     dutyInfo?.category === 'posko' ||
     dutyInfo?.vehicle_code === 'WATCHROOM' ||
     dutyInfo?.code_name === 'WATCHROOM' ||
-    dutyInfo?.deployment_type === 'watchroom'
+    dutyInfo?.deployment_type === 'watchroom' ||
+    vehicleReadiness?.category === 'posko' ||
+    vehicleReadiness?.code_name === 'WATCHROOM'
   );
 
   // Periksa apakah unit ini sudah dilaporkan pada shift berjalan
@@ -42,11 +44,25 @@ export default function MobilePicReadinessForm({
   // State mode edit jika laporan sudah ada
   const [isEditing, setIsEditing] = useState(false);
 
-  // State kesiapan
-  const existingStatus = vehicleReadiness?.status === 'unserviceable' ? 'unserviceable' : 'serviceable';
-  const [status, setStatus] = useState(existingStatus);
+  // State kesiapan: inisialisasi '' jika unit belum dilaporkan
+  const initialStatus = vehicleReadiness?.status === 'unserviceable'
+    ? 'unserviceable'
+    : (hasShiftLog && vehicleReadiness?.status === 'serviceable' ? 'serviceable' : '');
+  const [status, setStatus] = useState(initialStatus);
+
+  // 4 Checklist Fasilitas Khusus Posko Watchroom
+  const rawNotes = vehicleReadiness?.notes || '';
+  const [radioVhf, setRadioVhf] = useState(!rawNotes.includes('Radio VHF: FAIL'));
+  const [hotlineAtc, setHotlineAtc] = useState(!rawNotes.includes('Hotline ATC: FAIL'));
+  const [crashBell, setCrashBell] = useState(!rawNotes.includes('Crash Bell: FAIL'));
+  const [cctvPc, setCctvPc] = useState(!rawNotes.includes('CCTV/PC: FAIL'));
+
   const [justification, setJustification] = useState(vehicleReadiness?.justification || '');
-  const [notes, setNotes] = useState(vehicleReadiness?.notes || '');
+  const [notes, setNotes] = useState(
+    isPosko
+      ? rawNotes.replace(/\[Fasilitas:[^\]]+\]\s*/g, '').trim()
+      : (vehicleReadiness?.notes || '')
+  );
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(vehicleReadiness?.photo_webp_url || null);
   const [compressing, setCompressing] = useState(false);
@@ -62,30 +78,57 @@ export default function MobilePicReadinessForm({
 
   const wasInitiallyUnserviceable = vehicleReadiness?.status === 'unserviceable';
 
+  const allChecked = radioVhf && hotlineAtc && crashBell && cctvPc;
+  const effectiveStatus = isPosko ? (!allChecked ? 'unserviceable' : status) : status;
+
   useEffect(() => {
     if (vehicleReadiness) {
       if (vehicleReadiness.status === 'unserviceable') {
         setStatus('unserviceable');
         setJustification(vehicleReadiness.justification || vehicleReadiness.notes || '');
-      } else if (vehicleReadiness.status === 'serviceable') {
+      } else if (vehicleReadiness.status === 'serviceable' && (vehicleReadiness.has_shift_log || !vehicleReadiness.is_carried_over)) {
         setStatus('serviceable');
         setNotes(vehicleReadiness.notes || '');
+      } else {
+        setStatus('');
       }
       if (vehicleReadiness.photo_webp_url) {
         setPhotoPreview(vehicleReadiness.photo_webp_url);
       }
+      const raw = vehicleReadiness.notes || '';
+      if (isPosko) {
+        setRadioVhf(!raw.includes('Radio VHF: FAIL'));
+        setHotlineAtc(!raw.includes('Hotline ATC: FAIL'));
+        setCrashBell(!raw.includes('Crash Bell: FAIL'));
+        setCctvPc(!raw.includes('CCTV/PC: FAIL'));
+        setNotes(raw.replace(/\[Fasilitas:[^\]]+\]\s*/g, '').trim());
+      }
     }
-  }, [vehicleReadiness]);
+  }, [vehicleReadiness, isPosko]);
 
   const handleCancelEdit = () => {
     setIsEditing(false);
     setErrorMsg(null);
     if (vehicleReadiness) {
-      setStatus(vehicleReadiness.status === 'unserviceable' ? 'unserviceable' : 'serviceable');
+      if (vehicleReadiness.status === 'unserviceable') {
+        setStatus('unserviceable');
+      } else if (vehicleReadiness.status === 'serviceable' && (vehicleReadiness.has_shift_log || !vehicleReadiness.is_carried_over)) {
+        setStatus('serviceable');
+      } else {
+        setStatus('');
+      }
       setJustification(vehicleReadiness.justification || '');
       setNotes(vehicleReadiness.notes || '');
       setPhotoPreview(vehicleReadiness.photo_webp_url || null);
       setPhotoFile(null);
+      const raw = vehicleReadiness.notes || '';
+      if (isPosko) {
+        setRadioVhf(!raw.includes('Radio VHF: FAIL'));
+        setHotlineAtc(!raw.includes('Hotline ATC: FAIL'));
+        setCrashBell(!raw.includes('Crash Bell: FAIL'));
+        setCctvPc(!raw.includes('CCTV/PC: FAIL'));
+        setNotes(raw.replace(/\[Fasilitas:[^\]]+\]\s*/g, '').trim());
+      }
     }
   };
 
@@ -116,15 +159,62 @@ export default function MobilePicReadinessForm({
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    // Validasi Foto Fisik Wajib untuk Keduanya (Serviceable & Unserviceable), kecuali unit adalah posko komunikasi
-    const isPoskoUnit = Boolean(
-      isPosko ||
-      dutyInfo?.vehicle_code === 'WATCHROOM' ||
-      dutyInfo?.code_name === 'WATCHROOM' ||
-      dutyInfo?.category === 'posko'
-    );
+    // Percabangan 1: Posko Watchroom
+    if (isPosko) {
+      const finalStatus = !allChecked ? 'unserviceable' : status;
+      if (!finalStatus) {
+        setErrorMsg('Harap tentukan status kelaikan posko watchroom terlebih dahulu (pilih Serviceable atau Unserviceable).');
+        return;
+      }
 
-    if (!isPoskoUnit && !photoFile && !photoPreview) {
+      const cleanNotes = (notes || '').replace(/\[Fasilitas:[^\]]+\]\s*/g, '').trim();
+      const cleanJustification = (justification || '').trim();
+      const poskoNotes = cleanNotes || cleanJustification;
+
+      if (finalStatus === 'unserviceable' && !poskoNotes) {
+        setErrorMsg('Catatan kendala fasilitas watchroom wajib diisi apabila ada item yang unserviceable.');
+        return;
+      }
+
+      const checkSummary = `[Fasilitas: Radio VHF: ${radioVhf ? 'OK' : 'FAIL'} | Hotline ATC: ${hotlineAtc ? 'OK' : 'FAIL'} | Crash Bell: ${crashBell ? 'OK' : 'FAIL'} | CCTV/PC: ${cctvPc ? 'OK' : 'FAIL'}] ${poskoNotes}`.trim();
+
+      setSubmitting(true);
+      try {
+        const res = await api.post('/readiness/watchroom', {
+          shift_date: activeDate,
+          shift_number: activeShiftNumber,
+          team_group: cleanTeam(activeTeam),
+          status: finalStatus,
+          notes: checkSummary,
+        });
+
+        const msg = res.data?.message || 'Kesiapan fasilitas posko watchroom berhasil dilaporkan.';
+        setSuccessMsg(msg);
+        setIsEditing(false);
+        window.dispatchEvent(new CustomEvent('arff:readiness-updated', { detail: res.data }));
+        if (onSuccess) {
+          onSuccess(res.data?.data || res.data);
+        }
+      } catch (err) {
+        console.error('Error submitting watchroom readiness:', err);
+        const msg = typeof err.response?.data?.message === 'string'
+          ? err.response.data.message
+          : (typeof err.response?.data === 'string' ? err.response.data : (err?.message || 'Gagal menyimpan status watchroom.'));
+        setErrorMsg(msg);
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    // Percabangan 2: Kendaraan Bermotor Operasional Biasa
+    if (!status) {
+      setErrorMsg('Harap tentukan status kelaikan armada terlebih dahulu (pilih Serviceable atau Unserviceable).');
+      return;
+    }
+
+    // Validasi Foto Fisik Wajib untuk Kendaraan
+    if (!photoFile && !photoPreview) {
       setErrorMsg('Foto fisik armada wajib diunggah/diambil untuk membuktikan pemeriksaan kondisi lapangan.');
       return;
     }
@@ -189,13 +279,13 @@ export default function MobilePicReadinessForm({
 
   return (
     <div
-      className={`rounded-xl border p-3 shadow-xs space-y-2.5 transition-colors duration-100 font-sans ${hasShiftLog && !isEditing
+      className={`rounded-xl border p-3 shadow-[0_1px_3px_rgba(15,23,42,0.04)] space-y-2.5 transition-colors duration-100 font-sans ${hasShiftLog && !isEditing
           ? isCurrentlyServiceable
-            ? 'bg-emerald-50/15 border-emerald-300 shadow-2xs'
-            : 'bg-red-50/20 border-red-300 shadow-2xs'
+            ? 'bg-emerald-50/15 border-emerald-300'
+            : 'bg-red-50/20 border-red-300'
           : hasShiftLog && isEditing
             ? 'bg-white border-slate-300'
-            : 'bg-white border-amber-200'
+            : 'bg-white border-amber-200/90'
         }`}
     >
       {/* Header Formulir PIC */}
@@ -353,12 +443,80 @@ export default function MobilePicReadinessForm({
           )}
 
           <form onSubmit={handleSubmit} className="space-y-2 text-xs">
+            {/* Checklist Posko Watchroom */}
+            {isPosko && (
+              <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50 space-y-2 mb-2">
+                <p className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Uji Kesiapan Fasilitas Posko Watchroom:
+                </p>
+                <label className="flex items-center gap-2.5 cursor-pointer text-xs font-medium text-slate-700 hover:text-slate-900">
+                  <input
+                    type="checkbox"
+                    checked={radioVhf}
+                    onChange={() => {
+                      const next = !radioVhf;
+                      setRadioVhf(next);
+                      if (!next) setStatus('unserviceable');
+                    }}
+                    className="w-4 h-4 rounded text-arff-primary focus:ring-0 cursor-pointer"
+                  />
+                  <span>1. Radio VHF Air-to-Ground & HT</span>
+                </label>
+                <label className="flex items-center gap-2.5 cursor-pointer text-xs font-medium text-slate-700 hover:text-slate-900">
+                  <input
+                    type="checkbox"
+                    checked={hotlineAtc}
+                    onChange={() => {
+                      const next = !hotlineAtc;
+                      setHotlineAtc(next);
+                      if (!next) setStatus('unserviceable');
+                    }}
+                    className="w-4 h-4 rounded text-arff-primary focus:ring-0 cursor-pointer"
+                  />
+                  <span>2. Hotline ATC Tower</span>
+                </label>
+                <label className="flex items-center gap-2.5 cursor-pointer text-xs font-medium text-slate-700 hover:text-slate-900">
+                  <input
+                    type="checkbox"
+                    checked={crashBell}
+                    onChange={() => {
+                      const next = !crashBell;
+                      setCrashBell(next);
+                      if (!next) setStatus('unserviceable');
+                    }}
+                    className="w-4 h-4 rounded text-arff-primary focus:ring-0 cursor-pointer"
+                  />
+                  <span>3. Crash Bell / Sirine Alarm Darurat</span>
+                </label>
+                <label className="flex items-center gap-2.5 cursor-pointer text-xs font-medium text-slate-700 hover:text-slate-900">
+                  <input
+                    type="checkbox"
+                    checked={cctvPc}
+                    onChange={() => {
+                      const next = !cctvPc;
+                      setCctvPc(next);
+                      if (!next) setStatus('unserviceable');
+                    }}
+                    className="w-4 h-4 rounded text-arff-primary focus:ring-0 cursor-pointer"
+                  />
+                  <span>4. PC CCTV Monitoring</span>
+                </label>
+              </div>
+            )}
+
             {/* Pilihan 2 Status Baku: Serviceable vs Unserviceable */}
             <div className="grid grid-cols-2 gap-1.5">
               <button
                 type="button"
-                onClick={() => setStatus('serviceable')}
-                className={`p-2 rounded-lg font-bold text-xs flex flex-col items-center justify-center gap-0.5 transition-colors duration-100 cursor-pointer ${status === 'serviceable'
+                onClick={() => {
+                  if (isPosko && (!radioVhf || !hotlineAtc || !crashBell || !cctvPc)) {
+                    setErrorMsg('Seluruh 4 fasilitas posko watchroom wajib lolos uji (centang semua) untuk memilih status Serviceable.');
+                    return;
+                  }
+                  setStatus('serviceable');
+                  setErrorMsg(null);
+                }}
+                className={`p-2 rounded-lg font-bold text-xs flex flex-col items-center justify-center gap-0.5 transition-colors duration-100 cursor-pointer ${effectiveStatus === 'serviceable'
                     ? 'border-2 border-emerald-600 bg-emerald-50/50 text-emerald-800 shadow-2xs'
                     : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300'
                   }`}
@@ -368,8 +526,11 @@ export default function MobilePicReadinessForm({
               </button>
               <button
                 type="button"
-                onClick={() => setStatus('unserviceable')}
-                className={`p-2 rounded-lg font-bold text-xs flex flex-col items-center justify-center gap-0.5 transition-colors duration-100 cursor-pointer ${status === 'unserviceable'
+                onClick={() => {
+                  setStatus('unserviceable');
+                  setErrorMsg(null);
+                }}
+                className={`p-2 rounded-lg font-bold text-xs flex flex-col items-center justify-center gap-0.5 transition-colors duration-100 cursor-pointer ${effectiveStatus === 'unserviceable'
                     ? 'border-2 border-red-600 bg-red-50/50 text-red-800 shadow-2xs'
                     : 'border border-slate-200 bg-white text-slate-600 hover:border-red-300'
                   }`}
@@ -380,23 +541,27 @@ export default function MobilePicReadinessForm({
             </div>
 
             {/* Input Tunggal Uraian Kendala / Kerusakan jika Unserviceable */}
-            {status === 'unserviceable' && (
+            {effectiveStatus === 'unserviceable' && (
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-700 block">
-                  Uraian Kendala & Kerusakan Fisik * <span className="text-red-600 font-bold">(Wajib)</span>
+                  Uraian Kendala {isPosko ? 'Fasilitas Posko' : '& Kerusakan Fisik'} * <span className="text-red-600 font-bold">(Wajib)</span>
                 </label>
                 <textarea
                   rows={2}
                   value={justification}
                   onChange={(e) => setJustification(e.target.value)}
-                  placeholder="Jelaskan secara spesifik komponen yang rusak, malfungsi teknis, atau kendala fisik lapangan..."
+                  placeholder={
+                    isPosko
+                      ? 'Jelaskan fasilitas posko watchroom yang mengalami kendala atau malfungsi...'
+                      : 'Jelaskan secara spesifik komponen yang rusak, malfungsi teknis, atau kendala fisik lapangan...'
+                  }
                   className="w-full p-2 text-xs border border-slate-300 rounded-lg bg-slate-50 text-slate-900 focus:bg-white focus:border-red-500 outline-none transition-colors duration-100"
                 />
               </div>
             )}
 
             {/* Catatan Tindak Lanjut jika memulihkan unit dari unserviceable ke serviceable */}
-            {status === 'serviceable' && wasInitiallyUnserviceable && (
+            {effectiveStatus === 'serviceable' && wasInitiallyUnserviceable && !isPosko && (
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-700 block">
                   Catatan Tindak Lanjut Pemulihan * <span className="text-emerald-600 font-bold">(Wajib)</span>
@@ -412,7 +577,7 @@ export default function MobilePicReadinessForm({
             )}
 
             {/* Catatan Opsional jika serviceable biasa */}
-            {status === 'serviceable' && !wasInitiallyUnserviceable && (
+            {effectiveStatus === 'serviceable' && (isPosko || !wasInitiallyUnserviceable) && (
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600 block">
                   Catatan Tambahan (Opsional)
@@ -427,39 +592,41 @@ export default function MobilePicReadinessForm({
               </div>
             )}
 
-            {/* Upload Foto Fisik Armada */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700 block">
-                Foto Fisik {isPosko ? 'Posko' : 'Armada'} {isPosko ? <span className="text-slate-400 font-normal">(Opsional)</span> : <span className="text-red-600 font-bold">* (Wajib)</span>}
-              </label>
-              <div className="flex items-center gap-2">
-                <label className="flex-1 cursor-pointer flex items-center justify-center gap-1.5 p-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-semibold transition-colors duration-100">
-                  <Camera className="w-4 h-4 text-slate-500" />
-                  <span className="truncate text-xs">
-                    {compressing
-                      ? 'Mengompres WebP...'
-                      : (photoFile ? `WebP: ${photoFile.name}` : (photoPreview ? 'Ganti Foto Bukti' : 'Ambil / Unggah Foto Bukti'))}
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    disabled={compressing || submitting}
-                    className="hidden"
-                    onChange={handlePhotoChange}
-                  />
+            {/* Upload Foto Fisik Armada (Khusus Kendaraan) */}
+            {!isPosko && (
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 block">
+                  Foto Fisik Armada <span className="text-red-600 font-bold">* (Wajib)</span>
                 </label>
-                {photoPreview && (
-                  <div className="w-10 h-10 rounded-lg border border-slate-200 bg-slate-100 overflow-hidden shrink-0">
-                    <img
-                      src={photoPreview}
-                      alt="Bukti Fisik"
-                      className="w-full h-full object-cover"
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 cursor-pointer flex items-center justify-center gap-1.5 p-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-semibold transition-colors duration-100">
+                    <Camera className="w-4 h-4 text-slate-500" />
+                    <span className="truncate text-xs">
+                      {compressing
+                        ? 'Mengompres WebP...'
+                        : (photoFile ? `WebP: ${photoFile.name}` : (photoPreview ? 'Ganti Foto Bukti' : 'Ambil / Unggah Foto Bukti'))}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      disabled={compressing || submitting}
+                      className="hidden"
+                      onChange={handlePhotoChange}
                     />
-                  </div>
-                )}
+                  </label>
+                  {photoPreview && (
+                    <div className="w-10 h-10 rounded-lg border border-slate-200 bg-slate-100 overflow-hidden shrink-0">
+                      <img
+                        src={photoPreview}
+                        alt="Bukti Fisik"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Tombol Aksi: Simpan vs (Batal & Simpan Perubahan) */}
             {hasShiftLog && isEditing ? (
@@ -474,7 +641,7 @@ export default function MobilePicReadinessForm({
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting || compressing}
+                  disabled={!effectiveStatus || submitting || compressing}
                   className="w-full py-2 rounded-xl font-bold text-xs bg-amber-600 hover:bg-amber-700 text-white shadow-xs flex items-center justify-center gap-1.5 transition-colors duration-100 cursor-pointer disabled:bg-slate-400"
                 >
                   {submitting || compressing ? (
@@ -493,7 +660,7 @@ export default function MobilePicReadinessForm({
             ) : (
               <button
                 type="submit"
-                disabled={submitting || compressing}
+                disabled={!effectiveStatus || submitting || compressing}
                 className="w-full py-2.5 rounded-xl font-bold text-xs tracking-wide shadow-xs flex items-center justify-center gap-1.5 transition-colors duration-100 cursor-pointer bg-amber-600 hover:bg-amber-700 text-white font-extrabold disabled:bg-slate-400"
               >
                 {submitting || compressing ? (
@@ -504,7 +671,7 @@ export default function MobilePicReadinessForm({
                 ) : (
                   <>
                     <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Simpan Laporan Kesiapan {vehicleCode}</span>
+                    <span>Simpan Laporan Kesiapan {isPosko ? 'Posko Watchroom' : vehicleCode}</span>
                   </>
                 )}
               </button>

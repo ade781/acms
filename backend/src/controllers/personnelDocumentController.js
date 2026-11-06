@@ -35,6 +35,19 @@ export const getPersonnelDocuments = async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Proteksi Otorisasi IDOR: Pimpinan (admin, dept_head, chief, chief_assistant, supervisor) ATAU Pemilik Dokumen Sendiri
+    const userRole = req.user?.role;
+    const isLeadership = ['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor'].includes(userRole);
+    let isOwner = req.user?.personnel_id && Number(req.user.personnel_id) === Number(id);
+
+    if (!isLeadership && !isOwner) {
+      const [pRows] = await pool.query('SELECT user_id FROM personnel WHERE id = ?', [id]);
+      isOwner = pRows.length > 0 && pRows[0].user_id && Number(pRows[0].user_id) === Number(req.user?.id);
+      if (!isOwner) {
+        return errorResponse(res, 'Akses ditolak: Anda tidak memiliki wewenang untuk melihat dokumen personel ini', 403);
+      }
+    }
+
     const [docs] = await pool.query(
       `SELECT pd.*, u.name as uploader_name
        FROM personnel_documents pd
@@ -44,7 +57,13 @@ export const getPersonnelDocuments = async (req, res) => {
       [id]
     );
 
-    const formattedDocs = (docs || []).map((doc) => ({
+    // Batasi dokumen tipe MCU (medical_checkup) HANYA untuk Admin, Dept Head, dan pemilik dokumen itu sendiri
+    const canViewMcu = ['admin', 'dept_head'].includes(userRole) || isOwner;
+    const visibleDocs = canViewMcu
+      ? (docs || [])
+      : (docs || []).filter((doc) => doc.document_type !== 'medical_checkup');
+
+    const formattedDocs = visibleDocs.map((doc) => ({
       ...doc,
       view_url: `/api/documents/${doc.id}/view`,
       download_url: `/api/documents/${doc.id}/download`,

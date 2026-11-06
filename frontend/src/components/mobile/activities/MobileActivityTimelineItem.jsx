@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Clock, Trash2, Edit2, Camera, User, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { getActivityCategoryMeta, OFFICIAL_ACTIVITY_CATEGORIES } from '../../../utils/activityCategories';
+import { buildAuthenticatedFileUrl } from '../../../utils/fileHelper';
 
 export const ACTIVITY_CATEGORIES = OFFICIAL_ACTIVITY_CATEGORIES.reduce((acc, cat) => {
   acc[cat.value] = { label: cat.label };
@@ -37,7 +38,8 @@ export default function MobileActivityTimelineItem({
     ? (activity.activity_time.length > 5 ? activity.activity_time.slice(0, 5) : activity.activity_time)
     : '--:--';
 
-  const photoUrl = activity.attachment_url;
+  const photoSource = activity.attachment_url || activity.photo_url;
+  const photoUrl = photoSource ? buildAuthenticatedFileUrl(photoSource) : null;
 
   return (
     <>
@@ -114,7 +116,7 @@ export default function MobileActivityTimelineItem({
             {/* Result Notes if available */}
             {activity.result_notes && (
               <div className="p-1.5 rounded bg-slate-50 border border-slate-200/80 text-xs text-slate-700 space-y-0.5">
-                <span className="font-bold text-slate-800 block text-[10px] uppercase tracking-wide">
+                <span className="font-bold text-slate-800 block text-xs uppercase tracking-wide">
                   Hasil / Catatan Khusus:
                 </span>
                 <p className="leading-snug">{activity.result_notes}</p>

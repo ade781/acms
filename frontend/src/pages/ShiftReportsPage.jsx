@@ -13,7 +13,7 @@ import Button from '../components/common/Button';
 import MobilePdfViewerModal from '../components/mobile/reports/MobilePdfViewerModal';
 
 export default function ShiftReportsPage() {
-  const { activeDate } = useAuth();
+  const { activeDate, activeShiftNumber } = useAuth();
   const abortControllerRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
@@ -93,8 +93,11 @@ export default function ShiftReportsPage() {
     (personnelSummary?.shift_2?.absent_count || 0) +
     (personnelSummary?.shift_3?.absent_count || 0);
 
-  const activeSupervisorName = chiefs.shift_3?.name || chiefs.shift_1?.name || 'Ketua Regu Dinas';
-  const activeSupervisorNip = chiefs.shift_3?.nip || chiefs.shift_1?.nip || null;
+  const currentChiefKey = `shift_${activeShiftNumber || 1}`;
+  const activeChief = chiefs[currentChiefKey] || chiefs.shift_1 || chiefs.shift_2 || chiefs.shift_3 || {};
+  const activeSupervisorName = activeChief.name || 'Ketua Regu Dinas';
+  const activeSupervisorNip = activeChief.nip || null;
+  const activeTeamName = roster?.[currentChiefKey] || activeChief.team || `Shift ${activeShiftNumber || 1}`;
 
   return (
     <div className="space-y-4 font-sans">
@@ -319,7 +322,9 @@ export default function ShiftReportsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
               {/* Supervisor / Ketua Regu */}
               <div className="p-3 rounded-lg border border-slate-200 bg-slate-50 space-y-1 text-xs">
-                <span className="text-slate-500 block text-[11px] font-medium">Supervisor / Ketua Regu</span>
+                <span className="text-slate-500 block text-[11px] font-medium">
+                  Supervisor / Ketua Regu (Shift {activeShiftNumber || 1} — Regu {activeTeamName})
+                </span>
                 <span className="font-bold text-slate-900 block text-xs truncate">
                   {activeSupervisorName}
                 </span>

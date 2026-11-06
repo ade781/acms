@@ -25,7 +25,7 @@ export default function AppLayout() {
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto print:p-0 print:max-w-none">
           <ErrorBoundary fallbackVariant="section">
-            <Outlet />
+            {!mustChangePassword && <Outlet />}
           </ErrorBoundary>
         </main>
       </div>

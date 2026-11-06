@@ -238,7 +238,7 @@ export default function Sidebar({ isOpen, onClose }) {
 
                 {/* Fixed 48px (w-12) icon anchor column — stays at exact center of 80px collapsed sidebar */}
                 <div className="w-12 h-11 flex items-center justify-center flex-shrink-0 relative">
-                  <Icon className="w-[18px] h-[18px] flex-shrink-0" />
+                  <Icon className="w-4.5 h-4.5 flex-shrink-0" />
                   {isAnnouncements && unreadAnnouncements > 0 && (
                     <span
                       className={`hidden md:block absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-red-600 ring-2 ring-white transition-opacity duration-150 ${
@@ -287,7 +287,7 @@ export default function Sidebar({ isOpen, onClose }) {
           >
             <div className="w-12 h-10 flex items-center justify-center flex-shrink-0">
               <ChevronLeft
-                className={`w-[18px] h-[18px] text-slate-500 transition-transform duration-200 ease-out ${
+                className={`w-4.5 h-4.5 text-slate-500 transition-transform duration-200 ease-out ${
                   isCollapsed ? 'rotate-180' : 'rotate-0'
                 }`}
               />

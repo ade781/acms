@@ -3,18 +3,73 @@
  * Sesuai standar operasional ARFF & ICAO (Airport Crash Monitoring & Management System - ACMS)
  */
 
+export const OFFICIAL_INCIDENT_CATEGORIES = [
+  { value: 'aircraft_accident', label: 'Aircraft Accident (Kecelakaan Pesawat)' },
+  { value: 'aircraft_incident', label: 'Aircraft Incident (Insiden Pesawat)' },
+  { value: 'full_emergency', label: 'Full Emergency (Siaga Penuh)' },
+  { value: 'local_standby', label: 'Local Standby (Siaga Lokal)' },
+  { value: 'fuel_spill', label: 'Fuel Spill (Tumpahan Avtur / BBM)' },
+  { value: 'structure_fire', label: 'Structure Fire (Kebakaran Gedung / Fasilitas)' },
+  { value: 'bomb_threat', label: 'Bomb Threat (Ancaman Bom)' },
+  { value: 'hazmat', label: 'Hazmat (Bahan Berbahaya)' },
+  { value: 'medical_emergency', label: 'Medical Emergency (Gawat Darurat Medis)' },
+  { value: 'wildlife_hazard', label: 'Wildlife Hazard (Gangguan Hewan Liar)' },
+  { value: 'other', label: 'Kejadian Lainnya' },
+];
+
 export const OFFICIAL_INCIDENT_CLASSIFICATIONS = [
   'Aircraft Accident',
   'Aircraft Incident',
-  'Kebakaran Gedung atau Terminal',
-  'Kebakaran Fasilitas atau Objek Lain di Bandara',
-  'Aircraft Go-Around',
-  'Hewan Liar atau Wildlife Hazard',
-  'Emergency atau Standby Operasional',
-  'Temuan Gangguan Fasilitas',
-  'Latihan atau Kegiatan Operasional',
+  'Full Emergency',
+  'Local Standby',
+  'Fuel Spill',
+  'Structure Fire (Kebakaran Gedung/Fasilitas)',
+  'Bomb Threat',
+  'Hazmat (Bahan Berbahaya)',
+  'Medical Emergency',
+  'Wildlife Hazard (Gangguan Hewan Liar)',
   'Kejadian Lainnya',
 ];
+
+/**
+ * Memetakan klasifikasi teks atau input pengguna ke ENUM baku ICAO di database
+ */
+export function mapClassificationToCategory(classification) {
+  if (!classification) return 'other';
+  const c = String(classification).toLowerCase();
+  if (c.includes('aircraft accident') || c === 'aircraft_accident') return 'aircraft_accident';
+  if (c.includes('aircraft incident') || c.includes('go-around') || c === 'aircraft_incident') return 'aircraft_incident';
+  if (c.includes('full emergency') || c === 'full_emergency') return 'full_emergency';
+  if (c.includes('local standby') || c === 'local_standby') return 'local_standby';
+  if (c.includes('fuel spill') || c === 'fuel_spill' || c.includes('tumpahan')) return 'fuel_spill';
+  if (c.includes('structure fire') || c.includes('kebakaran') || c === 'structure_fire' || c === 'fire') return 'structure_fire';
+  if (c.includes('bomb threat') || c === 'bomb_threat' || c.includes('ancaman bom')) return 'bomb_threat';
+  if (c.includes('hazmat') || c === 'hazmat' || c.includes('bahan berbahaya')) return 'hazmat';
+  if (c.includes('medical') || c.includes('medis') || c === 'medical_emergency') return 'medical_emergency';
+  if (c.includes('wildlife') || c.includes('hewan') || c === 'wildlife_hazard') return 'wildlife_hazard';
+  return 'other';
+}
+
+/**
+ * Format label keterbacaan untuk kode kategori insiden
+ */
+export function formatIncidentCategory(category) {
+  const map = {
+    aircraft_accident: 'Aircraft Accident',
+    aircraft_incident: 'Aircraft Incident',
+    full_emergency: 'Full Emergency',
+    local_standby: 'Local Standby',
+    fuel_spill: 'Fuel Spill',
+    structure_fire: 'Structure Fire',
+    fire: 'Structure Fire',
+    bomb_threat: 'Bomb Threat',
+    hazmat: 'Hazmat',
+    medical_emergency: 'Medical Emergency',
+    wildlife_hazard: 'Wildlife Hazard',
+    other: 'Kejadian Lainnya',
+  };
+  return map[category] || category || 'Kejadian Lainnya';
+}
 
 export const PRIORITY_OPTIONS = [
   { value: 'rendah', label: 'Rendah (Penyimpangan Operasional Minor)' },

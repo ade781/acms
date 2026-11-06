@@ -180,20 +180,20 @@ export default function PersonnelDetailPage() {
     }
   };
 
-  // Logika Kelayakan Tanda Tangan: Hanya Dept Head, Chief, dan Chief Assistant
+  // Logika Kelayakan Tanda Tangan: Dept Head, Section Head, Chief, dan Chief Assistant
   const targetRole =
     personnel?.user_role || (personnel?.rank_position ? mapRankPositionToRole(personnel.rank_position) : '');
-  const isEligibleForSignature = ['dept_head', 'chief', 'chief_assistant'].includes(targetRole);
+  const isEligibleForSignature = ['dept_head', 'section_head', 'chief', 'chief_assistant'].includes(targetRole);
 
   const currentUserRole = user?.role;
   const canUploadSignature =
-    ['admin', 'dept_head', 'chief', 'chief_assistant'].includes(currentUserRole) &&
+    ['admin', 'dept_head', 'section_head', 'chief', 'chief_assistant'].includes(currentUserRole) &&
     (isAdmin ||
       user?.personnel_id === Number(id) ||
       (user?.name &&
         personnel?.full_name &&
         user.name.trim().toLowerCase() === personnel.full_name.trim().toLowerCase()) ||
-      ['admin', 'dept_head', 'chief'].includes(currentUserRole));
+      ['admin', 'dept_head', 'section_head', 'chief'].includes(currentUserRole));
 
   const handleUploadSignature = async (e) => {
     const file = e.target.files?.[0];

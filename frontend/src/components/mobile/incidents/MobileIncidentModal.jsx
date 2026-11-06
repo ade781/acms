@@ -4,7 +4,7 @@ import { Camera, Check, AlertCircle, X } from 'lucide-react';
 import api from '../../../services/api';
 import { cleanTeam } from '../../../utils/shiftHelper';
 import { compressImageToWebP } from '../../../utils/imageCompressor';
-import { OFFICIAL_INCIDENT_CLASSIFICATIONS } from '../../../utils/incidentHelper';
+import { OFFICIAL_INCIDENT_CLASSIFICATIONS, mapClassificationToCategory } from '../../../utils/incidentHelper';
 
 export { OFFICIAL_INCIDENT_CLASSIFICATIONS };
 
@@ -120,13 +120,8 @@ export default function MobileIncidentModal({
       formData.append('location', location.trim());
       formData.append('chronology', chronology.trim());
 
-      // Petakan ke enum category baku di database
-      let mappedCategory = 'other';
-      if (classification === 'Aircraft Accident') mappedCategory = 'aircraft_accident';
-      else if (classification === 'Aircraft Incident' || classification === 'Aircraft Go-Around') mappedCategory = 'aircraft_incident';
-      else if (classification.includes('Kebakaran')) mappedCategory = 'fire';
-      else if (classification.includes('Emergency')) mappedCategory = 'medical_emergency';
-      else if (classification.includes('Hewan') || classification.includes('Wildlife')) mappedCategory = 'hazmat';
+      // Petakan ke enum category baku 10 klasifikasi ICAO
+      const mappedCategory = mapClassificationToCategory(classification);
       formData.append('category', mappedCategory);
 
       if (aircraftInfo.trim()) formData.append('aircraft_info', aircraftInfo.trim());

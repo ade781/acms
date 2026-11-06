@@ -8,7 +8,7 @@ import TextareaField from '../common/TextareaField';
 import { compressImageToWebP } from '../../utils/imageCompressor';
 import { cleanTeam, formatTeam } from '../../utils/shiftHelper';
 import { getErrorMessage } from '../../utils/errorHelper';
-import { OFFICIAL_INCIDENT_CLASSIFICATIONS, PRIORITY_OPTIONS } from '../../utils/incidentHelper';
+import { OFFICIAL_INCIDENT_CLASSIFICATIONS, PRIORITY_OPTIONS, mapClassificationToCategory } from '../../utils/incidentHelper';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 
@@ -132,13 +132,8 @@ export default function IncidentModal({
       return;
     }
 
-    // Pemetaan ke ENUM database baku
-    let mappedCategory = 'other';
-    if (classification === 'Aircraft Accident') mappedCategory = 'aircraft_accident';
-    else if (classification === 'Aircraft Incident' || classification === 'Aircraft Go-Around') mappedCategory = 'aircraft_incident';
-    else if (classification.includes('Kebakaran')) mappedCategory = 'fire';
-    else if (classification.includes('Emergency')) mappedCategory = 'medical_emergency';
-    else if (classification.includes('Hewan') || classification.includes('Wildlife')) mappedCategory = 'hazmat';
+    // Pemetaan ke ENUM database baku 10 klasifikasi ICAO
+    const mappedCategory = mapClassificationToCategory(classification);
 
     setSubmitting(true);
     try {

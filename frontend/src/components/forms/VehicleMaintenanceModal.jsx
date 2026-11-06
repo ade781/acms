@@ -242,8 +242,12 @@ export default function VehicleMaintenanceModal({
         setError('Tanggal pemulihan armada wajib diisi jika status perbaikan selesai.');
         return;
       }
-      if (new Date(startDate) > new Date(endDate)) {
-        setError('Tanggal pemulihan tidak boleh lebih awal dari tanggal mulai kendala.');
+      if (endDate < startDate) {
+        setError('Tanggal pemulihan armada tidak boleh lebih awal dari tanggal mulai kendala.');
+        return;
+      }
+      if (endDate > todayStr) {
+        setError('Tanggal pemulihan armada tidak boleh melebihi tanggal hari ini.');
         return;
       }
     }
@@ -588,6 +592,7 @@ export default function VehicleMaintenanceModal({
                   label="Tanggal Pemulihan (Serviceable)"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
+                  min={startDate || undefined}
                   max={todayStr}
                   required={status === 'resolved'}
                   disabled={submitting}

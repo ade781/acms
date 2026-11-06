@@ -308,11 +308,11 @@ export default function VehicleReadinessPage() {
             const log = v.current_log || v;
             const status = getVehicleStatusKey(v);
             const isCarriedOver = Boolean(v.is_carried_over);
-            const lastInspected = v.logged_at || log?.logged_at || v.updated_at || log?.updated_at;
+            const lastInspected = status !== 'belum_dilaporkan' ? (v.logged_at || log?.logged_at) : null;
             const photoUrl = v.photo_webp_url || log?.photo_webp_url;
 
             let formattedTimestamp = null;
-            if (lastInspected) {
+            if (status !== 'belum_dilaporkan' && lastInspected) {
               try {
                 const d = new Date(lastInspected);
                 if (!isNaN(d.getTime())) {
@@ -459,12 +459,16 @@ export default function VehicleReadinessPage() {
                     </Button>
                   ) : (
                     <div className="w-full flex items-center justify-between text-xs text-slate-500 py-1">
-                      <span className="flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                        <span className="font-mono tabular-nums">
-                          {formattedTimestamp ? `Inspeksi: ${formattedTimestamp}` : '-'}
+                      {status !== 'belum_dilaporkan' && formattedTimestamp ? (
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                          <span className="font-mono tabular-nums">
+                            Inspeksi: {formattedTimestamp}
+                          </span>
                         </span>
-                      </span>
+                      ) : (
+                        <span className="text-slate-400 italic">Belum diperiksa</span>
+                      )}
                       <span className="text-xs text-slate-400 font-medium font-sans">Mode Pantau</span>
                     </div>
                   )}

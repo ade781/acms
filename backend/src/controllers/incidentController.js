@@ -1,60 +1,87 @@
+import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import pool from '../config/db.js';
 import { successResponse, errorResponse, createdResponse } from '../utils/responseHelper.js';
 import { generateIncidentSummaryReportPdf, streamPdfToResponse } from '../services/incidentPdfService.js';
 import { getOfficialSignatory } from '../utils/officialHelper.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadsDir = path.resolve(__dirname, '../../uploads');
+
 const formatWIBDate = (date = new Date()) => {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(date);
 };
 
-// Fungsi bantuan nomor laporan berurutan: INC-0001, INC-0002, dst. dengan proteksi penguncian atomik (FOR UPDATE)
-async function generateNextReportNumber(connection) {
+const removeUploadedFiles = (files) => {
+  if (!files) return;
+  const list = Array.isArray(files) ? files : [files];
+  for (const file of list) {
+    if (!file) continue;
+    const targetPath = file.path || (file.filename ? path.resolve(uploadsDir, file.filename) : null);
+    if (targetPath && fs.existsSync(targetPath)) {
+      try {
+        fs.unlinkSync(targetPath);
+      } catch (e) {
+        console.warn('Gagal menghapus file multer:', e.message);
+      }
+    }
+  }
+};
+
+function getDateKey(incidentDate) {
+  if (incidentDate && typeof incidentDate === 'string' && incidentDate.includes('-')) {
+    const clean = incidentDate.split('T')[0].replace(/-/g, '');
+    if (clean.length === 8 && !isNaN(Number(clean))) {
+      return clean;
+    }
+  }
+  return formatWIBDate().replace(/-/g, '');
+}
+
+// Fungsi bantuan nomor laporan berurutan: INC-YYYYMMDD-XXXX (berbasis tanggal kejadian) dengan proteksi penguncian atomik (FOR UPDATE)
+async function generateNextReportNumber(connection, incidentDate) {
+  const dateKey = getDateKey(incidentDate);
   const [rows] = await connection.query(
     `SELECT report_number FROM incidents
-     WHERE report_number LIKE 'INC-%'
+     WHERE report_number LIKE CONCAT('INC-', ?, '-%')
      ORDER BY id DESC LIMIT 1
-     FOR UPDATE`
+     FOR UPDATE`,
+    [dateKey]
   );
 
   let nextSeq = 1;
   if (rows.length > 0) {
-    const lastNumStr = rows[0].report_number.replace('INC-', '');
-    const lastNum = parseInt(lastNumStr, 10);
+    const parts = rows[0].report_number.split('-');
+    const lastSeqStr = parts[2] || parts[parts.length - 1];
+    const lastNum = parseInt(lastSeqStr, 10);
     if (!isNaN(lastNum)) {
       nextSeq = lastNum + 1;
     }
   }
 
-  return `INC-${String(nextSeq).padStart(4, '0')}`;
+  return `INC-${dateKey}-${String(nextSeq).padStart(4, '0')}`;
 }
 
 export const getIncidents = async (req, res) => {
   try {
     const { date, start_date, end_date, period, shift, team_group, status, priority, category, page, limit } = req.query;
 
-    let query = `
-      SELECT i.*,
-             i.category as category_name, i.category as category_code,
-             u.name as reporter_name,
-             (SELECT COUNT(*) FROM incident_attachments WHERE incident_id = i.id) as attachment_count
-      FROM incidents i
-      LEFT JOIN users u ON u.id = i.reporter_id
-      WHERE 1=1
-    `;
+    let baseWhere = ' WHERE 1=1';
     const params = [];
 
     if (date) {
-      query += ` AND i.incident_date = ?`;
+      baseWhere += ` AND i.incident_date = ?`;
       params.push(date);
     } else if (start_date && end_date) {
-      query += ` AND i.incident_date BETWEEN ? AND ?`;
+      baseWhere += ` AND i.incident_date BETWEEN ? AND ?`;
       params.push(start_date, end_date);
     } else if (start_date) {
-      query += ` AND i.incident_date >= ?`;
+      baseWhere += ` AND i.incident_date >= ?`;
       params.push(start_date);
     } else if (end_date) {
-      query += ` AND i.incident_date <= ?`;
+      baseWhere += ` AND i.incident_date <= ?`;
       params.push(end_date);
     } else if (period) {
       const today = new Date();
@@ -63,49 +90,85 @@ export const getIncidents = async (req, res) => {
       else if (period === '3months') past.setDate(today.getDate() - 90);
       else if (period === '1year') past.setDate(today.getDate() - 365);
       else past.setDate(today.getDate() - 30); // 1month
-      query += ` AND i.incident_date BETWEEN ? AND ?`;
+      baseWhere += ` AND i.incident_date BETWEEN ? AND ?`;
       params.push(formatWIBDate(past), formatWIBDate(today));
     }
     if (shift) {
-      query += ` AND i.shift_number = ?`;
+      baseWhere += ` AND i.shift_number = ?`;
       params.push(Number(shift));
     }
     if (team_group) {
-      query += ` AND i.team_group = ?`;
+      baseWhere += ` AND i.team_group = ?`;
       params.push(team_group);
     }
     if (category && category !== 'ALL') {
-      query += ` AND i.category = ?`;
+      baseWhere += ` AND i.category = ?`;
       params.push(category);
     }
     if (status && status !== 'ALL') {
-      query += ` AND i.status = ?`;
+      baseWhere += ` AND i.status = ?`;
       params.push(status);
     }
     if (priority) {
-      const PRIORITY_MAP = {
-        rendah: 'low',
-        sedang: 'medium',
-        tinggi: 'high',
-        kritis: 'critical',
-      };
-      const normalizedPriority = PRIORITY_MAP[String(priority).toLowerCase()] || priority;
-      query += ` AND i.priority_level = ?`;
-      params.push(normalizedPriority);
+      const p = String(priority).toLowerCase();
+      if (p === 'emergency' || p === 'darurat') {
+        baseWhere += ` AND i.priority_level IN ('high', 'critical')`;
+      } else {
+        const PRIORITY_MAP = {
+          rendah: 'low',
+          sedang: 'medium',
+          tinggi: 'high',
+          kritis: 'critical',
+          low: 'low',
+          medium: 'medium',
+          high: 'high',
+          critical: 'critical',
+        };
+        const normalizedPriority = PRIORITY_MAP[p] || priority;
+        baseWhere += ` AND i.priority_level = ?`;
+        params.push(normalizedPriority);
+      }
     }
 
-    query += ` ORDER BY i.incident_date DESC, i.incident_time DESC, i.id DESC`;
+    // Hitung total baris untuk pagination metadata
+    const [countRows] = await pool.query(
+      `SELECT COUNT(*) as total FROM incidents i ${baseWhere}`,
+      params
+    );
+    const totalCount = countRows[0]?.total || 0;
 
-    if (limit) {
-      const pageNum = page ? Math.max(1, parseInt(page, 10)) : 1;
-      const limitNum = Math.max(1, parseInt(limit, 10));
-      const offset = (pageNum - 1) * limitNum;
-      query += ` LIMIT ? OFFSET ?`;
-      params.push(limitNum, offset);
-    }
+    const safeLimit = Math.min(Number(limit) || 50, 100);
+    const pageNum = page ? Math.max(1, parseInt(page, 10)) : 1;
+    const offset = (pageNum - 1) * safeLimit;
 
-    const [rows] = await pool.query(query, params);
-    return successResponse(res, 'Daftar insiden berhasil diambil', rows);
+    let query = `
+      SELECT i.*,
+             i.category as category_name, i.category as category_code,
+             u.name as reporter_name,
+             (SELECT COUNT(*) FROM incident_attachments WHERE incident_id = i.id) as attachment_count
+      FROM incidents i
+      LEFT JOIN users u ON u.id = i.reporter_id
+      ${baseWhere}
+      ORDER BY i.incident_date DESC, i.incident_time DESC, i.id DESC
+      LIMIT ? OFFSET ?
+    `;
+
+    const queryParams = [...params, safeLimit, offset];
+    const [rows] = await pool.query(query, queryParams);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Daftar insiden berhasil diambil',
+      data: rows,
+      pagination: {
+        page: pageNum,
+        limit: safeLimit,
+        total: totalCount,
+        total_pages: Math.ceil(totalCount / safeLimit),
+        totalPages: Math.ceil(totalCount / safeLimit),
+        has_more: pageNum * safeLimit < totalCount,
+      },
+    });
   } catch (error) {
     console.error('Error getIncidents:', error);
     return errorResponse(res, 'Gagal mengambil daftar insiden', 500);
@@ -183,13 +246,27 @@ export const createIncident = async (req, res) => {
     } = req.body;
 
     if (!incident_date || !incident_time || !title || !location || !chronology) {
+      removeUploadedFiles(req.files || req.file);
       return errorResponse(res, 'Tanggal, waktu kejadian, judul, lokasi, dan kronologi wajib diisi', 400);
     }
 
-    if (activation_time && incident_time) {
-      const cleanIncTime = incident_time.slice(0, 5);
-      const cleanActTime = activation_time.slice(0, 5);
-      if (cleanActTime < cleanIncTime) {
+    if (activation_time && incident_time && incident_date) {
+      const incTimeStr = incident_time.length === 5 ? `${incident_time}:00` : incident_time;
+      const actTimeStr = activation_time.length === 5 ? `${activation_time}:00` : activation_time;
+
+      const incDateTime = new Date(`${incident_date}T${incTimeStr}`);
+      let actDateTime = new Date(`${incident_date}T${actTimeStr}`);
+
+      // Tangani skenario respon yang melintasi tengah malam (misal kejadian 23:55 WIB ke aktivasi 00:05 WIB)
+      if (actDateTime < incDateTime) {
+        const nextDayAct = new Date(actDateTime.getTime() + 24 * 60 * 60 * 1000);
+        if (nextDayAct >= incDateTime && (nextDayAct - incDateTime) <= 12 * 60 * 60 * 1000) {
+          actDateTime = nextDayAct;
+        }
+      }
+
+      if (actDateTime < incDateTime) {
+        removeUploadedFiles(req.files || req.file);
         return errorResponse(res, 'Waktu tiba unit di TKP tidak boleh lebih awal dari waktu alarm kejadian.', 400);
       }
     }
@@ -209,7 +286,20 @@ export const createIncident = async (req, res) => {
     };
     const mappedPriority = PRIORITY_MAP[String(priority_level || '').toLowerCase()] || 'medium';
 
-    const VALID_CATEGORIES = ['aircraft_accident', 'aircraft_incident', 'fire', 'medical_emergency', 'hazmat', 'other'];
+    const VALID_CATEGORIES = [
+      'aircraft_accident',
+      'aircraft_incident',
+      'full_emergency',
+      'local_standby',
+      'fuel_spill',
+      'structure_fire',
+      'bomb_threat',
+      'hazmat',
+      'medical_emergency',
+      'wildlife_hazard',
+      'fire',
+      'other'
+    ];
     const finalCategory = VALID_CATEGORIES.includes(category) ? category : 'other';
 
     let result;
@@ -217,7 +307,8 @@ export const createIncident = async (req, res) => {
     let insertAttempts = 0;
     while (insertAttempts < 3) {
       try {
-        reportNumber = await generateNextReportNumber(connection);
+        await connection.query('SAVEPOINT sp_incident_insert');
+        reportNumber = await generateNextReportNumber(connection, incident_date);
         const [res] = await connection.query(
           `INSERT INTO incidents (
             report_number, incident_date, incident_time, report_time,
@@ -249,8 +340,10 @@ export const createIncident = async (req, res) => {
           ]
         );
         result = res;
+        await connection.query('RELEASE SAVEPOINT sp_incident_insert');
         break;
       } catch (insertErr) {
+        await connection.query('ROLLBACK TO SAVEPOINT sp_incident_insert');
         if (insertErr.code === 'ER_DUP_ENTRY' && insertAttempts < 2) {
           insertAttempts++;
           continue;
@@ -286,6 +379,12 @@ export const createIncident = async (req, res) => {
     return createdResponse(res, 'Laporan insiden berhasil dibuat dengan nomor: ' + reportNumber, created[0]);
   } catch (error) {
     await connection.rollback();
+    // Hapus berkas fisik yang diunggah multer jika terjadi rollback database
+    if (req.files && req.files.length > 0) {
+      removeUploadedFiles(req.files);
+    } else if (req.file) {
+      removeUploadedFiles(req.file);
+    }
     console.error('Error createIncident:', error);
     return errorResponse(res, 'Gagal membuat laporan insiden: ' + error.message, 500);
   } finally {
@@ -337,10 +436,15 @@ export const getIncidentCategories = async (req, res) => {
   const defaultCategories = [
     { id: 1, name: 'Aircraft Accident', code: 'aircraft_accident' },
     { id: 2, name: 'Aircraft Incident', code: 'aircraft_incident' },
-    { id: 3, name: 'Fire / Kebakaran', code: 'fire' },
-    { id: 4, name: 'Medical Emergency', code: 'medical_emergency' },
-    { id: 5, name: 'Hazmat Incident', code: 'hazmat' },
-    { id: 6, name: 'Lainnya / Non-Aircraft', code: 'other' }
+    { id: 3, name: 'Full Emergency', code: 'full_emergency' },
+    { id: 4, name: 'Local Standby', code: 'local_standby' },
+    { id: 5, name: 'Fuel Spill', code: 'fuel_spill' },
+    { id: 6, name: 'Structure Fire', code: 'structure_fire' },
+    { id: 7, name: 'Bomb Threat', code: 'bomb_threat' },
+    { id: 8, name: 'Hazmat Incident', code: 'hazmat' },
+    { id: 9, name: 'Medical Emergency', code: 'medical_emergency' },
+    { id: 10, name: 'Wildlife Hazard', code: 'wildlife_hazard' },
+    { id: 11, name: 'Lainnya / Khusus', code: 'other' }
   ];
   return successResponse(res, 'Daftar kategori insiden berhasil diambil', defaultCategories);
 };

@@ -149,13 +149,13 @@ export default function Navbar({ onToggleSidebar }) {
           type="date"
           value={safeDateValue}
           onChange={(e) => setActiveDate(e.target.value)}
-          className="px-2 py-1 bg-white border border-slate-200 rounded text-[11px] font-semibold text-slate-800 focus:outline-none tabular-nums"
+          className="px-2 py-1 bg-white border border-slate-200 rounded text-xs font-semibold text-slate-800 focus:outline-none tabular-nums"
           aria-label="Pilih tanggal shift dinas (mobile)"
         />
         <select
           value={safeShiftNumber}
           onChange={(e) => setActiveShiftNumber(Number(e.target.value))}
-          className="px-2 py-1 bg-white border border-slate-200 rounded text-[11px] font-semibold text-slate-800 focus:outline-none"
+          className="px-2 py-1 bg-white border border-slate-200 rounded text-xs font-semibold text-slate-800 focus:outline-none"
           aria-label="Pilih shift dinas (mobile)"
         >
           {SHIFT_DEFINITIONS.map((s) => (

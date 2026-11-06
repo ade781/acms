@@ -11,7 +11,7 @@ export default function MobileOpsSummaryCards({
   return (
     <div className="grid grid-cols-2 gap-1.5 text-xs font-sans">
       {/* Kartu 1: Personel Dinas */}
-      <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-xs flex flex-col justify-between">
+      <div className="bg-white p-2 rounded-xl border border-slate-200/90 shadow-[0_1px_3px_rgba(15,23,42,0.04)] flex flex-col justify-between">
         <div className="flex items-center justify-between border-b border-slate-100 pb-1">
           <div className="flex items-center gap-1 text-slate-600 font-bold text-xs uppercase tracking-wide">
             <Users className="w-3.5 h-3.5 text-slate-500" />
@@ -31,7 +31,7 @@ export default function MobileOpsSummaryCards({
       </div>
 
       {/* Kartu 2: Armada & Posko Operasional */}
-      <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-xs flex flex-col justify-between">
+      <div className="bg-white p-2 rounded-xl border border-slate-200/90 shadow-[0_1px_3px_rgba(15,23,42,0.04)] flex flex-col justify-between">
         <div className="flex items-center justify-between border-b border-slate-100 pb-1">
           <div className="flex items-center gap-1 text-slate-600 font-bold text-xs uppercase tracking-wide">
             <Truck className="w-3.5 h-3.5 text-slate-500" />

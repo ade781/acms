@@ -7,6 +7,10 @@ import { formatActivityCategory } from '../../services/pdf/activitiesReportPdf.j
 import { errorResponse } from '../../utils/responseHelper.js';
 import { getOfficialSignatory } from '../../utils/officialHelper.js';
 
+const formatWIBDate = (date = new Date()) => {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(date);
+};
+
 export const getActivitiesReportPdf = async (req, res) => {
   try {
     const { period = '1month', start_date, end_date, category, team_group, team } = req.query;
@@ -16,39 +20,41 @@ export const getActivitiesReportPdf = async (req, res) => {
     let periodLabel = 'Periode Kustom';
 
     const now = new Date();
+    const todayWIBStr = formatWIBDate(now);
+
     if (period === '1week') {
       periodLabel = '1 Minggu Terakhir';
       const past = new Date(now);
       past.setDate(past.getDate() - 7);
-      calculatedStartDate = past.toISOString().split('T')[0];
-      calculatedEndDate = now.toISOString().split('T')[0];
+      calculatedStartDate = formatWIBDate(past);
+      calculatedEndDate = todayWIBStr;
     } else if (period === '3months') {
       periodLabel = '3 Bulan Terakhir';
       const past = new Date(now);
       past.setMonth(past.getMonth() - 3);
-      calculatedStartDate = past.toISOString().split('T')[0];
-      calculatedEndDate = now.toISOString().split('T')[0];
+      calculatedStartDate = formatWIBDate(past);
+      calculatedEndDate = todayWIBStr;
     } else if (period === '1year') {
       periodLabel = '1 Tahun Terakhir';
       const past = new Date(now);
       past.setFullYear(past.getFullYear() - 1);
-      calculatedStartDate = past.toISOString().split('T')[0];
-      calculatedEndDate = now.toISOString().split('T')[0];
+      calculatedStartDate = formatWIBDate(past);
+      calculatedEndDate = todayWIBStr;
     } else if (period === '1month' || (!calculatedStartDate && !calculatedEndDate)) {
       periodLabel = '1 Bulan Terakhir';
       const past = new Date(now);
       past.setMonth(past.getMonth() - 1);
-      calculatedStartDate = past.toISOString().split('T')[0];
-      calculatedEndDate = now.toISOString().split('T')[0];
+      calculatedStartDate = formatWIBDate(past);
+      calculatedEndDate = todayWIBStr;
     }
 
     if (!calculatedStartDate) {
       const past = new Date(now);
       past.setMonth(past.getMonth() - 1);
-      calculatedStartDate = past.toISOString().split('T')[0];
+      calculatedStartDate = formatWIBDate(past);
     }
     if (!calculatedEndDate) {
-      calculatedEndDate = now.toISOString().split('T')[0];
+      calculatedEndDate = todayWIBStr;
     }
 
     let query = `

@@ -60,7 +60,7 @@ export default function MobileRecentAnnouncements({
   };
 
   return (
-    <div className="bg-white rounded-lg border border-slate-200 p-2.5 shadow-xs space-y-1.5 font-sans">
+    <div className="bg-white rounded-xl border border-slate-200/90 p-2.5 shadow-[0_1px_3px_rgba(15,23,42,0.04)] space-y-1.5 font-sans">
       {/* Header Pengumuman Dinas */}
       <div className="flex items-center justify-between border-b border-slate-100 pb-1">
         <div className="flex items-center gap-1.5">

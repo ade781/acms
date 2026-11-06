@@ -108,8 +108,6 @@ export const submitWatchroomReadiness = async (req, res) => {
       }
     }
 
-    const inspectorPersonnelId = req.user.personnel_id || null;
-
     // Cari ID unit watchroom di tabel vehicles
     let [wrVehicles] = await pool.query(
       `SELECT id FROM vehicles WHERE code_name = 'WATCHROOM' OR category = 'posko' LIMIT 1`
@@ -124,6 +122,51 @@ export const submitWatchroomReadiness = async (req, res) => {
          VALUES ('WATCHROOM', 'Watch Room / Pusat Komunikasi ARFF', 'posko', 'Posko monitoring & fasilitas komunikasi darurat ARFF', 1)`
       );
       wrId = newWr.insertId;
+    }
+
+    // Validasi otorisasi: Pimpinan (admin, dept_head, chief, supervisor) atau PIC resmi posko Watchroom (is_pic = 1)
+    const isLeader = ['admin', 'dept_head', 'chief', 'supervisor', 'chief_assistant', 'operation_chief'].includes(req.user.role);
+
+    if (!isLeader) {
+      const [picRows] = await pool.query(
+        `SELECT pd.id, pd.personnel_id
+         FROM personnel_deployments pd
+         JOIN personnel_shifts ps ON ps.id = pd.shift_id
+         LEFT JOIN personnel p ON p.id = pd.personnel_id
+         WHERE ps.shift_date = ?
+           AND ps.shift_number = ?
+           AND ps.team_group = ?
+           AND (pd.vehicle_id = ? OR pd.deployment_type = 'watchroom')
+           AND (pd.personnel_id = ? OR p.user_id = ?)
+           AND pd.is_pic = 1
+         LIMIT 1`,
+        [shift_date, shift_number, targetTeam, wrId, req.user.personnel_id || 0, req.user.id || 0]
+      );
+
+      if (picRows.length === 0) {
+        return errorResponse(
+          res,
+          'Akses ditolak: Hanya Penanggung Jawab (PIC) Posko Watchroom atau Pimpinan yang berwenang melaporkan kesiapan posko ini.',
+          403
+        );
+      }
+    }
+
+    let inspectorPersonnelId = req.user.personnel_id || null;
+    if (!inspectorPersonnelId) {
+      const [deployedPic] = await pool.query(
+        `SELECT pd.personnel_id
+         FROM personnel_deployments pd
+         JOIN personnel_shifts ps ON ps.id = pd.shift_id
+         WHERE ps.shift_date = ? AND ps.shift_number = ? AND ps.team_group = ?
+           AND (pd.vehicle_id = ? OR pd.deployment_type = 'watchroom')
+           AND pd.is_pic = 1
+         LIMIT 1`,
+        [shift_date, shift_number, targetTeam, wrId]
+      );
+      if (deployedPic.length > 0) {
+        inspectorPersonnelId = deployedPic[0].personnel_id;
+      }
     }
 
     const followUpStatus = status === 'unserviceable' ? 'pending' : 'resolved';

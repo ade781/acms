@@ -11,6 +11,31 @@ const formatWIBDate = (date = new Date()) => {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(date);
 };
 
+export const VALID_ACTIVITY_TYPES = [
+  'serah_terima',
+  'apel_briefing',
+  'periksa_armada',
+  'periksa_peralatan',
+  'latihan_drill',
+  'pemeliharaan',
+  'sosialisasi_keselamatan',
+  'catatan_kendala',
+];
+
+/**
+ * Helper penghapusan berkas fisik secara aman
+ */
+const safeUnlink = async (filePath) => {
+  if (!filePath) return;
+  try {
+    if (fs.existsSync(filePath)) {
+      await fs.promises.unlink(filePath);
+    }
+  } catch (err) {
+    console.warn('Gagal membersihkan file (safeUnlink):', err.message);
+  }
+};
+
 
 /**
  * Membersihkan berkas yang diunggah multer jika request gagal diproses
@@ -129,15 +154,52 @@ export const createActivity = async (req, res) => {
       return errorResponse(res, 'Jenis aktivitas, waktu, dan judul aktivitas wajib diisi', 400);
     }
 
+    if (!VALID_ACTIVITY_TYPES.includes(activity_type)) {
+      removeUploadedFile(req.file);
+      return errorResponse(
+        res,
+        `Jenis aktivitas '${activity_type}' tidak valid. Kategori yang diperbolehkan: ${VALID_ACTIVITY_TYPES.join(', ')}`,
+        400
+      );
+    }
+
+    const isPrivileged = ['admin', 'dept_head'].includes(req.user?.role);
     let targetShiftId = shift_id;
 
-    if (!targetShiftId) {
+    if (targetShiftId) {
+      // Validasi ketat keberadaan shift_id terhadap tabel personnel_shifts
+      const [shiftRows] = await pool.query(
+        'SELECT id, shift_date, shift_number, team_group, status FROM personnel_shifts WHERE id = ?',
+        [targetShiftId]
+      );
+      if (shiftRows.length === 0) {
+        removeUploadedFile(req.file);
+        return errorResponse(res, 'Shift dinas dengan ID tersebut tidak ditemukan', 404);
+      }
+
+      const targetShift = shiftRows[0];
+      // Validasi kepemilikan regu user (kecuali peran admin / dept_head)
+      if (!isPrivileged && req.user?.team_group && targetShift.team_group) {
+        if (String(req.user.team_group).toLowerCase() !== String(targetShift.team_group).toLowerCase()) {
+          removeUploadedFile(req.file);
+          return errorResponse(res, 'Akses ditolak: Anda hanya dapat mencatat kegiatan pada shift regu Anda sendiri', 403);
+        }
+      }
+    } else {
       const sDate = shift_date || formatWIBDate();
       const sNum = shift_number ? Number(shift_number) : 1;
-      const sTeam = team_group || req.user.team_group || 'Alpha';
+      let sTeam = team_group || req.user.team_group || 'Alpha';
+
+      // Validasi jika user non-admin menentukan team_group berbeda
+      if (!isPrivileged && req.user?.team_group && team_group) {
+        if (String(req.user.team_group).toLowerCase() !== String(team_group).toLowerCase()) {
+          removeUploadedFile(req.file);
+          return errorResponse(res, 'Akses ditolak: Anda hanya dapat mencatat kegiatan pada regu Anda sendiri', 403);
+        }
+      }
 
       const [existingShift] = await pool.query(
-        'SELECT id FROM personnel_shifts WHERE shift_date = ? AND shift_number = ? AND team_group = ?',
+        'SELECT id, team_group FROM personnel_shifts WHERE shift_date = ? AND shift_number = ? AND team_group = ?',
         [sDate, sNum, sTeam]
       );
 
@@ -210,9 +272,18 @@ export const updateActivity = async (req, res) => {
     const { id } = req.params;
     const { activity_type, activity_time, title, description, result_notes, actor_ids, attachment_url } = req.body;
 
+    if (activity_type !== undefined && !VALID_ACTIVITY_TYPES.includes(activity_type)) {
+      removeUploadedFile(req.file);
+      return errorResponse(
+        res,
+        `Jenis aktivitas '${activity_type}' tidak valid. Kategori yang diperbolehkan: ${VALID_ACTIVITY_TYPES.join(', ')}`,
+        400
+      );
+    }
+
     // BUTIR TUGAS 2: Ambil data kegiatan beserta info shift regunya (Pencegahan Celah IDOR)
     const [existing] = await pool.query(
-      `SELECT a.*, ps.team_group, ps.supervisor_id
+      `SELECT a.*, ps.shift_date, ps.shift_number, ps.team_group, ps.supervisor_id
        FROM daily_shift_activities a
        JOIN personnel_shifts ps ON ps.id = a.shift_id
        WHERE a.id = ?`,
@@ -249,32 +320,19 @@ export const updateActivity = async (req, res) => {
     }
 
     let finalAttachmentUrl = currentActivity.attachment_url;
+    let fileToDeleteAfterUpdate = null;
 
     if (req.file) {
       finalAttachmentUrl = `/uploads/${req.file.filename}`;
-      // Hapus file lama jika ada
+      // Tandai file lama jika ada untuk dibersihkan setelah database berhasil diperbarui
       if (currentActivity.attachment_url) {
-        const oldFile = path.resolve(uploadsDir, path.basename(currentActivity.attachment_url));
-        if (fs.existsSync(oldFile)) {
-          try {
-            await fs.promises.unlink(oldFile);
-          } catch (e) {
-            console.warn('Gagal menghapus file lama aktivitas:', e.message);
-          }
-        }
+        fileToDeleteAfterUpdate = path.resolve(uploadsDir, path.basename(currentActivity.attachment_url));
       }
     } else if (attachment_url !== undefined) {
       finalAttachmentUrl = attachment_url ? attachment_url : null;
-      // Jika foto lama dikosongkan/dihapus, hapus file lama dari disk
+      // Jika foto lama dikosongkan/dihapus, tandai file lama untuk dihapus
       if (!finalAttachmentUrl && currentActivity.attachment_url) {
-        const oldFile = path.resolve(uploadsDir, path.basename(currentActivity.attachment_url));
-        if (fs.existsSync(oldFile)) {
-          try {
-            await fs.promises.unlink(oldFile);
-          } catch (e) {
-            console.warn('Gagal menghapus file lama aktivitas saat dikosongkan:', e.message);
-          }
-        }
+        fileToDeleteAfterUpdate = path.resolve(uploadsDir, path.basename(currentActivity.attachment_url));
       }
     }
 
@@ -314,6 +372,11 @@ export const updateActivity = async (req, res) => {
       ]
     );
 
+    // Post-commit cleanup: Jalankan safeUnlink HANYA setelah query UPDATE database berhasil
+    if (fileToDeleteAfterUpdate) {
+      await safeUnlink(fileToDeleteAfterUpdate);
+    }
+
     const [updated] = await pool.query('SELECT * FROM daily_shift_activities WHERE id = ?', [id]);
     return successResponse(res, 'Aktivitas berhasil diperbarui', updated[0]);
   } catch (error) {
@@ -327,9 +390,9 @@ export const deleteActivity = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // BUTIR TUGAS 2 & 3: Ambil data kegiatan terlebih dahulu dan verifikasi otorisasi regu (Anti-IDOR)
+    // Ambil data kegiatan terlebih dahulu dan verifikasi otorisasi regu (Anti-IDOR)
     const [existing] = await pool.query(
-      `SELECT a.id, a.attachment_url, a.created_by, ps.team_group, ps.supervisor_id
+      `SELECT a.id, a.attachment_url, a.created_by, ps.shift_date, ps.shift_number, ps.team_group, ps.supervisor_id, ps.status
        FROM daily_shift_activities a
        JOIN personnel_shifts ps ON ps.id = a.shift_id
        WHERE a.id = ?`,
@@ -342,35 +405,49 @@ export const deleteActivity = async (req, res) => {
 
     const activity = existing[0];
 
-    // Validasi Otorisasi: Hanya Admin, Dept Head, atau Chief/Pimpinan pada regu yang sama yang berhak menghapus
+    // Validasi Otorisasi:
+    // 1. Role Admin atau Dept Head
+    // 2. Role Chief / Supervisor pada regu yang sama
+    // 3. Pemilik catatan (isOwner = activity.created_by === req.user.id) pada shift yang sedang berjalan
     const isAdmin = ['admin', 'dept_head'].includes(req.user?.role);
     const isTeamChief =
       ['chief', 'chief_assistant', 'supervisor', 'operation_chief'].includes(req.user?.role) &&
       (!req.user?.team_group ||
        !activity.team_group ||
        String(req.user?.team_group).toLowerCase() === String(activity.team_group).toLowerCase());
+    const isOwner = activity.created_by && Number(activity.created_by) === Number(req.user?.id);
 
-    if (!isAdmin && !isTeamChief) {
+    if (!isAdmin && !isTeamChief && !isOwner) {
       return errorResponse(
         res,
-        'Akses ditolak: Hanya Admin atau Chief regu terkait yang berhak menghapus catatan kegiatan',
+        'Akses ditolak: Anda tidak memiliki wewenang untuk menghapus catatan kegiatan ini',
         403
       );
     }
 
+    // Jika pemilik catatan (dan bukan admin/chief), izinkan HANYA pada shift yang sedang berjalan
+    if (isOwner && !isAdmin && !isTeamChief) {
+      const todayWIB = formatWIBDate();
+      const shiftDateStr = activity.shift_date instanceof Date
+        ? formatWIBDate(activity.shift_date)
+        : (activity.shift_date ? String(activity.shift_date).slice(0, 10) : '');
+
+      if (shiftDateStr && shiftDateStr !== todayWIB) {
+        return errorResponse(
+          res,
+          'Akses ditolak: Personel hanya dapat menghapus catatan kegiatan miliknya sendiri pada shift yang sedang berjalan',
+          403
+        );
+      }
+    }
+
     await pool.query('DELETE FROM daily_shift_activities WHERE id = ?', [id]);
 
-    // Hapus file fisik dari disk jika ada
+    // Hapus file fisik dari disk jika ada (post-delete cleanup)
     if (activity.attachment_url) {
       const filename = path.basename(activity.attachment_url);
       const filePath = path.resolve(uploadsDir, filename);
-      if (fs.existsSync(filePath)) {
-        try {
-          await fs.promises.unlink(filePath);
-        } catch (unlinkErr) {
-          console.warn('Gagal menghapus file foto aktivitas:', unlinkErr.message);
-        }
-      }
+      await safeUnlink(filePath);
     }
 
     return successResponse(res, 'Aktivitas berhasil dihapus dari logbook');

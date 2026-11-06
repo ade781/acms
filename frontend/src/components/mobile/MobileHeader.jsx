@@ -56,7 +56,7 @@ export default function MobileHeader({ onOpenAnnouncements, onOpenProfile, isPro
   const initials = getInitials(userName);
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-slate-200/80 px-3 py-1 flex items-center justify-between shadow-xs font-sans">
+    <header className="sticky top-0 z-40 bg-white/95 border-t border-t-amber-100/80 border-b border-b-amber-200/50 px-3 py-1 flex items-center justify-between shadow-[0_1px_3px_rgba(15,23,42,0.04)] font-sans">
       {/* Sisi Kiri: Identitas Dinas ARFF YIA */}
       <div className="flex items-center gap-2">
         <div>
@@ -81,7 +81,7 @@ export default function MobileHeader({ onOpenAnnouncements, onOpenProfile, isPro
         <button
           type="button"
           onClick={onOpenAnnouncements}
-          className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-600 transition-colors duration-100"
+          className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full hover:bg-amber-50/60 flex items-center justify-center text-slate-600 transition-colors duration-100"
           aria-label="Pengumuman Dinas"
           title="Buka Pengumuman Dinas"
         >
@@ -97,7 +97,7 @@ export default function MobileHeader({ onOpenAnnouncements, onOpenProfile, isPro
         <button
           type="button"
           onClick={onOpenProfile}
-          className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors duration-100"
+          className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full hover:bg-amber-50/60 flex items-center justify-center transition-colors duration-100"
           aria-label="Profil Pengguna"
           title={`Profil: ${userName}`}
         >
@@ -105,7 +105,7 @@ export default function MobileHeader({ onOpenAnnouncements, onOpenProfile, isPro
             className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs transition-colors duration-100 shadow-2xs ${
               isProfileActive
                 ? 'bg-red-600 text-white ring-2 ring-red-400'
-                : 'bg-slate-800 text-white ring-1 ring-slate-300 hover:ring-red-500'
+                : 'bg-slate-800 text-white ring-1 ring-amber-200/80 hover:ring-red-500'
             }`}
           >
             {initials}

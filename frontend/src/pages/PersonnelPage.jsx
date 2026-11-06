@@ -422,6 +422,7 @@ export default function PersonnelPage() {
                               <span
                                 className={`text-xs font-mono shrink-0 ${isChief ? `${theme.chiefStar} font-bold` : 'text-slate-400'
                                   }`}
+                                aria-label={isChief ? 'Ketua Regu (Chief)' : undefined}
                               >
                                 {memberNumber}
                               </span>

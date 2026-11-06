@@ -32,6 +32,7 @@ export default function OfficialsManagementPage() {
   });
 
   const [allPersonnel, setAllPersonnel] = useState([]);
+  const [activeDutyPersonnelIds, setActiveDutyPersonnelIds] = useState([]);
 
   // Modal Kelola Dept Head Mandiri (Aturan GEMINI.md Rule 18)
   const [dhModalOpen, setDhModalOpen] = useState(false);
@@ -63,6 +64,9 @@ export default function OfficialsManagementPage() {
         chiefs: offData.chiefs || { Alpha: null, Bravo: null, Charlie: null, Delta: null },
         administrasi: Array.isArray(offData.administrasi) ? offData.administrasi : [],
       });
+      if (Array.isArray(offData?.active_duty_personnel_ids)) {
+        setActiveDutyPersonnelIds(offData.active_duty_personnel_ids);
+      }
     } catch (err) {
       if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
       console.error('Error fetching officials:', err);
@@ -124,16 +128,21 @@ export default function OfficialsManagementPage() {
     setNewChiefPersonnelId('');
     setOldChiefTargetRole('ARFF Operation Senior Fire Fighter');
     setChiefModalOpen(true);
-    if (allPersonnel.length === 0) {
-      try {
-        const pRes = await api.get('/personnel?is_active=1&compact=true');
-        const pList = Array.isArray(pRes.data?.data)
-          ? pRes.data.data
-          : (Array.isArray(pRes.data?.personnel) ? pRes.data.personnel : []);
-        setAllPersonnel(pList);
-      } catch (err) {
-        console.error('Error lazy fetching personnel for chief modal:', err);
+    try {
+      const [pRes, offRes] = await Promise.all([
+        api.get('/personnel?is_active=1&compact=true'),
+        api.get('/personnel/officials')
+      ]);
+      const pList = Array.isArray(pRes.data?.data)
+        ? pRes.data.data
+        : (Array.isArray(pRes.data?.personnel) ? pRes.data.personnel : []);
+      setAllPersonnel(pList);
+      const offData = offRes.data?.data || offRes.data;
+      if (Array.isArray(offData?.active_duty_personnel_ids)) {
+        setActiveDutyPersonnelIds(offData.active_duty_personnel_ids);
       }
+    } catch (err) {
+      console.error('Error fetching personnel for chief modal:', err);
     }
   };
 
@@ -142,6 +151,11 @@ export default function OfficialsManagementPage() {
     e.preventDefault();
     if (!newChiefPersonnelId) {
       setChiefError(`Silakan pilih personel yang akan diangkat sebagai Ketua Regu ${targetTeam}.`);
+      return;
+    }
+
+    if (activeDutyPersonnelIds.includes(Number(newChiefPersonnelId))) {
+      setChiefError('Personel yang dipilih sedang bertugas aktif pada shift dinas saat ini. Lepaskan penugasan di menu Ploting terlebih dahulu.');
       return;
     }
 
@@ -488,24 +502,39 @@ export default function OfficialsManagementPage() {
               </div>
             )}
 
-            <SelectField
-              label={`Pilih Ketua Regu Baru (${targetTeam})`}
-              value={newChiefPersonnelId}
-              onChange={(e) => setNewChiefPersonnelId(e.target.value)}
-              options={[
-                { value: '', label: '-- Pilih Personel --' },
-                ...allPersonnel
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="new-chief-select" className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                <span>
+                  {`Pilih Ketua Regu Baru (${targetTeam})`} <span className="text-red-500">*</span>
+                </span>
+              </label>
+              <select
+                id="new-chief-select"
+                value={newChiefPersonnelId}
+                onChange={(e) => setNewChiefPersonnelId(e.target.value)}
+                required
+                className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 min-h-[44px] transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-600 disabled:bg-slate-100 disabled:text-slate-500"
+              >
+                <option value="">-- Pilih Personel --</option>
+                {allPersonnel
                   .filter((p) => !currentOldChief || p.id !== currentOldChief.id)
                   .map((p) => {
                     const teamStr = typeof p.team_group === 'string' ? p.team_group : (p.team_group?.name || 'Non-Regu');
-                    return {
-                      value: p.id,
-                      label: `${p.full_name || 'Personel'} (${p.rank_position || '-'} | Regu Saat Ini: ${teamStr})`,
-                    };
-                  }),
-              ]}
-              required
-            />
+                    const isOnDuty = activeDutyPersonnelIds.includes(Number(p.id));
+                    const label = `${p.full_name || 'Personel'} (${p.rank_position || '-'} | Regu Saat Ini: ${teamStr})${isOnDuty ? ' [Sedang Berdinas Shift Ini]' : ''}`;
+                    return (
+                      <option key={p.id} value={p.id} disabled={isOnDuty}>
+                        {label}
+                      </option>
+                    );
+                  })}
+              </select>
+              {activeDutyPersonnelIds.length > 0 && (
+                <p className="text-xs text-slate-500">
+                  Personel yang sedang aktif berdinas pada shift berjalan ditandai <span className="font-semibold text-slate-700">[Sedang Berdinas Shift Ini]</span> dan dinonaktifkan dari pilihan demi integritas operasional.
+                </p>
+              )}
+            </div>
 
             {currentOldChief && (
               <SelectField

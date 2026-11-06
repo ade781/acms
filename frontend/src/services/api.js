@@ -57,8 +57,9 @@ api.interceptors.response.use(
   },
   (error) => {
     if (error.response && error.response.status === 401) {
-      const isAuthLogin = error.config?.url?.includes('/auth/login');
-      if (!isAuthLogin) {
+      const url = error.config?.url || '';
+      const isAuthExempt = url.includes('/auth/login') || url.includes('/auth/logout');
+      if (!isAuthExempt) {
         localStorage.removeItem('arff_token');
         localStorage.removeItem('arff_user');
         window.dispatchEvent(new CustomEvent('arff:unauthorized'));

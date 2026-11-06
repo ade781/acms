@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -399,119 +400,122 @@ export default function IncidentDetailPage() {
         </Modal>
       )}
 
-      {/* Modal Lightbox Foto TKP Resolusi Penuh */}
-      {lightboxOpen && incident?.attachments && incident.attachments.length > 0 && (
-        <div className="fixed inset-0 z-50 bg-slate-900/90 flex flex-col justify-between p-4 sm:p-6">
-          {/* Top Bar Lightbox */}
-          <div className="flex items-center justify-between text-white z-10 w-full max-w-6xl mx-auto pb-2 border-b border-slate-700/60">
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-mono tabular-nums font-bold bg-slate-800 px-2.5 py-1 rounded text-red-400 border border-slate-700">
-                Foto {activePhotoIndex + 1} / {incident.attachments.length}
-              </span>
-              <span className="text-xs text-slate-300 hidden sm:inline truncate max-w-md">
-                {incident.title} • <span className="font-mono tabular-nums">{incident.incident_date}</span>
-              </span>
-            </div>
+      {/* Modal Lightbox Foto TKP Resolusi Penuh (Mounted via React Portal di document.body dengan layer z-[90]) */}
+      {lightboxOpen && incident?.attachments && incident.attachments.length > 0 &&
+        createPortal(
+          <div className="fixed inset-0 z-[90] bg-slate-900/95 flex flex-col justify-between p-4 sm:p-6">
+            {/* Top Bar Lightbox */}
+            <div className="flex items-center justify-between text-white z-10 w-full max-w-6xl mx-auto pb-2 border-b border-slate-700/60">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-mono tabular-nums font-bold bg-slate-800 px-2.5 py-1 rounded text-red-400 border border-slate-700">
+                  Foto {activePhotoIndex + 1} / {incident.attachments.length}
+                </span>
+                <span className="text-xs text-slate-300 hidden sm:inline truncate max-w-md">
+                  {incident.title} • <span className="font-mono tabular-nums">{incident.incident_date}</span>
+                </span>
+              </div>
 
-            <div className="flex items-center gap-2">
-              <a
-                href={buildAuthenticatedFileUrl(incident.attachments[activePhotoIndex]?.file_path || incident.attachments[activePhotoIndex]?.file_url)}
-                download={`foto_tkp_${incident.report_number || incident.id}_${activePhotoIndex + 1}.webp`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-white font-medium border border-slate-700 transition-colors duration-100"
-                title="Unduh Berkas Asli"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Unduh Asli</span>
-              </a>
-
-              <button
-                type="button"
-                onClick={() => setLightboxOpen(false)}
-                className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600 text-slate-300 hover:text-white border border-slate-700 transition-colors duration-100"
-                title="Tutup (Esc)"
-                aria-label="Tutup Lightbox"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-
-          {/* Main Photo Display with Navigation Arrows */}
-          <div className="relative flex-1 flex items-center justify-center py-4 w-full max-w-6xl mx-auto overflow-hidden">
-            {/* Prev Button */}
-            {incident.attachments.length > 1 && (
-              <button
-                type="button"
-                disabled={activePhotoIndex === 0}
-                onClick={() => setActivePhotoIndex((p) => Math.max(0, p - 1))}
-                className="absolute left-2 sm:left-4 z-20 p-2.5 rounded-full bg-slate-800/80 hover:bg-slate-700 text-white disabled:opacity-30 disabled:pointer-events-none transition-colors duration-100 border border-slate-700 shadow-lg"
-                title="Foto Sebelumnya (Panah Kiri)"
-                aria-label="Foto Sebelumnya"
-              >
-                <ChevronLeft className="w-6 h-6" />
-              </button>
-            )}
-
-            {/* Photo Image */}
-            <div className="max-h-[75vh] max-w-full flex items-center justify-center p-2">
-              <img
-                src={buildAuthenticatedFileUrl(
-                  incident.attachments[activePhotoIndex]?.file_path ||
-                  incident.attachments[activePhotoIndex]?.file_url
-                )}
-                alt={`Dokumentasi foto TKP resolusi penuh ${activePhotoIndex + 1}`}
-                onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                className="max-h-[72vh] max-w-full object-contain rounded-lg shadow-2xl border border-slate-800"
-              />
-            </div>
-
-            {/* Next Button */}
-            {incident.attachments.length > 1 && (
-              <button
-                type="button"
-                disabled={activePhotoIndex >= incident.attachments.length - 1}
-                onClick={() =>
-                  setActivePhotoIndex((p) =>
-                    Math.min(incident.attachments.length - 1, p + 1)
-                  )
-                }
-                className="absolute right-2 sm:right-4 z-20 p-2.5 rounded-full bg-slate-800/80 hover:bg-slate-700 text-white disabled:opacity-30 disabled:pointer-events-none transition-colors duration-100 border border-slate-700 shadow-lg"
-                title="Foto Selanjutnya (Panah Kanan)"
-                aria-label="Foto Selanjutnya"
-              >
-                <ChevronRight className="w-6 h-6" />
-              </button>
-            )}
-          </div>
-
-          {/* Bottom Thumbnails Strip */}
-          {incident.attachments.length > 1 && (
-            <div className="flex items-center justify-center gap-2 overflow-x-auto py-2 z-10 max-w-4xl mx-auto">
-              {incident.attachments.map((att, idx) => (
-                <button
-                  key={att.id || idx}
-                  type="button"
-                  onClick={() => setActivePhotoIndex(idx)}
-                  className={`relative rounded-md overflow-hidden h-12 w-16 shrink-0 border-2 transition-colors duration-100 ${
-                    idx === activePhotoIndex
-                      ? 'border-red-500 shadow-md'
-                      : 'border-slate-700 opacity-60 hover:opacity-100'
-                  }`}
+              <div className="flex items-center gap-2">
+                <a
+                  href={buildAuthenticatedFileUrl(incident.attachments[activePhotoIndex]?.file_path || incident.attachments[activePhotoIndex]?.file_url)}
+                  download={`foto_tkp_${incident.report_number || incident.id}_${activePhotoIndex + 1}.webp`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-white font-medium border border-slate-700 transition-colors duration-100"
+                  title="Unduh Berkas Asli"
                 >
-                  <img
-                    src={buildAuthenticatedFileUrl(att.file_path || att.file_url)}
-                    alt={`Thumbnail ${idx + 1}`}
-                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                    className="w-full h-full object-cover"
-                  />
+                  <Download className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Unduh Berkas Asli</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => setLightboxOpen(false)}
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600 text-slate-300 hover:text-white border border-slate-700 transition-colors duration-100 cursor-pointer"
+                  title="Tutup (Esc)"
+                  aria-label="Tutup Lightbox"
+                >
+                  <X className="w-5 h-5" />
                 </button>
-              ))}
+              </div>
             </div>
-          )}
-        </div>
-      )}
+
+            {/* Main Photo Display with Navigation Arrows */}
+            <div className="relative flex-1 flex items-center justify-center py-4 w-full max-w-6xl mx-auto overflow-hidden">
+              {/* Prev Button */}
+              {incident.attachments.length > 1 && (
+                <button
+                  type="button"
+                  disabled={activePhotoIndex === 0}
+                  onClick={() => setActivePhotoIndex((p) => Math.max(0, p - 1))}
+                  className="absolute left-2 sm:left-4 z-20 p-2.5 rounded-full bg-slate-800/80 hover:bg-slate-700 text-white disabled:opacity-30 disabled:pointer-events-none transition-colors duration-100 border border-slate-700 shadow-lg cursor-pointer"
+                  title="Foto Sebelumnya (Panah Kiri)"
+                  aria-label="Foto Sebelumnya"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+              )}
+
+              {/* Photo Image */}
+              <div className="max-h-[75vh] max-w-full flex items-center justify-center p-2">
+                <img
+                  src={buildAuthenticatedFileUrl(
+                    incident.attachments[activePhotoIndex]?.file_path ||
+                    incident.attachments[activePhotoIndex]?.file_url
+                  )}
+                  alt={`Dokumentasi foto TKP resolusi penuh ${activePhotoIndex + 1}`}
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  className="max-h-[72vh] max-w-full object-contain rounded-lg shadow-2xl border border-slate-800"
+                />
+              </div>
+
+              {/* Next Button */}
+              {incident.attachments.length > 1 && (
+                <button
+                  type="button"
+                  disabled={activePhotoIndex >= incident.attachments.length - 1}
+                  onClick={() =>
+                    setActivePhotoIndex((p) =>
+                      Math.min(incident.attachments.length - 1, p + 1)
+                    )
+                  }
+                  className="absolute right-2 sm:right-4 z-20 p-2.5 rounded-full bg-slate-800/80 hover:bg-slate-700 text-white disabled:opacity-30 disabled:pointer-events-none transition-colors duration-100 border border-slate-700 shadow-lg cursor-pointer"
+                  title="Foto Selanjutnya (Panah Kanan)"
+                  aria-label="Foto Selanjutnya"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              )}
+            </div>
+
+            {/* Bottom Thumbnails Strip */}
+            {incident.attachments.length > 1 && (
+              <div className="flex items-center justify-center gap-2 overflow-x-auto py-2 z-10 max-w-4xl mx-auto">
+                {incident.attachments.map((att, idx) => (
+                  <button
+                    key={att.id || idx}
+                    type="button"
+                    onClick={() => setActivePhotoIndex(idx)}
+                    className={`relative rounded-md overflow-hidden h-12 w-16 shrink-0 border-2 transition-colors duration-100 cursor-pointer ${
+                      idx === activePhotoIndex
+                        ? 'border-red-500 shadow-md'
+                        : 'border-slate-700 opacity-60 hover:opacity-100'
+                    }`}
+                  >
+                    <img
+                      src={buildAuthenticatedFileUrl(att.file_path || att.file_url)}
+                      alt={`Thumbnail ${idx + 1}`}
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>,
+          document.body
+        )
+      }
     </div>
   );
 }

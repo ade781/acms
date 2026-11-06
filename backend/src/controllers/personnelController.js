@@ -102,7 +102,15 @@ export const getPersonnelById = async (req, res) => {
        ORDER BY pd.created_at DESC`,
       [id]
     );
-    personnel.documents = (docs || []).map((doc) => ({
+    const userRole = req.user?.role;
+    const isOwner = (req.user?.personnel_id && Number(req.user.personnel_id) === Number(id)) ||
+                    (personnel.user_id && Number(req.user?.id) === Number(personnel.user_id));
+    const canViewMcu = ['admin', 'dept_head'].includes(userRole) || isOwner;
+    const visibleDocs = canViewMcu
+      ? (docs || [])
+      : (docs || []).filter((doc) => doc.document_type !== 'medical_checkup');
+
+    personnel.documents = visibleDocs.map((doc) => ({
       ...doc,
       view_url: `/api/documents/${doc.id}/view`,
       download_url: `/api/documents/${doc.id}/download`,
@@ -371,6 +379,11 @@ export const updatePersonnel = async (req, res) => {
 
     // Hanya staf kepemimpinan (Admin, Supervisor, Chief, Dept Head) yang berhak mengubah data kedinasan:
     // jabatan (rank_position), regu (team_group), status keaktifan (is_active), status kepegawaian, dan nama resmi
+    const validOperationalTeams = ['Alpha', 'Bravo', 'Charlie', 'Delta'];
+    if (isStaffAdmin && team_group && !validOperationalTeams.includes(team_group)) {
+      return errorResponse(res, 'Regu dinas harus salah satu dari: Alpha, Bravo, Charlie, Delta', 400);
+    }
+
     const effectiveRankPosition = isStaffAdmin && rank_position ? rank_position : existing[0].rank_position;
     const effectiveTeamGroup = isStaffAdmin && team_group ? team_group : existing[0].team_group;
     const effectiveIsActive = isStaffAdmin && is_active !== undefined ? Number(is_active) : existing[0].is_active;
@@ -439,7 +452,6 @@ export const updatePersonnel = async (req, res) => {
     // Proteksi Integritas Ketua Regu (Chief): Setiap regu operasional HANYA BISA MEMILIKI MAKSIMAL 1 KETUA REGU (CHIEF)
     const isTargetingChief = isChiefRank(effectiveRankPosition) || (rank_position && mapRankPositionToRole(rank_position) === 'chief');
     const targetTeam = effectiveTeamGroup;
-    const validOperationalTeams = ['Alpha', 'Bravo', 'Charlie', 'Delta'];
 
     if (isStaffAdmin && isTargetingChief && validOperationalTeams.includes(targetTeam) && effectiveIsActive !== 0) {
       const [existingChiefs] = await pool.query(
@@ -542,6 +554,11 @@ export const updatePersonnel = async (req, res) => {
         ]);
       } else if (isStaffAdmin && full_name) {
         await pool.query('UPDATE users SET name = ? WHERE id = ?', [effectiveFullName, existing[0].user_id]);
+      }
+
+      // Inkrementasi token_version saat mutasi deaktifasi (is_active = 0) agar sesi login pengguna langsung dicabut
+      if (isStaffAdmin && effectiveIsActive === 0) {
+        await pool.query('UPDATE users SET token_version = token_version + 1 WHERE id = ?', [existing[0].user_id]);
       }
     }
 
@@ -684,7 +701,7 @@ export const resetPersonnelPassword = async (req, res) => {
     const defaultHash = await bcrypt.hash('123456', salt);
 
     await pool.query(
-      'UPDATE users SET password_hash = ?, must_change_password = 1 WHERE id = ?',
+      'UPDATE users SET password_hash = ?, must_change_password = 1, token_version = token_version + 1 WHERE id = ?',
       [defaultHash, user_id]
     );
 

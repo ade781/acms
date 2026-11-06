@@ -621,6 +621,7 @@ export default function VehicleReportsPage() {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
+                min={startDate || undefined}
                 required
                 className="px-2.5 py-1 rounded-lg border border-slate-300 text-xs font-mono tabular-nums focus:ring-1 focus:ring-red-600 outline-none transition-colors duration-100 bg-white"
               />

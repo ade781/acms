@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   User,
@@ -60,13 +61,24 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
   };
 
   useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    }
     if (isOpen) {
       setFeedbackSuccess(null);
       setFeedbackError(null);
       setIsChangingPassword(false);
       loadData();
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleKeyDown);
     }
-  }, [isOpen]);
+    return () => {
+      document.body.style.overflow = 'unset';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -101,8 +113,8 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
 
   const activeUser = profileData || user;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 overflow-y-auto print:hidden">
+  const modalContent = (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 overflow-y-auto print:hidden">
       <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden">
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 flex-shrink-0">
@@ -272,4 +284,6 @@ export default function DesktopProfileModal({ isOpen, onClose }) {
       />
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : null;
 }

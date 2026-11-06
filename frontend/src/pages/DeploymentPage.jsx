@@ -48,11 +48,18 @@ export default function DeploymentPage() {
     }
   }, [successMsg]);
 
-  // Jadwal dinas operasional shift aktif
-  const scheduledTeam = useMemo(
+  // Jadwal dinas operasional shift aktif (gunakan scheduled_team resmi dari API / fallback rumus)
+  const scheduledTeamCalc = useMemo(
     () => getScheduledTeam(activeDate, activeShiftNumber),
     [activeDate, activeShiftNumber]
   );
+  const [serverScheduledTeam, setServerScheduledTeam] = useState(null);
+  const scheduledTeam = serverScheduledTeam || scheduledTeamCalc;
+
+  useEffect(() => {
+    setServerScheduledTeam(null);
+  }, [activeDate, activeShiftNumber, activeTeam]);
+
   const isScheduledTeam = cleanTeam(activeTeam) === cleanTeam(scheduledTeam);
   const isUserScheduledTeam = isAdmin || isDeptHead || cleanTeam(user?.team_group) === cleanTeam(scheduledTeam);
   const canAccessPlot = isUserScheduledTeam && (isScheduledTeam || isAdmin || isDeptHead);
@@ -76,6 +83,30 @@ export default function DeploymentPage() {
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // In-app navigation guard (intersep navigasi link jika ada perubahan formasi belum disimpan)
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+
+    const handleAnchorClick = (e) => {
+      const anchor = e.target.closest('a');
+      if (anchor && anchor.href && !anchor.target) {
+        const targetUrl = new URL(anchor.href, window.location.href);
+        if (targetUrl.origin === window.location.origin && targetUrl.pathname !== window.location.pathname) {
+          const confirmLeave = window.confirm(
+            'Terdapat perubahan formasi ploting yang belum disimpan. Yakin ingin meninggalkan halaman ini?'
+          );
+          if (!confirmLeave) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }
+      }
+    };
+
+    document.addEventListener('click', handleAnchorClick, true);
+    return () => document.removeEventListener('click', handleAnchorClick, true);
   }, [hasUnsavedChanges]);
 
   // ID Personel yang telah ditugaskan di slot armada manapun
@@ -112,7 +143,21 @@ export default function DeploymentPage() {
 
   // Fetch current deployment & master data concurrently
   const fetchDeploymentData = useCallback(async (options = {}) => {
+    const currentTeam = cleanTeam(activeTeam);
+
     if (!canAccessPlot) {
+      try {
+        const depRes = await api.get(
+          `/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`,
+          { signal: options?.signal }
+        );
+        const depPayload = depRes.data?.data || depRes.data;
+        if (depPayload?.scheduled_team) {
+          setServerScheduledTeam(depPayload.scheduled_team);
+        }
+      } catch (e) {
+        // Abaikan error saat bukan shift aktif
+      }
       setLoading(false);
       return;
     }
@@ -124,13 +169,16 @@ export default function DeploymentPage() {
     }
 
     try {
-      const currentTeam = cleanTeam(activeTeam);
-
       const [pRes, vRes, depRes] = await Promise.all([
         api.get(`/personnel?team_group=${currentTeam}&is_active=1`, { signal: options?.signal }),
         api.get(`/readiness/vehicles?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`, { signal: options?.signal }),
         api.get(`/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`, { signal: options?.signal }),
       ]);
+
+      const depPayload = depRes.data?.data || depRes.data;
+      if (depPayload?.scheduled_team) {
+        setServerScheduledTeam(depPayload.scheduled_team);
+      }
 
       const personnel = Array.isArray(pRes.data?.data)
         ? pRes.data.data
@@ -148,35 +196,30 @@ export default function DeploymentPage() {
       }));
       setVehicles(fetchedVehicles);
 
-      const depPayload = depRes.data?.data || depRes.data;
       const deploymentsList = Array.isArray(depPayload?.deployments)
         ? depPayload.deployments
         : (Array.isArray(depRes.data?.deployments) ? depRes.data.deployments : []);
 
-      // Absent personnel (untuk memfilter dropdown agar personel cuti tidak terpilih bertugas)
-      const existingAbsent = (deploymentsList || []).filter(
-        (d) => d.deployment_type === 'absent'
+      // Ambil data cuti resmi langsung dari depPayload.absents
+      const rawAbsents = Array.isArray(depPayload?.absents)
+        ? depPayload.absents
+        : (deploymentsList || []).filter((d) => d.deployment_type === 'absent');
+      const absentIdSet = new Set(rawAbsents.map((d) => Number(d.personnel_id)));
+
+      setAbsentList(
+        rawAbsents.map((d) => ({
+          personnel_id: d.personnel_id,
+          reason: d.absent_reason || d.reason || 'cuti',
+          notes: d.notes || '',
+        }))
       );
-      const absentIdSet = new Set(existingAbsent.map((d) => Number(d.personnel_id)));
 
-      if (existingAbsent.length > 0) {
-        setAbsentList(
-          existingAbsent.map((d) => ({
-            personnel_id: d.personnel_id,
-            reason: d.absent_reason || 'cuti',
-            notes: d.notes || '',
-          }))
-        );
-      } else {
-        setAbsentList([]);
-      }
-
-      // Initialize vehicle & watchroom slots: default armada 3 slot (1 PIC + 2 kru), default posko 1 slot (1 PIC)
+      // Initialize vehicle & watchroom slots: default armada & posko 3 slot (1 PIC + 2 kru)
       const initialSlots = {};
       fetchedVehicles.forEach((v) => {
         const vId = v.id;
         const isPosko = v.category === 'posko' || v.code_name === 'WATCHROOM';
-        const defaultEmptyCount = isPosko ? 1 : 3;
+        const defaultEmptyCount = 3;
 
         const existingForUnit = (deploymentsList || []).filter((d) =>
           isPosko
@@ -198,13 +241,11 @@ export default function DeploymentPage() {
             initialSlots[vId].push({ personnel_id: '', is_pic: false, personnel_name: '' });
           }
         } else {
-          initialSlots[vId] = isPosko
-            ? [{ personnel_id: '', is_pic: true, personnel_name: '' }]
-            : [
-                { personnel_id: '', is_pic: true, personnel_name: '' },
-                { personnel_id: '', is_pic: false, personnel_name: '' },
-                { personnel_id: '', is_pic: false, personnel_name: '' },
-              ];
+          initialSlots[vId] = [
+            { personnel_id: '', is_pic: true, personnel_name: '' },
+            { personnel_id: '', is_pic: false, personnel_name: '' },
+            { personnel_id: '', is_pic: false, personnel_name: '' },
+          ];
         }
       });
       setVehicleSlots(initialSlots);
@@ -250,19 +291,17 @@ export default function DeploymentPage() {
     });
   }, []);
 
-  // Add slot to vehicle (maksimal 4 armada, maksimal 2 posko watchroom)
+  // Add slot to vehicle (maksimal 4 personel per unit armada / posko watchroom)
   const handleAddSlot = useCallback((vehicleId) => {
     setVehicleSlots((prev) => {
       const currentList = [...(prev[vehicleId] || [])];
-      const unit = vehicles.find((v) => Number(v.id) === Number(vehicleId));
-      const isPosko = unit?.category === 'posko' || unit?.code_name === 'WATCHROOM';
-      const maxSlots = isPosko ? 2 : 4;
+      const maxSlots = 4;
       if (currentList.length < maxSlots) {
         currentList.push({ personnel_id: '', is_pic: false, personnel_name: '' });
       }
       return { ...prev, [vehicleId]: currentList };
     });
-  }, [vehicles]);
+  }, []);
 
   // Remove slot from vehicle (fleksibel selama masih ada minimal 1 slot PIC)
   const handleRemoveSlot = useCallback((vehicleId, slotIndex) => {

@@ -36,11 +36,6 @@ export default function MobileReports() {
   const [deptHeadData, setDeptHeadData] = useState(null);
   const [activities, setActivities] = useState([]);
   const [incidents, setIncidents] = useState([]);
-  const [vehicleIssues, setVehicleIssues] = useState({
-    current_issues: [],
-    backlog_issues: [],
-    resolved_this_shift: [],
-  });
 
   // Modal State
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
@@ -69,7 +64,6 @@ export default function MobileReports() {
       setDeptHeadData(data.deptHeadData);
       setActivities(data.activities || []);
       setIncidents(data.incidents || []);
-      setVehicleIssues(data.vehicleIssues || { current_issues: [], backlog_issues: [], resolved_this_shift: [] });
     } catch (err) {
       if (err.name === 'CanceledError' || err.name === 'AbortError' || err.code === 'ERR_CANCELED') return;
       console.error('Error fetching daily mobile report data:', err);

@@ -53,6 +53,15 @@ export function AuthProvider({ children }) {
 
   // Sync token to API defaults and verify
   const isVerifyingRef = React.useRef(false);
+  const isLoggingOutRef = React.useRef(false);
+
+  // Helper membersihkan sesi lokal tanpa memicu request network berulang
+  const clearSession = () => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem('arff_token');
+    localStorage.removeItem('arff_user');
+  };
 
   useEffect(() => {
     async function verifySession() {
@@ -75,7 +84,7 @@ export function AuthProvider({ children }) {
       } catch (err) {
         console.warn('Sesi kedaluwarsa atau server belum siap:', err.message);
         if (err.response && err.response.status === 401) {
-          logout();
+          clearSession();
         }
       } finally {
         setLoading(false);
@@ -89,7 +98,7 @@ export function AuthProvider({ children }) {
   // Tangani event sesi kedaluwarsa secara otomatis
   useEffect(() => {
     const handleUnauthorized = () => {
-      logout();
+      clearSession();
     };
     window.addEventListener('arff:unauthorized', handleUnauthorized);
     return () => {
@@ -123,11 +132,27 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
-    api.post('/auth/logout').catch(() => {});
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem('arff_token');
-    localStorage.removeItem('arff_user');
+    if (isLoggingOutRef.current) return;
+    isLoggingOutRef.current = true;
+
+    const currentToken = localStorage.getItem('arff_token') || token;
+
+    // Bersihkan sesi lokal seketika agar antarmuka merespons cepat
+    clearSession();
+
+    // Beritahu backend untuk mencabut sesi (inkremen token_version) jika token ada
+    if (currentToken) {
+      api
+        .post('/auth/logout', null, {
+          headers: { Authorization: `Bearer ${currentToken}` }
+        })
+        .catch(() => {})
+        .finally(() => {
+          isLoggingOutRef.current = false;
+        });
+    } else {
+      isLoggingOutRef.current = false;
+    }
   };
 
   const refreshUser = async () => {

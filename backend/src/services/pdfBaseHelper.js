@@ -155,7 +155,7 @@ export const formatIndonesianDateTime = (dateInput, timeInput) => {
 // 5. Deteksi Status Sah Dokumen Shift Otomatis (Perbaikan Permanently Draft Bug)
 /**
  * Menentukan apakah shift telah selesai dan dianggap sah secara resmi:
- * - Jika status di DB sudah 'closed' -> true
+ * - Jika status di DB sudah 'closed' atau 'approved' -> true
  * - Jika tanggal shift < hari ini -> true (memperhitungkan shift 3 malam yang berakhir jam 07:00 WIB)
  * - Jika tanggal shift == hari ini dan jam shift telah berakhir -> true:
  *     * Shift 1 (07:00 - 13:00 WIB) sah setelah >= 13:00 WIB
@@ -163,14 +163,27 @@ export const formatIndonesianDateTime = (dateInput, timeInput) => {
  *     * Shift 3 (20:00 - 07:00 WIB) baru sah besok pagi setelah >= 07:00 WIB
  * - Jika shift masih berlangsung atau di masa depan -> false (Draft)
  */
-export const isShiftOfficial = (shiftDateStr, shiftNumber, status = '', customNow = null) => {
-  if ((status || '').toLowerCase() === 'closed') {
+export const isShiftOfficial = (shiftDateOrObj, shiftNumber = null, status = '', customNow = null) => {
+  let shiftDateStr = shiftDateOrObj;
+  let sNum = shiftNumber;
+  let sStatus = status;
+  let cNow = customNow;
+
+  if (typeof shiftDateOrObj === 'object' && shiftDateOrObj !== null) {
+    shiftDateStr = shiftDateOrObj.shift_date || shiftDateOrObj.date;
+    sNum = shiftDateOrObj.shift_number ?? shiftNumber;
+    sStatus = shiftDateOrObj.status ?? status ?? '';
+    cNow = shiftDateOrObj.now ?? customNow;
+  }
+
+  const normStatus = (sStatus || '').toLowerCase();
+  if (normStatus === 'closed' || normStatus === 'approved') {
     return true;
   }
 
   if (!shiftDateStr) return false;
 
-  const now = customNow || new Date();
+  const now = cNow || new Date();
   const utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
   const wibDate = new Date(utcMs + (7 * 3600000));
 
@@ -192,8 +205,8 @@ export const isShiftOfficial = (shiftDateStr, shiftNumber, status = '', customNo
     }
 
     if (diffDays === 1) {
-      if (Number(shiftNumber) === 3) {
-        // Shift 3 kemarin berakhir hari ini pukul 07:00 WIB (menit 420)
+      if (Number(sNum) === 3 || sNum === null || sNum === undefined) {
+        // Shift 3 kemarin (atau laporan harian penuh 24 jam) berakhir hari ini pukul 07:00 WIB (menit 420)
         return currentMinutes >= 420;
       }
       return true;
@@ -203,15 +216,18 @@ export const isShiftOfficial = (shiftDateStr, shiftNumber, status = '', customNo
   }
 
   if (normalizedShiftDate === todayWibStr) {
-    const shiftNum = Number(shiftNumber) || 1;
-    if (shiftNum === 1) {
+    const num = Number(sNum) || 0;
+    if (num === 1) {
       // 07:00 - 13:00 WIB (selesai jam 13:00 = 780 menit)
       return currentMinutes >= 780;
-    } else if (shiftNum === 2) {
+    } else if (num === 2) {
       // 13:00 - 20:00 WIB (selesai jam 20:00 = 1200 menit)
       return currentMinutes >= 1200;
-    } else if (shiftNum === 3) {
+    } else if (num === 3) {
       // Shift 3 dimulai jam 20:00 hari ini dan berakhir besok jam 07:00 WIB
+      return false;
+    } else {
+      // Laporan harian penuh 24 jam baru sah setelah shift 3 berakhir besok jam 07:00 WIB
       return false;
     }
   }
@@ -243,29 +259,35 @@ export const drawOfficialHeader = (
     docSubTitle = null;
   }
 
-  // 1. Kop Instansi Baku (PT Angkasa Pura Indonesia, ARFF Section, YIA)
-  doc.fontSize(11).font('Helvetica-Bold').fillColor('#0f172a').text(
+  // 1. Kop Instansi Baku 4 Baris (Standarisasi Kedinasan PT Angkasa Pura Indonesia YIA)
+  doc.fontSize(10.5).font('Helvetica-Bold').fillColor('#0f172a').text(
     'PT ANGKASA PURA INDONESIA',
     sX,
-    30,
+    25,
     { align: 'center', width: cWidth }
   );
-  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#334155').text(
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#334155').text(
+    'KANTOR CABANG BANDARA INTERNASIONAL YOGYAKARTA (YIA)',
+    sX,
+    38,
+    { align: 'center', width: cWidth }
+  );
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0f172a').text(
     'AIRPORT RESCUE & FIRE FIGHTING (ARFF) SECTION',
     sX,
-    44,
+    50,
     { align: 'center', width: cWidth }
   );
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#b91c1c').text(
-    'BANDARA INTERNASIONAL YOGYAKARTA (YIA)',
+  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#b91c1c').text(
+    'KODE WAHI • KATEGORI 8',
     sX,
-    57,
+    62,
     { align: 'center', width: cWidth }
   );
 
   // 2. Garis ganda pemisah kop kedinasan tebal (1.5pt) dan tipis (0.5pt)
-  doc.moveTo(sX, 72).lineTo(sX + cWidth, 72).lineWidth(1.5).strokeColor('#1e293b').stroke();
-  doc.moveTo(sX, 74.5).lineTo(sX + cWidth, 74.5).lineWidth(0.5).strokeColor('#94a3b8').stroke();
+  doc.moveTo(sX, 73).lineTo(sX + cWidth, 73).lineWidth(1.5).strokeColor('#1e293b').stroke();
+  doc.moveTo(sX, 75.5).lineTo(sX + cWidth, 75.5).lineWidth(0.5).strokeColor('#94a3b8').stroke();
 
   // 3. Judul Dokumen & Subjudul di BAWAH garis kop resmi
   let currentY = 82;
@@ -542,7 +564,14 @@ export const drawDailySignatures = async (
   doc.fontSize(7.5).font('Helvetica').fillColor('#0f172a').text('Mengetahui / Mengesahkan,', shX, shY, { width: shWidth, align: 'center' });
   doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#0f172a').text('ARFF SECTION HEAD', shX, shY + 11, { width: shWidth, align: 'center' });
 
-  if (headSigUrl) {
+  if (sectionHead.isDraft) {
+    doc.fontSize(7).font('Helvetica-Oblique').fillColor('#94a3b8').text(
+      '( Menunggu Pengesahan Dinas )',
+      shX,
+      shY + 34,
+      { width: shWidth, align: 'center' }
+    );
+  } else if (headSigUrl) {
     const headSigBuf = await resolveSignatureBuffer(headSigUrl);
     if (headSigBuf) {
       try {

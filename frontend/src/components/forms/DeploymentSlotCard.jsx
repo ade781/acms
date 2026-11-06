@@ -24,7 +24,7 @@ function DeploymentSlotCard({
   isSupervisor = false,
 }) {
   const isPosko = vehicle.category === 'posko' || vehicle.code_name === 'WATCHROOM';
-  const maxSlots = isPosko ? 2 : 4;
+  const maxSlots = 4;
   const minSlots = 1;
 
   const IconComponent = getVehicleIcon(vehicle);
@@ -87,7 +87,7 @@ function DeploymentSlotCard({
     <div
       className={`bg-white rounded-xl border shadow-sm p-4 sm:p-5 flex flex-col justify-between transition-colors duration-100 hover:border-slate-300 ${
         isUserThePic
-          ? 'border-emerald-500'
+          ? 'border-amber-400 ring-1 ring-amber-300'
           : isUserKru
           ? 'border-blue-400'
           : isUnserviceable
@@ -104,7 +104,7 @@ function DeploymentSlotCard({
             <div
               className={`w-11 h-11 rounded-lg flex items-center justify-center flex-shrink-0 ${
                 isUserThePic
-                  ? 'bg-emerald-100 text-emerald-800'
+                  ? 'bg-amber-100 text-amber-800'
                   : isUserKru
                   ? 'bg-blue-100 text-blue-800'
                   : cfg.iconBg
@@ -118,7 +118,7 @@ function DeploymentSlotCard({
                   {vehicle.code_name || vehicle.vehicle_name}
                 </h4>
                 {isUserThePic && (
-                  <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 font-sans">
+                  <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 font-sans">
                     PIC Anda
                   </span>
                 )}
@@ -164,14 +164,14 @@ function DeploymentSlotCard({
               <div
                 key={`${vehicle.id || vehicle.vehicle_id || 'v'}-slot-${index}`}
                 className={`p-2.5 rounded-lg border transition-colors duration-100 ${
-                  isCurrentUser
-                    ? isPic
-                      ? 'border-amber-400 bg-amber-50/60 ring-1 ring-amber-300'
-                      : 'border-blue-300 bg-blue-50/60 ring-1 ring-blue-300'
-                    : isPic
-                    ? isSlotFilled
+                  isPic
+                    ? isCurrentUser
+                      ? 'border-amber-300 bg-amber-50/40 ring-1 ring-amber-300'
+                      : isSlotFilled
                       ? 'border-amber-300 bg-amber-50/40'
                       : 'border-dashed border-amber-300 bg-amber-50/20'
+                    : isCurrentUser
+                    ? 'border-blue-300 bg-blue-50/60 ring-1 ring-blue-300'
                     : isSlotFilled
                     ? 'border-blue-200 bg-blue-50/40'
                     : 'border-dashed border-slate-200 bg-slate-50/40'
@@ -199,10 +199,12 @@ function DeploymentSlotCard({
                       value={slot.personnel_id || ''}
                       onChange={(e) => onSlotPersonnelChange(index, e.target.value)}
                       className={`w-full rounded-lg border px-2.5 py-1.5 text-xs min-h-[38px] font-sans transition-colors duration-100 focus:outline-none focus:ring-2 ${
-                        isCurrentUser
-                          ? 'border-emerald-400 bg-white text-emerald-950 font-bold focus:ring-emerald-500'
-                          : isPic
-                          ? 'border-amber-300 bg-white text-slate-900 focus:ring-amber-400'
+                        isPic
+                          ? isCurrentUser
+                            ? 'border-amber-400 bg-white text-slate-900 font-bold focus:ring-amber-400 ring-1 ring-amber-200'
+                            : 'border-amber-300 bg-white text-slate-900 focus:ring-amber-400'
+                          : isCurrentUser
+                          ? 'border-blue-400 bg-white text-slate-900 font-bold focus:ring-blue-400 ring-1 ring-blue-200'
                           : isSlotFilled
                           ? 'border-blue-300 bg-white text-slate-900 focus:ring-blue-400'
                           : 'border-slate-300 bg-white text-slate-900 focus:ring-slate-400'
@@ -235,12 +237,14 @@ function DeploymentSlotCard({
                   ) : (
                     <div
                       className={`text-xs min-h-[38px] flex items-center px-2 rounded font-sans ${
-                        isCurrentUser
-                          ? 'font-extrabold text-emerald-950 bg-emerald-100/60'
-                          : isPic
-                          ? displayName
+                        isPic
+                          ? isCurrentUser
+                            ? 'font-bold text-amber-950 bg-amber-100/60'
+                            : displayName
                             ? 'font-bold text-amber-950'
                             : 'italic text-amber-700/60'
+                          : isCurrentUser
+                          ? 'font-bold text-blue-950 bg-blue-100/60'
                           : displayName
                           ? 'font-semibold text-blue-950'
                           : 'italic text-slate-400'

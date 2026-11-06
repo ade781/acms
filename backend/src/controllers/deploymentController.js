@@ -12,6 +12,21 @@ export const getCurrentDeployment = async (req, res) => {
     const shiftDate = date || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
     const shiftNumber = shift ? Number(shift) : 1;
 
+    // Ambil jadwal resmi dinas operasional untuk shiftDate & shiftNumber
+    const [rosterOverrides] = await pool.query(
+      'SELECT shift_1_team, shift_2_team, shift_3_team FROM schedule_rosters WHERE roster_date = ?',
+      [shiftDate]
+    );
+    let scheduledTeam;
+    if (rosterOverrides.length > 0) {
+      const o = rosterOverrides[0];
+      scheduledTeam = shiftNumber == 1 ? o.shift_1_team : (shiftNumber == 2 ? o.shift_2_team : o.shift_3_team);
+    } else {
+      const storedCycles = await getStoredCycles();
+      const roster = resolveRosterForDate(shiftDate, storedCycles);
+      scheduledTeam = shiftNumber == 1 ? roster.shift_1 : (shiftNumber == 2 ? roster.shift_2 : roster.shift_3);
+    }
+
     // Ambil seluruh cuti/absent resmi untuk shift_date ini dari personnel_shifts
     const [dateAbsentRows] = await pool.query(
       `SELECT DISTINCT pd.id, pd.shift_id, pd.personnel_id, pd.deployment_type, pd.absent_reason, pd.notes,
@@ -94,6 +109,7 @@ export const getCurrentDeployment = async (req, res) => {
         shift_date: shiftDate,
         shift_number: shiftNumber,
         team_group: targetTeam,
+        scheduled_team: scheduledTeam || null,
         total_team_members: totalTeamMembers,
         dept_head: deptHeadData,
         deployments: [],
@@ -197,6 +213,10 @@ export const getCurrentDeployment = async (req, res) => {
 
     return successResponse(res, 'Data ploting shift berhasil diambil', {
       shift: currentShift,
+      shift_date: shiftDate,
+      shift_number: shiftNumber,
+      team_group: currentShift.team_group || targetTeam,
+      scheduled_team: scheduledTeam || null,
       total_team_members: totalTeamMembers,
       dept_head: deptHeadData,
       vehicles: Object.values(vehicleDeploymentsMap),
@@ -212,6 +232,7 @@ export const getCurrentDeployment = async (req, res) => {
 
 export const saveDeploymentBatch = async (req, res) => {
   const connection = await pool.getConnection();
+  let transactionStarted = false;
   try {
     const {
       shift_date,
@@ -223,13 +244,11 @@ export const saveDeploymentBatch = async (req, res) => {
     } = req.body;
 
     if (!shift_date || !shift_number || !team_group) {
-      connection.release();
       return errorResponse(res, 'Tanggal shift, nomor shift, dan regu dinas wajib diisi', 400);
     }
 
     const validTeams = ['Alpha', 'Bravo', 'Charlie', 'Delta'];
     if (!validTeams.includes(team_group)) {
-      connection.release();
       return errorResponse(res, 'Regu dinas harus salah satu dari: Alpha, Bravo, Charlie, Delta', 400);
     }
 
@@ -253,7 +272,6 @@ export const saveDeploymentBatch = async (req, res) => {
       }
 
       if (scheduledTeam && team_group.toLowerCase() !== scheduledTeam.toLowerCase()) {
-        connection.release();
         return errorResponse(
           res,
           `Akses ditolak: Regu ${team_group} sedang tidak bertugas aktif (libur/off) pada tanggal ${shift_date} Shift ${shift_number}. Operasional shift ini dipimpin oleh Regu ${scheduledTeam}.`,
@@ -261,7 +279,6 @@ export const saveDeploymentBatch = async (req, res) => {
         );
       }
       if (req.user?.team_group && req.user.team_group.toLowerCase() !== team_group.toLowerCase()) {
-        connection.release();
         return errorResponse(
           res,
           `Akses ditolak: Anda terdaftar di Regu ${req.user.team_group} dan tidak berwenang memploting Regu ${team_group}.`,
@@ -283,7 +300,6 @@ export const saveDeploymentBatch = async (req, res) => {
     // Cek apakah ada personel yang sedang cuti di database namun disusupkan pada unit operasional
     for (const d of deployments) {
       if (d.deployment_type !== 'absent' && d.personnel_id && dbAbsentIds.has(Number(d.personnel_id))) {
-        connection.release();
         return errorResponse(
           res,
           `Personel (ID: ${d.personnel_id}) tercatat berstatus izin/cuti resmi pada tanggal ${shift_date}. Personel yang sedang cuti tidak dapat ditugaskan pada unit operasional.`,
@@ -298,7 +314,6 @@ export const saveDeploymentBatch = async (req, res) => {
       if (!d.personnel_id) continue;
       const pId = Number(d.personnel_id);
       if (assignedPersonnelIds.has(pId)) {
-        connection.release();
         return errorResponse(
           res,
           `Personel (ID: ${pId}) ditugaskan lebih dari satu kali pada shift ini. Satu anggota hanya boleh ditugaskan pada 1 kendaraan atau berstatus izin/cuti.`,
@@ -308,14 +323,13 @@ export const saveDeploymentBatch = async (req, res) => {
       assignedPersonnelIds.add(pId);
     }
 
-    // Validasi aturan: Setiap unit operasional yang ditugaskan wajib memiliki tepat 1 PIC dan maksimal 4 personel (armada) / 2 personel (posko)
+    // Validasi aturan: Setiap unit operasional yang ditugaskan wajib memiliki tepat 1 PIC dan maksimal 4 personel
     const unitCrewCount = {};
     const unitPicCount = {};
 
     for (const d of deployments) {
       if (d.deployment_type === 'vehicle_utama' || d.deployment_type === 'vehicle_pendukung' || d.deployment_type === 'watchroom') {
         if (!d.vehicle_id) {
-          connection.release();
           return errorResponse(
             res,
             `Penugasan personel (ID: ${d.personnel_id}) wajib mencantumkan unit armada/posko yang valid.`,
@@ -345,10 +359,9 @@ export const saveDeploymentBatch = async (req, res) => {
       const vObj = vehicleMap[vId];
       const unitName = vObj?.code_name || vObj?.vehicle_name || `Unit ID ${vId}`;
       const isPosko = vObj?.category === 'posko' || vObj?.code_name === 'WATCHROOM';
-      const maxSlots = isPosko ? 2 : 4;
+      const maxSlots = 4; // Selaras 4 personel untuk armada dan posko
 
       if (count > maxSlots) {
-        connection.release();
         return errorResponse(
           res,
           `${isPosko ? 'Posko' : 'Unit'} ${unitName} memiliki ${count} personel (maksimal ${maxSlots} personel per ${isPosko ? 'posko' : 'unit armada'}).`,
@@ -357,7 +370,6 @@ export const saveDeploymentBatch = async (req, res) => {
       }
       const picCount = unitPicCount[vId] || 0;
       if (picCount === 0) {
-        connection.release();
         return errorResponse(
           res,
           `${isPosko ? 'Posko' : 'Unit'} ${unitName} belum memiliki Penanggung Jawab (PIC). Silakan tunjuk tepat 1 PIC untuk ${isPosko ? 'posko' : 'unit'} ini.`,
@@ -365,7 +377,6 @@ export const saveDeploymentBatch = async (req, res) => {
         );
       }
       if (picCount > 1) {
-        connection.release();
         return errorResponse(
           res,
           `${isPosko ? 'Posko' : 'Unit'} ${unitName} memiliki ${picCount} PIC. Tepat 1 personel wajib ditunjuk sebagai Penanggung Jawab (PIC).`,
@@ -375,6 +386,7 @@ export const saveDeploymentBatch = async (req, res) => {
     }
 
     await connection.beginTransaction();
+    transactionStarted = true;
 
     let supId = supervisor_id || null;
 
@@ -458,7 +470,14 @@ export const saveDeploymentBatch = async (req, res) => {
         `INSERT INTO personnel_deployments (
           shift_id, personnel_id, deployment_type, vehicle_id,
           is_pic, absent_reason, assigned_by, notes
-        ) VALUES ?`,
+        ) VALUES ?
+        ON DUPLICATE KEY UPDATE
+          deployment_type = VALUES(deployment_type),
+          vehicle_id = VALUES(vehicle_id),
+          is_pic = VALUES(is_pic),
+          absent_reason = VALUES(absent_reason),
+          assigned_by = VALUES(assigned_by),
+          notes = VALUES(notes)`,
         [batchValues]
       );
     }
@@ -514,7 +533,13 @@ export const saveDeploymentBatch = async (req, res) => {
       total_personnel_assigned: deployments.length
     });
   } catch (error) {
-    await connection.rollback();
+    if (transactionStarted) {
+      try {
+        await connection.rollback();
+      } catch (rbErr) {
+        console.error('Error rolling back transaction:', rbErr);
+      }
+    }
     console.error('Error saveDeploymentBatch:', error);
     return errorResponse(res, 'Gagal menyimpan ploting personel: ' + error.message, 500);
   } finally {

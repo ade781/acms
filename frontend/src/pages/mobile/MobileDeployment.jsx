@@ -6,11 +6,18 @@ import api from '../../services/api';
 import MobilePlotCard from '../../components/mobile/ploting/MobilePlotCard';
 import MobileCrewPickerSheet from '../../components/mobile/ploting/MobileCrewPickerSheet';
 
-export default function MobileDeployment({ onOpenAuditModal }) {
+export default function MobileDeployment({ onOpenCutiModal } = {}) {
   const { user, isAdmin, isDeptHead, isSupervisor, isChief, activeDate, activeShiftNumber, activeTeam } = useAuth();
 
   // Verifikasi apakah user berhak memploting shift ini
-  const scheduledTeam = getScheduledTeam(activeDate, activeShiftNumber);
+  const scheduledTeamCalc = getScheduledTeam(activeDate, activeShiftNumber);
+  const [serverScheduledTeam, setServerScheduledTeam] = useState(null);
+  const scheduledTeam = serverScheduledTeam || scheduledTeamCalc;
+
+  useEffect(() => {
+    setServerScheduledTeam(null);
+  }, [activeDate, activeShiftNumber, activeTeam]);
+
   const userTeam = cleanTeam(user?.team_group || '');
   const isAuthorizedShift = isAdmin || isDeptHead || (userTeam && userTeam.toLowerCase() === scheduledTeam.toLowerCase());
   const canEditPlot = Boolean(isAuthorizedShift && (isSupervisor || isChief || isAdmin || isDeptHead));
@@ -117,7 +124,21 @@ export default function MobileDeployment({ onOpenAuditModal }) {
 
   // Fetch all initial data (Hanya dieksekusi jika berhak berdinas di shift ini demi menghemat beban request server)
   const loadPlotingData = useCallback(async (signal) => {
+    const currentTeam = cleanTeam(activeTeam);
+
     if (!isAuthorizedShift) {
+      try {
+        const depRes = await api.get(
+          `/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`,
+          { signal }
+        );
+        const depPayload = depRes.data?.data || depRes.data;
+        if (depPayload?.scheduled_team) {
+          setServerScheduledTeam(depPayload.scheduled_team);
+        }
+      } catch (e) {
+        // Abaikan error saat bukan shift aktif
+      }
       setLoading(false);
       return;
     }
@@ -125,14 +146,17 @@ export default function MobileDeployment({ onOpenAuditModal }) {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const currentTeam = cleanTeam(activeTeam);
-
       // Optimasi Temuan #16: Eliminasi fetch agresif personel saat inisialisasi awal.
       // Data personel hanya diunduh secara lazy saat picker dibuka.
       const [rRes, depRes] = await Promise.all([
         api.get(`/readiness/vehicles?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`, { signal }),
         api.get(`/deployments/current?date=${activeDate}&shift=${activeShiftNumber}&team_group=${currentTeam}`, { signal }),
       ]);
+
+      const depPayload = depRes.data?.data || depRes.data;
+      if (depPayload?.scheduled_team) {
+        setServerScheduledTeam(depPayload.scheduled_team);
+      }
 
       const readinessPayload = rRes.data?.data || rRes.data;
       const rawVehicles = Array.isArray(readinessPayload?.vehicles)
@@ -157,30 +181,31 @@ export default function MobileDeployment({ onOpenAuditModal }) {
       });
       setVehicles(sortedVehicles);
 
-      const depPayload = depRes.data?.data || depRes.data;
       const deploymentsList = Array.isArray(depPayload?.deployments)
         ? depPayload.deployments
         : (Array.isArray(depRes.data?.deployments) ? depRes.data.deployments : []);
 
-      // Absent personnel list
-      const existingAbsent = deploymentsList.filter((d) => d.deployment_type === 'absent');
-      const absentIdSet = new Set(existingAbsent.map((d) => Number(d.personnel_id)));
+      // Absent personnel list dari depPayload.absents
+      const rawAbsents = Array.isArray(depPayload?.absents)
+        ? depPayload.absents
+        : (deploymentsList || []).filter((d) => d.deployment_type === 'absent');
+      const absentIdSet = new Set(rawAbsents.map((d) => Number(d.personnel_id)));
       setAbsentList(
-        existingAbsent.map((d) => ({
+        rawAbsents.map((d) => ({
           id: d.id,
           personnel_id: d.personnel_id,
-          name: d.full_name || '',
-          reason: d.absent_reason || 'cuti',
+          name: d.full_name || d.name || '',
+          reason: d.absent_reason || d.reason || 'cuti',
           notes: d.notes || '',
         }))
       );
 
-      // Initialize vehicle slots: default armada 3 slot (1 PIC + 2 kru), default posko 1 slot (1 PIC)
+      // Initialize vehicle slots: default armada & posko 3 slot (1 PIC + 2 kru)
       const initialSlots = {};
       sortedVehicles.forEach((v) => {
         const vId = v.id;
         const isPosko = v.category === 'posko' || v.code_name === 'WATCHROOM';
-        const defaultEmptyCount = isPosko ? 1 : 3;
+        const defaultEmptyCount = 3;
         const existingForUnit = deploymentsList.filter((d) =>
           isPosko
             ? (d.deployment_type === 'watchroom' || Number(d.vehicle_id) === Number(vId))
@@ -197,18 +222,16 @@ export default function MobileDeployment({ onOpenAuditModal }) {
               personnel_name: isAbsentCrew ? '' : (d.full_name || ''),
             };
           });
-          // Ensure default slot count (posko: 1, armada: 3)
+          // Ensure default slot count 3
           while (initialSlots[vId].length < defaultEmptyCount) {
             initialSlots[vId].push({ personnel_id: '', is_pic: false, personnel_name: '' });
           }
         } else {
-          initialSlots[vId] = isPosko
-            ? [{ personnel_id: '', is_pic: true, personnel_name: '' }]
-            : [
-                { personnel_id: '', is_pic: true, personnel_name: '' },
-                { personnel_id: '', is_pic: false, personnel_name: '' },
-                { personnel_id: '', is_pic: false, personnel_name: '' },
-              ];
+          initialSlots[vId] = [
+            { personnel_id: '', is_pic: true, personnel_name: '' },
+            { personnel_id: '', is_pic: false, personnel_name: '' },
+            { personnel_id: '', is_pic: false, personnel_name: '' },
+          ];
         }
       });
       setVehicleSlots(initialSlots);
@@ -278,12 +301,10 @@ export default function MobileDeployment({ onOpenAuditModal }) {
     fetchCandidates();
   };
 
-  // Add new dynamic crew slot to a unit (max 4 armada, max 2 posko)
+  // Add new dynamic crew slot to a unit (max 4 per unit)
   const handleAddCrew = (unitId) => {
     if (!canEditPlot) return;
-    const unit = vehicles.find((v) => String(v.id) === String(unitId));
-    const isPosko = unit?.category === 'posko' || unit?.code_name === 'WATCHROOM';
-    const maxSlots = isPosko ? 2 : 4;
+    const maxSlots = 4;
     setVehicleSlots((prev) => {
       const currentList = [...(prev[unitId] || [])];
       if (currentList.length < maxSlots) {
@@ -506,7 +527,7 @@ export default function MobileDeployment({ onOpenAuditModal }) {
       <div className="flex items-center justify-between bg-white px-2.5 py-2 rounded-xl border border-slate-200 shadow-xs">
         <div>
           <h3 className="text-xs font-bold text-slate-900 leading-tight">
-            Ploting & Kesiapan Armada
+            Ploting Personel Armada
           </h3>
         </div>
         <div className="flex items-center gap-2">

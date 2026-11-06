@@ -65,7 +65,7 @@ export default function ActivitiesPage() {
     setActiveDate,
     setActiveShiftNumber,
   } = useAuth();
-  const canManageActivity =
+  const isLeader =
     isAdmin || isSupervisor || ['admin', 'chief', 'chief_assistant', 'supervisor', 'dept_head'].includes(user?.role);
 
   // Waktu & Tanggal Lokal Asia/Jakarta (WIB)
@@ -93,6 +93,16 @@ export default function ActivitiesPage() {
     if (safeShift === 3) return cleanTeam(currentDailyRoster.shift3 || 'Charlie');
     return cleanTeam(currentDailyRoster.shift1 || 'Alpha');
   }, [safeShift, currentDailyRoster]);
+
+  // Selaraskan RBAC: Izinkan personel dinas pada shift berjalan membuat dan mengedit kegiatannya sendiri
+  const isUserOnActiveShift = Boolean(
+    user && (
+      !user.team_group ||
+      !currentShiftTeam ||
+      cleanTeam(user.team_group).toLowerCase() === cleanTeam(currentShiftTeam).toLowerCase()
+    )
+  );
+  const canManageActivity = isLeader || isUserOnActiveShift;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -293,6 +303,27 @@ export default function ActivitiesPage() {
         category: exportCategory,
         team: exportTeam,
       });
+      setToastMsg('Dokumen rekapitulasi logbook kegiatan resmi berhasil diunduh.');
+    } catch (err) {
+      console.error('Gagal mengunduh PDF logbook kegiatan:', err);
+      setToastMsg('Gagal mengunduh berkas logbook kegiatan. Silakan coba kembali.');
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
+  // Handler Unduh Langsung Dokumen PDF dari Modal Konfigurasi Ekspor
+  const handleDirectDownload = async () => {
+    try {
+      setIsDownloadingPdf(true);
+      await downloadActivityReportPdf({
+        period: exportPeriod,
+        start_date: exportPeriod === 'custom' ? exportStartDate : '',
+        end_date: exportPeriod === 'custom' ? exportEndDate : '',
+        category: exportCategory,
+        team: exportTeam,
+      });
+      setExportModalOpen(false);
       setToastMsg('Dokumen rekapitulasi logbook kegiatan resmi berhasil diunduh.');
     } catch (err) {
       console.error('Gagal mengunduh PDF logbook kegiatan:', err);
@@ -658,6 +689,7 @@ export default function ActivitiesPage() {
         selectedShift={safeShift}
         onShiftChange={(s) => setActiveShiftNumber(Number(s))}
         canManageActivity={canManageActivity}
+        currentUser={user}
         onOpenCreateModal={handleOpenCreateModal}
         onOpenEditModal={handleOpenEditModal}
         onOpenDeleteModal={handleOpenDeleteModal}
@@ -730,6 +762,8 @@ export default function ActivitiesPage() {
         setExportTeam={setExportTeam}
         onPreview={handleOpenPreviewPdf}
         isLoadingPreview={isLoadingPreviewPdf}
+        onDirectDownload={handleDirectDownload}
+        isDownloading={isDownloadingPdf}
       />
 
       {/* Modal Pratinjau Dokumen PDF Resmi (Standard ACMS Preview & Download) */}

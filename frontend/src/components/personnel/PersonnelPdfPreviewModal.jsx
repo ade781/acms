@@ -81,7 +81,7 @@ export default function PersonnelPdfPreviewModal({ isOpen, onClose, selectedTeam
 
   const filterLabel = (selectedTeam && selectedTeam !== 'ALL')
     ? (selectedTeam.toLowerCase().startsWith('regu') ? selectedTeam : `Regu ${selectedTeam}`)
-    : 'Seluruh Regu (A-D & Non-Shift)';
+    : 'Seluruh Regu Operasional (Regu Alpha - Delta)';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/70 overflow-hidden animate-in fade-in">

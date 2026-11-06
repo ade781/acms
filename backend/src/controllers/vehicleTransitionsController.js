@@ -227,6 +227,7 @@ export const calculateVehicleTransitionsData = async ({ period = '1month', start
 
       return {
         id: m.id,
+        vehicle_id: v.id,
         period_number: idx + 1,
         maintenance_id: m.id,
         is_maintenance_record: true,
@@ -275,71 +276,131 @@ export const calculateVehicleTransitionsData = async ({ period = '1month', start
       });
     });
 
-    const synthesizedPeriods = unrecordedLogs.map(item => {
-      const lDate = item.shift_date;
-      const isResolved = item.follow_up_status === 'resolved' || Boolean(item.resolved_at);
+    // Kelompokkan log kendala unserviceable berurutan pada unit yang sama menjadi satu periode kontinu ("Episode Kendala Kontinu")
+    // agar tidak terjadi penggelembungan metrik downtime fiktif.
+    const unrecordedLogsChronological = [...unrecordedLogs].sort((a, b) => {
+      const dateA = new Date(a.shift_date).getTime();
+      const dateB = new Date(b.shift_date).getTime();
+      if (dateA !== dateB) return dateA - dateB;
+      return (a.shift_number || 1) - (b.shift_number || 1);
+    });
+
+    const continuousGroups = [];
+    let currentGroup = [];
+
+    for (const logItem of unrecordedLogsChronological) {
+      if (currentGroup.length === 0) {
+        currentGroup.push(logItem);
+      } else {
+        const prevLog = currentGroup[currentGroup.length - 1];
+        const prevDate = prevLog.shift_date;
+        const prevShift = prevLog.shift_number || 1;
+        const curDate = logItem.shift_date;
+        const curShift = logItem.shift_number || 1;
+
+        const prevIsResolved = prevLog.follow_up_status === 'resolved' || Boolean(prevLog.resolved_at);
+
+        const hasServiceableBetween = vLogs.some(l => {
+          if (l.status !== 'serviceable') return false;
+          const lDate = formatDateOnly(l.shift_date);
+          const lShift = l.shift_number || 1;
+          const afterPrev = (lDate > prevDate) || (lDate === prevDate && lShift > prevShift);
+          const beforeCur = (lDate < curDate) || (lDate === curDate && lShift < curShift);
+          return afterPrev && beforeCur;
+        });
+
+        if (!prevIsResolved && !hasServiceableBetween) {
+          currentGroup.push(logItem);
+        } else {
+          continuousGroups.push(currentGroup);
+          currentGroup = [logItem];
+        }
+      }
+    }
+    if (currentGroup.length > 0) {
+      continuousGroups.push(currentGroup);
+    }
+
+    const synthesizedPeriods = continuousGroups.map(group => {
+      const firstItem = group[0];
+      const lastItem = group[group.length - 1];
+      const lDate = firstItem.shift_date;
+
+      // Cari log pemulihan (serviceable log pertama pada atau setelah lastItem pada unserviceable episode ini)
+      const resolvingLog = vLogs.find(l => {
+        if (l.status !== 'serviceable') return false;
+        const rDate = formatDateOnly(l.shift_date);
+        const rShift = l.shift_number || 1;
+        const lastDate = lastItem.shift_date;
+        const lastShift = lastItem.shift_number || 1;
+
+        if (rDate > lastDate) return true;
+        if (rDate === lastDate && rShift >= lastShift) return true;
+        return false;
+      });
+
+      const isResolved = lastItem.follow_up_status === 'resolved' || Boolean(lastItem.resolved_at) || Boolean(resolvingLog);
       const isOngoing = !isResolved;
+
+      const resolvedDate = isResolved
+        ? (resolvingLog ? formatDateOnly(resolvingLog.shift_date) : formatDateOnly(lastItem.resolved_at || lastItem.shift_date))
+        : null;
+
       const durationDays = isOngoing
         ? calculateDaysDifference(lDate, todayStr)
-        : 1;
+        : calculateDaysDifference(lDate, resolvedDate || lDate);
 
-      // Cari log pemulihan (serviceable log pertama pada atau setelah unserviceable log ini)
-      let resolvingLog = null;
-      if (isResolved) {
-        resolvingLog = vLogs.find(l => {
-          if (l.status !== 'serviceable') return false;
-          const rDate = formatDateOnly(l.shift_date);
-          if (rDate > lDate) return true;
-          if (rDate === lDate && (l.shift_number || 1) >= (item.shift_number || 1)) return true;
-          return false;
-        });
-      }
+      const allNotes = group
+        .map(g => g.notes)
+        .filter(Boolean)
+        .filter((note, i, arr) => arr.indexOf(note) === i)
+        .join('; ');
 
       return {
-        id: `log-${item.id}`,
+        id: `log-${firstItem.id}`,
+        vehicle_id: v.id,
         period_number: 0,
         maintenance_id: null,
         is_maintenance_record: false,
         start_date: lDate,
-        start_shift_number: item.shift_number || 1,
-        start_team_group: item.team_group || '-',
+        start_shift_number: firstItem.shift_number || 1,
+        start_team_group: firstItem.team_group || '-',
         reported_by_id: null,
-        issue_description: item.issue_description || cleanPrefixes(item.justification) || item.justification || '-',
-        justification: cleanPrefixes(item.justification) || item.justification || '-',
-        field_justification: item.justification || '-',
-        notes: item.notes || '',
+        issue_description: firstItem.issue_description || cleanPrefixes(firstItem.justification) || firstItem.justification || '-',
+        justification: cleanPrefixes(firstItem.justification) || firstItem.justification || '-',
+        field_justification: firstItem.justification || '-',
+        notes: allNotes || firstItem.notes || '',
         resolution_notes: isResolved
-          ? (resolvingLog?.notes || item.notes || 'Kendala terselesaikan pada pemeriksaan operasional')
+          ? (resolvingLog?.notes || lastItem.notes || 'Kendala terselesaikan pada pemeriksaan operasional')
           : null,
-        reported_by: item.pic_name || '-',
-        reported_by_nip: item.pic_nip || null,
-        photo_webp_url: item.photo_webp_url || null,
+        reported_by: firstItem.pic_name || '-',
+        reported_by_nip: firstItem.pic_nip || null,
+        photo_webp_url: firstItem.photo_webp_url || lastItem.photo_webp_url || null,
         document_url: null,
         document_name: null,
         document_type: null,
         technician_vendor: null,
         duration_days: durationDays,
-        unserviceable_shifts_count: 1,
+        unserviceable_shifts_count: group.length,
         is_resolved: isResolved,
-        resolved_date: isResolved
-          ? (resolvingLog ? formatDateOnly(resolvingLog.shift_date) : formatDateOnly(item.resolved_at || item.shift_date))
-          : null,
+        resolved_date: resolvedDate,
         resolved_shift_number: isResolved
-          ? (resolvingLog ? Number(resolvingLog.shift_number || 1) : (item.shift_number || 1))
+          ? (resolvingLog ? Number(resolvingLog.shift_number || 1) : (lastItem.shift_number || 1))
           : null,
         resolved_team_group: isResolved
-          ? (resolvingLog ? (resolvingLog.team_group || '-') : (item.team_group || '-'))
+          ? (resolvingLog ? (resolvingLog.team_group || '-') : (lastItem.team_group || '-'))
           : null,
         resolved_by_id: null,
         resolved_by: isResolved
-          ? (resolvingLog ? (resolvingLog.pic_name || '-') : (item.pic_name || '-'))
+          ? (resolvingLog ? (resolvingLog.pic_name || '-') : (lastItem.pic_name || '-'))
           : '-',
         resolved_by_nip: isResolved
-          ? (resolvingLog ? (resolvingLog.pic_nip || null) : (item.pic_nip || null))
+          ? (resolvingLog ? (resolvingLog.pic_nip || null) : (lastItem.pic_nip || null))
           : null,
         status: isOngoing ? 'ongoing' : 'resolved',
-        created_at: item.created_at || null,
-        logged_at: item.updated_at || item.created_at || null
+        created_at: firstItem.created_at || null,
+        logged_at: lastItem.updated_at || lastItem.created_at || null,
+        related_log_ids: group.map(g => g.id)
       };
     });
 

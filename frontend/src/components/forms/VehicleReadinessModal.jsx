@@ -31,11 +31,11 @@ export default function VehicleReadinessModal({
 
   const rawNotes = vehicle?.notes || vehicle?.current_log?.notes || '';
 
-  const [status, setStatus] = useState(
-    isPosko
-      ? (initialStatus === 'unserviceable' ? 'unserviceable' : 'serviceable')
-      : (hasExistingShiftLog ? vehicle.status : '')
-  );
+  const [status, setStatus] = useState(() => {
+    if (initialStatus === 'unserviceable') return 'unserviceable';
+    if (hasExistingShiftLog && initialStatus === 'serviceable') return 'serviceable';
+    return '';
+  });
 
   // 4 Fasilitas Posko Watchroom
   const [radioVhf, setRadioVhf] = useState(!rawNotes.includes('Radio VHF: FAIL'));
@@ -69,8 +69,12 @@ export default function VehicleReadinessModal({
         vehicle?.has_shift_log && (vehicle?.status === 'serviceable' || vehicle?.status === 'unserviceable') && !carried
       );
 
+      const startingStatus = initSt === 'unserviceable'
+        ? 'unserviceable'
+        : (hasLog && initSt === 'serviceable' ? 'serviceable' : '');
+
       if (isP) {
-        setStatus(initSt === 'unserviceable' ? 'unserviceable' : 'serviceable');
+        setStatus(startingStatus);
         setRadioVhf(!raw.includes('Radio VHF: FAIL'));
         setHotlineAtc(!raw.includes('Hotline ATC: FAIL'));
         setCrashBell(!raw.includes('Crash Bell: FAIL'));
@@ -80,7 +84,7 @@ export default function VehicleReadinessModal({
         setPhotoFile(null);
         setPhotoPreview(null);
       } else {
-        setStatus(hasLog ? vehicle.status : '');
+        setStatus(startingStatus);
         setJustification(vehicle?.justification || vehicle?.current_log?.justification || '');
         setNotes(vehicle?.notes || vehicle?.current_log?.notes || '');
         setPhotoFile(null);
@@ -93,7 +97,7 @@ export default function VehicleReadinessModal({
   if (!vehicle) return null;
 
   const allChecked = radioVhf && hotlineAtc && crashBell && cctvPc;
-  const effectiveStatus = isPosko ? (!allChecked ? 'unserviceable' : (status || 'serviceable')) : status;
+  const effectiveStatus = isPosko ? (!allChecked ? 'unserviceable' : status) : status;
 
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
@@ -138,7 +142,11 @@ export default function VehicleReadinessModal({
 
     // Jalur 1: Posko Watchroom
     if (isPosko) {
-      const finalStatus = !allChecked ? 'unserviceable' : (status || 'serviceable');
+      const finalStatus = !allChecked ? 'unserviceable' : status;
+      if (!finalStatus) {
+        setError('Harap tentukan status kelaikan posko watchroom terlebih dahulu (pilih Serviceable atau Unserviceable).');
+        return;
+      }
       const cleanNotes = notes.replace(/\[Fasilitas:[^\]]+\]\s*/g, '').trim();
 
       if (finalStatus === 'unserviceable' && !cleanNotes) {
@@ -258,6 +266,7 @@ export default function VehicleReadinessModal({
             variant="primary"
             onClick={handleSubmit}
             loading={submitting || compressing}
+            disabled={!effectiveStatus || submitting || compressing}
           >
             {isPosko ? 'Simpan Status Watchroom' : 'Simpan Hasil Pemeriksaan'}
           </Button>
@@ -364,7 +373,11 @@ export default function VehicleReadinessModal({
               <input
                 type="checkbox"
                 checked={radioVhf}
-                onChange={() => setRadioVhf(!radioVhf)}
+                onChange={() => {
+                  const nextVal = !radioVhf;
+                  setRadioVhf(nextVal);
+                  if (!nextVal) setStatus('unserviceable');
+                }}
                 className="w-4 h-4 rounded text-arff-primary focus:ring-0 cursor-pointer"
               />
               <span>1. Radio Komunikasi (HT Kru & Base Station VHF Ground)</span>
@@ -374,7 +387,11 @@ export default function VehicleReadinessModal({
               <input
                 type="checkbox"
                 checked={hotlineAtc}
-                onChange={() => setHotlineAtc(!hotlineAtc)}
+                onChange={() => {
+                  const nextVal = !hotlineAtc;
+                  setHotlineAtc(nextVal);
+                  if (!nextVal) setStatus('unserviceable');
+                }}
                 className="w-4 h-4 rounded text-arff-primary focus:ring-0 cursor-pointer"
               />
               <span>2. Direct Phone / PABX Hotline ke ATC Tower</span>
@@ -384,7 +401,11 @@ export default function VehicleReadinessModal({
               <input
                 type="checkbox"
                 checked={crashBell}
-                onChange={() => setCrashBell(!crashBell)}
+                onChange={() => {
+                  const nextVal = !crashBell;
+                  setCrashBell(nextVal);
+                  if (!nextVal) setStatus('unserviceable');
+                }}
                 className="w-4 h-4 rounded text-arff-primary focus:ring-0 cursor-pointer"
               />
               <span>3. Crash Bell / Sirine Peringatan Darurat Lapangan</span>
@@ -394,7 +415,11 @@ export default function VehicleReadinessModal({
               <input
                 type="checkbox"
                 checked={cctvPc}
-                onChange={() => setCctvPc(!cctvPc)}
+                onChange={() => {
+                  const nextVal = !cctvPc;
+                  setCctvPc(nextVal);
+                  if (!nextVal) setStatus('unserviceable');
+                }}
                 className="w-4 h-4 rounded text-arff-primary focus:ring-0 cursor-pointer"
               />
               <span>4. Komputer Pantau Operasional & CCTV Runway/Apron</span>

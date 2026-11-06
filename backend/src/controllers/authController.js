@@ -144,12 +144,20 @@ export const changePassword = async (req, res) => {
       return errorResponse(res, 'Password lama dan password baru wajib diisi', 400);
     }
 
-    if (new_password.length < 6) {
-      return errorResponse(res, 'Password baru minimal 6 karakter', 400);
+    if (new_password.length < 6 || new_password.length > 72) {
+      return errorResponse(res, 'Password baru harus terdiri dari 6 hingga 72 karakter', 400);
+    }
+
+    if (!/^(?=.*[A-Za-z])(?=.*\d).+$/.test(new_password)) {
+      return errorResponse(res, 'Password baru harus mengandung kombinasi huruf dan angka', 400);
     }
 
     if (new_password === '123456') {
       return errorResponse(res, 'Password baru tidak boleh menggunakan password default (123456)', 400);
+    }
+
+    if (old_password === new_password) {
+      return errorResponse(res, 'Password baru tidak boleh sama dengan password lama', 400);
     }
 
     const [rows] = await pool.query('SELECT password_hash FROM users WHERE id = ?', [req.user.id]);
@@ -162,16 +170,60 @@ export const changePassword = async (req, res) => {
       return errorResponse(res, 'Password lama tidak sesuai', 400);
     }
 
+    const isSameAsOldHash = await bcrypt.compare(new_password, rows[0].password_hash);
+    if (isSameAsOldHash) {
+      return errorResponse(res, 'Password baru tidak boleh sama dengan password lama', 400);
+    }
+
     const salt = await bcrypt.genSalt(10);
     const newHash = await bcrypt.hash(new_password, salt);
 
-    // BUTIR TUGAS 5: Naikkan token_version agar sesi lama di perangkat lain otomatis hangus
+    // Naikkan token_version agar sesi lama di perangkat lain otomatis hangus
     await pool.query(
-      'UPDATE users SET password_hash = ?, must_change_password = 0, token_version = token_version + 1 WHERE id = ?',
+      'UPDATE users SET password_hash = ?, must_change_password = 0, token_version = COALESCE(token_version, 1) + 1 WHERE id = ?',
       [newHash, req.user.id]
     );
 
-    return successResponse(res, 'Password berhasil diperbarui');
+    const [updatedUsers] = await pool.query(
+      `SELECT u.id, u.username, u.name, u.email, u.role, u.must_change_password, u.token_version,
+              p.id as personnel_id, p.team_group, p.rank_position
+       FROM users u
+       LEFT JOIN personnel p ON p.user_id = u.id
+       WHERE u.id = ?`,
+      [req.user.id]
+    );
+
+    const updatedUser = updatedUsers[0];
+    const secret = process.env.JWT_SECRET;
+    const expiresIn = process.env.JWT_EXPIRES_IN || '24h';
+
+    const newToken = jwt.sign(
+      {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        role: updatedUser.role,
+        token_version: updatedUser.token_version || 1
+      },
+      secret,
+      { expiresIn }
+    );
+
+    const safeUser = {
+      id: updatedUser.id,
+      username: updatedUser.username,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      role: updatedUser.role,
+      must_change_password: Boolean(updatedUser.must_change_password),
+      personnel_id: updatedUser.personnel_id,
+      team_group: updatedUser.team_group,
+      rank_position: updatedUser.rank_position
+    };
+
+    return successResponse(res, 'Password berhasil diperbarui', {
+      token: newToken,
+      user: safeUser
+    });
   } catch (error) {
     console.error('Error changePassword:', error);
     return errorResponse(res, 'Gagal memperbarui password', 500);

@@ -7,6 +7,28 @@ import { successResponse, errorResponse } from '../utils/responseHelper.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const uploadsDir = path.resolve(__dirname, '../../uploads');
+
+/**
+ * Helper aman penghapusan berkas fisik di direktori uploads.
+ * Memvalidasi nama berkas bukan string kosong, berkas ada, dan benar-benar bertipe file (bukan direktori).
+ */
+function safeUnlink(fileUrlOrName) {
+  if (!fileUrlOrName || typeof fileUrlOrName !== 'string') return;
+  const fileName = path.basename(fileUrlOrName.trim());
+  if (!fileName || fileName === '.' || fileName === 'uploads') return;
+  const filePath = path.resolve(uploadsDir, fileName);
+  try {
+    if (fs.existsSync(filePath)) {
+      const stat = fs.statSync(filePath);
+      if (stat.isFile()) {
+        fs.unlinkSync(filePath);
+      }
+    }
+  } catch (e) {
+    console.warn(`safeUnlink error (${fileName}):`, e.message);
+  }
+}
 
 function getCurrentOperationalShift(dateObj = new Date()) {
   const utc = dateObj.getTime() + (dateObj.getTimezoneOffset() * 60000);
@@ -133,12 +155,26 @@ export const getOfficials = async (req, res) => {
       Delta: chiefs.find((c) => (c.team_group || '').toLowerCase().trim() === 'delta') || null,
     };
 
+    // Ambil ID seluruh personel yang sedang aktif berdinas pada shift dinas saat ini
+    const { shiftNumber: curShiftNum, dateStr: curDateStr } = getCurrentOperationalShift();
+    const [activeDutyRows] = await pool.query(
+      `SELECT DISTINCT pd.personnel_id
+       FROM personnel_deployments pd
+       JOIN personnel_shifts ps ON ps.id = pd.shift_id
+       WHERE pd.deployment_type IN ('vehicle_utama', 'vehicle_pendukung', 'watchroom', 'posko')
+         AND ps.shift_date = ?
+         AND ps.shift_number = ?`,
+      [curDateStr, curShiftNum]
+    );
+    const activeDutyPersonnelIds = (activeDutyRows || []).map((r) => r.personnel_id);
+
     return successResponse(res, 'Data pejabat berhasil diambil', {
       dept_head: deptHead,
       section_head: sectionHead,
       chiefs: chiefsByTeam,
       administrasi: administrasi,
       raw_chiefs: chiefs,
+      active_duty_personnel_ids: activeDutyPersonnelIds,
     });
   } catch (error) {
     console.error('Error getOfficials:', error);
@@ -149,7 +185,12 @@ export const getOfficials = async (req, res) => {
 export const replaceDeptHead = async (req, res) => {
   const connection = await pool.getConnection();
   try {
-    const { full_name, nip, rank_position, new_personnel_id } = req.body;
+    const { full_name, nip, rank_position } = req.body;
+
+    if (!full_name || !full_name.trim()) {
+      connection.release();
+      return errorResponse(res, 'Nama lengkap Dept. Head wajib diisi', 400);
+    }
 
     await connection.beginTransaction();
 
@@ -162,169 +203,93 @@ export const replaceDeptHead = async (req, res) => {
          AND p.is_active = 1`
     );
 
-    // KASUS A: Input Data Mandiri (Sesuai Aturan GEMINI.md Rule 18 & task_agent1.md)
-    if (full_name && full_name.trim()) {
-      const cleanName = full_name.trim();
-      const cleanNip = nip && nip.trim() && nip.trim() !== '-' ? nip.trim() : null;
-      const cleanRank = rank_position && rank_position.trim() ? rank_position.trim() : 'Airport Technology & ARFF Dept. Head';
+    // Enforce 100% Input Data Mandiri (Sesuai Aturan GEMINI.md Rule 18)
+    const cleanName = full_name.trim();
+    const cleanNip = nip && nip.trim() && nip.trim() !== '-' ? nip.trim() : null;
+    const cleanRank = rank_position && rank_position.trim() ? rank_position.trim() : 'Airport Technology & ARFF Dept. Head';
 
-      let deptHeadId;
-      if (currentDeptHeads.length > 0) {
-        const existingDh = currentDeptHeads[0];
-        deptHeadId = existingDh.id;
+    let deptHeadId;
+    if (currentDeptHeads.length > 0) {
+      const existingDh = currentDeptHeads[0];
+      deptHeadId = existingDh.id;
 
-        const isNameChanged = existingDh.full_name && existingDh.full_name.trim().toLowerCase() !== cleanName.toLowerCase();
-        const isNipChanged = (existingDh.nip || '').trim() !== (cleanNip || '');
-        const hasNewSignature = Boolean(req.file || req.body.signature_url);
+      const isNameChanged = existingDh.full_name && existingDh.full_name.trim().toLowerCase() !== cleanName.toLowerCase();
+      const isNipChanged = (existingDh.nip || '').trim() !== (cleanNip || '');
+      const hasNewSignature = Boolean(req.file || req.body.signature_url);
 
-        if ((isNameChanged || isNipChanged) && !hasNewSignature) {
-          if (existingDh.signature_url) {
-            const sigFileName = path.basename(existingDh.signature_url);
-            const sigPath = path.resolve(__dirname, '../../uploads', sigFileName);
-            if (fs.existsSync(sigPath)) {
-              try { fs.unlinkSync(sigPath); } catch (e) {}
-            }
-          }
+      if ((isNameChanged || isNipChanged) && !hasNewSignature) {
+        if (existingDh.signature_url) {
+          safeUnlink(existingDh.signature_url);
+        }
+        await connection.query(
+          `UPDATE personnel 
+           SET full_name = ?, nip = ?, rank_position = ?, team_group = 'Non-Shift', signature_url = NULL 
+           WHERE id = ?`,
+          [cleanName, cleanNip, cleanRank, deptHeadId]
+        );
+        if (existingDh.u_id) {
           await connection.query(
-            `UPDATE personnel 
-             SET full_name = ?, nip = ?, rank_position = ?, team_group = 'Non-Shift', signature_url = NULL 
-             WHERE id = ?`,
-            [cleanName, cleanNip, cleanRank, deptHeadId]
-          );
-          if (existingDh.u_id) {
-            await connection.query(
-              `UPDATE users SET signature_url = NULL WHERE id = ?`,
-              [existingDh.u_id]
-            );
-          }
-        } else {
-          await connection.query(
-            `UPDATE personnel 
-             SET full_name = ?, nip = ?, rank_position = ?, team_group = 'Non-Shift' 
-             WHERE id = ?`,
-            [cleanName, cleanNip, cleanRank, deptHeadId]
+            `UPDATE users SET signature_url = NULL WHERE id = ?`,
+            [existingDh.u_id]
           );
         }
+      } else {
+        await connection.query(
+          `UPDATE personnel 
+           SET full_name = ?, nip = ?, rank_position = ?, team_group = 'Non-Shift' 
+           WHERE id = ?`,
+          [cleanName, cleanNip, cleanRank, deptHeadId]
+        );
+      }
 
-        let dhUserId = existingDh.u_id;
-        if (!dhUserId && cleanNip) {
-          const [uByNip] = await connection.query(
-            'SELECT id FROM users WHERE username = ? LIMIT 1',
-            [cleanNip]
-          );
-          if (uByNip.length > 0) {
-            dhUserId = uByNip[0].id;
-            await connection.query('UPDATE personnel SET user_id = ? WHERE id = ?', [dhUserId, deptHeadId]);
-          }
+      let dhUserId = existingDh.u_id;
+      if (!dhUserId && cleanNip) {
+        const [uByNip] = await connection.query(
+          'SELECT id FROM users WHERE username = ? LIMIT 1',
+          [cleanNip]
+        );
+        if (uByNip.length > 0) {
+          dhUserId = uByNip[0].id;
+          await connection.query('UPDATE personnel SET user_id = ? WHERE id = ?', [dhUserId, deptHeadId]);
         }
+      }
 
-        if (dhUserId) {
-          await connection.query(
-            `UPDATE users SET name = ?, role = 'dept_head' WHERE id = ? AND role != 'admin'`,
-            [cleanName, dhUserId]
-          );
-        } else {
-          const accountUsername = await generateUniqueUsername(cleanNip, cleanName);
-          const salt = await bcrypt.genSalt(10);
-          const passwordHash = await bcrypt.hash('123456', salt);
-          const [uRes] = await connection.query(
-            'INSERT INTO users (username, name, password_hash, role, must_change_password) VALUES (?, ?, ?, ?, 1)',
-            [accountUsername, cleanName, passwordHash, 'dept_head']
-          );
-          await connection.query('UPDATE personnel SET user_id = ? WHERE id = ?', [uRes.insertId, deptHeadId]);
-        }
+      if (dhUserId) {
+        await connection.query(
+          `UPDATE users SET name = ?, role = 'dept_head' WHERE id = ? AND role != 'admin'`,
+          [cleanName, dhUserId]
+        );
       } else {
         const accountUsername = await generateUniqueUsername(cleanNip, cleanName);
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash('123456', salt);
-
         const [uRes] = await connection.query(
           'INSERT INTO users (username, name, password_hash, role, must_change_password) VALUES (?, ?, ?, ?, 1)',
           [accountUsername, cleanName, passwordHash, 'dept_head']
         );
-        const [pRes] = await connection.query(
-          `INSERT INTO personnel (
-            user_id, nip, full_name, rank_position,
-            employment_status, team_group, cert_level, is_active
-          ) VALUES (?, ?, ?, ?, 'organik', 'Non-Shift', 'Senior', 1)`,
-          [uRes.insertId, cleanNip, cleanName, cleanRank]
-        );
-        deptHeadId = pRes.insertId;
+        await connection.query('UPDATE personnel SET user_id = ? WHERE id = ?', [uRes.insertId, deptHeadId]);
       }
+    } else {
+      const accountUsername = await generateUniqueUsername(cleanNip, cleanName);
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash('123456', salt);
 
-      await connection.commit();
-      return successResponse(res, `Data Dept. Head berhasil disimpan atas nama ${cleanName}.`, { id: deptHeadId });
+      const [uRes] = await connection.query(
+        'INSERT INTO users (username, name, password_hash, role, must_change_password) VALUES (?, ?, ?, ?, 1)',
+        [accountUsername, cleanName, passwordHash, 'dept_head']
+      );
+      const [pRes] = await connection.query(
+        `INSERT INTO personnel (
+          user_id, nip, full_name, rank_position,
+          employment_status, team_group, cert_level, is_active
+        ) VALUES (?, ?, ?, ?, 'organik', 'Non-Shift', 'Senior', 1)`,
+        [uRes.insertId, cleanNip, cleanName, cleanRank]
+      );
+      deptHeadId = pRes.insertId;
     }
 
-    // KASUS B: Penunjukan via ID Personel (Fallback kompatibilitas)
-    if (new_personnel_id) {
-      for (const oldDh of currentDeptHeads) {
-        if (oldDh.id === Number(new_personnel_id)) continue;
-
-        if (oldDh.signature_url) {
-          const sigFileName = path.basename(oldDh.signature_url);
-          const sigPath = path.resolve(__dirname, '../../uploads', sigFileName);
-          if (fs.existsSync(sigPath)) {
-            try { fs.unlinkSync(sigPath); } catch (e) {}
-          }
-        }
-
-        await connection.query(
-          `UPDATE personnel 
-           SET rank_position = 'Staf Non-Operasional', team_group = 'Non-Shift', signature_url = NULL 
-           WHERE id = ?`,
-          [oldDh.id]
-        );
-        if (oldDh.u_id) {
-          await connection.query(
-            `UPDATE users 
-             SET role = 'junior_firefighter', signature_url = NULL 
-             WHERE id = ? AND role = 'dept_head'`,
-            [oldDh.u_id]
-          );
-        }
-      }
-
-      const [newCandidate] = await connection.query(
-        `SELECT p.*, u.id as u_id FROM personnel p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?`,
-        [new_personnel_id]
-      );
-
-      if (newCandidate.length === 0) {
-        await connection.rollback();
-        return errorResponse(res, 'Personel baru tidak ditemukan', 404);
-      }
-
-      const candidate = newCandidate[0];
-      await connection.query(
-        `UPDATE personnel 
-         SET rank_position = 'Airport Technology & ARFF Dept. Head', team_group = 'Non-Shift' 
-         WHERE id = ?`,
-        [candidate.id]
-      );
-
-      let candidateUserId = candidate.u_id;
-      if (!candidateUserId && candidate.nip) {
-        const [uByNip] = await connection.query('SELECT id FROM users WHERE username = ? LIMIT 1', [candidate.nip]);
-        if (uByNip.length > 0) {
-          candidateUserId = uByNip[0].id;
-          await connection.query('UPDATE personnel SET user_id = ? WHERE id = ?', [candidateUserId, candidate.id]);
-        }
-      }
-
-      if (candidateUserId) {
-        await connection.query(
-          `UPDATE users SET role = 'dept_head', name = ? WHERE id = ? AND role != 'admin'`,
-          [candidate.full_name, candidateUserId]
-        );
-      }
-
-      await connection.commit();
-      return successResponse(res, `Dept. Head berhasil diperbarui menjadi ${candidate.full_name}.`, { id: candidate.id });
-    }
-
-    await connection.rollback();
-    return errorResponse(res, 'Nama lengkap Dept. Head wajib diisi', 400);
+    await connection.commit();
+    return successResponse(res, `Data Dept. Head berhasil disimpan atas nama ${cleanName}.`, { id: deptHeadId });
   } catch (error) {
     await connection.rollback();
     console.error('Error replaceDeptHead:', error);
@@ -335,6 +300,7 @@ export const replaceDeptHead = async (req, res) => {
 };
 
 export const setDeptHead = replaceDeptHead;
+export const assignDepartmentHead = replaceDeptHead;
 
 export const replaceChief = async (req, res) => {
   const connection = await pool.getConnection();
@@ -447,13 +413,7 @@ export const replaceChief = async (req, res) => {
 
       // Hapus file tanda tangan lama jika ada
       if (oldChief.signature_url) {
-        const sigFileName = path.basename(oldChief.signature_url);
-        const sigPath = path.resolve(__dirname, '../../uploads', sigFileName);
-        if (fs.existsSync(sigPath)) {
-          try {
-            fs.unlinkSync(sigPath);
-          } catch (e) {}
-        }
+        safeUnlink(oldChief.signature_url);
       }
 
       // Demote Chief lama ke target posisi sesuai Opsi C, tanda tangan otomatis terhapus

@@ -301,7 +301,6 @@ export default function PersonnelDossierEditModal({
                         <option value="Bravo">Regu Bravo</option>
                         <option value="Charlie">Regu Charlie</option>
                         <option value="Delta">Regu Delta</option>
-                        <option value="Non-Shift">Non-Shift (Administrasi)</option>
                       </select>
                     </div>
 
@@ -333,7 +332,7 @@ export default function PersonnelDossierEditModal({
                         Regu Dinas Operasional
                       </label>
                       <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-medium select-none">
-                        {formData.team_group === 'Non-Shift' ? 'Non-Shift (Administrasi)' : `Regu ${formData.team_group}`}
+                        Regu {formData.team_group}
                       </div>
                     </div>
 

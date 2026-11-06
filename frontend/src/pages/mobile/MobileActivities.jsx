@@ -1,24 +1,33 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, ClipboardList, RefreshCw, AlertCircle, Check, X, Trash2 } from 'lucide-react';
+import { Plus, ClipboardList, RefreshCw, AlertCircle, Check, X, Trash2, Download } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { cleanTeam } from '../../utils/shiftHelper';
+import { downloadActivityReportPdf } from '../../services/reportService';
 import MobileActivityTimelineItem from '../../components/mobile/activities/MobileActivityTimelineItem';
 import MobileActivityModal from '../../components/mobile/activities/MobileActivityModal';
 
 export default function MobileActivities() {
   const { user, activeDate, activeShiftNumber, activeTeam } = useAuth();
   const isLeader = ['admin', 'dept_head', 'chief', 'chief_assistant', 'supervisor'].includes(user?.role);
-  const canManage = isLeader;
+  // Selaraskan RBAC: Izinkan kru lapangan shift aktif mencatat kegiatan
+  const isUserOnActiveShift = Boolean(
+    user && (
+      !user.team_group ||
+      !activeTeam ||
+      cleanTeam(user.team_group).toLowerCase() === cleanTeam(activeTeam).toLowerCase()
+    )
+  );
+  const canManage = isLeader || isUserOnActiveShift;
 
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState(null);
-  // Filter kategori dihapus untuk kesederhanaan mobile
   const [toastMsg, setToastMsg] = useState(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   // In-app Delete Modal state
   const [targetDeleteId, setTargetDeleteId] = useState(null);
@@ -27,6 +36,24 @@ export default function MobileActivities() {
   const handleRequestEdit = (act) => {
     setEditingActivity(act);
     setIsModalOpen(true);
+  };
+
+  const handleDownloadPdf = async () => {
+    try {
+      setIsDownloadingPdf(true);
+      await downloadActivityReportPdf({
+        period: 'custom',
+        start_date: activeDate,
+        end_date: activeDate,
+        team: cleanTeam(activeTeam),
+      });
+      setToastMsg({ type: 'success', text: 'Logbook kegiatan shift berhasil diunduh.' });
+    } catch (err) {
+      console.error('Gagal mengunduh logbook PDF:', err);
+      setToastMsg({ type: 'error', text: 'Gagal mengunduh berkas logbook kegiatan.' });
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   const fetchActivities = useCallback(async (signal) => {
@@ -128,14 +155,29 @@ export default function MobileActivities() {
       )}
 
       {/* Top Header Card */}
-      <div className="bg-white rounded-lg border border-slate-200 p-2.5 shadow-xs flex items-center justify-between">
+      <div className="bg-white rounded-lg border border-slate-200 p-2.5 shadow-xs flex items-center justify-between gap-2">
         <div>
           <h3 className="text-xs font-bold text-slate-900 leading-tight">
             Logbook Kegiatan Rutin
           </h3>
+          <p className="text-xs text-slate-500">
+            Regu {cleanTeam(activeTeam) || 'Alpha'} • Shift {activeShiftNumber || 1}
+          </p>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={handleDownloadPdf}
+            disabled={isDownloadingPdf}
+            className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs flex items-center gap-1 shadow-2xs transition-colors duration-100 disabled:opacity-50 cursor-pointer"
+            title="Unduh Logbook PDF"
+            aria-label="Unduh Logbook PDF"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-600" />
+            <span className="hidden xs:inline">PDF</span>
+          </button>
+
           {canManage && (
             <button
               type="button"
@@ -143,10 +185,10 @@ export default function MobileActivities() {
                 setEditingActivity(null);
                 setIsModalOpen(true);
               }}
-              className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors duration-100"
+              className="px-2.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors duration-100 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Catat Kegiatan</span>
+              <span>Catat</span>
             </button>
           )}
         </div>
@@ -197,16 +239,22 @@ export default function MobileActivities() {
       {/* Timeline Stream */}
       {!loading && activities.length > 0 && (
         <div className="space-y-1.5">
-          {activities.map((act, actIdx) => (
-            <MobileActivityTimelineItem
-              key={act.id ?? `act-${act.activity_time || actIdx}`}
-              activity={act}
-              canEdit={canManage}
-              onEdit={handleRequestEdit}
-              canDelete={canManage}
-              onDelete={handleRequestDelete}
-            />
-          ))}
+          {activities.map((act, actIdx) => {
+            const isActOwner = user?.id && act.created_by && Number(act.created_by) === Number(user.id);
+            const canEditThis = isLeader || isActOwner;
+            const canDeleteThis = isLeader || isActOwner;
+
+            return (
+              <MobileActivityTimelineItem
+                key={act.id ?? `act-${act.activity_time || actIdx}`}
+                activity={act}
+                canEdit={canEditThis}
+                onEdit={handleRequestEdit}
+                canDelete={canDeleteThis}
+                onDelete={handleRequestDelete}
+              />
+            );
+          })}
         </div>
       )}
 

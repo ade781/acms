@@ -36,7 +36,7 @@ export default function OfflineBanner() {
       className="sticky top-0 z-50 w-full bg-amber-500 text-amber-950 px-3 py-1.5 text-xs font-semibold shadow-xs flex items-center justify-center gap-2 border-b border-amber-600/20"
     >
       <WifiOff className="w-3.5 h-3.5 shrink-0 text-amber-950" />
-      <span className="text-[11px] leading-tight text-center">
+      <span className="text-xs font-medium leading-tight text-center">
         Mode Offline: Koneksi internet terputus. Pastikan sinyal stabil sebelum menyimpan data.
       </span>
     </div>

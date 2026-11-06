@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText } from 'lucide-react';
+import { FileText, Download } from 'lucide-react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import InputField from '../common/InputField';
@@ -21,13 +21,15 @@ export default function ActivityExportModal({
   setExportTeam,
   onPreview,
   isLoadingPreview = false,
+  onDirectDownload = null,
+  isDownloading = false,
 }) {
   if (!isOpen) return null;
 
   return (
     <Modal
       isOpen={isOpen}
-      onClose={() => !isLoadingPreview && onClose()}
+      onClose={() => !isLoadingPreview && !isDownloading && onClose()}
       title="Cetak Rekapitulasi Logbook Kegiatan Resmi"
     >
       <div className="space-y-4">
@@ -89,21 +91,33 @@ export default function ActivityExportModal({
           />
         </div>
 
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 flex-wrap">
           <Button
             type="button"
             variant="outline"
-            disabled={isLoadingPreview}
+            disabled={isLoadingPreview || isDownloading}
             onClick={onClose}
           >
             Batal
           </Button>
+          {onDirectDownload && (
+            <Button
+              type="button"
+              variant="outline"
+              icon={Download}
+              loading={isDownloading}
+              disabled={isLoadingPreview || isDownloading || (exportPeriod === 'custom' && (!exportStartDate || !exportEndDate))}
+              onClick={onDirectDownload}
+            >
+              {isDownloading ? 'Mengunduh...' : 'Unduh Langsung'}
+            </Button>
+          )}
           <Button
             type="button"
             variant="primary"
             icon={FileText}
             loading={isLoadingPreview}
-            disabled={isLoadingPreview || (exportPeriod === 'custom' && (!exportStartDate || !exportEndDate))}
+            disabled={isLoadingPreview || isDownloading || (exportPeriod === 'custom' && (!exportStartDate || !exportEndDate))}
             onClick={onPreview}
           >
             {isLoadingPreview ? 'Menyusun Pratinjau...' : 'Buka Pratinjau PDF'}

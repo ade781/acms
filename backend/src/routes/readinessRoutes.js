@@ -34,8 +34,22 @@ router.get('/transitions-report', getVehicleTransitionsReport);
 
 // Manajemen Rekam Jejak Pemeliharaan & Downtime Armada (CRUD)
 router.get('/maintenance', getMaintenanceRecords);
-router.post('/maintenance', uploadSingleDocument('document'), createMaintenanceRecord);
-router.put('/maintenance/:id', uploadSingleDocument('document'), updateMaintenanceRecord);
-router.delete('/maintenance/:id', deleteMaintenanceRecord);
+router.post(
+  '/maintenance',
+  requireRole(['admin', 'dept_head', 'chief', 'supervisor']),
+  uploadSingleDocument('document'),
+  createMaintenanceRecord
+);
+router.put(
+  '/maintenance/:id',
+  requireRole(['admin', 'dept_head', 'chief', 'supervisor']),
+  uploadSingleDocument('document'),
+  updateMaintenanceRecord
+);
+router.delete(
+  '/maintenance/:id',
+  requireRole(['admin', 'dept_head', 'chief', 'supervisor']),
+  deleteMaintenanceRecord
+);
 
 export default router;

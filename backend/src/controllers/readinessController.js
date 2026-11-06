@@ -26,7 +26,8 @@ export const getVehicleReadiness = async (req, res) => {
       `SELECT v.id, v.id as vehicle_id, v.code_name, v.vehicle_name, v.category, v.license_plate, v.description,
               vrl.id as log_id,
               COALESCE(vrl.status, 'belum_dilaporkan') as status,
-              vrl.justification, vrl.photo_webp_url, vrl.follow_up_status, vrl.notes, vrl.updated_at as logged_at,
+              vrl.justification, vrl.photo_webp_url, vrl.follow_up_status, vrl.notes,
+              CASE WHEN vrl.status IN ('serviceable', 'unserviceable') THEN vrl.updated_at ELSE NULL END as logged_at,
               COALESCE(vrl.team_group, ?) as team_group,
               COALESCE(deploy_pic.id, p_log.id) as pic_personnel_id,
               COALESCE(deploy_pic.full_name, p_log.full_name) as pic_name,
@@ -108,11 +109,13 @@ export const getVehicleReadiness = async (req, res) => {
             team_group: prev.team_group,
             reported_by: prev.prev_pic_name
           };
+          rows[i].logged_at = null;
         } else if (rows[i].status === 'belum_dilaporkan') {
           // Default status kelaikan armada pada shift berjalan adalah belum_dilaporkan (GEMINI.md No. 17)
           rows[i].status = 'belum_dilaporkan';
           rows[i].is_default_serviceable = false;
           rows[i].has_shift_log = false;
+          rows[i].logged_at = null;
         } else {
           rows[i].has_shift_log = true;
           rows[i].is_default_serviceable = false;

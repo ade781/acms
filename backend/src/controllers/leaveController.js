@@ -1,6 +1,31 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import pool from '../config/db.js';
 import { successResponse, errorResponse } from '../utils/responseHelper.js';
 import { calculateDefaultRoster, resolveRosterForDate } from './scheduleController.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadsDir = path.resolve(__dirname, '../../uploads');
+
+/**
+ * Helper aman penghapusan berkas fisik di direktori uploads
+ * Mencegah celah path traversal dengan membatasi nama berkas via path.basename
+ */
+const safeUnlink = (targetPathOrUrl) => {
+  if (!targetPathOrUrl) return;
+  const fileName = path.basename(targetPathOrUrl);
+  if (!fileName || fileName === '.' || fileName === '/') return;
+  const safePath = path.resolve(uploadsDir, fileName);
+  if (fs.existsSync(safePath)) {
+    try {
+      fs.unlinkSync(safePath);
+    } catch (e) {
+      console.warn(`Gagal menghapus berkas ${fileName}:`, e.message);
+    }
+  }
+};
 
 const formatWibDate = (d) => {
   if (!d) return '';
@@ -22,6 +47,7 @@ export const requestLeaveRange = async (req, res) => {
     const { personnel_id, start_date, end_date, absent_reason = 'cuti', notes } = req.body;
 
     if (!start_date || !end_date) {
+      if (req.file) safeUnlink(req.file.path);
       connection.release();
       return errorResponse(res, 'Tanggal mulai dan tanggal selesai cuti wajib diisi', 400);
     }
@@ -29,6 +55,7 @@ export const requestLeaveRange = async (req, res) => {
     // GEMINI.md Butir 15: Pengajuan cuti adalah hak prerogatif mandiri personel operasional.
     // Admin maupun pimpinan dilarang memiliki tombol/fitur untuk mengajukan cuti sepihak atas nama staf.
     if (!req.user.personnel_id) {
+      if (req.file) safeUnlink(req.file.path);
       connection.release();
       return errorResponse(
         res,
@@ -38,6 +65,7 @@ export const requestLeaveRange = async (req, res) => {
     }
 
     if (personnel_id && Number(personnel_id) !== Number(req.user.personnel_id)) {
+      if (req.file) safeUnlink(req.file.path);
       connection.release();
       return errorResponse(
         res,
@@ -58,12 +86,14 @@ export const requestLeaveRange = async (req, res) => {
     const startDateObj = new Date(start_date);
     const endDateObj = new Date(end_date);
     if (startDateObj > endDateObj) {
+      if (req.file) safeUnlink(req.file.path);
       connection.release();
       return errorResponse(res, 'Tanggal selesai tidak boleh lebih awal dari tanggal mulai', 400);
     }
 
     const todayDateStr = formatWibDate(new Date());
     if (start_date < todayDateStr) {
+      if (req.file) safeUnlink(req.file.path);
       connection.release();
       return errorResponse(res, 'Tanggal mulai cuti tidak boleh di masa lampau (minimal hari ini).', 400);
     }
@@ -74,6 +104,7 @@ export const requestLeaveRange = async (req, res) => {
     // 0. Kunci baris personel terkait dengan FOR UPDATE untuk memblokir double submission serentak
     const [pRows] = await connection.query('SELECT * FROM personnel WHERE id = ? FOR UPDATE', [targetPersonnelId]);
     if (pRows.length === 0) {
+      if (req.file) safeUnlink(req.file.path);
       await connection.rollback();
       connection.release();
       return errorResponse(res, 'Data personel tidak ditemukan', 404);
@@ -95,6 +126,7 @@ export const requestLeaveRange = async (req, res) => {
     `, [targetPersonnelId, start_date, end_date]);
 
     if (overlapRows.length > 0) {
+      if (req.file) safeUnlink(req.file.path);
       await connection.rollback();
       connection.release();
       const conflictDate = formatWibDate(overlapRows[0].shift_date);
@@ -143,6 +175,7 @@ export const requestLeaveRange = async (req, res) => {
     }
 
     if (activePackages.length >= 2) {
+      if (req.file) safeUnlink(req.file.path);
       await connection.rollback();
       connection.release();
       return errorResponse(
@@ -311,6 +344,7 @@ export const requestLeaveRange = async (req, res) => {
       document_url: uploadedDocUrl
     });
   } catch (error) {
+    if (req.file) safeUnlink(req.file.path);
     await connection.rollback();
     console.error('Error requestLeaveRange:', error);
     return errorResponse(res, 'Gagal memproses pengajuan cuti. Silakan coba kembali atau hubungi administrator.', 500);
@@ -323,15 +357,51 @@ export const cancelLeave = async (req, res) => {
   const connection = await pool.getConnection();
   try {
     const deploymentId = req.params.id || req.body.deployment_id;
-    const { deployment_ids, personnel_id, shift_id, shift_date, shift_number, start_date, end_date } = req.body;
+    const { deployment_ids, personnel_id, shift_id, shift_date, shift_number } = req.body;
 
     const isPrivileged = ['admin', 'supervisor', 'chief', 'chief_assistant', 'dept_head'].includes(req.user.role);
-    const targetPersonnelId = (isPrivileged && personnel_id) ? Number(personnel_id) : (req.user.personnel_id ? Number(req.user.personnel_id) : null);
+
+    // Tentukan target personnel_id sebelum memulai transaksi
+    let targetPersonnelIds = [];
+
+    if (isPrivileged && personnel_id) {
+      targetPersonnelIds = [Number(personnel_id)];
+    } else if (req.user.personnel_id) {
+      targetPersonnelIds = [Number(req.user.personnel_id)];
+    } else {
+      // Jika pengguna berhak (admin/supervisor) tidak menyertakan personnel_id eksplisit,
+      // lakukan lookup cepat non-locking dari snapshot pool sebelum transaksi dimulai
+      if (deploymentId) {
+        const [lookup] = await pool.query('SELECT personnel_id FROM personnel_deployments WHERE id = ?', [deploymentId]);
+        if (lookup.length > 0) targetPersonnelIds = [Number(lookup[0].personnel_id)];
+      } else if (Array.isArray(deployment_ids) && deployment_ids.length > 0) {
+        const [lookup] = await pool.query('SELECT DISTINCT personnel_id FROM personnel_deployments WHERE id IN (?)', [deployment_ids]);
+        targetPersonnelIds = lookup.map((r) => Number(r.personnel_id)).sort((a, b) => a - b);
+      }
+    }
+
+    if (targetPersonnelIds.length === 0) {
+      connection.release();
+      return errorResponse(res, 'Data identitas cuti yang akan dibatalkan tidak lengkap', 400);
+    }
 
     let deletedCount = 0;
 
-    // MULAI TRANSAKSI ATOMIK (Temuan No. 35)
+    // MULAI TRANSAKSI ATOMIK
     await connection.beginTransaction();
+
+    // 1. SELARASKAN URUTAN PENGUNCIAN: Kunci baris personnel TERLEBIH DAHULU dengan FOR UPDATE
+    // Mengeliminasi potensi circular wait / deadlock (ER_LOCK_DEADLOCK) terhadap requestLeaveRange
+    const [pRows] = await connection.query(
+      'SELECT id, team_group FROM personnel WHERE id IN (?) ORDER BY id ASC FOR UPDATE',
+      [targetPersonnelIds]
+    );
+
+    if (pRows.length === 0) {
+      await connection.rollback();
+      connection.release();
+      return errorResponse(res, 'Data personel tidak ditemukan', 404);
+    }
 
     // Helper internal untuk menghapus seluruh rentang paket secara atomik
     const deletePackageRange = async (pId, sDate, eDate) => {
@@ -346,6 +416,35 @@ export const cancelLeave = async (req, res) => {
       return resDel.affectedRows;
     };
 
+    // Helper internal untuk menghapus dokumen bukti cuti terkait di personnel_documents dan berkas fisiknya dari disk
+    const deleteAssociatedDocuments = async (pId, sDate, eDate) => {
+      if (!pId) return;
+      let docQuery = `
+        SELECT id, file_url 
+        FROM personnel_documents 
+        WHERE personnel_id = ? 
+          AND (title LIKE '%Bukti Cuti%' OR document_type = 'dokumen_lain')
+      `;
+      const params = [pId];
+      if (sDate && eDate) {
+        docQuery += ` AND (title LIKE ? OR (title LIKE ? AND title LIKE ?))`;
+        params.push(`%${sDate} s/d ${eDate}%`, `%${sDate}%`, `%${eDate}%`);
+      } else if (sDate) {
+        docQuery += ` AND title LIKE ?`;
+        params.push(`%${sDate}%`);
+      } else {
+        return;
+      }
+
+      const [docs] = await connection.query(docQuery, params);
+      for (const doc of docs) {
+        if (doc.file_url) {
+          safeUnlink(doc.file_url);
+        }
+        await connection.query('DELETE FROM personnel_documents WHERE id = ?', [doc.id]);
+      }
+    };
+
     // Skenario A: Diberikan array deployment_ids eksplisit (misal dari paket cuti di UI)
     if (Array.isArray(deployment_ids) && deployment_ids.length > 0) {
       const [depRows] = await connection.query(`
@@ -353,6 +452,7 @@ export const cancelLeave = async (req, res) => {
         FROM personnel_deployments pd
         JOIN personnel_shifts ps ON pd.shift_id = ps.id
         WHERE pd.id IN (?) AND pd.deployment_type = 'absent'
+        FOR UPDATE
       `, [deployment_ids]);
 
       if (depRows.length === 0) {
@@ -370,15 +470,12 @@ export const cancelLeave = async (req, res) => {
         }
       }
 
-      const pIds = [...new Set(depRows.map((r) => r.personnel_id))];
-      await connection.query('SELECT id FROM personnel WHERE id IN (?) FOR UPDATE', [pIds]);
-
-      // Evaluasi apakah ada paket rentang tanggal pada notes atau body (pembatalan paket utuh)
+      // Evaluasi paket rentang tanggal murni dari notes database (abaikan tanggal manipulasi dari req.body)
       const processedRanges = new Set();
       for (const row of depRows) {
         const match = (row.notes || '').match(/\((?:Rentang:\s*)?([0-9]{4}-[0-9]{2}-[0-9]{2})\s*s\/?d\s*([0-9]{4}-[0-9]{2}-[0-9]{2})\)/i);
-        const sDate = (start_date && end_date) ? start_date : (match ? match[1] : null);
-        const eDate = (start_date && end_date) ? end_date : (match ? match[2] : null);
+        const sDate = match ? match[1] : null;
+        const eDate = match ? match[2] : null;
 
         if (sDate && eDate) {
           const rangeKey = `${row.personnel_id}_${sDate}_${eDate}`;
@@ -386,6 +483,7 @@ export const cancelLeave = async (req, res) => {
             processedRanges.add(rangeKey);
             const count = await deletePackageRange(row.personnel_id, sDate, eDate);
             deletedCount += count;
+            await deleteAssociatedDocuments(row.personnel_id, sDate, eDate);
           }
         }
       }
@@ -400,6 +498,14 @@ export const cancelLeave = async (req, res) => {
         }
         const [resDel] = await connection.query(delQuery, delParams);
         deletedCount = resDel.affectedRows;
+
+        // Bersihkan dokumen terkait untuk tanggal shift masing-masing row
+        for (const row of depRows) {
+          const shiftDateStr = formatWibDate(row.shift_date);
+          if (shiftDateStr) {
+            await deleteAssociatedDocuments(row.personnel_id, shiftDateStr);
+          }
+        }
       }
     }
     // Skenario B: Diberikan single deploymentId (bisa berupa perwakilan paket rentang tanggal)
@@ -409,6 +515,7 @@ export const cancelLeave = async (req, res) => {
         FROM personnel_deployments pd
         JOIN personnel_shifts ps ON pd.shift_id = ps.id
         WHERE pd.id = ? AND pd.deployment_type = 'absent'
+        FOR UPDATE
       `, [deploymentId]);
 
       if (targetRows.length === 0) {
@@ -424,73 +531,88 @@ export const cancelLeave = async (req, res) => {
         return errorResponse(res, 'Anda tidak berwenang membatalkan cuti personel lain', 403);
       }
 
-      // Kunci baris personel terlebih dahulu (konsisten dengan requestLeaveRange untuk mencegah deadlock)
-      await connection.query('SELECT id FROM personnel WHERE id = ? FOR UPDATE', [target.personnel_id]);
-
-      // Periksa apakah entri cuti ini merupakan bagian dari paket rentang tanggal
+      // Ekstrak rentang tanggal murni dari catatan resmi paket cuti di database (deployment.notes)
+      // Abaikan tanggal dari req.body untuk mencegah manipulasi client yang bisa menghapus riwayat tahunan
       const match = (target.notes || '').match(/\((?:Rentang:\s*)?([0-9]{4}-[0-9]{2}-[0-9]{2})\s*s\/?d\s*([0-9]{4}-[0-9]{2}-[0-9]{2})\)/i);
-      const sDate = (start_date && end_date) ? start_date : (match ? match[1] : null);
-      const eDate = (start_date && end_date) ? end_date : (match ? match[2] : null);
+      const sDate = match ? match[1] : null;
+      const eDate = match ? match[2] : null;
 
       if (sDate && eDate) {
         deletedCount = await deletePackageRange(target.personnel_id, sDate, eDate);
+        await deleteAssociatedDocuments(target.personnel_id, sDate, eDate);
       } else {
         const [resDel] = await connection.query(
           'DELETE FROM personnel_deployments WHERE id = ? AND deployment_type = "absent"',
           [deploymentId]
         );
         deletedCount = resDel.affectedRows;
+        const shiftDateStr = formatWibDate(target.shift_date);
+        if (shiftDateStr) {
+          await deleteAssociatedDocuments(target.personnel_id, shiftDateStr);
+        }
       }
     }
     // Skenario C: Diberikan shift_id & targetPersonnelId
-    else if (targetPersonnelId && shift_id) {
-      await connection.query('SELECT id FROM personnel WHERE id = ? FOR UPDATE', [targetPersonnelId]);
+    else if (targetPersonnelIds.length > 0 && shift_id) {
+      const targetId = targetPersonnelIds[0];
       const [targetRows] = await connection.query(`
         SELECT pd.id, pd.notes, ps.shift_date
         FROM personnel_deployments pd
         JOIN personnel_shifts ps ON pd.shift_id = ps.id
         WHERE pd.shift_id = ? AND pd.personnel_id = ? AND pd.deployment_type = 'absent'
-      `, [shift_id, targetPersonnelId]);
+        FOR UPDATE
+      `, [shift_id, targetId]);
 
       if (targetRows.length > 0) {
         const match = (targetRows[0].notes || '').match(/\((?:Rentang:\s*)?([0-9]{4}-[0-9]{2}-[0-9]{2})\s*s\/?d\s*([0-9]{4}-[0-9]{2}-[0-9]{2})\)/i);
-        const sDate = (start_date && end_date) ? start_date : (match ? match[1] : null);
-        const eDate = (start_date && end_date) ? end_date : (match ? match[2] : null);
+        const sDate = match ? match[1] : null;
+        const eDate = match ? match[2] : null;
 
         if (sDate && eDate) {
-          deletedCount = await deletePackageRange(targetPersonnelId, sDate, eDate);
+          deletedCount = await deletePackageRange(targetId, sDate, eDate);
+          await deleteAssociatedDocuments(targetId, sDate, eDate);
         } else {
           const [resDel] = await connection.query(
             'DELETE FROM personnel_deployments WHERE shift_id = ? AND personnel_id = ? AND deployment_type = "absent"',
-            [shift_id, targetPersonnelId]
+            [shift_id, targetId]
           );
           deletedCount = resDel.affectedRows;
+          const shiftDateStr = formatWibDate(targetRows[0].shift_date);
+          if (shiftDateStr) {
+            await deleteAssociatedDocuments(targetId, shiftDateStr);
+          }
         }
       }
     }
     // Skenario D: Diberikan shift_date & targetPersonnelId
-    else if (targetPersonnelId && shift_date) {
-      await connection.query('SELECT id FROM personnel WHERE id = ? FOR UPDATE', [targetPersonnelId]);
+    else if (targetPersonnelIds.length > 0 && shift_date) {
+      const targetId = targetPersonnelIds[0];
       const [targetRows] = await connection.query(`
         SELECT pd.id, pd.notes, ps.shift_date
         FROM personnel_deployments pd
         JOIN personnel_shifts ps ON pd.shift_id = ps.id
         WHERE ps.shift_date = ? AND pd.personnel_id = ? AND pd.deployment_type = 'absent'
-      `, [shift_date, targetPersonnelId]);
+        FOR UPDATE
+      `, [shift_date, targetId]);
 
       if (targetRows.length > 0) {
         const match = (targetRows[0].notes || '').match(/\((?:Rentang:\s*)?([0-9]{4}-[0-9]{2}-[0-9]{2})\s*s\/?d\s*([0-9]{4}-[0-9]{2}-[0-9]{2})\)/i);
-        const sDate = (start_date && end_date) ? start_date : (match ? match[1] : null);
-        const eDate = (start_date && end_date) ? end_date : (match ? match[2] : null);
+        const sDate = match ? match[1] : null;
+        const eDate = match ? match[2] : null;
 
         if (sDate && eDate) {
-          deletedCount = await deletePackageRange(targetPersonnelId, sDate, eDate);
+          deletedCount = await deletePackageRange(targetId, sDate, eDate);
+          await deleteAssociatedDocuments(targetId, sDate, eDate);
         } else {
           const [resDel] = await connection.query(
             'DELETE FROM personnel_deployments WHERE id = ? AND deployment_type = "absent"',
             [targetRows[0].id]
           );
           deletedCount = resDel.affectedRows;
+          const shiftDateStr = formatWibDate(targetRows[0].shift_date);
+          if (shiftDateStr) {
+            await deleteAssociatedDocuments(targetId, shiftDateStr);
+          }
         }
       }
     } else {

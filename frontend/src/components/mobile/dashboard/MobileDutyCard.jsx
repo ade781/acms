@@ -17,7 +17,12 @@ export default function MobileDutyCard({
   const stkpBadge = user?.stkp_license_number || user?.cert_level || 'STKP ARFF';
 
   return (
-    <div className="bg-white rounded-lg border border-slate-200 p-2.5 shadow-xs font-sans">
+    <div className="bg-white rounded-xl border border-slate-200/90 p-2.5 shadow-[0_1px_3px_rgba(15,23,42,0.04)] relative overflow-hidden font-sans">
+      {/* Subtle Top Warm Amber Highlight Bar */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-amber-300/70 via-amber-400/90 to-red-400/70"
+      />
       {/* Header Kartu: Nama & Lisensi STKP */}
       <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-1.5">
         <div>
@@ -80,42 +85,59 @@ export default function MobileDutyCard({
       {!isOffDuty && !isOnLeave && (
         <div className="space-y-1.5 text-xs">
           <div className="grid grid-cols-2 gap-1.5">
-            <div className="bg-slate-50 p-1.5 rounded border border-slate-100 flex flex-col justify-between">
+            <div className="bg-[#F8FAFC] border border-[#E6ECF5] rounded-lg p-2 flex flex-col justify-between">
               <div className="flex items-center justify-between gap-1">
                 <span className="text-xs text-slate-500 block leading-tight">Unit Armada / Pos</span>
               </div>
               <span
                 className="font-bold text-slate-900 text-xs block truncate mt-0.5"
-                title={dutyInfo?.vehicle_name || dutyInfo?.vehicle_code}
+                title={dutyInfo?.vehicle_name || dutyInfo?.vehicle_code || 'Belum Diploting'}
               >
-                {dutyInfo?.vehicle_code
-                  ? (dutyInfo?.vehicle_name && dutyInfo.vehicle_name !== dutyInfo.vehicle_code
-                    ? `${dutyInfo.vehicle_code} • ${dutyInfo.vehicle_name}`
-                    : dutyInfo.vehicle_code)
-                  : (dutyInfo?.vehicle_name || 'Belum Diploting')}
+                {dutyInfo?.vehicle_id ? (
+                  dutyInfo?.vehicle_code
+                    ? (dutyInfo?.vehicle_name && dutyInfo.vehicle_name !== dutyInfo.vehicle_code
+                      ? `${dutyInfo.vehicle_code} • ${dutyInfo.vehicle_name}`
+                      : dutyInfo.vehicle_code)
+                    : (dutyInfo?.vehicle_name || 'Terploting')
+                ) : (
+                  'Belum Diploting'
+                )}
               </span>
             </div>
-            <div className="bg-slate-50 p-1.5 rounded border border-slate-100">
+            <div className="bg-[#F8FAFC] border border-[#E6ECF5] rounded-lg p-2">
               <span className="text-xs text-slate-500 block leading-tight">Peran Dinas</span>
               <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                {dutyInfo?.is_pic ? (
-                  <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-xs font-bold shrink-0">
-                    PIC
-                  </span>
+                {dutyInfo?.vehicle_id ? (
+                  <>
+                    {dutyInfo?.is_pic ? (
+                      <span className="px-1.5 py-0.5 rounded bg-amber-100/90 text-amber-900 border border-amber-300 text-xs font-bold shrink-0">
+                        PIC
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.5 rounded bg-sky-50 text-sky-800 border border-sky-200 text-xs font-bold shrink-0">
+                        Kru
+                      </span>
+                    )}
+                    <span className="font-bold text-slate-900 text-xs truncate">
+                      {dutyInfo?.role_name || (dutyInfo?.is_pic ? 'Operator Utama' : 'Kru Lapangan')}
+                    </span>
+                  </>
                 ) : (
-                  <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-xs font-bold shrink-0">
-                    Kru
-                  </span>
+                  <>
+                    <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-xs font-bold shrink-0 border border-slate-200">
+                      Standby
+                    </span>
+                    <span className="font-bold text-slate-600 text-xs truncate">
+                      Menunggu Ploting Dinas
+                    </span>
+                  </>
                 )}
-                <span className="font-bold text-slate-900 text-xs truncate">
-                  {dutyInfo?.role_name || (dutyInfo?.is_pic ? 'Operator Utama' : 'Kru Lapangan')}
-                </span>
               </div>
             </div>
           </div>
 
           {/* Banner Konfirmasi Siaga Dinas untuk Kru */}
-          {!dutyInfo?.is_pic && dutyInfo?.vehicle_code && (
+          {!dutyInfo?.is_pic && Boolean(dutyInfo?.vehicle_id) && dutyInfo?.vehicle_code && (
             <div className="p-1.5 rounded-lg bg-blue-50/70 border border-blue-200 text-blue-900 text-xs flex items-center justify-between">
               <span className="font-semibold text-xs flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0"></span>
