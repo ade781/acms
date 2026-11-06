@@ -644,8 +644,14 @@ export const streamPdfToResponse = (doc, res, req, options = {}) => {
     onEnd = null
   } = options;
 
+  const isDownload =
+    req?.query?.download === '1' ||
+    req?.query?.download === 'true' ||
+    req?.query?.disposition === 'attachment';
+  const effectiveDisposition = isDownload ? 'attachment' : disposition;
+
   res.setHeader('Content-Type', contentType);
-  res.setHeader('Content-Disposition', `${disposition}; filename="${filename}"`);
+  res.setHeader('Content-Disposition', `${effectiveDisposition}; filename="${filename}"`);
 
   let isCleanedUp = false;
   const cleanup = () => {

@@ -6,7 +6,6 @@ import { cleanTeam, getScheduledTeam } from '../../utils/shiftHelper';
 // Subcomponents
 import MobileDutyCard from '../../components/mobile/dashboard/MobileDutyCard';
 import MobilePicReadinessForm from '../../components/mobile/dashboard/MobilePicReadinessForm';
-import MobileOpsSummaryCards from '../../components/mobile/dashboard/MobileOpsSummaryCards';
 import MobileUnserviceableWidget from '../../components/mobile/dashboard/MobileUnserviceableWidget';
 import MobileRecentAnnouncements from '../../components/mobile/dashboard/MobileRecentAnnouncements';
 import MobileUnitAuditModal from '../../components/mobile/reports/MobileUnitAuditModal';
@@ -175,14 +174,6 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
     ? vehiclesList.find((v) => Number(v.id || v.vehicle_id) === Number(dutyInfo.vehicle_id))
     : null;
 
-  // Hitungan Metrik Situasi Operasional
-  const presentCount = allDeployments.filter((d) => d.deployment_type !== 'absent').length;
-  const absentDeployments = allDeployments.filter((d) => d.deployment_type === 'absent');
-  const absentCount = absentDeployments.length;
-  const totalStrength = Number(deploymentsData?.total_team_members) > 0
-    ? Number(deploymentsData.total_team_members)
-    : (presentCount + absentCount);
-
   const handleOpenGlobalLeaveModal = () => {
     window.dispatchEvent(
       new CustomEvent('arff:open-leave-modal', {
@@ -191,11 +182,7 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
     );
   };
 
-  const serviceableCount = vehiclesList.filter((v) => v.status === 'serviceable').length;
-  const totalVehiclesCount = vehiclesList.length;
   const unserviceableVehicles = vehiclesList.filter((v) => v.status === 'unserviceable');
-  const unserviceableCount = unserviceableVehicles.length;
-  const belumDicekCount = vehiclesList.filter((v) => !v.status || v.status === 'belum_dilaporkan').length;
 
   // Handler buka pengumuman / dokumen lampiran
   const handleOpenPdf = (ann) => {
@@ -232,7 +219,7 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
   };
 
   return (
-    <div className="space-y-2 pb-6 font-sans">
+    <div className="space-y-2.5 pb-6 font-sans">
       {errorMsg && (
         <div className="p-2 rounded bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-1.5">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
@@ -240,56 +227,52 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
         </div>
       )}
 
-      {/* 1. KARTU TUGAS DINAS SAYA */}
-      <MobileDutyCard
-        user={user}
-        dutyInfo={dutyInfo}
-        isOffDuty={isOffDuty}
-        isOnLeave={isOnLeave}
-        leaveInfo={userLeaveRecord}
-        vehicleReadiness={picVehicleReadiness}
-        onOpenLeaveModal={handleOpenGlobalLeaveModal}
-      />
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 md:gap-4 items-start">
+        {/* Kolom Kiri (md:col-span-5) */}
+        <div className="md:col-span-5 space-y-2.5">
+          {/* 1. KARTU TUGAS DINAS SAYA */}
+          <MobileDutyCard
+            user={user}
+            dutyInfo={dutyInfo}
+            isOffDuty={isOffDuty}
+            isOnLeave={isOnLeave}
+            leaveInfo={userLeaveRecord}
+            vehicleReadiness={picVehicleReadiness}
+            onOpenLeaveModal={handleOpenGlobalLeaveModal}
+          />
 
-      {/* 2. FORMULIR KESIAPAN PIC (KONDISIONAL: HANYA TAMPIL JIKA USER = PIC & BUKAN OFF-DUTY) */}
-      {!isOffDuty && !isOnLeave && dutyInfo?.is_pic && (
-        <MobilePicReadinessForm
-          user={user}
-          dutyInfo={dutyInfo}
-          activeDate={activeDate}
-          activeShiftNumber={activeShiftNumber}
-          activeTeam={cleanTeam(activeTeam)}
-          vehicleReadiness={picVehicleReadiness}
-          onSuccess={() => fetchDashboardData(true)}
-          onOpenAuditModal={(vId) => setAuditVehicleId(vId)}
-        />
-      )}
+          {/* 2. FORMULIR KESIAPAN PIC (KONDISIONAL: HANYA TAMPIL JIKA USER = PIC & BUKAN OFF-DUTY) */}
+          {!isOffDuty && !isOnLeave && dutyInfo?.is_pic && (
+            <MobilePicReadinessForm
+              user={user}
+              dutyInfo={dutyInfo}
+              activeDate={activeDate}
+              activeShiftNumber={activeShiftNumber}
+              activeTeam={cleanTeam(activeTeam)}
+              vehicleReadiness={picVehicleReadiness}
+              onSuccess={() => fetchDashboardData(true)}
+              onOpenAuditModal={(vId) => setAuditVehicleId(vId)}
+            />
+          )}
+        </div>
 
-      {/* 3. RINGKASAN SITUASI OPERASIONAL (PERSONEL & ARMADA) */}
-      <MobileOpsSummaryCards
-        presentCount={presentCount}
-        totalPersonnel={totalStrength}
-        absentCount={absentCount}
-        serviceableCount={serviceableCount}
-        totalVehicles={totalVehiclesCount}
-        unserviceableCount={unserviceableCount}
-        belumDicekCount={belumDicekCount}
-        onOpenLeaveModal={handleOpenGlobalLeaveModal}
-      />
+        {/* Kolom Kanan (md:col-span-7) */}
+        <div className="md:col-span-7 space-y-2.5">
+          {/* 4. WIDGET KENDALA ARMADA (KONDISIONAL: HANYA JIKA ADA UNIT UNSERVICEABLE) */}
+          <MobileUnserviceableWidget
+            unserviceableVehicles={unserviceableVehicles}
+            onOpenAuditModal={(vId) => setAuditVehicleId(vId)}
+          />
 
-      {/* 4. WIDGET KENDALA ARMADA (KONDISIONAL: HANYA JIKA ADA UNIT UNSERVICEABLE) */}
-      <MobileUnserviceableWidget
-        unserviceableVehicles={unserviceableVehicles}
-        onOpenAuditModal={(vId) => setAuditVehicleId(vId)}
-      />
-
-      {/* 5. WIDGET PENGUMUMAN DINAS (DIPALING BAWAH, 3 TERBARU) */}
-      <MobileRecentAnnouncements
-        announcements={announcements}
-        onOpenAllAnnouncements={onNavigateToAnnouncements}
-        onOpenPdf={handleOpenPdf}
-        onArchive={handleArchiveFromDashboard}
-      />
+          {/* 5. WIDGET PENGUMUMAN DINAS (DIPALING BAWAH, 3 TERBARU) */}
+          <MobileRecentAnnouncements
+            announcements={announcements}
+            onOpenAllAnnouncements={onNavigateToAnnouncements}
+            onOpenPdf={handleOpenPdf}
+            onArchive={handleArchiveFromDashboard}
+          />
+        </div>
+      </div>
 
       {/* MODAL JEJAK AUDIT KENDALA ARMADA */}
       <MobileUnitAuditModal

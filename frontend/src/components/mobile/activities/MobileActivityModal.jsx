@@ -5,6 +5,7 @@ import api from '../../../services/api';
 import { OFFICIAL_ACTIVITY_CATEGORIES } from '../../../utils/activityCategories';
 import { cleanTeam } from '../../../utils/shiftHelper';
 import { compressImageToWebP } from '../../../utils/imageCompressor';
+import { blobToDataUrl } from '../../../utils/fileHelper';
 
 const getNowWIBTime = () => {
   return new Intl.DateTimeFormat('en-GB', {
@@ -40,15 +41,6 @@ export default function MobileActivityModal({
   const [compressing, setCompressing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-
-  // Bersihkan object URL foto preview untuk mencegah memory leak
-  useEffect(() => {
-    return () => {
-      if (photoPreview && photoPreview.startsWith('blob:')) {
-        window.URL.revokeObjectURL(photoPreview);
-      }
-    };
-  }, [photoPreview]);
 
   // Sinkronisasi data saat modal dibuka untuk tambah atau edit
   useEffect(() => {
@@ -101,11 +93,9 @@ export default function MobileActivityModal({
           maxHeight: 1280,
           quality: 0.8,
         });
-        if (photoPreview && photoPreview.startsWith('blob:')) {
-          window.URL.revokeObjectURL(photoPreview);
-        }
+        const dataUrl = await blobToDataUrl(compressedWebP);
         setSelectedPhoto(compressedWebP);
-        setPhotoPreview(window.URL.createObjectURL(compressedWebP));
+        setPhotoPreview(dataUrl);
         setPhotoRemoved(false);
       } catch (err) {
         setErrorMsg(`Gagal memproses gambar: ${err?.message || 'Format tidak valid'}`);
@@ -116,9 +106,6 @@ export default function MobileActivityModal({
   };
 
   const handleRemovePhoto = () => {
-    if (photoPreview && photoPreview.startsWith('blob:')) {
-      window.URL.revokeObjectURL(photoPreview);
-    }
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -189,7 +176,7 @@ export default function MobileActivityModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[390px] bg-white rounded-2xl border border-slate-200 p-3.5 space-y-2.5 shadow-xl max-h-[90vh] flex flex-col"
+        className="w-full max-w-[412px] sm:max-w-lg bg-white rounded-2xl border border-slate-200 p-3.5 space-y-2.5 shadow-xl max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Modal */}

@@ -2,136 +2,90 @@ import React from 'react';
 import { LayoutGrid, Users, Clock, AlertTriangle, FileText } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-export default function MobileBottomNav({ activeTab = 'dashboard', onTabChange, isChief: propIsChief }) {
+export default function MobileBottomNav({
+  isOnDuty = true,
+  activeTab = 'dashboard',
+  onTabChange,
+  isChief: propIsChief,
+}) {
   const { user } = useAuth();
   const userRole = (user?.role || '').toLowerCase();
-  const isManagerialRole = ['admin', 'chief', 'chief_assistant', 'operation_chief', 'supervisor'].includes(userRole) || Boolean(propIsChief);
+  const isManagerialRole =
+    ['admin', 'chief', 'chief_assistant', 'operation_chief', 'supervisor'].includes(userRole) ||
+    Boolean(propIsChief);
 
-  if (!isManagerialRole) {
-    // Nav Kru: Tepat 3 Menu Baku (Dashboard, Kegiatan, Laporan)
-    return (
-      <nav className="fixed bottom-0 z-40 w-full max-w-[412px] bg-white/95 border-t border-slate-200/90 px-2 py-1 shadow-[0_-4px_16px_rgba(15,23,42,0.05)] safe-pb font-sans">
-        <div id="nav-kru-container" className="grid grid-cols-3 gap-1 text-xs">
-          <button
-            type="button"
-            id="nav-btn-dashboard-kru"
-            onClick={() => onTabChange('dashboard')}
-            className={`flex flex-col items-center justify-center py-1 transition-colors duration-100 tap-target ${
-              activeTab === 'dashboard'
-                ? 'text-red-600 font-bold'
-                : 'text-slate-400 font-medium hover:text-slate-700'
-            }`}
-          >
-            <LayoutGrid className="w-4 h-4 mb-0.5" />
-            <span>Dashboard</span>
-          </button>
+  // Opsi 3: Adaptive Expanding Pill (Ultra-Minimalis & Layar Lebih Lega)
+  // Floating capsule ramping: item tidak aktif hanya menampilkan ikon,
+  // sedangkan item aktif melebar menjadi kapsul warna terpadu dengan ikon & label.
+  const kruItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutGrid, buttonId: 'nav-btn-dashboard-kru' },
+    { id: 'kegiatan', label: 'Kegiatan', icon: Clock, buttonId: 'nav-btn-kegiatan-kru' },
+    { id: 'laporan', label: 'Laporan', icon: FileText, buttonId: 'nav-btn-laporan-kru' },
+  ];
 
-          <button
-            type="button"
-            id="nav-btn-kegiatan-kru"
-            onClick={() => onTabChange('kegiatan')}
-            className={`flex flex-col items-center justify-center py-1 transition-colors duration-100 tap-target ${
-              activeTab === 'kegiatan'
-                ? 'text-red-600 font-bold'
-                : 'text-slate-400 font-medium hover:text-slate-700'
-            }`}
-          >
-            <Clock className="w-4 h-4 mb-0.5" />
-            <span>Kegiatan</span>
-          </button>
+      const chiefItems = [
+        { id: 'dashboard', label: 'Dashboard', icon: LayoutGrid, buttonId: 'nav-btn-dashboard-chief' },
+        { id: 'ploting', label: 'Ploting', icon: Users, buttonId: 'nav-btn-ploting' },
+        { id: 'kegiatan', label: 'Kegiatan', icon: Clock, buttonId: 'nav-btn-kegiatan' },
+        { id: 'insiden', label: 'Insiden', icon: AlertTriangle, buttonId: 'nav-btn-insiden' },
+        { id: 'laporan', label: 'Laporan', icon: FileText, buttonId: 'nav-btn-laporan-chief' },
+      ];
 
-          <button
-            type="button"
-            id="nav-btn-laporan-kru"
-            onClick={() => onTabChange('laporan')}
-            className={`flex flex-col items-center justify-center py-1 transition-colors duration-100 tap-target ${
-              activeTab === 'laporan'
-                ? 'text-red-600 font-bold'
-                : 'text-slate-400 font-medium hover:text-slate-700'
-            }`}
+      const currentItems = isManagerialRole ? chiefItems : kruItems;
+
+      const getActivePillClass = () => {
+        if (isOnDuty) {
+          return 'bg-[#FFF7ED] text-[#EA580C] ring-1 ring-[#FDBA74]/90 shadow-2xs font-bold';
+        }
+        return 'bg-stone-100 text-stone-900 ring-1 ring-stone-300 shadow-2xs font-bold';
+      };
+
+      return (
+        <div className="fixed bottom-0 inset-x-0 z-40 pointer-events-none px-3 pb-2.5 pt-1 safe-pb font-sans">
+          <nav
+            className="pointer-events-auto mx-auto w-fit max-w-[calc(100vw-2rem)] rounded-full border border-stone-200/90 bg-white/95 shadow-[0_8px_24px_-4px_rgba(28,25,23,0.1),0_2px_6px_rgba(28,25,23,0.04)] p-1.5 flex items-center justify-center gap-1 transition-colors duration-100"
           >
-            <FileText className="w-4 h-4 mb-0.5" />
-            <span>Laporan</span>
-          </button>
+              <div
+                id={isManagerialRole ? 'nav-chief-container' : 'nav-kru-container'}
+                className="flex items-center gap-1 text-xs"
+              >
+                {currentItems.map((item) => {
+                  const isActive = activeTab === item.id;
+                  const Icon = item.icon;
+
+                  if (isActive) {
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        id={item.buttonId}
+                        onClick={() => onTabChange(item.id)}
+                        className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs tap-target transition-colors duration-100 ${getActivePillClass()}`}
+                        title={item.label}
+                        aria-label={item.label}
+                      >
+                        <Icon className="w-4 h-4 shrink-0" />
+                        <span className="whitespace-nowrap tracking-tight">{item.label}</span>
+                      </button>
+                    );
+                  }
+
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      id={item.buttonId}
+                      onClick={() => onTabChange(item.id)}
+                      className="flex items-center justify-center w-9 h-9 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-100/70 tap-target transition-colors duration-100"
+                      title={item.label}
+                      aria-label={item.label}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                    </button>
+                  );
+                })}
+              </div>
+          </nav>
         </div>
-      </nav>
-    );
-  }
-
-  // Nav Chief / Admin: Tepat 5 Menu Baku (Dashboard, Ploting, Kegiatan, Insiden, Laporan)
-  return (
-    <nav className="fixed bottom-0 z-40 w-full max-w-[412px] bg-white/95 border-t border-slate-200/90 px-1 py-1 shadow-[0_-4px_16px_rgba(15,23,42,0.05)] safe-pb font-sans">
-      <div id="nav-chief-container" className="grid grid-cols-5 gap-0.5 text-xs">
-        <button
-          type="button"
-          id="nav-btn-dashboard-chief"
-          onClick={() => onTabChange('dashboard')}
-          className={`flex flex-col items-center justify-center py-1 transition-colors duration-100 tap-target ${
-            activeTab === 'dashboard'
-              ? 'text-red-600 font-bold'
-              : 'text-slate-400 font-medium hover:text-slate-700'
-          }`}
-        >
-          <LayoutGrid className="w-4 h-4 mb-0.5" />
-          <span>Dashboard</span>
-        </button>
-
-        <button
-          type="button"
-          id="nav-btn-ploting"
-          onClick={() => onTabChange('ploting')}
-          className={`flex flex-col items-center justify-center py-1 transition-colors duration-100 tap-target ${
-            activeTab === 'ploting'
-              ? 'text-red-600 font-bold'
-              : 'text-slate-400 font-medium hover:text-slate-700'
-          }`}
-        >
-          <Users className="w-4 h-4 mb-0.5" />
-          <span>Ploting</span>
-        </button>
-
-        <button
-          type="button"
-          id="nav-btn-kegiatan"
-          onClick={() => onTabChange('kegiatan')}
-          className={`flex flex-col items-center justify-center py-1 transition-colors duration-100 tap-target ${
-            activeTab === 'kegiatan'
-              ? 'text-red-600 font-bold'
-              : 'text-slate-400 font-medium hover:text-slate-700'
-          }`}
-        >
-          <Clock className="w-4 h-4 mb-0.5" />
-          <span>Kegiatan</span>
-        </button>
-
-        <button
-          type="button"
-          id="nav-btn-insiden"
-          onClick={() => onTabChange('insiden')}
-          className={`flex flex-col items-center justify-center py-1 transition-colors duration-100 tap-target ${
-            activeTab === 'insiden'
-              ? 'text-red-600 font-bold'
-              : 'text-slate-400 font-medium hover:text-slate-700'
-          }`}
-        >
-          <AlertTriangle className="w-4 h-4 mb-0.5" />
-          <span>Insiden</span>
-        </button>
-
-        <button
-          type="button"
-          id="nav-btn-laporan-chief"
-          onClick={() => onTabChange('laporan')}
-          className={`flex flex-col items-center justify-center py-1 transition-colors duration-100 tap-target ${
-            activeTab === 'laporan'
-              ? 'text-red-600 font-bold'
-              : 'text-slate-400 font-medium hover:text-slate-700'
-          }`}
-        >
-          <FileText className="w-4 h-4 mb-0.5" />
-          <span>Laporan</span>
-        </button>
-      </div>
-    </nav>
-  );
-}
+      );
+    }

@@ -67,9 +67,13 @@ export const viewDocument = async (req, res) => {
 
     const downloadName = doc.file_name || cleanFileName;
     const safeAsciiName = downloadName.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const isDownload =
+      req.query.download === '1' ||
+      req.query.download === 'true' ||
+      req.query.disposition === 'attachment';
 
     res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `inline; filename="${safeAsciiName}"; filename*=UTF-8''${encodeURIComponent(downloadName)}`);
+    res.setHeader('Content-Disposition', `${isDownload ? 'attachment' : 'inline'}; filename="${safeAsciiName}"; filename*=UTF-8''${encodeURIComponent(downloadName)}`);
 
     return res.sendFile(filePath);
   } catch (error) {

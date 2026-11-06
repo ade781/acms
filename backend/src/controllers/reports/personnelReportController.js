@@ -78,7 +78,7 @@ export const getPersonnelReportPdf = async (req, res) => {
 
     streamPdfToResponse(doc, res, req, {
       filename: `Buku_Induk_Personel_ARFF_YIA_${todayDate}.pdf`,
-      disposition: 'attachment',
+      disposition: 'inline',
     });
   } catch (error) {
     console.error('Error getPersonnelReportPdf:', error);

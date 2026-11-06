@@ -94,7 +94,7 @@ export default function MobileReports() {
           <h2 className="text-sm font-bold text-slate-900 leading-tight">
             Laporan Harian ARFF
           </h2>
-          <p className="text-[11px] text-slate-500 font-sans mt-0.5">
+          <p className="text-xs text-slate-500 font-sans mt-0.5">
             3 Shift: {team1} • {team2} • {team3}
           </p>
         </div>
@@ -133,7 +133,7 @@ export default function MobileReports() {
             <Truck className="w-3.5 h-3.5 text-slate-500" />
             <span>Kesiapan Armada (Matriks 3 Shift)</span>
           </h3>
-          <span className="text-[11px] font-mono text-slate-500">
+          <span className="text-xs font-mono tabular-nums text-slate-500">
             {matrixVehicles.length} Unit
           </span>
         </div>
@@ -150,7 +150,7 @@ export default function MobileReports() {
               const isUnserv = stat === 'unserviceable';
               return (
                 <span
-                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0 ${
+                  className={`px-1.5 py-0.5 rounded text-xs font-bold border shrink-0 ${
                     isServ
                       ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                       : isUnserv
@@ -193,7 +193,7 @@ export default function MobileReports() {
           <span>Personel Dinas (3 Regu Operasional)</span>
         </h3>
 
-        <div className="grid grid-cols-1 gap-2 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
           {[
             { sNum: 1, team: team1, label: 'Shift 1 (Pagi 07:00 – 13:00)', data: personnelSummary?.shift_1 },
             { sNum: 2, team: team2, label: 'Shift 2 (Siang 13:00 – 20:00)', data: personnelSummary?.shift_2 },
@@ -206,20 +206,20 @@ export default function MobileReports() {
 
             return (
               <div key={`mob-p-${s.sNum}`} className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 space-y-0.5">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-1">
                   <span className="font-bold text-slate-900">Regu {s.team}</span>
-                  <span className="text-[10px] text-slate-500">{s.label}</span>
+                  <span className="text-xs text-slate-500">{s.label}</span>
                 </div>
                 <div className="flex items-center gap-2 pt-0.5">
-                  <span className="text-emerald-700 font-semibold text-[11px]">
+                  <span className="text-emerald-700 font-semibold text-xs">
                     ✓ <span className="font-mono tabular-nums">{presentCount}</span> Hadir
                   </span>
                   {absentCount > 0 ? (
-                    <span className="text-red-700 text-[11px]">
+                    <span className="text-red-700 text-xs">
                       • <span className="font-mono tabular-nums">{absentCount}</span> Cuti/Izin
                     </span>
                   ) : (
-                    <span className="text-slate-400 text-[11px]">• Lengkap</span>
+                    <span className="text-slate-400 text-xs">• Lengkap</span>
                   )}
                 </div>
               </div>

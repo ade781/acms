@@ -4,6 +4,7 @@ import Modal from '../common/Modal';
 import Button from '../common/Button';
 import TextareaField from '../common/TextareaField';
 import { compressImageToWebP } from '../../utils/imageCompressor';
+import { blobToDataUrl } from '../../utils/fileHelper';
 import { cleanTeam, formatTeam, formatIndoDate } from '../../utils/shiftHelper';
 import { getErrorMessage } from '../../utils/errorHelper';
 import api from '../../services/api';
@@ -127,8 +128,9 @@ export default function VehicleReadinessModal({
         maxHeight: 1280,
         quality: 0.8,
       });
+      const dataUrl = await blobToDataUrl(compressedWebP);
       setPhotoFile(compressedWebP);
-      setPhotoPreview(URL.createObjectURL(compressedWebP));
+      setPhotoPreview(dataUrl);
     } catch (err) {
       setError(`Gagal mengompres gambar: ${err.message}`);
     } finally {

@@ -95,7 +95,7 @@ export default function MobileIncidentDetailModal({
         onClick={onClose}
       >
         <div
-          className="w-full max-w-[390px] bg-white rounded-2xl border border-slate-200 p-3.5 space-y-2.5 shadow-xl max-h-[90vh] flex flex-col"
+          className="w-full max-w-[412px] sm:max-w-lg bg-white rounded-2xl border border-slate-200 p-3.5 space-y-2.5 shadow-xl max-h-[90vh] flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}

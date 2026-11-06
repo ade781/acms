@@ -4,6 +4,7 @@ import { Camera, Check, AlertCircle, X } from 'lucide-react';
 import api from '../../../services/api';
 import { cleanTeam } from '../../../utils/shiftHelper';
 import { compressImageToWebP } from '../../../utils/imageCompressor';
+import { blobToDataUrl } from '../../../utils/fileHelper';
 import { OFFICIAL_INCIDENT_CLASSIFICATIONS, mapClassificationToCategory } from '../../../utils/incidentHelper';
 
 export { OFFICIAL_INCIDENT_CLASSIFICATIONS };
@@ -69,10 +70,12 @@ export default function MobileIncidentModal({
       );
 
       setSelectedPhotos((prev) => [...prev, ...compressedFiles]);
-      const newPreviews = compressedFiles.map((f) => ({
-        name: f.name,
-        url: URL.createObjectURL(f),
-      }));
+      const newPreviews = await Promise.all(
+        compressedFiles.map(async (f) => ({
+          name: f.name,
+          url: await blobToDataUrl(f),
+        }))
+      );
       setPhotoPreviews((prev) => [...prev, ...newPreviews]);
     } catch (err) {
       setErrorMsg(`Gagal memproses gambar: ${err?.message || 'Format tidak valid'}`);
@@ -172,7 +175,7 @@ export default function MobileIncidentModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[412px] bg-white rounded-t-2xl sm:rounded-2xl border-t sm:border border-slate-200 p-3.5 pb-8 safe-pb sm:pb-3.5 space-y-2.5 shadow-2xl max-h-[90vh] flex flex-col"
+        className="w-full max-w-[412px] sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl border-t sm:border border-slate-200 p-3.5 pb-8 safe-pb sm:pb-3.5 space-y-2.5 shadow-2xl max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Modal */}

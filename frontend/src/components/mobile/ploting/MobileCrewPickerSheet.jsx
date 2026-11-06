@@ -34,7 +34,7 @@ export default function MobileCrewPickerSheet({
           onClick={onClose}
         >
           <div
-            className="w-full max-w-[412px] bg-white rounded-t-2xl border-t border-slate-200 p-3 pb-8 safe-pb space-y-2 max-h-[85vh] flex flex-col shadow-2xl"
+            className="w-full max-w-[412px] sm:max-w-lg bg-white rounded-t-2xl border-t border-slate-200 p-3 pb-8 safe-pb space-y-2 max-h-[85vh] flex flex-col shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header Sheet */}

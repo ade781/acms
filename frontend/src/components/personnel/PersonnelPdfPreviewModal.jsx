@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { X, Download, ExternalLink, FileText, Shield, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import Button from '../common/Button';
 import { fetchPersonnelReportPdfBlob, downloadPersonnelReportPdf } from '../../services/reportService';
+import { buildAuthenticatedReportUrl } from '../../utils/fileHelper';
 import { getErrorMessage } from '../../utils/errorHelper';
 
 export default function PersonnelPdfPreviewModal({ isOpen, onClose, selectedTeam, token }) {
@@ -16,11 +17,11 @@ export default function PersonnelPdfPreviewModal({ isOpen, onClose, selectedTeam
     try {
       const blob = await fetchPersonnelReportPdfBlob({ team: selectedTeam, token });
       if (blob) {
-        const createdUrl = URL.createObjectURL(blob);
-        setBlobUrl((prev) => {
-          if (prev) URL.revokeObjectURL(prev);
-          return createdUrl;
+        const authUrl = buildAuthenticatedReportUrl('/personnel/export/pdf', {
+          ...(selectedTeam && selectedTeam !== 'ALL' ? { team_group: selectedTeam } : {}),
+          ...(token ? { token } : {}),
         });
+        setBlobUrl(authUrl);
       }
     } catch (err) {
       console.error('Error fetching personnel PDF blob:', err);
@@ -32,20 +33,11 @@ export default function PersonnelPdfPreviewModal({ isOpen, onClose, selectedTeam
 
   useEffect(() => {
     if (!isOpen) {
-      if (blobUrl) {
-        URL.revokeObjectURL(blobUrl);
-        setBlobUrl(null);
-      }
+      setBlobUrl(null);
       return;
     }
 
     loadPdfBlob();
-
-    return () => {
-      if (blobUrl) {
-        URL.revokeObjectURL(blobUrl);
-      }
-    };
   }, [isOpen, loadPdfBlob]);
 
   if (!isOpen) return null;
@@ -59,19 +51,7 @@ export default function PersonnelPdfPreviewModal({ isOpen, onClose, selectedTeam
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
-      if (blobUrl) {
-        // Gunakan blob yang sudah ter-buffer di memori untuk unduhan instan tanpa re-fetch
-        const teamLabel = selectedTeam && selectedTeam !== 'ALL' ? `_${selectedTeam}` : '';
-        const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = `Buku_Induk_Personel_ARFF_YIA${teamLabel}_${today}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } else {
-        await downloadPersonnelReportPdf({ team: selectedTeam, token });
-      }
+      await downloadPersonnelReportPdf({ team: selectedTeam, token });
     } catch (err) {
       console.error('Error downloading personnel PDF:', err);
     } finally {

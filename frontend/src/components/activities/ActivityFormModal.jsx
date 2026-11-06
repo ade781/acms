@@ -161,9 +161,6 @@ export default function ActivityFormModal({
                   if (fileInputRef.current) {
                     fileInputRef.current.value = '';
                   }
-                  if (photoPreview && photoPreview.startsWith('blob:')) {
-                    URL.revokeObjectURL(photoPreview);
-                  }
                   setPhotoFile(null);
                   setPhotoPreview(null);
                   setPhotoRemoved(true);

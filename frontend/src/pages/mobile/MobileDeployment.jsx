@@ -561,7 +561,7 @@ export default function MobileDeployment({ onOpenCutiModal } = {}) {
 
       {/* Loading Skeleton */}
       {loading ? (
-        <div className="space-y-1.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
           {[1, 2, 3, 4].map((n) => (
             <div
               key={n}
@@ -575,7 +575,7 @@ export default function MobileDeployment({ onOpenCutiModal } = {}) {
         </div>
       ) : (
         /* Kontainer Kartu Ploting Armada (Dense Ops Layout) */
-        <div className="space-y-1.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 items-start">
           {vehicles.map((unit, unitIdx) => (
             <MobilePlotCard
               key={unit.id ?? unit.code_name ?? `unit-${unitIdx}`}

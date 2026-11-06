@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Check, X, Camera, AlertCircle, RefreshCw, Pencil } from 'lucide-react';
 import api from '../../../services/api';
 import { compressImageToWebP } from '../../../utils/imageCompressor';
+import { blobToDataUrl } from '../../../utils/fileHelper';
 import { cleanTeam } from '../../../utils/shiftHelper';
 
 export default function MobilePicReadinessForm({
@@ -144,9 +145,9 @@ export default function MobilePicReadinessForm({
         maxHeight: 1280,
         quality: 0.8,
       });
+      const dataUrl = await blobToDataUrl(compressedWebP);
       setPhotoFile(compressedWebP);
-      const objectUrl = URL.createObjectURL(compressedWebP);
-      setPhotoPreview(objectUrl);
+      setPhotoPreview(dataUrl);
     } catch (err) {
       setErrorMsg(`Gagal memproses gambar: ${err?.message || 'Format tidak valid'}`);
     } finally {
@@ -279,23 +280,23 @@ export default function MobilePicReadinessForm({
 
   return (
     <div
-      className={`rounded-xl border p-3 shadow-[0_1px_3px_rgba(15,23,42,0.04)] space-y-2.5 transition-colors duration-100 font-sans ${hasShiftLog && !isEditing
+      className={`rounded-xl border p-3 shadow-[0_1px_3px_rgba(28,25,23,0.04)] space-y-2.5 transition-colors duration-100 font-sans ${hasShiftLog && !isEditing
           ? isCurrentlyServiceable
             ? 'bg-emerald-50/15 border-emerald-300'
             : 'bg-red-50/20 border-red-300'
           : hasShiftLog && isEditing
-            ? 'bg-white border-slate-300'
+            ? 'bg-white border-[#E5DFD5]'
             : 'bg-white border-amber-200/90'
         }`}
     >
       {/* Header Formulir PIC */}
-      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+      <div className="flex items-center justify-between border-b border-[#EFECE6] pb-2">
         <div>
-          <h3 className="text-xs font-bold text-slate-900 uppercase leading-none">
+          <h3 className="text-xs font-bold text-[#1C1917] uppercase leading-none">
             Lapor Kesiapan Unit (PIC)
           </h3>
           {hasShiftLog && vehicleReadiness?.logged_at && (
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-[#57534E] mt-1">
               Tercatat pukul{' '}
               <span className="font-mono tabular-nums">
                 {new Date(vehicleReadiness.logged_at)
@@ -306,7 +307,7 @@ export default function MobilePicReadinessForm({
             </p>
           )}
         </div>
-        <span className="text-xs font-mono tabular-nums font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
+        <span className="text-xs font-mono tabular-nums font-bold px-1.5 py-0.5 rounded bg-[#F7F5F0] text-[#44403C] border border-[#EAE4DC] shrink-0">
           {vehicleCode}
         </span>
       </div>
@@ -359,7 +360,7 @@ export default function MobilePicReadinessForm({
               </div>
             </div>
             {photoPreview && (
-              <div className="w-10 h-10 rounded-lg border border-slate-300 overflow-hidden shrink-0 bg-white">
+              <div className="w-10 h-10 rounded-lg border border-[#E5DFD5] overflow-hidden shrink-0 bg-white">
                 <img src={photoPreview} alt="Bukti Fisik" className="w-full h-full object-cover" />
               </div>
             )}
@@ -380,9 +381,9 @@ export default function MobilePicReadinessForm({
               setErrorMsg(null);
               setSuccessMsg(null);
             }}
-            className="w-full py-2 px-3 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors duration-100 cursor-pointer shadow-2xs"
+            className="w-full py-2 px-3 rounded-xl border border-[#E5DFD5] bg-white hover:bg-[#F7F5F0] text-[#1C1917] font-bold text-xs flex items-center justify-center gap-1.5 transition-colors duration-100 cursor-pointer shadow-2xs"
           >
-            <Pencil className="w-3.5 h-3.5 text-slate-500" />
+            <Pencil className="w-3.5 h-3.5 text-[#57534E]" />
             <span>Perbarui Laporan Kesiapan</span>
           </button>
         </div>
@@ -402,8 +403,8 @@ export default function MobilePicReadinessForm({
 
           {/* Banner Mode Edit jika sedang memperbarui */}
           {hasShiftLog && isEditing && (
-            <div className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-xs text-slate-600">
-              <span className="font-bold text-slate-800">Mode Perbarui Laporan</span>
+            <div className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-[#F7F5F0] border border-[#EAE4DC] text-xs text-[#57534E]">
+              <span className="font-bold text-[#1C1917]">Mode Perbarui Laporan</span>
             </div>
           )}
 
@@ -445,11 +446,11 @@ export default function MobilePicReadinessForm({
           <form onSubmit={handleSubmit} className="space-y-2 text-xs">
             {/* Checklist Posko Watchroom */}
             {isPosko && (
-              <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50 space-y-2 mb-2">
-                <p className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+              <div className="border border-[#EAE4DC] rounded-lg p-2.5 bg-[#F7F5F0] space-y-2 mb-2">
+                <p className="text-xs font-bold text-[#1C1917] uppercase tracking-wider">
                   Uji Kesiapan Fasilitas Posko Watchroom:
                 </p>
-                <label className="flex items-center gap-2.5 cursor-pointer text-xs font-medium text-slate-700 hover:text-slate-900">
+                <label className="flex items-center gap-2.5 cursor-pointer text-xs font-medium text-[#57534E] hover:text-[#1C1917]">
                   <input
                     type="checkbox"
                     checked={radioVhf}
@@ -462,7 +463,7 @@ export default function MobilePicReadinessForm({
                   />
                   <span>1. Radio VHF Air-to-Ground & HT</span>
                 </label>
-                <label className="flex items-center gap-2.5 cursor-pointer text-xs font-medium text-slate-700 hover:text-slate-900">
+                <label className="flex items-center gap-2.5 cursor-pointer text-xs font-medium text-[#57534E] hover:text-[#1C1917]">
                   <input
                     type="checkbox"
                     checked={hotlineAtc}
@@ -475,7 +476,7 @@ export default function MobilePicReadinessForm({
                   />
                   <span>2. Hotline ATC Tower</span>
                 </label>
-                <label className="flex items-center gap-2.5 cursor-pointer text-xs font-medium text-slate-700 hover:text-slate-900">
+                <label className="flex items-center gap-2.5 cursor-pointer text-xs font-medium text-[#57534E] hover:text-[#1C1917]">
                   <input
                     type="checkbox"
                     checked={crashBell}
@@ -488,7 +489,7 @@ export default function MobilePicReadinessForm({
                   />
                   <span>3. Crash Bell / Sirine Alarm Darurat</span>
                 </label>
-                <label className="flex items-center gap-2.5 cursor-pointer text-xs font-medium text-slate-700 hover:text-slate-900">
+                <label className="flex items-center gap-2.5 cursor-pointer text-xs font-medium text-[#57534E] hover:text-[#1C1917]">
                   <input
                     type="checkbox"
                     checked={cctvPc}
@@ -518,7 +519,7 @@ export default function MobilePicReadinessForm({
                 }}
                 className={`p-2 rounded-lg font-bold text-xs flex flex-col items-center justify-center gap-0.5 transition-colors duration-100 cursor-pointer ${effectiveStatus === 'serviceable'
                     ? 'border-2 border-emerald-600 bg-emerald-50/50 text-emerald-800 shadow-2xs'
-                    : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                    : 'border border-[#E5DFD5] bg-white text-[#57534E] hover:border-[#D6CFC2]'
                   }`}
               >
                 <Check className="w-4 h-4 text-emerald-600" />
@@ -532,7 +533,7 @@ export default function MobilePicReadinessForm({
                 }}
                 className={`p-2 rounded-lg font-bold text-xs flex flex-col items-center justify-center gap-0.5 transition-colors duration-100 cursor-pointer ${effectiveStatus === 'unserviceable'
                     ? 'border-2 border-red-600 bg-red-50/50 text-red-800 shadow-2xs'
-                    : 'border border-slate-200 bg-white text-slate-600 hover:border-red-300'
+                    : 'border border-[#E5DFD5] bg-white text-[#57534E] hover:border-red-300'
                   }`}
               >
                 <X className="w-4 h-4 text-red-500" />
@@ -543,7 +544,7 @@ export default function MobilePicReadinessForm({
             {/* Input Tunggal Uraian Kendala / Kerusakan jika Unserviceable */}
             {effectiveStatus === 'unserviceable' && (
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 block">
+                <label className="text-xs font-bold text-[#1C1917] block">
                   Uraian Kendala {isPosko ? 'Fasilitas Posko' : '& Kerusakan Fisik'} * <span className="text-red-600 font-bold">(Wajib)</span>
                 </label>
                 <textarea
@@ -555,7 +556,7 @@ export default function MobilePicReadinessForm({
                       ? 'Jelaskan fasilitas posko watchroom yang mengalami kendala atau malfungsi...'
                       : 'Jelaskan secara spesifik komponen yang rusak, malfungsi teknis, atau kendala fisik lapangan...'
                   }
-                  className="w-full p-2 text-xs border border-slate-300 rounded-lg bg-slate-50 text-slate-900 focus:bg-white focus:border-red-500 outline-none transition-colors duration-100"
+                  className="w-full p-2 text-xs border border-[#EAE4DC] rounded-lg bg-[#F7F5F0] text-[#1C1917] focus:bg-white focus:border-red-500 outline-none transition-colors duration-100"
                 />
               </div>
             )}
@@ -563,7 +564,7 @@ export default function MobilePicReadinessForm({
             {/* Catatan Tindak Lanjut jika memulihkan unit dari unserviceable ke serviceable */}
             {effectiveStatus === 'serviceable' && wasInitiallyUnserviceable && !isPosko && (
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 block">
+                <label className="text-xs font-bold text-[#1C1917] block">
                   Catatan Tindak Lanjut Pemulihan * <span className="text-emerald-600 font-bold">(Wajib)</span>
                 </label>
                 <textarea
@@ -571,7 +572,7 @@ export default function MobilePicReadinessForm({
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Catatan perbaikan teknisi atau hasil uji fungsi normal..."
-                  className="w-full p-1.5 text-xs border border-slate-300 rounded-lg bg-slate-50 text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition-colors duration-100"
+                  className="w-full p-1.5 text-xs border border-[#EAE4DC] rounded-lg bg-[#F7F5F0] text-[#1C1917] focus:bg-white focus:border-emerald-500 outline-none transition-colors duration-100"
                 />
               </div>
             )}
@@ -579,7 +580,7 @@ export default function MobilePicReadinessForm({
             {/* Catatan Opsional jika serviceable biasa */}
             {effectiveStatus === 'serviceable' && (isPosko || !wasInitiallyUnserviceable) && (
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600 block">
+                <label className="text-xs font-semibold text-[#57534E] block">
                   Catatan Tambahan (Opsional)
                 </label>
                 <textarea
@@ -587,7 +588,7 @@ export default function MobilePicReadinessForm({
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Keterangan tambahan jika diperlukan..."
-                  className="w-full p-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:bg-white focus:border-slate-400 outline-none transition-colors duration-100"
+                  className="w-full p-1.5 text-xs border border-[#EAE4DC] rounded-lg bg-[#F7F5F0] text-[#1C1917] focus:bg-white focus:border-[#A8A29E] outline-none transition-colors duration-100"
                 />
               </div>
             )}
@@ -595,12 +596,12 @@ export default function MobilePicReadinessForm({
             {/* Upload Foto Fisik Armada (Khusus Kendaraan) */}
             {!isPosko && (
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 block">
+                <label className="text-xs font-bold text-[#1C1917] block">
                   Foto Fisik Armada <span className="text-red-600 font-bold">* (Wajib)</span>
                 </label>
                 <div className="flex items-center gap-2">
-                  <label className="flex-1 cursor-pointer flex items-center justify-center gap-1.5 p-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-semibold transition-colors duration-100">
-                    <Camera className="w-4 h-4 text-slate-500" />
+                  <label className="flex-1 cursor-pointer flex items-center justify-center gap-1.5 p-2 rounded-lg border border-dashed border-[#D6CFC2] bg-[#F7F5F0] hover:bg-[#EFECE6] text-[#57534E] text-xs font-semibold transition-colors duration-100">
+                    <Camera className="w-4 h-4 text-[#78716C]" />
                     <span className="truncate text-xs">
                       {compressing
                         ? 'Mengompres WebP...'
@@ -616,7 +617,7 @@ export default function MobilePicReadinessForm({
                     />
                   </label>
                   {photoPreview && (
-                    <div className="w-10 h-10 rounded-lg border border-slate-200 bg-slate-100 overflow-hidden shrink-0">
+                    <div className="w-10 h-10 rounded-lg border border-[#EAE4DC] bg-[#F7F5F0] overflow-hidden shrink-0">
                       <img
                         src={photoPreview}
                         alt="Bukti Fisik"
@@ -635,7 +636,7 @@ export default function MobilePicReadinessForm({
                   type="button"
                   onClick={handleCancelEdit}
                   disabled={submitting || compressing}
-                  className="w-full py-2 rounded-xl font-bold text-xs border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 transition-colors duration-100 cursor-pointer text-center"
+                  className="w-full py-2 rounded-xl font-bold text-xs border border-[#E5DFD5] bg-white hover:bg-[#F7F5F0] text-[#1C1917] transition-colors duration-100 cursor-pointer text-center"
                 >
                   Batal
                 </button>

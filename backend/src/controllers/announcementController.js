@@ -380,8 +380,13 @@ export const getAnnouncementAttachment = async (req, res) => {
     };
     const contentType = mimeTypes[ext] || 'application/octet-stream';
 
+    const isDownload =
+      req.query.download === '1' ||
+      req.query.download === 'true' ||
+      req.query.disposition === 'attachment';
+
     res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `inline; filename="${downloadName}"`);
+    res.setHeader('Content-Disposition', `${isDownload ? 'attachment' : 'inline'}; filename="${downloadName}"`);
     res.setHeader('Cache-Control', 'public, max-age=86400');
 
     return res.sendFile(filePath);

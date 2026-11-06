@@ -18,7 +18,7 @@ export default function MobilePlotCard({
   const isServ = readiness === 'serviceable';
 
   // Styling kontainer dan status berdasarkan kesiapan fisik armada operasional
-  let cardBorderBg = 'bg-white border-slate-200';
+  let cardBorderBg = 'bg-white border-[#E5DFD5]';
   let badgeColor = 'bg-amber-50 text-amber-800 border-amber-300';
   let badgeText = 'Belum Dicek';
   let dotColor = 'bg-amber-500';
@@ -53,12 +53,12 @@ export default function MobilePlotCard({
   );
 
   return (
-    <div className={`rounded-xl border ${cardBorderBg} px-2.5 py-2 shadow-xs space-y-1.5 transition-colors duration-100 font-sans`}>
+    <div className={`rounded-xl border ${cardBorderBg} px-2.5 py-2 shadow-[0_1px_3px_rgba(28,25,23,0.04)] space-y-1.5 transition-colors duration-100 font-sans`}>
       {/* Header Unit & Status Kesiapan */}
-      <div className="flex items-start justify-between gap-1.5 border-b border-slate-100 pb-1.5">
+      <div className="flex items-start justify-between gap-1.5 border-b border-[#EFECE6] pb-1.5">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <h4 className="text-xs font-bold text-slate-900 leading-tight">
+            <h4 className="text-xs font-bold text-[#1C1917] leading-tight">
               {unit.code_name || unit.vehicle_name || unit.name}
             </h4>
 
@@ -111,7 +111,7 @@ export default function MobilePlotCard({
             <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold text-xs shrink-0">
               PIC
             </span>
-            <span className="font-medium text-slate-900 truncate text-xs">
+            <span className="font-medium text-[#1C1917] truncate text-xs">
               {picPerson ? (
                 picPerson.full_name || picPerson.name
               ) : (
@@ -147,20 +147,20 @@ export default function MobilePlotCard({
               className={`flex items-center justify-between py-1 px-1.5 rounded-lg border transition-colors duration-100 ${
                 isFilled
                   ? 'border-blue-200 bg-blue-50/40'
-                  : 'border-dashed border-slate-200 bg-slate-50/40'
+                  : 'border-dashed border-[#EAE4DC] bg-[#F7F5F0]/70'
               } ${isCurrentSlotUser ? 'ring-1 ring-blue-300' : ''}`}
             >
               <div className="flex items-center gap-1.5 truncate">
                 <span className={`px-1.5 py-0.5 rounded text-xs shrink-0 ${
-                  isFilled ? 'bg-blue-100 text-blue-800 font-bold' : 'bg-slate-100 text-slate-600 font-medium'
+                  isFilled ? 'bg-blue-100 text-blue-800 font-bold' : 'bg-[#EFECE6] text-[#57534E] font-medium'
                 }`}>
                   Kru <span className="font-mono tabular-nums">{idx + 1}</span>
                 </span>
-                <span className="font-medium text-slate-800 truncate text-xs">
+                <span className="font-medium text-[#1C1917] truncate text-xs">
                   {crewPerson ? (
                     crewPerson.full_name || crewPerson.name
                   ) : (
-                    <span className="text-slate-400 italic">Kosong...</span>
+                    <span className="text-[#78716C] italic">Kosong...</span>
                   )}
                 </span>
               </div>
@@ -178,7 +178,7 @@ export default function MobilePlotCard({
                   <button
                     type="button"
                     onClick={() => onRemoveCrew(slotIdx)}
-                    className="text-xs text-slate-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors duration-100 tap-target"
+                    className="text-xs text-[#78716C] hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors duration-100 tap-target"
                     title="Hapus slot kru"
                     aria-label="Hapus slot kru"
                   >
@@ -197,9 +197,9 @@ export default function MobilePlotCard({
           <button
             type="button"
             onClick={onAddCrew}
-            className="text-xs font-semibold text-slate-500 hover:text-red-600 flex items-center gap-0.5 py-0.5 transition-colors duration-100 cursor-pointer"
+            className="text-xs font-semibold text-[#57534E] hover:text-red-600 flex items-center gap-0.5 py-0.5 transition-colors duration-100 cursor-pointer"
           >
-            <Plus className="w-3 h-3 text-slate-400" />
+            <Plus className="w-3 h-3 text-[#78716C]" />
             <span>Tambah Kru</span>
           </button>
         </div>

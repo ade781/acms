@@ -6,6 +6,7 @@ import InputField from '../common/InputField';
 import SelectField from '../common/SelectField';
 import TextareaField from '../common/TextareaField';
 import { compressImageToWebP } from '../../utils/imageCompressor';
+import { blobToDataUrl } from '../../utils/fileHelper';
 import { cleanTeam, formatTeam } from '../../utils/shiftHelper';
 import { getErrorMessage } from '../../utils/errorHelper';
 import { OFFICIAL_INCIDENT_CLASSIFICATIONS, PRIORITY_OPTIONS, mapClassificationToCategory } from '../../utils/incidentHelper';
@@ -98,10 +99,11 @@ export default function IncidentModal({
           maxHeight: 1280,
           quality: 0.8,
         });
+        const dataUrl = await blobToDataUrl(compressedWebP);
         newFiles.push(compressedWebP);
         newPreviews.push({
           name: file.name,
-          url: URL.createObjectURL(compressedWebP),
+          url: dataUrl,
           size: Math.round(compressedWebP.size / 1024),
         });
       }

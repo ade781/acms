@@ -12,6 +12,7 @@ import api from '../services/api';
 import { downloadActivityReportPdf, fetchActivityReportPdfBlob } from '../services/reportService';
 import Button from '../components/common/Button';
 import { compressImageToWebP } from '../utils/imageCompressor';
+import { blobToDataUrl, buildAuthenticatedReportUrl } from '../utils/fileHelper';
 
 // Import Modular Components & Utilities
 import {
@@ -155,24 +156,6 @@ export default function ActivitiesPage() {
   const [previewPdfError, setPreviewPdfError] = useState(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
-  // Bersihkan object URL PDF saat komponen unmount
-  useEffect(() => {
-    return () => {
-      if (previewPdfUrl) {
-        window.URL.revokeObjectURL(previewPdfUrl);
-      }
-    };
-  }, [previewPdfUrl]);
-
-  // Bersihkan object URL foto preview untuk mencegah memory leak
-  useEffect(() => {
-    return () => {
-      if (photoPreview && photoPreview.startsWith('blob:')) {
-        window.URL.revokeObjectURL(photoPreview);
-      }
-    };
-  }, [photoPreview]);
-
   // Anti Hidden Filter Lockout: reset selectedFilterTeam ke 'ALL' saat berpindah ke mode shift
   useEffect(() => {
     if (viewMode === 'shift') {
@@ -272,18 +255,23 @@ export default function ActivitiesPage() {
     setIsLoadingPreviewPdf(true);
     setPreviewPdfError(null);
     try {
-      const blob = await fetchActivityReportPdfBlob({
+      const startParam = exportPeriod === 'custom' ? exportStartDate : '';
+      const endParam = exportPeriod === 'custom' ? exportEndDate : '';
+      await fetchActivityReportPdfBlob({
         period: exportPeriod,
-        start_date: exportPeriod === 'custom' ? exportStartDate : '',
-        end_date: exportPeriod === 'custom' ? exportEndDate : '',
+        start_date: startParam,
+        end_date: endParam,
         category: exportCategory,
         team: exportTeam,
       });
-      const url = window.URL.createObjectURL(blob);
-      setPreviewPdfUrl((prev) => {
-        if (prev) window.URL.revokeObjectURL(prev);
-        return url;
+      const authUrl = buildAuthenticatedReportUrl('/reports/activities/pdf', {
+        period: exportPeriod,
+        ...(startParam ? { start_date: startParam } : {}),
+        ...(endParam ? { end_date: endParam } : {}),
+        ...(exportCategory && exportCategory !== 'ALL' ? { category: exportCategory } : {}),
+        ...(exportTeam && exportTeam !== 'ALL' ? { team_group: exportTeam } : {}),
       });
+      setPreviewPdfUrl(authUrl);
     } catch (err) {
       console.error('Error generating PDF preview:', err);
       setPreviewPdfError('Gagal menyusun pratinjau dokumen PDF logbook kegiatan.');
@@ -335,10 +323,7 @@ export default function ActivitiesPage() {
 
   const handleClosePreviewPdf = () => {
     setPreviewPdfModalOpen(false);
-    if (previewPdfUrl) {
-      window.URL.revokeObjectURL(previewPdfUrl);
-      setPreviewPdfUrl(null);
-    }
+    setPreviewPdfUrl(null);
     setPreviewPdfError(null);
   };
 
@@ -349,9 +334,6 @@ export default function ActivitiesPage() {
     setActivityTime(getNowWIBTime());
     setDescription('');
     setResultNotes('');
-    if (photoPreview && photoPreview.startsWith('blob:')) {
-      window.URL.revokeObjectURL(photoPreview);
-    }
     setPhotoFile(null);
     setPhotoPreview(null);
     setPhotoRemoved(false);
@@ -366,9 +348,6 @@ export default function ActivitiesPage() {
     setActivityTime(act.activity_time ? act.activity_time.slice(0, 5) : getNowWIBTime());
     setDescription(act.description || '');
     setResultNotes(act.result_notes || '');
-    if (photoPreview && photoPreview.startsWith('blob:')) {
-      window.URL.revokeObjectURL(photoPreview);
-    }
     setPhotoFile(null);
     setPhotoPreview(act.attachment_url || null);
     setPhotoRemoved(false);
@@ -391,12 +370,8 @@ export default function ActivitiesPage() {
           maxHeight: 1280,
           quality: 0.8,
         });
-        setPhotoPreview((prev) => {
-          if (prev && prev.startsWith('blob:')) {
-            window.URL.revokeObjectURL(prev);
-          }
-          return window.URL.createObjectURL(compressedWebP);
-        });
+        const dataUrl = await blobToDataUrl(compressedWebP);
+        setPhotoPreview(dataUrl);
         setPhotoFile(compressedWebP);
         setPhotoRemoved(false);
       } catch (err) {

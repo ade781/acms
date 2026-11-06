@@ -60,12 +60,14 @@ export default function MobileRecentAnnouncements({
   };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200/90 p-2.5 shadow-[0_1px_3px_rgba(15,23,42,0.04)] space-y-1.5 font-sans">
+    <div className="bg-white rounded-2xl border border-[#DDD5C7] shadow-[0_2px_8px_-2px_rgba(28,25,23,0.05),0_1px_2px_rgba(28,25,23,0.03)] overflow-hidden font-sans">
       {/* Header Pengumuman Dinas */}
-      <div className="flex items-center justify-between border-b border-slate-100 pb-1">
-        <div className="flex items-center gap-1.5">
-          <Bell className="w-3.5 h-3.5 text-red-600" />
-          <h3 className="text-xs font-bold text-slate-900 uppercase">
+      <div className="px-3.5 py-2.5 bg-[#FAF7F2] border-b border-[#EAE3D5] flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md bg-red-50 border border-red-200/80 flex items-center justify-center text-red-600 shrink-0">
+            <Bell className="w-3.5 h-3.5" />
+          </div>
+          <h3 className="text-xs font-bold text-[#1C1917] uppercase tracking-wider">
             Pengumuman Dinas
           </h3>
         </div>
@@ -80,22 +82,24 @@ export default function MobileRecentAnnouncements({
       </div>
 
       {/* Konten Pengumuman dengan Fitur Swipeable Card */}
-      {top3.length === 0 ? (
-        <div className="p-3 text-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
-          <p className="text-xs">Belum ada pengumuman dinas.</p>
-        </div>
-      ) : (
-        <div className="space-y-1.5">
-          {top3.map((ann, annIdx) => (
-            <SwipeableAnnouncementCard
-              key={ann.id ?? `ann-${annIdx}`}
-              item={ann}
-              onOpen={onOpenPdf}
-              onArchive={handleArchiveAnnouncement}
-            />
-          ))}
-        </div>
-      )}
+      <div className="p-3">
+        {top3.length === 0 ? (
+          <div className="p-3 text-center text-[#57534E] bg-[#F7F5F0] rounded-xl border border-dashed border-[#EAE4DC]">
+            <p className="text-xs">Belum ada pengumuman dinas.</p>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {top3.map((ann, annIdx) => (
+              <SwipeableAnnouncementCard
+                key={ann.id ?? `ann-${annIdx}`}
+                item={ann}
+                onOpen={onOpenPdf}
+                onArchive={handleArchiveAnnouncement}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

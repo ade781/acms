@@ -334,10 +334,14 @@ export const getShiftReportPdf = async (req, res) => {
     const cacheKey = `daily_report_${shiftDate}`;
     const cachedBuffer = getPdfCache(cacheKey);
     if (cachedBuffer) {
+      const isDownload =
+        req.query.download === '1' ||
+        req.query.download === 'true' ||
+        req.query.disposition === 'attachment';
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader(
         'Content-Disposition',
-        `inline; filename="laporan-harian-arff-${shiftDate}.pdf"`
+        `${isDownload ? 'attachment' : 'inline'}; filename="laporan-harian-arff-${shiftDate}.pdf"`
       );
       return res.send(cachedBuffer);
     }

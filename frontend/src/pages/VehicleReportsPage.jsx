@@ -20,7 +20,7 @@ import {
 import api from '../services/api';
 import { downloadVehicleReportPdf } from '../services/reportService';
 import { formatIndoDate } from '../utils/shiftHelper';
-import { buildAuthenticatedFileUrl, downloadBlob } from '../utils/fileHelper';
+import { buildAuthenticatedFileUrl, buildAuthenticatedReportUrl, downloadBlob } from '../utils/fileHelper';
 import Button from '../components/common/Button';
 import StateView from '../components/common/StateView';
 import Modal from '../components/common/Modal';
@@ -89,23 +89,15 @@ export default function VehicleReportsPage() {
     }
   };
 
-  // Bersihkan object URL saat komponen unmount
-  useEffect(() => {
-    return () => {
-      if (previewPdfUrl) {
-        window.URL.revokeObjectURL(previewPdfUrl);
-      }
-    };
-  }, [previewPdfUrl]);
-
   // Handler Buka Pratinjau PDF
   const handleOpenPreview = async () => {
     setIsPreviewModalOpen(true);
     setIsLoadingPreview(true);
     setPreviewError(null);
     try {
+      const periodVal = isCustomMode && startDate && endDate ? 'custom' : selectedPeriod;
       const query = new URLSearchParams({
-        period: isCustomMode && startDate && endDate ? 'custom' : selectedPeriod,
+        period: periodVal,
       });
       if (isCustomMode && startDate) query.append('start_date', startDate);
       if (isCustomMode && endDate) query.append('end_date', endDate);
@@ -124,12 +116,12 @@ export default function VehicleReportsPage() {
         throw new Error('Dokumen PDF kosong atau tidak ditemukan.');
       }
 
-      const blob = new Blob([res.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      setPreviewPdfUrl((prev) => {
-        if (prev) window.URL.revokeObjectURL(prev);
-        return url;
+      const authUrl = buildAuthenticatedReportUrl('/reports/vehicles/pdf', {
+        period: periodVal,
+        ...(isCustomMode && startDate ? { start_date: startDate } : {}),
+        ...(isCustomMode && endDate ? { end_date: endDate } : {}),
       });
+      setPreviewPdfUrl(authUrl);
     } catch (err) {
       console.error('Error generating PDF preview:', err);
       const errMsg = await extractBlobErrorMessage(err, 'Gagal memuat pratinjau dokumen PDF armada.');
@@ -145,10 +137,7 @@ export default function VehicleReportsPage() {
 
   const handleClosePreview = () => {
     setIsPreviewModalOpen(false);
-    if (previewPdfUrl) {
-      window.URL.revokeObjectURL(previewPdfUrl);
-      setPreviewPdfUrl(null);
-    }
+    setPreviewPdfUrl(null);
     setPreviewError(null);
   };
 
