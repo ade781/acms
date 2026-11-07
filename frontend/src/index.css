@@ -39,3 +39,41 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* Smooth Native-feel Mobile Horizontal Slide Page Transitions */
+@keyframes mobileSlideFromRight {
+  from {
+    opacity: 0;
+    transform: translate3d(32px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes mobileSlideFromLeft {
+  from {
+    opacity: 0;
+    transform: translate3d(-32px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.mobile-slide-from-right {
+  animation: mobileSlideFromRight 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.mobile-slide-from-left {
+  animation: mobileSlideFromLeft 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.mobile-page-enter {
+  animation: mobileSlideFromRight 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}

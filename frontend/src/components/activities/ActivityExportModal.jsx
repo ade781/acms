@@ -38,10 +38,10 @@ export default function ActivityExportModal({
           value={exportPeriod}
           onChange={(e) => setExportPeriod(e.target.value)}
           options={[
-            { value: '1week', label: '1 Minggu Terakhir (7 Hari)' },
-            { value: '1month', label: '1 Bulan Terakhir (30 Hari)' },
-            { value: '3months', label: '3 Bulan Terakhir (Triwulan)' },
-            { value: '1year', label: '1 Tahun Terakhir (Tahunan)' },
+            { value: '1week', label: '7 Hari Terakhir' },
+            { value: '1month', label: '30 Hari Terakhir' },
+            { value: '3months', label: '3 Bulan Terakhir' },
+            { value: '1year', label: '1 Tahun Terakhir' },
             { value: 'custom', label: 'Rentang Tanggal Kustom' },
           ]}
         />

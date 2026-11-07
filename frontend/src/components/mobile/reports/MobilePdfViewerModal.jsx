@@ -196,23 +196,12 @@ export default function MobilePdfViewerModal({
 
               <button
                 type="button"
-                onClick={handleOpenNativePdf}
-                disabled={downloading}
-                className="min-h-[38px] px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs flex items-center gap-1.5 transition-colors duration-100 disabled:opacity-50 active:scale-[0.99]"
-                title="Unduh & Buka Berkas PDF Resmi"
-              >
-                <ExternalLink className="w-4 h-4 text-slate-500" />
-                <span>Buka PDF</span>
-              </button>
-
-              <button
-                type="button"
                 onClick={handleDownloadPdf}
                 disabled={downloading}
                 className="min-h-[38px] px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-xs transition-colors duration-100 disabled:opacity-50 active:scale-[0.99]"
               >
                 <Download className="w-4 h-4" />
-                <span>{downloading ? 'Mengunduh...' : 'Unduh Berkas'}</span>
+                <span>{downloading ? 'Mengunduh...' : 'Unduh Dokumen PDF'}</span>
               </button>
             </div>
 
@@ -229,31 +218,21 @@ export default function MobilePdfViewerModal({
         </div>
 
         {/* Mobile Quick Action Buttons (< sm screens) */}
-        <div className="grid grid-cols-3 gap-1.5 sm:hidden print:hidden font-sans">
-          <button
-            type="button"
-            onClick={handleOpenNativePdf}
-            disabled={downloading}
-            className="min-h-[40px] py-2 px-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1 transition-colors duration-100 disabled:opacity-50 active:scale-[0.99]"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-            <span>Buka PDF</span>
-          </button>
-
+        <div className="grid grid-cols-2 gap-2 sm:hidden print:hidden font-sans">
           <button
             type="button"
             onClick={handleDownloadPdf}
             disabled={downloading}
-            className="min-h-[40px] py-2 px-1 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-xs flex items-center justify-center gap-1 shadow-xs transition-colors duration-100 disabled:opacity-50 active:scale-[0.99]"
+            className="min-h-[40px] py-2 px-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-colors duration-100 disabled:opacity-50 active:scale-[0.99]"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>{downloading ? 'Mengunduh...' : 'Unduh PDF'}</span>
+            <span>{downloading ? 'Mengunduh...' : 'Unduh Dokumen PDF'}</span>
           </button>
 
           <button
             type="button"
             onClick={handlePrint}
-            className="min-h-[40px] py-2 px-1 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1 transition-colors duration-100 active:scale-[0.99]"
+            className="min-h-[40px] py-2 px-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors duration-100 active:scale-[0.99]"
           >
             <Printer className="w-3.5 h-3.5 text-slate-500" />
             <span>Cetak</span>

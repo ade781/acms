@@ -156,7 +156,7 @@ export default function MobileIncidentDetailModal({
               </div>
 
               <div className="text-right space-y-0.5">
-                <span className="text-xs text-slate-500 block">Status Tindak Lanjut:</span>
+                <span className="text-xs text-slate-500 block">Status:</span>
                 <span className={`px-2 py-0.5 rounded text-xs font-bold border inline-block ${statusMeta.badge}`}>
                   {statusMeta.label}
                 </span>

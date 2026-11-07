@@ -184,7 +184,7 @@ export default function AnnouncementModal({
             />
             <span className="flex items-center gap-1.5">
               <Pin className="w-3.5 h-3.5 text-slate-700" />
-              Sematkan di Posisi Teratas (Pin)
+              Sematkan di Posisi Teratas
             </span>
           </label>
         </div>
@@ -193,10 +193,10 @@ export default function AnnouncementModal({
         <div>
           <label className="text-xs font-semibold text-slate-700 block mb-1.5">
             {isEdit ? (
-              <>Berkas Dokumen PDF Pengumuman (Opsional, Maks. 10 MB)</>
+              <>Lampiran Dokumen PDF (Opsional, Maks. 10 MB)</>
             ) : (
               <>
-                Berkas Dokumen PDF Pengumuman (Maks. 10 MB) <span className="text-red-500">*</span>
+                Lampiran Dokumen PDF (Maks. 10 MB) <span className="text-red-500">*</span>
               </>
             )}
           </label>
@@ -224,10 +224,10 @@ export default function AnnouncementModal({
                   ? pdfFile.name
                   : isEdit
                   ? 'Pilih berkas baru jika ingin memperbarui dokumen PDF'
-                  : 'Pilih atau Seret Berkas Dokumen PDF'}
+                  : 'Pilih atau Seret Dokumen PDF'}
               </span>
               <span className="text-xs text-slate-400">
-                Format PDF (.pdf)
+                Format PDF
               </span>
             </label>
           </div>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { ShieldCheck, Truck, UserCheck, CalendarOff } from 'lucide-react';
+import { cleanNotes } from '../../../utils/leaveHelpers';
 
 export default function MobileDutyCard({
   user,
@@ -14,6 +15,17 @@ export default function MobileDutyCard({
     ? user.rank_position
     : '';
   const stkpBadge = user?.stkp_license_number || user?.cert_level || 'STKP ARFF';
+
+  // Sanitasi nama peran dinas agar tidak terjadi teks dobel dengan badge (misal: [PIC] Operator Utama (PIC) atau [Kru] Kru Lapangan)
+  const getDisplayRole = () => {
+    let name = dutyInfo?.role_name || (dutyInfo?.is_pic ? 'Operator Utama' : 'Operator Lapangan');
+    if (dutyInfo?.is_pic) {
+      name = name.replace(/\(PIC\)/gi, '').replace(/^PIC\s*/gi, '').trim();
+      return name || 'Operator Utama';
+    }
+    name = name.replace(/^Kru\s+/gi, '').trim();
+    return name || 'Operator Lapangan';
+  };
 
   // Opsi 4: Soft-Tactile Warm Linen & Vermilion (Konsep 2 Soft-Tactile)
   const containerClass = isOffDuty
@@ -75,13 +87,13 @@ export default function MobileDutyCard({
                     onClick={onOpenLeaveModal}
                     className="px-2.5 py-1 rounded-lg bg-white hover:bg-red-50 text-red-700 border border-red-200 shadow-2xs text-xs font-bold shrink-0 transition-colors duration-100"
                   >
-                    Kelola Cuti
+                    Rincian Cuti
                   </button>
                 )}
               </div>
-              {leaveInfo?.notes && (
+              {leaveInfo?.notes && cleanNotes(leaveInfo.notes) !== '-' && (
                 <p className="text-xs text-red-800 leading-snug">
-                  {leaveInfo.notes}
+                  {cleanNotes(leaveInfo.notes)}
                 </p>
               )}
             </div>
@@ -130,18 +142,13 @@ export default function MobileDutyCard({
                           </span>
                         )}
                         <span className="font-bold text-[#1C1917] text-xs truncate">
-                          {dutyInfo?.role_name || (dutyInfo?.is_pic ? 'Operator Utama' : 'Kru Lapangan')}
+                          {getDisplayRole()}
                         </span>
                       </>
                     ) : (
-                      <>
-                        <span className="px-1.5 py-0.5 rounded bg-[#EFECE6] text-[#44403C] text-xs font-bold shrink-0 border border-[#DFD7CB]">
-                          Standby
-                        </span>
-                        <span className="font-bold text-[#57534E] text-xs truncate">
-                          Menunggu Ploting Dinas
-                        </span>
-                      </>
+                      <span className="px-2 py-0.5 rounded bg-[#EFECE6] text-[#44403C] text-xs font-bold shrink-0 border border-[#DFD7CB]">
+                        Standby
+                      </span>
                     )}
                   </div>
                 </div>
@@ -152,7 +159,7 @@ export default function MobileDutyCard({
                 <div className="p-2 rounded-xl bg-orange-50/70 border border-orange-200 text-orange-950 text-xs flex items-center justify-between">
                   <span className="font-semibold text-xs flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#EA580C] shrink-0" />
-                    <span>Terploting Aktif: {dutyInfo.vehicle_code}</span>
+                    <span>Penugasan Siaga</span>
                   </span>
                   <span className="font-bold text-[#C2410C] text-xs font-sans">
                     Siaga Operasional

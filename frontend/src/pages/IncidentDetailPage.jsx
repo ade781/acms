@@ -218,12 +218,12 @@ export default function IncidentDetailPage() {
                 </div>
 
                 <div className="text-right">
-                  <span className={`inline-flex px-3 py-1 rounded-md text-xs font-bold capitalize ${
+                  <span className={`inline-flex px-3 py-1 rounded-md text-xs font-bold ${
                     incident.status === 'selesai'
                       ? 'bg-emerald-100 text-emerald-900'
                       : 'bg-amber-100 text-amber-900'
                   }`}>
-                    Status: {incident.status || 'dalam_proses'}
+                    {incident.status === 'selesai' ? 'Selesai' : 'Dalam Proses'}
                   </span>
                 </div>
               </div>

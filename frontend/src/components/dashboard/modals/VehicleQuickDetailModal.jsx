@@ -59,7 +59,7 @@ export default function VehicleQuickDetailModal({
             {isUnserviceable ? (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-50 text-red-800 border border-red-200">
                 <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
-                <span>Unserviceable (Kendala)</span>
+                <span>Unserviceable</span>
               </span>
             ) : isServiceable ? (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
@@ -87,7 +87,7 @@ export default function VehicleQuickDetailModal({
             }`}
           >
             <div className="font-bold mb-1">
-              {isUnserviceable ? 'Justifikasi / Kendala Teknis:' : 'Catatan Pemeriksaan:'}
+              {isUnserviceable ? 'Kendala Teknis:' : 'Catatan Pemeriksaan:'}
             </div>
             <p className="leading-relaxed">{notesText}</p>
           </div>

@@ -188,8 +188,8 @@ function DeploymentSlotCard({
                     }`}
                   >
                     {isPic
-                      ? (isPosko ? 'Slot #1 • PIC Watchroom' : 'Slot #1 • PIC')
-                      : (isPosko ? `Operator #${index + 1}` : `Kru Slot #${index + 1}`)}
+                      ? (isPosko ? 'PIC Watchroom' : 'PIC Armada')
+                      : (isPosko ? `Operator #${index + 1}` : `Kru #${index + 1}`)}
                   </span>
                 </div>
 
@@ -211,7 +211,7 @@ function DeploymentSlotCard({
                       }`}
                     >
                       <option value="">
-                        {isPic ? '(Pilih Personel PIC / Penanggung Jawab)' : '(Pilih Personel Kru)'}
+                        {isPic ? 'Pilih Personel PIC' : 'Pilih Personel Kru'}
                       </option>
                       {availablePersonnel.map((p) => {
                         const isCurrentSelected = Number(slot.personnel_id) === Number(p.id);
@@ -226,7 +226,7 @@ function DeploymentSlotCard({
                             className={isAbsent ? 'text-red-600 font-bold bg-red-50' : ''}
                           >
                             {isAbsent
-                              ? `[CUTI/IZIN] ${p.full_name} (Sedang Cuti/Izin - Tidak Dapat Ditugaskan)`
+                              ? `[Cuti] ${p.full_name} (Tidak Dapat Ditugaskan)`
                               : isAlreadyAssigned
                               ? `${p.full_name} (Sudah Ditugaskan)`
                               : p.full_name}

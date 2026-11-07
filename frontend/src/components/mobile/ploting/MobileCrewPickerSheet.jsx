@@ -80,7 +80,7 @@ export default function MobileCrewPickerSheet({
               }}
               className="w-full p-2 rounded-lg border border-dashed border-red-200 bg-red-50/50 hover:bg-red-50 text-red-700 flex items-center justify-between text-xs font-bold transition-colors duration-100 cursor-pointer"
             >
-              <span className="text-xs">— Kosongkan Slot Ini (Hapus) —</span>
+              <span className="text-xs">Kosongkan Slot Ini</span>
               <Trash2 className="w-3.5 h-3.5 text-red-500 shrink-0" />
             </button>
 

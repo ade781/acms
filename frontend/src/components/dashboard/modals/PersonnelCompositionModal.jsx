@@ -100,7 +100,7 @@ export default function PersonnelCompositionModal({
               {selectedStat.onShift}
             </div>
             <div className="text-xs text-emerald-700 mt-0.5">
-              Regu Bertugas: Regu {currentTeam}
+              Regu Bertugas: {cleanTeam(currentTeam)}
             </div>
           </div>
           <div className="p-3 rounded-lg bg-blue-50/60 border border-blue-200">
@@ -187,13 +187,15 @@ export default function PersonnelCompositionModal({
                             </span>
                           ) : isAbsent ? (
                             <span className="inline-flex px-2 py-0.5 rounded text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                              Izin / Cuti ({dep.absent_reason || 'Cuti'})
+                              {dep.absent_reason && dep.absent_reason.toLowerCase() !== 'cuti'
+                                ? `Cuti (${dep.absent_reason})`
+                                : 'Cuti / Izin'}
                             </span>
                           ) : cleanTeam(person.team_group).toLowerCase() ===
                             (currentTeam || '').toLowerCase() ? (
                             <span className="text-xs text-slate-400">Belum Diploting</span>
                           ) : (
-                            <span className="text-xs text-slate-400">Lepas Piket / Off</span>
+                            <span className="text-xs text-slate-400">Lepas Piket</span>
                           )}
                         </td>
                       </tr>

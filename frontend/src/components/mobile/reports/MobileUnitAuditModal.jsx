@@ -45,7 +45,7 @@ export default function MobileUnitAuditModal({
     events.push({
       id: `res-${item.id}`,
       type: 'PULIH_SERVICEABLE',
-      title: 'Unit Pulih ke Serviceable',
+      title: 'Pemulihan Unit',
       statusFrom: 'unserviceable',
       statusTo: 'serviceable',
       date: item.shift_date,
@@ -60,7 +60,7 @@ export default function MobileUnitAuditModal({
       photoUrl: item.photo_webp_url || null,
       borderClass: 'border-emerald-200 bg-emerald-50/50',
       badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-      badgeLabel: 'Pulih Serviceable',
+      badgeLabel: 'Serviceable',
       dotClass: 'bg-emerald-500',
     });
   });
@@ -93,7 +93,7 @@ export default function MobileUnitAuditModal({
     events.push({
       id: `back-${item.id}`,
       type: 'ESTAFET_HANDOVER',
-      title: 'Estafet Handover (Backlog)',
+      title: 'Estafet Shift Lalu',
       statusFrom: 'unserviceable',
       statusTo: 'unserviceable',
       date: item.shift_date,
@@ -106,7 +106,7 @@ export default function MobileUnitAuditModal({
       photoUrl: item.photo_webp_url || null,
       borderClass: 'border-amber-200 bg-amber-50/40',
       badgeClass: 'bg-amber-100 text-amber-800 border-amber-300',
-      badgeLabel: 'Estafet Handover',
+      badgeLabel: 'Estafet Kendala',
       dotClass: 'bg-amber-500',
     });
   });

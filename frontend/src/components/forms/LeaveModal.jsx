@@ -116,8 +116,8 @@ export default function LeaveModal({
       onClose={() => {
         if (!submitting) onClose();
       }}
-      title="Ajukan Izin / Cuti Mandiri"
-      subtitle="Kru, Chief, dan Asisten Chief mengajukan izin/cuti murni untuk diri sendiri"
+      title="Ajukan Izin / Cuti Dinas"
+      subtitle="Formulir resmi pengajuan izin atau cuti operasional"
       footer={
         <>
           <Button
@@ -145,10 +145,10 @@ export default function LeaveModal({
           </div>
         )}
 
-        {/* Data Pemohon Cuti (Terkunci Murni untuk Diri Sendiri) */}
+        {/* Data Pemohon Cuti */}
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-            Nama Pemohon Cuti (Self-Service)
+            Nama Pemohon
           </label>
           <div className="w-full rounded-xl border border-slate-200 bg-slate-50/80 p-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
@@ -157,7 +157,7 @@ export default function LeaveModal({
               </div>
               <div>
                 <div className="text-xs font-bold text-slate-900 leading-tight">
-                  {user?.name || user?.full_name || 'Personel Mandiri'}
+                  {user?.name || user?.full_name || 'Personel ARFF'}
                 </div>
                 <div className="text-xs text-slate-500 font-sans mt-0.5">
                   NIP: <span className="font-mono tabular-nums">{user?.nip || user?.username || '-'}</span> • Regu: <span className="font-semibold text-slate-700">{user?.team_group || user?.team || '-'}</span>
@@ -165,7 +165,7 @@ export default function LeaveModal({
               </div>
             </div>
             <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 flex-shrink-0">
-              Terkunci (Diri Sendiri)
+              Pemohon Aktif
             </span>
           </div>
         </div>
@@ -200,10 +200,10 @@ export default function LeaveModal({
           />
         </div>
 
-        {/* Kategori Keterangan Cuti */}
+        {/* Kategori Cuti */}
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1">
-            Kategori Keterangan Izin / Cuti
+            Jenis Izin / Cuti
           </label>
           <select
             value={reason}
@@ -221,7 +221,7 @@ export default function LeaveModal({
         {/* Keterangan Tambahan / Alasan */}
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1">
-            Keterangan / Alasan Tambahan
+            Alasan / Catatan Tambahan
           </label>
           <textarea
             rows={2}

@@ -145,8 +145,8 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
       vehicle_name: userDeployment.vehicle_name || matchedVehicle?.vehicle_name || (isWatchroom ? 'Posko Komunikasi (Watchroom)' : ''),
       is_pic: Boolean(userDeployment.is_pic === 1 || userDeployment.is_pic === true),
       role_name: userDeployment.is_pic
-        ? (isWatchroom ? 'PIC Watchroom' : 'Operator Utama (PIC)')
-        : (userDeployment.notes || userDeployment.role_name || (isWatchroom ? 'Operator Komunikasi' : 'Kru Lapangan'))
+        ? (isWatchroom ? 'Petugas Watchroom' : 'Operator Utama')
+        : (userDeployment.notes || userDeployment.role_name || (isWatchroom ? 'Operator Komunikasi' : 'Operator Lapangan'))
     };
   } else if (!isOffDuty && !isOnLeave) {
     // Cek apakah user tercatat sebagai PIC di daftar kesiapan kendaraan
@@ -164,7 +164,7 @@ export default function MobileDashboard({ onNavigateToAnnouncements }) {
         vehicle_code: picVehicle.code_name,
         vehicle_name: picVehicle.vehicle_name || (isWatchroom ? 'Posko Komunikasi (Watchroom)' : ''),
         is_pic: true,
-        role_name: isWatchroom ? 'PIC Watchroom' : 'Operator Utama (PIC)'
+        role_name: isWatchroom ? 'Petugas Watchroom' : 'Operator Utama'
       };
     }
   }

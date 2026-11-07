@@ -10,11 +10,11 @@ import {
 } from 'lucide-react';
 
 export const OFFICIAL_ACTIVITY_CATEGORIES = [
-  { value: 'serah_terima', label: 'Serah Terima Shift (Handover)' },
+  { value: 'serah_terima', label: 'Serah Terima Shift' },
   { value: 'apel_briefing', label: 'Apel & Briefing Dinas' },
   { value: 'periksa_armada', label: 'Pemeriksaan Kendaraan & Uji Pancar' },
   { value: 'periksa_peralatan', label: 'Pemeriksaan Alat Operasional & Rescue' },
-  { value: 'latihan_drill', label: 'Latihan Fisik & Drill Basah/Kering' },
+  { value: 'latihan_drill', label: 'Latihan Fisik & Fire Drill' },
   { value: 'pemeliharaan', label: 'Pemeliharaan Fasilitas & Kendaraan' },
   { value: 'sosialisasi_keselamatan', label: 'Edukasi & Inspeksi Runway/Apron' },
   { value: 'catatan_kendala', label: 'Catatan Khusus & Hambatan Dinas' },

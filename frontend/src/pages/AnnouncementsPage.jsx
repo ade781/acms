@@ -589,7 +589,7 @@ export default function AnnouncementsPage() {
                             {isPinnedAnnouncement(ann) && (
                               <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded bg-slate-900 text-white shadow-xs">
                                 <Pin className="w-3 h-3 fill-white" />
-                                <span>PINNED</span>
+                                <span>Disematkan</span>
                               </span>
                             )}
                             {ann.circular_number && (
@@ -643,7 +643,7 @@ export default function AnnouncementsPage() {
                             <button
                               type="button"
                               onClick={(e) => handleTogglePin(ann, e)}
-                              title={isPinnedAnnouncement(ann) ? "Lepas Pin (Unpin)" : "Sematkan Pengumuman (Pin)"}
+                              title={isPinnedAnnouncement(ann) ? "Lepas Sematan" : "Sematkan Pengumuman"}
                               className={`p-1.5 rounded transition-colors duration-100 ${
                                 isPinnedAnnouncement(ann)
                                   ? 'bg-slate-200 text-slate-800 hover:bg-slate-300'

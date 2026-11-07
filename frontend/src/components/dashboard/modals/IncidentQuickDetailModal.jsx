@@ -23,7 +23,7 @@ export default function IncidentQuickDetailModal({
       onClose={onClose}
       title={
         incident
-          ? `${incident.report_number} • ${incident.title}`
+          ? incident.title
           : 'Rincian Laporan Insiden'
       }
       subtitle={

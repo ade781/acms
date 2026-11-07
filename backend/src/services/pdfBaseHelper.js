@@ -363,7 +363,7 @@ export const drawSectionHeadSignature = async (
     y = doc.y;
   }
 
-  const name = signatory.dept_head_name || signatory.name || 'Airport Rescue & Fire Fighting Section Head';
+  const name = signatory.dept_head_name || signatory.name || '( .................................................... )';
   const nip = signatory.dept_head_nip || signatory.nip;
   const signatureUrl = signatory.dept_head_signature_url || signatory.signature_url || signatory.signatureUrl;
   const signatureBuffer = signatory.signatureBuffer;
@@ -553,7 +553,7 @@ export const drawDailySignatures = async (
   // 1 Pejabat Section Head di sisi Kanan
   const shX = startX + 3 * (colWidth + colGap) + 5;
   const shWidth = contentWidth - (shX - startX);
-  const headName = sectionHead.name || 'Airport Rescue & Fire Fighting Section Head';
+  const headName = sectionHead.name || '( .................................................... )';
   const headNip = sectionHead.nip;
   const headSigUrl = sectionHead.signature_url;
   const dateStr = shiftDate ? formatIndonesianDate(shiftDate) : formatIndonesianDate(new Date().toISOString().split('T')[0]);

@@ -434,10 +434,10 @@ export default function VehicleReadinessPage() {
                           <div className="w-6 h-6 rounded bg-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
                             <Camera className="w-3.5 h-3.5 text-slate-600" />
                           </div>
-                          <span className="truncate">Bukti Foto Fisik</span>
+                          <span className="truncate">Foto Fisik Unit</span>
                         </div>
                         <span className="text-xs text-slate-500 group-hover:text-slate-900 font-medium inline-flex items-center gap-1 flex-shrink-0">
-                          <span>Lihat Foto</span>
+                          <span>Lihat</span>
                           <Eye className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600" />
                         </span>
                       </button>

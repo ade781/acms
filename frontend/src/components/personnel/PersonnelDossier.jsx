@@ -112,10 +112,15 @@ export default function PersonnelDossier({
                 <span className="text-slate-700 font-medium">
                   {personnel.team_group === 'Non-Shift' ? 'Administrasi (Non-Shift)' : formatTeam(personnel.team_group)}
                 </span>
-                <span>•</span>
-                <span className="inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-800 border border-slate-200">
-                  Role: {formatRoleName(personnel.user_role || (personnel.team_group === 'Non-Shift' ? 'admin' : 'junior_firefighter'))}
-                </span>
+                {formatRoleName(personnel.user_role) &&
+                  formatRoleName(personnel.user_role).toLowerCase() !== formatRoleName(personnel.rank_position).toLowerCase() && (
+                    <>
+                      <span>•</span>
+                      <span className="inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-800 border border-slate-200">
+                        Wewenang: {formatRoleName(personnel.user_role)}
+                      </span>
+                    </>
+                  )}
               </div>
             </div>
           </div>

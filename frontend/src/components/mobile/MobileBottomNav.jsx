@@ -43,7 +43,7 @@ export default function MobileBottomNav({
       return (
         <div className="fixed bottom-0 inset-x-0 z-40 pointer-events-none px-3 pb-2.5 pt-1 safe-pb font-sans">
           <nav
-            className="pointer-events-auto mx-auto w-fit max-w-[calc(100vw-2rem)] rounded-full border border-stone-200/90 bg-white/95 shadow-[0_8px_24px_-4px_rgba(28,25,23,0.1),0_2px_6px_rgba(28,25,23,0.04)] p-1.5 flex items-center justify-center gap-1 transition-colors duration-100"
+            className="pointer-events-auto mx-auto w-fit max-w-[calc(100vw-2rem)] rounded-full border border-stone-200/90 bg-white/95 shadow-[0_8px_24px_-4px_rgba(28,25,23,0.1),0_2px_6px_rgba(28,25,23,0.04)] p-1.5 flex items-center justify-center gap-1 transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
           >
               <div
                 id={isManagerialRole ? 'nav-chief-container' : 'nav-kru-container'}
@@ -53,34 +53,34 @@ export default function MobileBottomNav({
                   const isActive = activeTab === item.id;
                   const Icon = item.icon;
 
-                  if (isActive) {
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        id={item.buttonId}
-                        onClick={() => onTabChange(item.id)}
-                        className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs tap-target transition-colors duration-100 ${getActivePillClass()}`}
-                        title={item.label}
-                        aria-label={item.label}
-                      >
-                        <Icon className="w-4 h-4 shrink-0" />
-                        <span className="whitespace-nowrap tracking-tight">{item.label}</span>
-                      </button>
-                    );
-                  }
-
                   return (
                     <button
                       key={item.id}
                       type="button"
                       id={item.buttonId}
                       onClick={() => onTabChange(item.id)}
-                      className="flex items-center justify-center w-9 h-9 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-100/70 tap-target transition-colors duration-100"
+                      className={`relative flex items-center justify-center h-9 rounded-full text-xs tap-target overflow-hidden select-none cursor-pointer transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${
+                        isActive
+                          ? `w-[110px] px-3 ${getActivePillClass()}`
+                          : 'w-[38px] px-0 text-stone-400 hover:text-stone-700 hover:bg-stone-100/70'
+                      } active:scale-95`}
                       title={item.label}
                       aria-label={item.label}
                     >
-                      <Icon className="w-4 h-4 shrink-0" />
+                      <Icon
+                        className={`w-4 h-4 shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${
+                          isActive ? 'scale-105' : 'scale-100'
+                        }`}
+                      />
+                      <span
+                        className={`whitespace-nowrap tracking-tight font-bold text-xs leading-none overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${
+                          isActive
+                            ? 'max-w-[70px] opacity-100 ml-1.5 translate-x-0'
+                            : 'max-w-0 opacity-0 ml-0 -translate-x-2 pointer-events-none'
+                        }`}
+                      >
+                        {item.label}
+                      </span>
                     </button>
                   );
                 })}

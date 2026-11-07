@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Modal from '../../common/Modal';
 import Button from '../../common/Button';
 import { formatIndoDate, cleanTeam, formatRoleName } from '../../../utils/shiftHelper';
+import { cleanNotes } from '../../../utils/leaveHelpers';
 
 export default function ShiftLeavesModal({
   isOpen,
@@ -117,11 +118,14 @@ export default function ShiftLeavesModal({
                     <div className="text-xs text-slate-500 mt-0.5">
                       NIP: <span className="font-mono tabular-nums">{item.personnel_nip || item.nip || '-'}</span> • {formatRoleName(item.personnel_role || item.rank_position)}
                     </div>
-                    {(item.notes || item.raw_notes) && (
-                      <div className="text-xs text-slate-600 mt-1">
-                        Keterangan: {typeof item.notes === 'string' ? item.notes : (typeof item.raw_notes === 'string' ? item.raw_notes : String(item.notes || item.raw_notes || '-'))}
-                      </div>
-                    )}
+                    {(() => {
+                      const noteText = cleanNotes(item.notes || item.raw_notes);
+                      return noteText && noteText !== '-' ? (
+                        <div className="text-xs text-slate-600 mt-1">
+                          Alasan: {noteText}
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                   <span className="px-2 py-0.5 rounded text-xs font-bold uppercase bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
                     {item.absent_reason || 'Cuti / Izin'}

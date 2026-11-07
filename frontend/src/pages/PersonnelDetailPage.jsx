@@ -603,23 +603,8 @@ export default function PersonnelDetailPage() {
                     Belum ada berkas atau dokumen yang diunggah untuk personel ini.
                   </p>
                   <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                    Unggah salinan lisensi STKP, sertifikat kompetensi, atau hasil medical check-up (MCU) dalam format PDF/gambar.
+                    Gunakan tombol Unggah Dokumen di atas untuk mengarsipkan lisensi STKP, sertifikat kompetensi, atau hasil medical check-up (MCU).
                   </p>
-                  {canUploadDoc && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      icon={Upload}
-                      onClick={() => {
-                        setDocError(null);
-                        setDocSuccess(null);
-                        setUploadDocModalOpen(true);
-                      }}
-                      className="mt-3.5"
-                    >
-                      Unggah Berkas Sekarang
-                    </Button>
-                  )}
                 </div>
               )}
             </div>

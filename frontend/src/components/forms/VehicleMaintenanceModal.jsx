@@ -571,7 +571,7 @@ export default function VehicleMaintenanceModal({
                     : 'text-slate-600 hover:text-slate-900'
                   }`}
               >
-                Selesai (Serviceable)
+                Pulih Serviceable
               </button>
             </div>
           </div>
@@ -589,7 +589,7 @@ export default function VehicleMaintenanceModal({
                 {/* Tanggal Pemulihan */}
                 <InputField
                   type="date"
-                  label="Tanggal Pemulihan (Serviceable)"
+                  label="Tanggal Pemulihan"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   min={startDate || undefined}
@@ -621,7 +621,7 @@ export default function VehicleMaintenanceModal({
                 {/* Teknisi / Pelaksana Pemulihan (Input Terpadu) */}
                 <InputField
                   type="text"
-                  label="Teknisi / Pelaksana Pemulihan"
+                  label="Teknisi Pemulihan"
                   value={technicianVendor}
                   onChange={(e) => setTechnicianVendor(e.target.value)}
                   placeholder="Contoh: Teknisi ARFF YIA / Bengkel Rekanan / Petugas"

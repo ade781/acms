@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertTriangle, History } from 'lucide-react';
+import { cleanTeam } from '../../../utils/shiftHelper';
 
 export default function MobileUnserviceableWidget({
   unserviceableVehicles = [],
@@ -31,7 +32,8 @@ export default function MobileUnserviceableWidget({
         {unserviceableVehicles.map((vehicle, vIdx) => {
           const vCode = vehicle.code_name || `UNIT-${vehicle.id || vIdx}`;
           const vName = vehicle.vehicle_name || vehicle.code_name;
-          const reportedTeam = vehicle.carried_from?.team_group || vehicle.team_group || 'Regu Piket';
+          const rawTeam = vehicle.carried_from?.team_group || vehicle.team_group || '';
+          const reportedTeam = cleanTeam(rawTeam) || 'Piket';
           const reportedDate = vehicle.carried_from?.shift_date || vehicle.logged_at?.split('T')[0] || '';
           const justification = vehicle.justification || vehicle.notes || '-';
 

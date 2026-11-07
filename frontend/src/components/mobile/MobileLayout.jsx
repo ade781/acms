@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { cleanTeam, getScheduledTeam } from '../../utils/shiftHelper';
@@ -48,6 +48,28 @@ export default function MobileLayout({ children }) {
   else if (path.includes('/kegiatan')) activeTab = 'kegiatan';
   else if (path.includes('/insiden')) activeTab = 'insiden';
   else if (path.includes('/laporan') || path.includes('/reports')) activeTab = 'laporan';
+
+  // Animasi geser horizontal mengikuti urutan tab (Dashboard -> Ploting -> Kegiatan -> Insiden -> Laporan)
+  const TAB_ORDER = {
+    dashboard: 0,
+    ploting: 1,
+    kegiatan: 2,
+    insiden: 3,
+    laporan: 4,
+  };
+  const prevTabIndexRef = useRef(TAB_ORDER[activeTab] ?? 0);
+  const [slideDirection, setSlideDirection] = useState('mobile-slide-from-right');
+
+  useEffect(() => {
+    const currentIndex = TAB_ORDER[activeTab] ?? 0;
+    const prevIndex = prevTabIndexRef.current;
+    if (currentIndex > prevIndex) {
+      setSlideDirection('mobile-slide-from-right');
+    } else if (currentIndex < prevIndex) {
+      setSlideDirection('mobile-slide-from-left');
+    }
+    prevTabIndexRef.current = currentIndex;
+  }, [activeTab]);
 
   // Chief role check (chief, chief_assistant, operation_chief, supervisor, admin)
   const isChiefRole = Boolean(isChief || isAdmin || isSupervisor);
@@ -116,13 +138,17 @@ export default function MobileLayout({ children }) {
       {/* Main Scrollable Canvas */}
       <main className="flex-1 w-full max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-4 pb-24 overflow-y-auto no-scrollbar space-y-2.5 relative z-10">
         {isProfileOpen ? (
-          <MobileProfileView
-            onClose={() => setIsProfileOpen(false)}
-            onOpenLeaveModal={handleOpenLeaveModal}
-          />
+          <div key="profile-view" className="mobile-slide-from-right">
+            <MobileProfileView
+              onClose={() => setIsProfileOpen(false)}
+              onOpenLeaveModal={handleOpenLeaveModal}
+            />
+          </div>
         ) : (
           <ErrorBoundary fallbackVariant="section">
-            {children || <Outlet />}
+            <div key={location.pathname} className={`${slideDirection} space-y-2.5`}>
+              {children || <Outlet />}
+            </div>
           </ErrorBoundary>
         )}
       </main>

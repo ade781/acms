@@ -48,6 +48,28 @@ export default function MobileDeployment({ onOpenCutiModal } = {}) {
   const [initialSnapshot, setInitialSnapshot] = useState('');
   const [absentList, setAbsentList] = useState([]);
 
+  // Accordion state: melacak unit yang dibuka (expand). Default kosong agar halaman ringkas.
+  const [expandedUnits, setExpandedUnits] = useState({});
+
+  const toggleUnit = (unitId) => {
+    setExpandedUnits((prev) => ({
+      ...prev,
+      [unitId]: !prev[unitId],
+    }));
+  };
+
+  const expandAll = () => {
+    const all = {};
+    vehicles.forEach((v) => {
+      all[v.id] = true;
+    });
+    setExpandedUnits(all);
+  };
+
+  const collapseAll = () => {
+    setExpandedUnits({});
+  };
+
   // Picker Sheet State
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerContext, setPickerContext] = useState({
@@ -297,6 +319,7 @@ export default function MobileDeployment({ onOpenCutiModal } = {}) {
       slotIndex,
       isPic,
     });
+    setExpandedUnits((prev) => ({ ...prev, [unitId]: true }));
     setPickerOpen(true);
     fetchCandidates();
   };
@@ -553,11 +576,36 @@ export default function MobileDeployment({ onOpenCutiModal } = {}) {
             </button>
           ) : (
             <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-              Mode Tinjau (Read-Only)
+              Mode Tinjau
             </span>
           )}
         </div>
       </div>
+
+      {/* Sub-toolbar: Ringkasan Total Armada & Toggle Accordion */}
+      {!loading && vehicles.length > 0 && (
+        <div className="flex items-center justify-between text-xs px-1 pt-0.5">
+          <span className="text-stone-500 font-medium">
+            <strong className="text-stone-800 font-mono tabular-nums">{vehicles.length}</strong> Unit Armada Operasional
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={expandAll}
+              className="px-2 py-0.5 rounded-md bg-[#FAF8F5] hover:bg-[#F5F5F4] border border-[#E7E5E4] text-[#44403C] text-[11px] font-semibold transition-colors duration-100 cursor-pointer shadow-2xs"
+            >
+              Buka Semua
+            </button>
+            <button
+              type="button"
+              onClick={collapseAll}
+              className="px-2 py-0.5 rounded-md bg-[#FAF8F5] hover:bg-[#F5F5F4] border border-[#E7E5E4] text-[#44403C] text-[11px] font-semibold transition-colors duration-100 cursor-pointer shadow-2xs"
+            >
+              Tutup Semua
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Loading Skeleton */}
       {loading ? (
@@ -574,7 +622,7 @@ export default function MobileDeployment({ onOpenCutiModal } = {}) {
           ))}
         </div>
       ) : (
-        /* Kontainer Kartu Ploting Armada (Dense Ops Layout) */
+        /* Kontainer Kartu Ploting Armada (Dense Ops Layout - Collapsible Accordions) */
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 items-start">
           {vehicles.map((unit, unitIdx) => (
             <MobilePlotCard
@@ -588,6 +636,8 @@ export default function MobileDeployment({ onOpenCutiModal } = {}) {
               onAddCrew={canEditPlot ? () => handleAddCrew(unit.id) : null}
               onRemoveCrew={canEditPlot ? (slotIdx) => handleRemoveCrew(unit.id, slotIdx) : null}
               canEdit={canEditPlot}
+              isExpanded={Boolean(expandedUnits[unit.id])}
+              onToggleExpand={() => toggleUnit(unit.id)}
             />
           ))}
         </div>

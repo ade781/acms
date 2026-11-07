@@ -256,7 +256,7 @@ export default function OfficialsManagementPage() {
                 icon={RefreshCw}
                 onClick={openReplaceDeptHeadModal}
               >
-                Ganti Dept. Head
+                Ubah Pejabat
               </Button>
             )}
           </div>
@@ -404,7 +404,7 @@ export default function OfficialsManagementPage() {
         <Modal
           isOpen={dhModalOpen}
           onClose={() => setDhModalOpen(false)}
-          title="Pengaturan Airport Technology & ARFF Dept. Head"
+          title="Pengaturan Department Head"
           subtitle="Input data mandiri pejabat struktural pimpinan unit"
           footer={
             <>
@@ -412,7 +412,7 @@ export default function OfficialsManagementPage() {
                 Batal
               </Button>
               <Button variant="primary" onClick={handleSaveDeptHead} loading={savingDh}>
-                Simpan & Tetapkan Dept. Head
+                Simpan Pejabat
               </Button>
             </>
           }

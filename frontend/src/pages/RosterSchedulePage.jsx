@@ -439,7 +439,7 @@ export default function RosterSchedulePage() {
                   <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold">
                     {/* Sticky Header Kiri */}
                     <th className="py-2.5 px-3 sticky left-0 z-20 bg-slate-100 border-r border-slate-200 text-left min-w-[90px] shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)]">
-                      {rowMode === 'shift' ? 'Shift' : 'Regu'}
+                      {rowMode === 'shift' ? 'Shift Dinas' : 'Regu Operasional'}
                     </th>
 
                     {/* Kolom Angka Tanggal ke Samping (1 s.d. 31) */}

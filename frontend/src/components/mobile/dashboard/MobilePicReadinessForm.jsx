@@ -333,12 +333,12 @@ export default function MobilePicReadinessForm({
                 <div className="flex items-center gap-2">
                   <p className="text-xs font-bold leading-tight truncate">
                     {isCurrentlyServiceable
-                      ? 'Status: Serviceable'
+                      ? 'Serviceable'
                       : isCarriedOver
-                        ? 'Status Estafet: Unserviceable'
+                        ? 'Estafet: Unserviceable'
                         : isCurrentlyUnserviceable
-                          ? 'Status: Unserviceable'
-                          : 'Status: Belum Dicek'}
+                          ? 'Unserviceable'
+                          : 'Belum Dicek'}
                   </p>
                   {isCarriedOver && onOpenAuditModal && (
                     <button
@@ -395,7 +395,7 @@ export default function MobilePicReadinessForm({
             <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
               <div className="text-xs leading-snug">
-                <strong className="font-bold block">Status: Belum Dicek</strong>
+                <strong className="font-bold block">Kondisi Fisik: Belum Dicek</strong>
                 Pilih status kelaikan fisik dan lampirkan foto bukti pemeriksaan unit.
               </div>
             </div>
@@ -414,7 +414,7 @@ export default function MobilePicReadinessForm({
               <div className="flex items-center justify-between text-red-800 font-bold text-xs">
                 <span className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-red-600"></span>
-                  <span>Status Estafet: UNSERVICEABLE</span>
+                  <span>Estafet: UNSERVICEABLE</span>
                 </span>
                 {onOpenAuditModal && (
                   <button

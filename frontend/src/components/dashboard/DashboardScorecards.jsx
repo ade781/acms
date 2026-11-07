@@ -162,7 +162,7 @@ export default function DashboardScorecards({
       >
         <div>
           <div className="flex items-center justify-between gap-2 text-slate-500 mb-1">
-            <span className="text-xs font-semibold text-slate-600 truncate">Personel Izin / Cuti</span>
+            <span className="text-xs font-semibold text-slate-600 truncate">Kekuatan Izin / Cuti</span>
             <div className="w-6 h-6 rounded-md bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
               <UserX className="w-3.5 h-3.5" />
             </div>
@@ -178,7 +178,7 @@ export default function DashboardScorecards({
                 {absentCount}
               </span>
               <span className="text-xs text-slate-500 font-medium">
-                Izin / Cuti Hari Ini
+                Total 4 Regu
               </span>
             </div>
           )}
@@ -194,10 +194,10 @@ export default function DashboardScorecards({
                   <span className="font-mono tabular-nums font-semibold text-slate-700">
                     {personnelComposition.activeTeamAbsentCount}
                   </span>{' '}
-                  personel Regu {String(currentTeam || '')} izin/cuti
+                  personel di Regu {String(currentTeam || '')}
                 </>
               ) : (
-                `Tidak ada cuti di Regu ${String(currentTeam || '')}`
+                `Tidak ada di Regu ${String(currentTeam || '')}`
               )}
             </span>
           )}
